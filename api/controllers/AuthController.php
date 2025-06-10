@@ -53,6 +53,8 @@ class AuthController extends Controller
      * 
      * Il sistema cerca automaticamente prima nella tabella pazienti,
      * poi in quella terapisti e restituisce il tipo utente trovato.
+     * 
+     * Restituisce anche se l'utente è al primo login e deve cambiare password.
      */
     public function actionLogin()
     {
@@ -86,7 +88,29 @@ class AuthController extends Controller
         $user = $this->findUserInBothTables($email, $password);
 
         if ($user) {
-            // Genera token di accesso simulato
+            // Controlla se è il primo login
+            $requiresPasswordChange = isset($user['first_login']) && $user['first_login'] === true;
+            
+            // Se è primo login, non genera il token completo
+            if ($requiresPasswordChange) {
+                return [
+                    'success' => true,
+                    'message' => 'Login effettuato. È necessario cambiare la password.',
+                    'data' => [
+                        'user' => [
+                            'id' => $user['id'],
+                            'email' => $user['email'],
+                            'nome' => $user['nome'],
+                            'cognome' => $user['cognome'],
+                            'user_type' => $user['user_type']
+                        ],
+                        'requires_password_change' => true,
+                        'temp_token' => $this->generateTempToken($user) // Token temporaneo per cambio password
+                    ]
+                ];
+            }
+            
+            // Login normale - genera token di accesso completo
             $token = $this->generateAccessToken($user);
             
             return [
@@ -96,7 +120,8 @@ class AuthController extends Controller
                     'user' => $user,
                     'access_token' => $token,
                     'token_type' => 'Bearer',
-                    'expires_in' => 3600 // 1 ora
+                    'expires_in' => 3600, // 1 ora
+                    'requires_password_change' => false
                 ]
             ];
         } else {
@@ -206,7 +231,8 @@ class AuthController extends Controller
                 'data_nascita' => '1980-01-01',
                 'indirizzo' => 'Via Roma 123, Milano',
                 'user_type' => 'paziente',
-                'status' => 'attivo'
+                'status' => 'attivo',
+                'first_login' => true
             ],
             [
                 'id' => 2,
@@ -219,7 +245,8 @@ class AuthController extends Controller
                 'data_nascita' => '1985-02-15',
                 'indirizzo' => 'Via Napoli 456, Roma',
                 'user_type' => 'paziente',
-                'status' => 'attivo'
+                'status' => 'attivo',
+                'first_login' => false
             ]
         ];
 
@@ -252,7 +279,8 @@ class AuthController extends Controller
                 'specializzazione' => 'Fisioterapia',
                 'numero_albo' => 'FT12345',
                 'user_type' => 'terapista',
-                'status' => 'attivo'
+                'status' => 'attivo',
+                'first_login' => true
             ],
             [
                 'id' => 2,
@@ -265,7 +293,8 @@ class AuthController extends Controller
                 'specializzazione' => 'Psicoterapia',
                 'numero_albo' => 'PSI67890',
                 'user_type' => 'terapista',
-                'status' => 'attivo'
+                'status' => 'attivo',
+                'first_login' => false
             ]
         ];
 
@@ -319,5 +348,176 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * Cambio password per primo login
+     * POST /auth/change-first-password
+     * 
+     * Parametri richiesti:
+     * - temp_token: string (token temporaneo ricevuto al login)
+     * - new_password: string
+     * - confirm_password: string
+     */
+    public function actionChangeFirstPassword()
+    {
+        $request = Yii::$app->request;
+        
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+        $newPassword = $request->post('new_password');
+        $confirmPassword = $request->post('confirm_password');
+
+        // Validazione input
+        if (empty($tempToken) || empty($newPassword) || empty($confirmPassword)) {
+            return [
+                'success' => false,
+                'message' => 'Tutti i campi sono obbligatori',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        // Verifica che le password coincidano
+        if ($newPassword !== $confirmPassword) {
+            return [
+                'success' => false,
+                'message' => 'Le password non coincidono',
+                'error_code' => 'PASSWORD_MISMATCH'
+            ];
+        }
+
+        // Validazione robustezza password
+        if (!$this->isValidPassword($newPassword)) {
+            return [
+                'success' => false,
+                'message' => 'La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero',
+                'error_code' => 'WEAK_PASSWORD'
+            ];
+        }
+
+        // Verifica token temporaneo
+        $user = $this->verifyTempToken($tempToken);
+        
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Token temporaneo non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        // Simula l'aggiornamento della password nel database
+        $updateResult = $this->simulatePasswordUpdate($user['id'], $user['user_type'], $newPassword);
+        
+        if ($updateResult) {
+            // Genera token di accesso normale dopo il cambio password
+            $user['first_login'] = false; // Non è più primo login
+            $accessToken = $this->generateAccessToken($user);
+            
+            return [
+                'success' => true,
+                'message' => 'Password cambiata con successo',
+                'data' => [
+                    'user' => $user,
+                    'access_token' => $accessToken,
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600
+                ]
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Errore durante il cambio password',
+                'error_code' => 'UPDATE_FAILED'
+            ];
+        }
+    }
+
+    /**
+     * Genera un token temporaneo per il cambio password
+     */
+    private function generateTempToken($user)
+    {
+        // Token temporaneo con durata limitata (10 minuti)
+        $payload = [
+            'user_id' => $user['id'],
+            'user_type' => $user['user_type'],
+            'email' => $user['email'],
+            'purpose' => 'password_change',
+            'exp' => time() + 600 // Scade in 10 minuti
+        ];
+        
+        return base64_encode(json_encode($payload));
+    }
+
+    /**
+     * Verifica un token temporaneo per il cambio password
+     */
+    private function verifyTempToken($token)
+    {
+        try {
+            $payload = json_decode(base64_decode($token), true);
+            
+            if (!$payload || 
+                !isset($payload['exp']) || 
+                $payload['exp'] < time() ||
+                !isset($payload['purpose']) ||
+                $payload['purpose'] !== 'password_change') {
+                return null; // Token scaduto, non valido o non per cambio password
+            }
+            
+            // Restituisce i dati dell'utente dal token
+            return [
+                'id' => $payload['user_id'],
+                'email' => $payload['email'],
+                'user_type' => $payload['user_type']
+            ];
+            
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Valida la robustezza di una password
+     */
+    private function isValidPassword($password)
+    {
+        // Almeno 8 caratteri, una maiuscola, una minuscola e un numero
+        if (strlen($password) < 8) {
+            return false;
+        }
+        
+        if (!preg_match('/[A-Z]/', $password)) {
+            return false; // Nessuna maiuscola
+        }
+        
+        if (!preg_match('/[a-z]/', $password)) {
+            return false; // Nessuna minuscola
+        }
+        
+        if (!preg_match('/[0-9]/', $password)) {
+            return false; // Nessun numero
+        }
+        
+        return true;
+    }
+
+    /**
+     * Simula l'aggiornamento della password nel database
+     */
+    private function simulatePasswordUpdate($userId, $userType, $newPassword)
+    {
+        // In produzione qui faresti l'update nel database
+        // UPDATE pazienti/terapisti SET password = hash($newPassword), first_login = false WHERE id = $userId
+        
+        // Per ora simuliamo un aggiornamento sempre riuscito
+        Yii::info("Simulazione aggiornamento password per utente ID: {$userId}, tipo: {$userType}", __METHOD__);
+        
+        // Simula che l'operazione è sempre riuscita
+        return true;
     }
 }
