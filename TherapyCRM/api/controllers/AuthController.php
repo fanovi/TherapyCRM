@@ -1,0 +1,323 @@
+<?php
+
+namespace api\controllers;
+
+use Yii;
+use yii\web\Controller;
+use yii\web\HttpException;
+
+class AuthController extends Controller
+{
+    /**
+     * Abilita CORS per tutte le action del controller
+     */
+    public function behaviors()
+    {
+        $behaviors = parent::behaviors();
+        
+        // Rimuovi l'autenticazione per permettere accesso pubblico al login
+        unset($behaviors['authenticator']);
+        
+        // Aggiungi CORS
+        $behaviors['corsFilter'] = [
+            'class' => \yii\filters\Cors::class,
+            'cors' => [
+                'Origin' => ['*'],
+                'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+                'Access-Control-Request-Headers' => ['*'],
+                'Access-Control-Allow-Credentials' => true,
+                'Access-Control-Max-Age' => 86400,
+            ],
+        ];
+        
+        return $behaviors;
+    }
+
+    /**
+     * Gestisce le azioni consentite
+     */
+    public function actions()
+    {
+        $actions = parent::actions();
+        unset($actions['index'], $actions['view'], $actions['create'], $actions['update'], $actions['delete']);
+        return $actions;
+    }
+
+    /**
+     * Login per pazienti e terapisti
+     * POST /auth/login
+     * 
+     * Parametri richiesti:
+     * - email: string
+     * - password: string
+     * 
+     * Il sistema cerca automaticamente prima nella tabella pazienti,
+     * poi in quella terapisti e restituisce il tipo utente trovato.
+     */
+    public function actionLogin()
+    {
+        $request = Yii::$app->request;
+        
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $email = $request->post('email');
+        $password = $request->post('password');
+
+        // Validazione input
+        if (empty($email) || empty($password)) {
+            return [
+                'success' => false,
+                'message' => 'Email e password sono obbligatori',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'success' => false,
+                'message' => 'Formato email non valido',
+                'error_code' => 'INVALID_EMAIL'
+            ];
+        }
+
+        // Cerca automaticamente prima tra i pazienti, poi tra i terapisti
+        $user = $this->findUserInBothTables($email, $password);
+
+        if ($user) {
+            // Genera token di accesso simulato
+            $token = $this->generateAccessToken($user);
+            
+            return [
+                'success' => true,
+                'message' => 'Login effettuato con successo',
+                'data' => [
+                    'user' => $user,
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600 // 1 ora
+                ]
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Credenziali non valide',
+                'error_code' => 'INVALID_CREDENTIALS'
+            ];
+        }
+    }
+
+    /**
+     * Logout utente
+     * POST /auth/logout
+     */
+    public function actionLogout()
+    {
+        $request = Yii::$app->request;
+        
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        // Per ora simuliamo semplicemente il logout
+        // In futuro qui si invaliderebbero i token nel database
+        
+        return [
+            'success' => true,
+            'message' => 'Logout effettuato con successo'
+        ];
+    }
+
+    /**
+     * Verifica validità token
+     * GET /auth/verify
+     */
+    public function actionVerify()
+    {
+        $request = Yii::$app->request;
+        $authHeader = $request->getHeaders()->get('Authorization');
+        
+        if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso mancante',
+                'error_code' => 'TOKEN_MISSING'
+            ];
+        }
+
+        $token = $matches[1];
+        
+        // Simula la verifica del token
+        $user = $this->simulateTokenVerification($token);
+        
+        if ($user) {
+            return [
+                'success' => true,
+                'message' => 'Token valido',
+                'data' => [
+                    'user' => $user
+                ]
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'TOKEN_INVALID'
+            ];
+        }
+    }
+
+    /**
+     * Cerca un utente prima nella tabella pazienti, poi in quella terapisti
+     */
+    private function findUserInBothTables($email, $password)
+    {
+        // Prima cerca tra i pazienti
+        $user = $this->searchInPazientiTable($email, $password);
+        if ($user) {
+            return $user;
+        }
+
+        // Se non trovato, cerca tra i terapisti
+        $user = $this->searchInTerapistiTable($email, $password);
+        if ($user) {
+            return $user;
+        }
+
+        return null;
+    }
+
+    /**
+     * Simula la ricerca nella tabella pazienti
+     */
+    private function searchInPazientiTable($email, $password)
+    {
+        // Dati simulati per pazienti
+        $pazienti = [
+            [
+                'id' => 1,
+                'email' => 'paziente1@example.com',
+                'password' => 'password123', // In produzione sarà hashata
+                'nome' => 'Marco',
+                'cognome' => 'Rossi',
+                'codice_fiscale' => 'RSSMRC80A01H501Z',
+                'telefono' => '123456789',
+                'data_nascita' => '1980-01-01',
+                'indirizzo' => 'Via Roma 123, Milano',
+                'user_type' => 'paziente',
+                'status' => 'attivo'
+            ],
+            [
+                'id' => 2,
+                'email' => 'paziente2@example.com',
+                'password' => 'password456',
+                'nome' => 'Laura',
+                'cognome' => 'Bianchi',
+                'codice_fiscale' => 'BNCLAURA85B02F205W',
+                'telefono' => '987654321',
+                'data_nascita' => '1985-02-15',
+                'indirizzo' => 'Via Napoli 456, Roma',
+                'user_type' => 'paziente',
+                'status' => 'attivo'
+            ]
+        ];
+
+        foreach ($pazienti as $paziente) {
+            if ($paziente['email'] === $email && $paziente['password'] === $password) {
+                // Rimuovi la password dalla risposta
+                unset($paziente['password']);
+                return $paziente;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Simula la ricerca nella tabella terapisti
+     */
+    private function searchInTerapistiTable($email, $password)
+    {
+        // Dati simulati per terapisti
+        $terapisti = [
+            [
+                'id' => 1,
+                'email' => 'terapista1@example.com',
+                'password' => 'password789',
+                'nome' => 'Dr. Giuseppe',
+                'cognome' => 'Verdi',
+                'codice_fiscale' => 'VRDGPP75C03L219X',
+                'telefono' => '555123456',
+                'specializzazione' => 'Fisioterapia',
+                'numero_albo' => 'FT12345',
+                'user_type' => 'terapista',
+                'status' => 'attivo'
+            ],
+            [
+                'id' => 2,
+                'email' => 'terapista2@example.com',
+                'password' => 'password000',
+                'nome' => 'Dr.ssa Anna',
+                'cognome' => 'Neri',
+                'codice_fiscale' => 'NRANNA82D04M123Y',
+                'telefono' => '555789012',
+                'specializzazione' => 'Psicoterapia',
+                'numero_albo' => 'PSI67890',
+                'user_type' => 'terapista',
+                'status' => 'attivo'
+            ]
+        ];
+
+        foreach ($terapisti as $terapista) {
+            if ($terapista['email'] === $email && $terapista['password'] === $password) {
+                // Rimuovi la password dalla risposta
+                unset($terapista['password']);
+                return $terapista;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Genera un token di accesso simulato
+     */
+    private function generateAccessToken($user)
+    {
+        // In produzione useresti JWT o un sistema di token più sicuro
+        $payload = [
+            'user_id' => $user['id'],
+            'user_type' => $user['user_type'],
+            'email' => $user['email'],
+            'exp' => time() + 3600 // Scade in 1 ora
+        ];
+        
+        // Token simulato (in produzione useresti JWT)
+        return base64_encode(json_encode($payload));
+    }
+
+    /**
+     * Simula la verifica di un token
+     */
+    private function simulateTokenVerification($token)
+    {
+        try {
+            $payload = json_decode(base64_decode($token), true);
+            
+            if (!$payload || !isset($payload['exp']) || $payload['exp'] < time()) {
+                return null; // Token scaduto o non valido
+            }
+            
+            // Simula il recupero dell'utente dal token
+            return [
+                'id' => $payload['user_id'],
+                'email' => $payload['email'],
+                'user_type' => $payload['user_type']
+            ];
+            
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+}
