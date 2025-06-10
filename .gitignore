@@ -42,4 +42,5 @@ phpunit.phar
 /backend/web/index-test.php
 /backend/web/robots.txt
 /api/runtime
-/keys
+/common/keys/private.key
+/common/keys/public.key
