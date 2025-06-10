@@ -6,6 +6,25 @@ use Yii;
 use yii\web\Controller;
 use yii\web\HttpException;
 
+/**
+ * @OA\Info(
+ *     title="TherapyCRM Authentication API",
+ *     version="1.0.0",
+ *     description="API per l'autenticazione di pazienti e terapisti nel sistema TherapyCRM"
+ * )
+ * 
+ * @OA\Server(
+ *     url="/TherapyCRM/api",
+ *     description="Server API TherapyCRM"
+ * )
+ * 
+ * @OA\SecurityScheme(
+ *     securityScheme="BearerAuth",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT"
+ * )
+ */
 class AuthController extends Controller
 {
     /**
@@ -25,7 +44,6 @@ class AuthController extends Controller
                 'Origin' => ['*'],
                 'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
                 'Access-Control-Request-Headers' => ['*'],
-                'Access-Control-Allow-Credentials' => true,
                 'Access-Control-Max-Age' => 86400,
             ],
         ];
@@ -44,6 +62,113 @@ class AuthController extends Controller
     }
 
     /**
+     * @OA\Post(
+     *     path="/auth/login",
+     *     summary="Login per pazienti e terapisti",
+     *     description="Autentica un utente (paziente o terapista) nel sistema. Il sistema cerca automaticamente prima nella tabella pazienti, poi in quella terapisti.",
+     *     operationId="login",
+     *     tags={"Autenticazione"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         description="Credenziali di accesso",
+     *         @OA\MediaType(
+     *             mediaType="application/x-www-form-urlencoded",
+     *             @OA\Schema(
+     *                 required={"email", "password"},
+     *                 @OA\Property(
+     *                     property="email",
+     *                     type="string",
+     *                     format="email",
+     *                     description="Indirizzo email dell'utente",
+     *                     example="paziente1@example.com"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="password",
+     *                     type="string",
+     *                     format="password",
+     *                     description="Password dell'utente",
+     *                     example="password123"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Login effettuato con successo",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Login effettuato con successo"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="user",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="email", type="string", example="paziente1@example.com"),
+     *                     @OA\Property(property="nome", type="string", example="Marco"),
+     *                     @OA\Property(property="cognome", type="string", example="Rossi"),
+     *                     @OA\Property(property="user_type", type="string", enum={"paziente", "terapista"}, example="paziente"),
+     *                     @OA\Property(property="status", type="string", example="attivo"),
+     *                     @OA\Property(property="first_login", type="boolean", example=false)
+     *                 ),
+     *                 @OA\Property(property="access_token", type="string", example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
+     *                 @OA\Property(property="token_type", type="string", example="Bearer"),
+     *                 @OA\Property(property="expires_in", type="integer", example=3600),
+     *                 @OA\Property(property="requires_password_change", type="boolean", example=false)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Primo login - richiesto cambio password",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Login effettuato. È necessario cambiare la password."),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="user",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="email", type="string", example="paziente1@example.com"),
+     *                     @OA\Property(property="nome", type="string", example="Marco"),
+     *                     @OA\Property(property="cognome", type="string", example="Rossi"),
+     *                     @OA\Property(property="user_type", type="string", example="paziente")
+     *                 ),
+     *                 @OA\Property(property="requires_password_change", type="boolean", example=true),
+     *                 @OA\Property(property="temp_token", type="string", example="temp_token_for_password_change")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Errore di validazione",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Email e password sono obbligatori"),
+     *             @OA\Property(property="error_code", type="string", example="MISSING_PARAMETERS")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Credenziali non valide",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Credenziali non valide"),
+     *             @OA\Property(property="error_code", type="string", example="INVALID_CREDENTIALS")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=405,
+     *         description="Metodo non consentito",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Metodo non consentito. Utilizzare POST.")
+     *         )
+     *     )
+     * )
+     * 
      * Login per pazienti e terapisti
      * POST /auth/login
      * 
@@ -134,6 +259,30 @@ class AuthController extends Controller
     }
 
     /**
+     * @OA\Post(
+     *     path="/auth/logout",
+     *     summary="Logout utente",
+     *     description="Effettua il logout dell'utente autenticato invalidando il token di accesso",
+     *     operationId="logout",
+     *     tags={"Autenticazione"},
+     *     security={{"BearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Logout effettuato con successo",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Logout effettuato con successo")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=405,
+     *         description="Metodo non consentito",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Metodo non consentito. Utilizzare POST.")
+     *         )
+     *     )
+     * )
+     * 
      * Logout utente
      * POST /auth/logout
      */
@@ -155,6 +304,53 @@ class AuthController extends Controller
     }
 
     /**
+     * @OA\Get(
+     *     path="/auth/verify",
+     *     summary="Verifica validità token",
+     *     description="Verifica se il token di accesso fornito è valido e restituisce le informazioni dell'utente",
+     *     operationId="verifyToken",
+     *     tags={"Autenticazione"},
+     *     security={{"BearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="Authorization",
+     *         in="header",
+     *         required=true,
+     *         description="Token di accesso nel format Bearer {token}",
+     *         @OA\Schema(
+     *             type="string",
+     *             example="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Token valido",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Token valido"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="user",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="email", type="string", example="paziente1@example.com"),
+     *                     @OA\Property(property="user_type", type="string", example="paziente")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Token mancante o non valido",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Token di accesso mancante"),
+     *             @OA\Property(property="error_code", type="string", example="TOKEN_MISSING")
+     *         )
+     *     )
+     * )
+     * 
      * Verifica validità token
      * GET /auth/verify
      */
@@ -351,6 +547,116 @@ class AuthController extends Controller
     }
 
     /**
+     * @OA\Post(
+     *     path="/auth/change-first-password",
+     *     summary="Cambio password per primo login",
+     *     description="Permette agli utenti di cambiare la password al primo accesso utilizzando un token temporaneo",
+     *     operationId="changeFirstPassword",
+     *     tags={"Autenticazione"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         description="Dati per il cambio password",
+     *         @OA\MediaType(
+     *             mediaType="application/x-www-form-urlencoded",
+     *             @OA\Schema(
+     *                 required={"temp_token", "new_password", "confirm_password"},
+     *                 @OA\Property(
+     *                     property="temp_token",
+     *                     type="string",
+     *                     description="Token temporaneo ricevuto al primo login",
+     *                     example="temp_token_from_login_response"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="new_password",
+     *                     type="string",
+     *                     format="password",
+     *                     description="Nuova password (min 8 caratteri, almeno 1 maiuscola, 1 minuscola, 1 numero)",
+     *                     example="NuovaPassword123"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="confirm_password",
+     *                     type="string",
+     *                     format="password",
+     *                     description="Conferma della nuova password",
+     *                     example="NuovaPassword123"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Password cambiata con successo",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Password cambiata con successo"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="user",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="email", type="string", example="paziente1@example.com"),
+     *                     @OA\Property(property="nome", type="string", example="Marco"),
+     *                     @OA\Property(property="cognome", type="string", example="Rossi"),
+     *                     @OA\Property(property="user_type", type="string", example="paziente")
+     *                 ),
+     *                 @OA\Property(property="access_token", type="string", example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
+     *                 @OA\Property(property="token_type", type="string", example="Bearer"),
+     *                 @OA\Property(property="expires_in", type="integer", example=3600)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Errore di validazione",
+     *         @OA\JsonContent(
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     @OA\Property(property="success", type="boolean", example=false),
+     *                     @OA\Property(property="message", type="string", example="Tutti i campi sono obbligatori"),
+     *                     @OA\Property(property="error_code", type="string", example="MISSING_PARAMETERS")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="success", type="boolean", example=false),
+     *                     @OA\Property(property="message", type="string", example="Le password non coincidono"),
+     *                     @OA\Property(property="error_code", type="string", example="PASSWORD_MISMATCH")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="success", type="boolean", example=false),
+     *                     @OA\Property(property="message", type="string", example="La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero"),
+     *                     @OA\Property(property="error_code", type="string", example="WEAK_PASSWORD")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Token temporaneo non valido",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Token temporaneo non valido o scaduto"),
+     *             @OA\Property(property="error_code", type="string", example="INVALID_TEMP_TOKEN")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=405,
+     *         description="Metodo non consentito",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Metodo non consentito. Utilizzare POST.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Errore interno del server",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Errore durante il cambio password"),
+     *             @OA\Property(property="error_code", type="string", example="UPDATE_FAILED")
+     *         )
+     *     )
+     * )
+     * 
      * Cambio password per primo login
      * POST /auth/change-first-password
      * 
