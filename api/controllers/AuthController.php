@@ -222,13 +222,7 @@ class AuthController extends Controller
                     'success' => true,
                     'message' => 'Login effettuato. È necessario cambiare la password.',
                     'data' => [
-                        'user' => [
-                            'id' => $user['id'],
-                            'email' => $user['email'],
-                            'nome' => $user['nome'],
-                            'cognome' => $user['cognome'],
-                            'user_type' => $user['user_type']
-                        ],
+                        'user' => $user,
                         'requires_password_change' => true,
                         'temp_token' => $this->generateTempToken($user) // Token temporaneo per cambio password
                     ]
