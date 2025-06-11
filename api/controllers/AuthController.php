@@ -6,6 +6,7 @@ use Yii;
 use yii\web\Controller;
 use yii\web\HttpException;
 use common\models\AuthToken;
+use common\models\User;
 
 /**
  * @OA\Info(
@@ -255,7 +256,7 @@ class AuthController extends Controller
             ];
         }
     }
-
+//TODO
     public function actionCheckToken()
     {
         $token = Yii::$app->request->headers->get('Authorization');
@@ -273,6 +274,73 @@ class AuthController extends Controller
         }
 
         return ['success' => true, 'valid' => true];
+    }
+//TODO
+    public function actionRefresh()
+    {
+        $rawBody = Yii::$app->request->getRawBody();
+        $data = json_decode($rawBody, true);
+
+        $refreshToken = $data['refreshToken'] ?? null;
+
+        if (!$refreshToken) {
+            return ['success' => false, 'error' => 'Refresh token mancante.'];
+        }
+
+        // Trova il token non revocato
+        $authToken = AuthToken::findOne(['refresh_token' => $refreshToken, 'is_revoked' => 0]);
+
+        if (!$authToken || $authToken->refresh_expires_at < time()) {
+            return ['success' => false, 'error' => 'Invalid refresh token'];
+        }
+
+
+        $user = User::findOne($authToken->user_id);
+
+        if (!$user) {
+            return ['success' => false, 'error' => 'User not found'];
+        }
+
+        // Genera nuovi token
+        $payload = ['user_id' => $user->id, 'username' => $user->username];
+        $newToken = Yii::$app->jwt->generateToken($payload);
+        $newRefreshToken = Yii::$app->jwt->generateRefreshToken($payload);
+
+        // Aggiorna il token esistente invece di crearne uno nuovo
+        $authToken->token = $newToken;
+        $authToken->refresh_token = $newRefreshToken;
+        $authToken->expires_at = time() + Yii::$app->jwt->tokenDuration;
+        $authToken->refresh_expires_at = time() + Yii::$app->jwt->refreshTokenDuration;
+        $authToken->last_used_at = time();
+        $authToken->save();
+
+        // Recupera i ruoli dell'utente
+        $auth = Yii::$app->authManager;
+        $roles = $auth->getRolesByUser($user->id);
+
+        // Estrai solo i nomi dei ruoli
+        $roleNames = [];
+        foreach ($roles as $role) {
+            if ($role->name !== 'general') {
+                $roleNames[] = $role->name;
+            }
+        }
+
+        return [
+            'success' => true,
+            'token' => $newToken,
+            'refreshToken' => $newRefreshToken,
+            'expires_in' => $authToken->expires_at,
+            'refresh_expires_in' => $authToken->refresh_expires_at,
+            'user' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'nome' => $user->nome,
+                'cognome' => $user->cognome,
+                'roles' => $roleNames, // Aggiungi i ruoli qui
+            ],
+        ];
     }
 
     /**
