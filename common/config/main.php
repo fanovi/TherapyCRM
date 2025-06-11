@@ -9,5 +9,10 @@ return [
         'cache' => [
             'class' => \yii\caching\FileCache::class,
         ],
+        'jwt' => [
+            'class' => 'common\components\JwtComponent',
+            'privateKeyPath' => dirname(__DIR__) .  '/keys/private.key',
+            'publicKeyPath' => dirname(__DIR__) . '/keys/public.key',
+        ],
     ],
 ];

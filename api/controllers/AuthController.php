@@ -5,6 +5,7 @@ namespace api\controllers;
 use Yii;
 use yii\web\Controller;
 use yii\web\HttpException;
+use common\models\AuthToken;
 
 /**
  * @OA\Info(
@@ -230,7 +231,10 @@ class AuthController extends Controller
             }
             
             // Login normale - genera token di accesso completo
-            $token = $this->generateAccessToken($user);
+            $token = $this->generateAccessToken([
+                'user_id' => $user['id'],
+                'email' => $user['email'],
+            ]);
             
             return [
                 'success' => true,
@@ -250,6 +254,25 @@ class AuthController extends Controller
                 'error_code' => 'INVALID_CREDENTIALS'
             ];
         }
+    }
+
+    public function actionCheckToken()
+    {
+        $token = Yii::$app->request->headers->get('Authorization');
+        if (!$token) {
+            return ['success' => false, 'valid' => false];
+        }
+
+        // Rimuovi "Bearer "
+        $token = str_replace('Bearer ', '', $token);
+
+        $authToken = AuthToken::findOne(['token' => $token, 'is_revoked' => 0]);
+
+        if (!$authToken || $authToken->expires_at < time()) {
+            return ['success' => false, 'valid' => false];
+        }
+
+        return ['success' => true, 'valid' => true];
     }
 
     /**
@@ -502,18 +525,25 @@ class AuthController extends Controller
     /**
      * Genera un token di accesso simulato
      */
-    private function generateAccessToken($user)
+    private function generateAccessToken($payload)
     {
-        // In produzione useresti JWT o un sistema di token più sicuro
-        $payload = [
-            'user_id' => $user['id'],
-            'user_type' => $user['user_type'],
-            'email' => $user['email'],
-            'exp' => time() + 3600 // Scade in 1 ora
-        ];
-        
-        // Token simulato (in produzione useresti JWT)
-        return base64_encode(json_encode($payload));
+        // Genera il token JWT usando il componente configurato (Yii::$app->jwt)
+        $token = Yii::$app->jwt->generateToken($payload);
+        $refreshToken = Yii::$app->jwt->generateRefreshToken($payload);
+
+        // (Opzionale) Salva il token nel database per poterlo revocare successivamente
+        $authToken = new AuthToken();
+        $authToken->user_id = $payload['user_id'];
+        $authToken->token = $token;
+        $authToken->refresh_token = $refreshToken; // Nuovo campo
+        $authToken->is_revoked = 0;
+        $authToken->created_at = time();
+        $authToken->expires_at = time() + Yii::$app->jwt->tokenDuration;
+        $authToken->refresh_expires_at = time() + Yii::$app->jwt->refreshTokenDuration;
+        $authToken->last_used_at = time();
+        $authToken->save();
+
+        return $authToken;
     }
 
     /**

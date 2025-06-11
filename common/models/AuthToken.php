@@ -10,15 +10,19 @@ use Yii;
  * @property int $id
  * @property int $user_id
  * @property string $token
+ * @property string|null $refresh_token
  * @property int $is_revoked
  * @property int $created_at
  * @property int $expires_at
+ * @property int $refresh_expires_at
  * @property int|null $last_used_at
  *
  * @property User $user
  */
 class AuthToken extends \yii\db\ActiveRecord
 {
+
+
     /**
      * {@inheritdoc}
      */
@@ -33,10 +37,12 @@ class AuthToken extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'token', 'created_at', 'expires_at'], 'required'],
-            [['user_id', 'is_revoked', 'created_at', 'expires_at', 'last_used_at'], 'integer'],
+            [['refresh_token', 'last_used_at'], 'default', 'value' => null],
+            [['is_revoked'], 'default', 'value' => 0],
+            [['user_id', 'token', 'created_at', 'expires_at', 'refresh_expires_at'], 'required'],
+            [['user_id', 'is_revoked', 'created_at', 'expires_at', 'refresh_expires_at', 'last_used_at'], 'integer'],
             [['token', 'refresh_token'], 'string'],
-            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
 
@@ -46,14 +52,15 @@ class AuthToken extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'id' => Yii::t('app', 'ID'),
-            'user_id' => Yii::t('app', 'User ID'),
-            'token' => Yii::t('app', 'Token'),
-            'is_revoked' => Yii::t('app', 'Is Revoked'),
-            'created_at' => Yii::t('app', 'Created At'),
-            'expires_at' => Yii::t('app', 'Expires At'),
-            'last_used_at' => Yii::t('app', 'Last Used At'),
-            'refresh_token' => Yii::t('app', 'Refresh Token'),
+            'id' => 'ID',
+            'user_id' => 'User ID',
+            'token' => 'Token',
+            'refresh_token' => 'Refresh Token',
+            'is_revoked' => 'Is Revoked',
+            'created_at' => 'Created At',
+            'expires_at' => 'Expires At',
+            'refresh_expires_at' => 'Refresh Expires At',
+            'last_used_at' => 'Last Used At',
         ];
     }
 
@@ -64,7 +71,7 @@ class AuthToken extends \yii\db\ActiveRecord
      */
     public function getUser()
     {
-        return $this->hasOne(User::className(), ['id' => 'user_id']);
+        return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 
     /**
@@ -75,4 +82,5 @@ class AuthToken extends \yii\db\ActiveRecord
     {
         return new AuthTokenQuery(get_called_class());
     }
+
 }
