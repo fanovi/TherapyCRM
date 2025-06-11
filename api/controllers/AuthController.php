@@ -433,7 +433,7 @@ class AuthController extends Controller
             [
                 'id' => 2,
                 'email' => 'paziente2@example.com',
-                'password' => 'password456',
+                'password' => 'password123',
                 'nome' => 'Laura',
                 'cognome' => 'Bianchi',
                 'codice_fiscale' => 'BNCLAURA85B02F205W',
