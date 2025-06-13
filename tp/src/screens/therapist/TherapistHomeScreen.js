@@ -1,23 +1,16 @@
-import React from "react";
-import { View, StyleSheet, ScrollView, StatusBar } from "react-native";
-import {
-  Text,
-  Card,
-  Button,
-  Avatar,
-  Chip,
-  IconButton,
-} from "react-native-paper";
-import { useSelector, useDispatch } from "react-redux";
-import LinearGradient from "react-native-linear-gradient";
-import { logoutUser } from "../../store/authSlice";
+import React from 'react';
+import {View, StyleSheet, ScrollView, StatusBar} from 'react-native';
+import {Text, Card, Button, Avatar, Chip, IconButton} from 'react-native-paper';
+import {useSelector, useDispatch} from 'react-redux';
+import LinearGradient from 'react-native-linear-gradient';
+import {loginService} from '../../services/loginService';
 
 const TherapistHomeScreen = () => {
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const {user} = useSelector(state => state.auth);
 
-  const handleLogout = () => {
-    dispatch(logoutUser());
+  const handleLogout = async () => {
+    await loginService.logout(dispatch);
   };
 
   return (
@@ -25,7 +18,7 @@ const TherapistHomeScreen = () => {
       <StatusBar barStyle="light-content" backgroundColor="#4CAF50" />
 
       {/* Header */}
-      <LinearGradient colors={["#4CAF50", "#388E3C"]} style={styles.header}>
+      <LinearGradient colors={['#4CAF50', '#388E3C']} style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.userInfo}>
             <Avatar.Icon size={48} icon="doctor" style={styles.avatar} />
@@ -130,16 +123,14 @@ const TherapistHomeScreen = () => {
                   mode="outlined"
                   style={styles.actionButton}
                   icon="phone"
-                  compact
-                >
+                  compact>
                   Chiama
                 </Button>
                 <Button
                   mode="contained"
                   style={styles.actionButton}
                   icon="file-document"
-                  compact
-                >
+                  compact>
                   Cartella
                 </Button>
               </View>
@@ -170,16 +161,14 @@ const TherapistHomeScreen = () => {
                   mode="outlined"
                   style={styles.actionButton}
                   icon="phone"
-                  compact
-                >
+                  compact>
                   Chiama
                 </Button>
                 <Button
                   mode="contained"
                   style={styles.actionButton}
                   icon="file-document"
-                  compact
-                >
+                  compact>
                   Cartella
                 </Button>
               </View>
@@ -196,8 +185,7 @@ const TherapistHomeScreen = () => {
               mode="contained"
               icon="account-plus"
               style={styles.quickButton}
-              contentStyle={styles.quickButtonContent}
-            >
+              contentStyle={styles.quickButtonContent}>
               Nuovo Paziente
             </Button>
 
@@ -205,8 +193,7 @@ const TherapistHomeScreen = () => {
               mode="outlined"
               icon="calendar-plus"
               style={styles.quickButton}
-              contentStyle={styles.quickButtonContent}
-            >
+              contentStyle={styles.quickButtonContent}>
               Aggiungi Appuntamento
             </Button>
           </View>
@@ -219,40 +206,40 @@ const TherapistHomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: '#F8F9FA',
   },
   header: {
     paddingTop: 20,
     paddingBottom: 20,
   },
   headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
   },
   userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatar: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   userDetails: {
     marginLeft: 16,
   },
   greeting: {
-    color: "rgba(255, 255, 255, 0.8)",
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
   },
   userName: {
-    color: "white",
+    color: 'white',
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   roleChip: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   content: {
     flex: 1,
@@ -263,13 +250,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 16,
   },
   statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   statCard: {
@@ -278,23 +265,23 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statContent: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 16,
   },
   statIcon: {
-    backgroundColor: "#E8F5E8",
+    backgroundColor: '#E8F5E8',
     marginBottom: 8,
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: "#666",
-    textAlign: "center",
+    color: '#666',
+    textAlign: 'center',
   },
   appointmentCard: {
     borderRadius: 12,
@@ -302,37 +289,37 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   appointmentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
   appointmentTime: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: 'bold',
+    color: '#333',
   },
   appointmentType: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
   },
   patientChip: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: '#E3F2FD',
   },
   appointmentNotes: {
     marginBottom: 16,
   },
   notesLabel: {
     fontSize: 12,
-    color: "#666",
+    color: '#666',
     marginBottom: 4,
   },
   notesText: {
     fontSize: 14,
-    color: "#333",
+    color: '#333',
   },
   appointmentActions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 12,
   },
   actionButton: {

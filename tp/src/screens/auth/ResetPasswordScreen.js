@@ -19,12 +19,13 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
-import {resetPassword, clearError} from '../../store/authSlice';
+import {clearError} from '../../slices/authSlice';
+import {loginService} from '../../services/loginService';
 
 const ResetPasswordScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {isLoading, error, user} = useSelector(state => state.auth);
+  const {isLoading, error, user, tempToken} = useSelector(state => state.auth);
   const theme = useTheme();
 
   const [password, setPassword] = useState('');
@@ -32,9 +33,22 @@ const ResetPasswordScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const isValidPassword = password.length >= 6;
+  // Validation according to backend requirements:
+  // - At least 8 characters
+  // - At least one uppercase letter
+  // - At least one lowercase letter
+  // - At least one number
+  const isValidPassword = password => {
+    if (password.length < 8) return false;
+    if (!/[A-Z]/.test(password)) return false;
+    if (!/[a-z]/.test(password)) return false;
+    if (!/[0-9]/.test(password)) return false;
+    return true;
+  };
+
+  const passwordValid = isValidPassword(password);
   const passwordsMatch = password === confirmPassword;
-  const isFormValid = isValidPassword && passwordsMatch && password.trim();
+  const isFormValid = passwordValid && passwordsMatch && password.trim();
 
   // Monitora il successo del reset password
   useEffect(() => {
@@ -42,17 +56,23 @@ const ResetPasswordScreen = () => {
     // gestirà automaticamente la navigazione alla dashboard corretta
     // Non serve fare nulla qui, l'AppNavigator rileverà che
     // isPasswordResetRequired è ora false
-  }, [user]);
+  });
 
-  const handleResetPassword = () => {
-    if (!isFormValid) return;
+  const handleResetPassword = async () => {
+    if (!isFormValid || !tempToken) return;
 
-    dispatch(
-      resetPassword({
-        userId: user.id,
-        data: {password, confirmPassword},
-      }),
-    );
+    try {
+      await loginService.changePassword(dispatch, {
+        tempToken,
+        newPassword: password,
+        confirmPassword,
+      });
+      console.log(
+        '✅ Password changed successfully - user should now be authenticated',
+      );
+    } catch (error) {
+      console.error('❌ Password change failed:', error);
+    }
   };
 
   const handleClearError = () => {
@@ -100,14 +120,16 @@ const ResetPasswordScreen = () => {
                 </Text>
                 <Text
                   style={[styles.userName, {color: theme.colors.onSurface}]}>
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.fullName || 'Utente'}
                 </Text>
                 <Text
                   style={[
                     styles.userEmail,
                     {color: theme.colors.onSurfaceVariant},
                   ]}>
-                  {user?.email}
+                  {user?.email || 'Email non disponibile'}
                 </Text>
               </View>
 
@@ -125,13 +147,14 @@ const ResetPasswordScreen = () => {
                   />
                 }
                 left={<TextInput.Icon icon="lock" />}
-                error={password.length > 0 && !isValidPassword}
+                error={password.length > 0 && !passwordValid}
               />
 
               <HelperText
                 type="error"
-                visible={password.length > 0 && !isValidPassword}>
-                La password deve essere di almeno 6 caratteri
+                visible={password.length > 0 && !passwordValid}>
+                La password deve essere di almeno 8 caratteri e contenere almeno
+                una lettera maiuscola, una minuscola e un numero
               </HelperText>
 
               <TextInput
@@ -193,12 +216,46 @@ const ResetPasswordScreen = () => {
                   style={[
                     styles.requirement,
                     {
-                      color: isValidPassword
+                      color:
+                        password.length >= 8
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant,
+                    },
+                  ]}>
+                  • Almeno 8 caratteri
+                </Text>
+                <Text
+                  style={[
+                    styles.requirement,
+                    {
+                      color: /[A-Z]/.test(password)
                         ? theme.colors.primary
                         : theme.colors.onSurfaceVariant,
                     },
                   ]}>
-                  • Almeno 6 caratteri
+                  • Almeno una lettera maiuscola
+                </Text>
+                <Text
+                  style={[
+                    styles.requirement,
+                    {
+                      color: /[a-z]/.test(password)
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}>
+                  • Almeno una lettera minuscola
+                </Text>
+                <Text
+                  style={[
+                    styles.requirement,
+                    {
+                      color: /[0-9]/.test(password)
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}>
+                  • Almeno un numero
                 </Text>
                 <Text
                   style={[

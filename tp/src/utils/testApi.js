@@ -1,4 +1,4 @@
-import { authService } from '../services/authService';
+import {authService} from '../services/authService';
 
 // Test data based on your API mock data
 const TEST_CREDENTIALS = {
@@ -14,7 +14,7 @@ const TEST_CREDENTIALS = {
 
 export const testApiConnection = async () => {
   console.log('🧪 Testing API Connection...');
-  
+
   try {
     // Test patient login
     console.log('Testing patient login...');
@@ -27,7 +27,9 @@ export const testApiConnection = async () => {
 
     // Test token validation
     console.log('Testing token validation...');
-    const validationResult = await authService.validateToken(patientResult.token);
+    const validationResult = await authService.validateToken(
+      patientResult.token,
+    );
     console.log('✅ Token validation successful:', validationResult);
 
     // Test logout
@@ -49,7 +51,7 @@ export const testApiConnection = async () => {
   }
 };
 
-export const testLogin = async (credentials) => {
+export const testLogin = async credentials => {
   try {
     const result = await authService.login(credentials);
     console.log('Login test result:', result);
@@ -60,8 +62,30 @@ export const testLogin = async (credentials) => {
   }
 };
 
+export const testChangePassword = async (
+  tempToken,
+  newPassword = 'NewPassword123',
+) => {
+  try {
+    console.log('🧪 Testing change password...');
+    const result = await authService.changePassword(
+      tempToken,
+      newPassword,
+      newPassword,
+    );
+    console.log('✅ Change password successful:', {
+      userEmail: result.user.email,
+      tokenPreview: result.token.substring(0, 20) + '...',
+    });
+    return result;
+  } catch (error) {
+    console.error('❌ Change password test failed:', error.message);
+    throw error;
+  }
+};
+
 // Helper function to format API responses for debugging
-export const debugApiResponse = (response) => {
+export const debugApiResponse = response => {
   return {
     success: response.success,
     message: response.message,
@@ -69,4 +93,4 @@ export const debugApiResponse = (response) => {
     userRole: response.data?.user?.user_type,
     tokenPreview: response.data?.access_token?.substring(0, 30) + '...',
   };
-}; 
+};

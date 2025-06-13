@@ -11,15 +11,15 @@ import {
 } from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
-import {logoutUser} from '../../store/authSlice';
+import {loginService} from '../../services/loginService';
 
 const PatientHomeScreen = () => {
   const dispatch = useDispatch();
   const {user} = useSelector(state => state.auth);
   const theme = useTheme();
 
-  const handleLogout = () => {
-    dispatch(logoutUser());
+  const handleLogout = async () => {
+    await loginService.logout(dispatch);
   };
 
   return (

@@ -2,7 +2,7 @@ import React from 'react';
 import {View} from 'react-native';
 import {Text, Button, useTheme} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
-import {logoutUser} from '../../store/authSlice';
+import {loginService} from '../../services/loginService';
 import ScreenTemplate from '../../components/ScreenTemplate';
 
 const TherapistProfileScreen = () => {
@@ -10,8 +10,8 @@ const TherapistProfileScreen = () => {
   const {user} = useSelector(state => state.auth);
   const theme = useTheme();
 
-  const handleLogout = () => {
-    dispatch(logoutUser());
+  const handleLogout = async () => {
+    await loginService.logout(dispatch);
   };
 
   return (

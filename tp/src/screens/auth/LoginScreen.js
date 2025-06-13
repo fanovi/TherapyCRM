@@ -19,12 +19,15 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
-import {loginUser, clearError} from '../../store/authSlice';
+import {clearError} from '../../slices/authSlice';
+import {loginService} from '../../services/loginService';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {isLoading, error, user} = useSelector(state => state.auth);
+  const {isLoading, error, user, requiresPasswordChange} = useSelector(
+    state => state.auth,
+  );
   const theme = useTheme();
 
   const [email, setEmail] = useState('');
@@ -33,17 +36,37 @@ const LoginScreen = () => {
 
   useEffect(() => {
     // Se l'utente ha effettuato il login ma deve cambiare password
-    if (user && user.isPasswordResetRequired) {
+    if (user && requiresPasswordChange) {
       navigation.navigate('ResetPassword');
     }
-  }, [user, navigation]);
+  });
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    console.log('🔐 === LOGIN DEBUG START ===');
+    console.log('📧 Email inserita:', email);
+    console.log('🔑 Password inserita:', password ? '[PRESENT]' : '[EMPTY]');
+
     if (!email.trim() || !password.trim()) {
+      console.log('❌ Campi mancanti:', {
+        email: !email.trim() ? 'VUOTO' : 'OK',
+        password: !password.trim() ? 'VUOTO' : 'OK',
+      });
       return;
     }
 
-    dispatch(loginUser({email: email.toLowerCase().trim(), password}));
+    const loginData = {email: email.toLowerCase().trim(), password};
+    console.log('📤 Dati login da inviare:', {
+      ...loginData,
+      password: '[HIDDEN]',
+    });
+
+    console.log('🚀 Starting login with loginService...');
+    try {
+      await loginService.login(dispatch, loginData);
+      console.log('✅ Login completed successfully');
+    } catch (error) {
+      console.error('❌ Login failed:', error);
+    }
   };
 
   const handleClearError = () => {
@@ -52,11 +75,12 @@ const LoginScreen = () => {
 
   const fillDemoCredentials = role => {
     if (role === 'patient') {
-      setEmail('paziente@test.com');
+      setEmail('paziente1@example.com');
+      setPassword('password123');
     } else {
-      setEmail('terapista@test.com');
+      setEmail('terapista1@example.com');
+      setPassword('password789');
     }
-    setPassword('test123');
   };
 
   return (

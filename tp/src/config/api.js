@@ -1,10 +1,11 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://127.0.0.1:3307/cms-terapisti/TherapyCRM/api',
+  BASE_URL: 'http://127.0.0.1:3307/cms-terapisti/api',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
     VERIFY: '/auth/verify',
+    CHANGE_FIRST_PASSWORD: '/auth/change-first-password',
     RESET_PASSWORD: '/auth/reset-password', // Future implementation
     REFRESH_TOKEN: '/auth/refresh', // Future implementation
   },
@@ -24,9 +25,10 @@ export const HTTP_STATUS = {
 
 // Error Messages
 export const ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Impossibile connettersi al server. Verificare la connessione.',
+  NETWORK_ERROR:
+    'Impossibile connettersi al server. Verificare la connessione.',
   INVALID_CREDENTIALS: 'Credenziali non valide',
   SERVER_ERROR: 'Errore del server',
   TOKEN_EXPIRED: 'Sessione scaduta. Effettua nuovamente il login.',
   GENERIC_ERROR: 'Si è verificato un errore imprevisto',
-}; 
+};
