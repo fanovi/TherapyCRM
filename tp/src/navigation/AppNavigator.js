@@ -5,7 +5,7 @@ import {useSelector, useDispatch} from 'react-redux';
 import {ActivityIndicator, View} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {checkTokenValidity} from '../api/auth';
-import {loginSuccess, logoutUser, setInitialized} from '../slices/authSlice';
+import {loginSuccess, logoutUser} from '../slices/authSlice';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import AuthNavigator from './AuthNavigator';
 import PatientNavigator from './PatientNavigator';
@@ -26,54 +26,77 @@ const AppNavigator = () => {
 
   const checkInitialAuth = async () => {
     try {
-      console.log('🚀 === INITIAL AUTH CHECK ===');
+      console.log('🚀 === CONTROLLO AUTENTICAZIONE INIZIALE ===');
 
-      // 1. C'è un token?
+      // 1. Controlla se esiste il token in AsyncStorage
       const token = await AsyncStorage.getItem('authToken');
-      console.log('📦 Token in storage:', token ? 'YES' : 'NO');
+      console.log('📦 Token check result:');
+      console.log('   - Token exists:', !!token);
+      console.log('   - Token type:', typeof token);
+      console.log('   - Token length:', token ? token.length : 0);
 
       if (!token) {
-        console.log('❌ No token found - going to login');
-        dispatch(logoutUser());
+        console.log('❌ Nessun token trovato -> Login');
         setIsLoading(false);
         return;
       }
 
-      // 2. Il token è valido?
-      console.log('🔄 Checking token validity with backend...');
-      const response = await checkTokenValidity(token);
+      console.log('✅ Token trovato in storage');
 
-      if (!response.valid) {
-        console.log('❌ Token invalid - going to login');
+      // 2. Verifica il token con il backend
+      console.log('🔄 Verifico token con il backend...');
+      const result = await checkTokenValidity(token);
+
+      console.log('📋 Token validation result:');
+      console.log('   - Valid:', result.valid);
+      console.log('   - Error:', result.error);
+      console.log('   - User data:', !!result.user);
+
+      if (!result.valid) {
+        console.log('❌ Token non valido -> Login');
+        console.log('   - Reason:', result.error);
+        // Pulisci storage e vai al login
         await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'user']);
         dispatch(logoutUser());
         setIsLoading(false);
         return;
       }
 
-      // 3. Token valido - recupera dati utente
-      console.log('✅ Token valid - restoring session');
+      console.log('✅ Token valido -> Dashboard');
+
+      // 3. Token valido - recupera dati utente e vai alla dashboard
       const userString = await AsyncStorage.getItem('user');
-      const rawUser = userString ? JSON.parse(userString) : null;
+      let user = null;
 
-      if (rawUser) {
-        // Mappa i dati dal formato backend al formato app
-        const user = {
-          ...rawUser,
-          firstName: rawUser.nome,
-          lastName: rawUser.cognome,
-          fullName: `${rawUser.nome} ${rawUser.cognome}`,
-          // Mantieni anche i campi originali per compatibilità
-          nome: rawUser.nome,
-          cognome: rawUser.cognome,
-        };
+      console.log('👤 User data recovery:');
+      console.log('   - User string exists:', !!userString);
+      console.log('   - User from API exists:', !!result.user);
 
-        console.log('📝 User mapped:', {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          fullName: user.fullName,
+      if (userString) {
+        user = JSON.parse(userString);
+        console.log('✅ User data from storage:', {
+          email: user.email,
+          role: user.user_type || user.role,
+          id: user.id,
+        });
+      } else if (result.user) {
+        // Se l'endpoint verify ha restituito i dati utente, usali
+        user = result.user;
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+        console.log('✅ User data from API response:', {
+          email: user.email,
+          role: user.user_type || user.role,
+          id: user.id,
+        });
+      }
+
+      if (user) {
+        console.log('👤 Final user data for session restore:', {
+          email: user.email,
+          role: user.user_type || user.role,
         });
 
+        // Ripristina la sessione utente
         dispatch(
           loginSuccess({
             token,
@@ -81,15 +104,21 @@ const AppNavigator = () => {
             requiresPasswordChange: false,
           }),
         );
+        console.log('✅ Session restored successfully');
       } else {
-        console.log('❌ No user data - going to login');
+        console.log('❌ Dati utente mancanti -> Login');
+        await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'user']);
         dispatch(logoutUser());
       }
     } catch (error) {
-      console.error('❌ Auth check error:', error);
+      console.error('❌ Errore controllo autenticazione:', error);
+      console.error('   - Error message:', error.message);
+      console.error('   - Error stack:', error.stack);
+      // In caso di errore, pulisci tutto e vai al login
       await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'user']);
       dispatch(logoutUser());
     } finally {
+      console.log('🏁 Auth check completed, setting loading to false');
       setIsLoading(false);
     }
   };

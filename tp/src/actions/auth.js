@@ -72,15 +72,22 @@ export const loginUser = credentials => async dispatch => {
       console.log('✅ Token estratto con successo');
     }
 
-    // Valida e converte i dati per AsyncStorage
-    const tokenString = String(finalToken);
+    // Valida e converte i dati per AsyncStorage - ensure all values are strings
+    const tokenString = finalToken ? String(finalToken) : '';
+    const refreshTokenString = ''; // Il backend non restituisce refresh token per ora
     const userString = JSON.stringify(user);
 
     console.log('💾 Salvataggio dati autenticazione...');
+    console.log('📊 Data validation:', {
+      hasTokenString: !!tokenString,
+      tokenStringLength: tokenString.length,
+      hasRefreshTokenString: !!refreshTokenString,
+      hasUserString: !!userString,
+    });
 
     await AsyncStorage.multiSet([
       ['authToken', tokenString],
-      ['refreshToken', ''], // Il backend non restituisce refresh token per ora
+      ['refreshToken', refreshTokenString],
       ['user', userString],
     ]);
 
@@ -131,10 +138,23 @@ export const refreshUserToken = refreshTokenString => async dispatch => {
       throw new Error(response.error || 'Token refresh failed');
     }
 
+    // Ensure all values are strings for AsyncStorage
+    const authToken = response.token ? String(response.token) : '';
+    const refreshToken = response.refreshToken
+      ? String(response.refreshToken)
+      : '';
+    const userString = JSON.stringify(response.user);
+
+    console.log('💾 Saving refresh token data:', {
+      hasAuthToken: !!authToken,
+      hasRefreshToken: !!refreshToken,
+      hasUserString: !!userString,
+    });
+
     await AsyncStorage.multiSet([
-      ['authToken', response.token],
-      ['refreshToken', response.refreshToken],
-      ['user', JSON.stringify(response.user)],
+      ['authToken', authToken],
+      ['refreshToken', refreshToken],
+      ['user', userString],
     ]);
 
     // Usa solo i dati utente dal response, non dal token

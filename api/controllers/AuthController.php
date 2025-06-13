@@ -256,24 +256,29 @@ class AuthController extends Controller
             ];
         }
     }
-//TODO
+    /**
+     * Verifica se un token è valido (per uso interno)
+     */
     public function actionCheckToken()
     {
-        $token = Yii::$app->request->headers->get('Authorization');
-        if (!$token) {
-            return ['success' => false, 'valid' => false];
+        $authHeader = Yii::$app->request->headers->get('Authorization');
+        if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            return ['success' => false, 'valid' => false, 'message' => 'Token mancante'];
         }
 
-        // Rimuovi "Bearer "
-        $token = str_replace('Bearer ', '', $token);
+        $token = $matches[1];
 
         $authToken = AuthToken::findOne(['token' => $token, 'is_revoked' => 0]);
 
         if (!$authToken || $authToken->expires_at < time()) {
-            return ['success' => false, 'valid' => false];
+            return ['success' => false, 'valid' => false, 'message' => 'Token non valido o scaduto'];
         }
 
-        return ['success' => true, 'valid' => true];
+        // Aggiorna last_used_at
+        $authToken->last_used_at = time();
+        $authToken->save();
+
+        return ['success' => true, 'valid' => true, 'message' => 'Token valido'];
     }
 //TODO
     public function actionRefresh()
@@ -379,8 +384,26 @@ class AuthController extends Controller
             throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
         }
 
-        // Per ora simuliamo semplicemente il logout
-        // In futuro qui si invaliderebbero i token nel database
+        // Ottieni il token dall'header Authorization
+        $authHeader = $request->getHeaders()->get('Authorization');
+        
+        if ($authHeader && preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            $token = $matches[1];
+            
+            // Trova e revoca il token nel database
+            $authToken = AuthToken::findOne([
+                'token' => $token, 
+                'is_revoked' => 0
+            ]);
+            
+            if ($authToken) {
+                $authToken->is_revoked = 1;
+                $authToken->last_used_at = time();
+                $authToken->save();
+                
+                Yii::info("Token revoked for user ID: {$authToken->user_id}", __METHOD__);
+            }
+        }
         
         return [
             'success' => true,
@@ -615,27 +638,187 @@ class AuthController extends Controller
     }
 
     /**
-     * Simula la verifica di un token
+     * Verifica la validità di un token JWT controllando anche il database
      */
     private function simulateTokenVerification($token)
     {
         try {
-            $payload = json_decode(base64_decode($token), true);
+            // Prima verifica se il token esiste e non è stato revocato nel database
+            $authToken = AuthToken::findOne([
+                'token' => $token, 
+                'is_revoked' => 0
+            ]);
+            
+            if (!$authToken) {
+                Yii::error("Token not found in database or has been revoked", __METHOD__);
+                return null; // Token non trovato o revocato
+            }
+            
+            // Verifica se il token è scaduto dal database
+            if ($authToken->expires_at < time()) {
+                Yii::error("Token expired (database check): expires_at = {$authToken->expires_at}, current = " . time(), __METHOD__);
+                return null; // Token scaduto
+            }
+            
+            // Ora decodifica il JWT per ottenere i dati utente
+            try {
+                $payload = Yii::$app->jwt->decodeToken($token);
+            } catch (\Exception $e) {
+                // Fallback: decodifica manuale del JWT
+                $payload = $this->decodeJWTManually($token);
+            }
             
             if (!$payload || !isset($payload['exp']) || $payload['exp'] < time()) {
+                Yii::error("Token expired or invalid payload (JWT check)", __METHOD__);
                 return null; // Token scaduto o non valido
             }
             
-            // Simula il recupero dell'utente dal token
-            return [
-                'id' => $payload['user_id'],
-                'email' => $payload['email'],
-                'user_type' => $payload['user_type']
-            ];
+            // Verifica che l'utente esista ancora (simulazione)
+            $userId = isset($payload['user_id']) ? $payload['user_id'] : null;
+            $email = isset($payload['email']) ? $payload['email'] : null;
+            
+            if (!$userId || !$email) {
+                Yii::error("Token missing required fields: user_id or email", __METHOD__);
+                return null;
+            }
+            
+            // Verifica che l'user_id del token corrisponda a quello nel database
+            if ($authToken->user_id != $userId) {
+                Yii::error("Token user_id mismatch: DB={$authToken->user_id}, JWT={$userId}", __METHOD__);
+                return null;
+            }
+            
+            // Cerca l'utente nelle tabelle simulate per verificare che esista ancora
+            $user = $this->findUserById($userId, $email);
+            
+            if (!$user) {
+                Yii::error("User not found in database: ID $userId, Email $email", __METHOD__);
+                return null; // Utente non trovato
+            }
+            
+            // Aggiorna last_used_at per tracking
+            $authToken->last_used_at = time();
+            $authToken->save();
+            
+            Yii::info("Token verified successfully for user: {$user['email']}", __METHOD__);
+            
+            // Restituisce i dati dell'utente dal "database"
+            return $user;
             
         } catch (\Exception $e) {
+            // Log per debug
+            Yii::error("Token verification failed: " . $e->getMessage(), __METHOD__);
             return null;
         }
+    }
+
+    /**
+     * Decodifica manualmente un JWT per estrarre il payload
+     */
+    private function decodeJWTManually($token)
+    {
+        // Un JWT ha 3 parti separate da punti: header.payload.signature
+        $parts = explode('.', $token);
+        
+        if (count($parts) !== 3) {
+            throw new \Exception('Invalid JWT format');
+        }
+        
+        // La seconda parte è il payload
+        $payload = $parts[1];
+        
+        // Aggiungi padding se necessario per base64_decode
+        $payload .= str_repeat('=', (4 - strlen($payload) % 4) % 4);
+        
+        $decodedPayload = base64_decode($payload);
+        
+        if (!$decodedPayload) {
+            throw new \Exception('Failed to decode JWT payload');
+        }
+        
+        $payloadArray = json_decode($decodedPayload, true);
+        
+        if (!$payloadArray) {
+            throw new \Exception('Failed to parse JWT payload JSON');
+        }
+        
+        return $payloadArray;
+    }
+
+    /**
+     * Trova un utente per ID e email nelle tabelle simulate
+     */
+    private function findUserById($userId, $email)
+    {
+        // Cerca prima tra i pazienti
+        $pazienti = [
+            [
+                'id' => 1,
+                'email' => 'paziente1@example.com',
+                'nome' => 'Marco',
+                'cognome' => 'Rossi',
+                'codice_fiscale' => 'RSSMRC80A01H501Z',
+                'telefono' => '123456789',
+                'data_nascita' => '1980-01-01',
+                'indirizzo' => 'Via Roma 123, Milano',
+                'user_type' => 'paziente',
+                'status' => 'attivo',
+            ],
+            [
+                'id' => 2,
+                'email' => 'paziente2@example.com',
+                'nome' => 'Laura',
+                'cognome' => 'Bianchi',
+                'codice_fiscale' => 'BNCLAURA85B02F205W',
+                'telefono' => '987654321',
+                'data_nascita' => '1985-02-15',
+                'indirizzo' => 'Via Napoli 456, Roma',
+                'user_type' => 'paziente',
+                'status' => 'attivo',
+            ]
+        ];
+
+        foreach ($pazienti as $paziente) {
+            if ($paziente['id'] == $userId && $paziente['email'] === $email) {
+                return $paziente;
+            }
+        }
+
+        // Cerca tra i terapisti
+        $terapisti = [
+            [
+                'id' => 1,
+                'email' => 'terapista1@example.com',
+                'nome' => 'Dr. Giuseppe',
+                'cognome' => 'Verdi',
+                'codice_fiscale' => 'VRDGPP75C03L219X',
+                'telefono' => '555123456',
+                'specializzazione' => 'Fisioterapia',
+                'numero_albo' => 'FT12345',
+                'user_type' => 'terapista',
+                'status' => 'attivo',
+            ],
+            [
+                'id' => 2,
+                'email' => 'terapista2@example.com',
+                'nome' => 'Dr.ssa Anna',
+                'cognome' => 'Neri',
+                'codice_fiscale' => 'NRANNA82D04M123Y',
+                'telefono' => '555789012',
+                'specializzazione' => 'Psicoterapia',
+                'numero_albo' => 'PSI67890',
+                'user_type' => 'terapista',
+                'status' => 'attivo',
+            ]
+        ];
+
+        foreach ($terapisti as $terapista) {
+            if ($terapista['id'] == $userId && $terapista['email'] === $email) {
+                return $terapista;
+            }
+        }
+
+        return null; // Utente non trovato
     }
 
     /**

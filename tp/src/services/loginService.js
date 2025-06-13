@@ -27,9 +27,13 @@ export const loginService = {
         // Primo login - richiede cambio password
         console.log('🔐 First login detected - password change required');
 
+        // Ensure tempToken is a string
+        const tempToken = response.tempToken ? String(response.tempToken) : '';
+        const userString = JSON.stringify(response.user);
+
         // Salva solo il temp token e i dati utente
-        await AsyncStorage.setItem('tempToken', response.tempToken);
-        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+        await AsyncStorage.setItem('tempToken', tempToken);
+        await AsyncStorage.setItem('user', userString);
 
         dispatch(
           loginSuccess({
@@ -43,9 +47,19 @@ export const loginService = {
         // Login normale - utente completamente autenticato
         console.log('✅ Normal login - user fully authenticated');
 
+        // Ensure all values are strings
+        const authToken = response.token ? String(response.token) : '';
+        const userString = JSON.stringify(response.user);
+
+        console.log('💾 Saving auth data:', {
+          hasAuthToken: !!authToken,
+          authTokenLength: authToken.length,
+          hasUserString: !!userString,
+        });
+
         await AsyncStorage.multiSet([
-          ['authToken', response.token],
-          ['user', JSON.stringify(response.user)],
+          ['authToken', authToken],
+          ['user', userString],
         ]);
 
         dispatch(
@@ -78,10 +92,20 @@ export const loginService = {
 
       console.log('✅ Password changed successfully');
 
+      // Ensure all values are strings
+      const authToken = response.token ? String(response.token) : '';
+      const userString = JSON.stringify(response.user);
+
+      console.log('💾 Saving password change auth data:', {
+        hasAuthToken: !!authToken,
+        authTokenLength: authToken.length,
+        hasUserString: !!userString,
+      });
+
       // Salva il nuovo token e aggiorna i dati utente
       await AsyncStorage.multiSet([
-        ['authToken', response.token],
-        ['user', JSON.stringify(response.user)],
+        ['authToken', authToken],
+        ['user', userString],
       ]);
 
       // Rimuovi il temp token

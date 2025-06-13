@@ -138,6 +138,33 @@ export const authService = {
           expires_in,
         } = response.data;
 
+        console.log('🔍 === TOKEN EXTRACTION DEBUG ===');
+        console.log('🎫 access_token tipo:', typeof access_token);
+        console.log('🎫 access_token valore:', access_token);
+
+        // Estrai il token JWT vero dall'oggetto access_token
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          // Il backend restituisce access_token come oggetto con token dentro
+          actualToken = access_token.token;
+          console.log(
+            '✅ Token estratto da access_token.token:',
+            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
+          );
+        } else if (typeof access_token === 'string') {
+          // Se fosse già una stringa (caso futuro)
+          actualToken = access_token;
+          console.log(
+            '✅ Token è già una stringa:',
+            actualToken.substring(0, 30) + '...',
+          );
+        } else {
+          console.log(
+            '❌ access_token non è né oggetto né stringa:',
+            access_token,
+          );
+        }
+
         // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
@@ -160,11 +187,16 @@ export const authService = {
           }),
         };
 
+        console.log(
+          '✅ Final token to return:',
+          actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
+        );
+
         return {
           user: transformedUser,
           requiresPasswordChange: !!requires_password_change,
           tempToken: temp_token,
-          token: access_token || temp_token,
+          token: actualToken || temp_token, // Usa il token estratto
           tokenType: token_type,
           expiresIn: expires_in,
         };
@@ -206,6 +238,25 @@ export const authService = {
       if (response.success && response.data) {
         const {user, access_token, token_type, expires_in} = response.data;
 
+        console.log('🔍 === CHANGE PASSWORD TOKEN EXTRACTION ===');
+        console.log('🎫 access_token tipo:', typeof access_token);
+
+        // Estrai il token JWT vero dall'oggetto access_token
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          actualToken = access_token.token;
+          console.log(
+            '✅ Token estratto da access_token.token:',
+            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
+          );
+        } else if (typeof access_token === 'string') {
+          actualToken = access_token;
+          console.log(
+            '✅ Token è già una stringa:',
+            actualToken.substring(0, 30) + '...',
+          );
+        }
+
         // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
@@ -230,7 +281,7 @@ export const authService = {
 
         return {
           user: transformedUser,
-          token: access_token,
+          token: actualToken, // Usa il token estratto
           tokenType: token_type,
           expiresIn: expires_in,
           requiresPasswordChange: false,

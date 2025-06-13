@@ -4,7 +4,7 @@
 
 ### 1. **Configurazione API**
 
-- **Base URL:** `http://127.0.0.1:3307/cms-terapisti/api`
+- **Base URL:** `http://127.0.0.1:3307/TherapyCRM/api`
 - **Endpoints implementati:**
   - `POST /auth/login` ✅
   - `POST /auth/logout` ✅

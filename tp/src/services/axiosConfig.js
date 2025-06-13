@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {API_CONFIG} from '../config/api';
 
 // Store per il dispatch (sarà inizializzato dall'app)
 let store = null;
@@ -9,7 +10,7 @@ export const setStore = appStore => {
 };
 
 // Configurazione base di Axios
-const API_BASE_URL = 'http://localhost:3307/cms-terapisti/api';
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 // Debug configurazione
 console.log('⚙️ === AXIOS CONFIG DEBUG ===');
@@ -45,18 +46,33 @@ apiClient.interceptors.request.use(
     console.log('📤 === REQUEST INTERCEPTOR DEBUG ===');
     console.log('🔗 URL finale richiesta:', `${config.baseURL}${config.url}`);
     console.log('📋 Metodo:', config.method?.toUpperCase());
-    console.log('🎯 Headers:', config.headers);
 
     // Verifica se l'endpoint richiede il token
     if (shouldIncludeToken(config.url)) {
       try {
         const token = await AsyncStorage.getItem('authToken');
+        console.log(
+          '🎫 Token raw dal storage:',
+          typeof token,
+          token ? `${token.substring(0, 20)}...` : 'NULL',
+        );
+
         if (token) {
+          // Assicurati che il token sia una stringa
+          const tokenString = typeof token === 'string' ? token : String(token);
+
+          console.log(
+            '🎫 Token convertito:',
+            typeof tokenString,
+            tokenString.substring(0, 20) + '...',
+          );
+
           const {isValidToken} = await import('../utils/authUtils');
 
-          const tokenIsValid = await isValidToken(token);
+          const tokenIsValid = await isValidToken(tokenString);
 
           if (!tokenIsValid) {
+            console.log("❌ Token non valido nell'interceptor");
             const {performAutoLogout} = await import('../utils/authUtils');
             await performAutoLogout('Token scaduto durante richiesta');
 
@@ -67,17 +83,26 @@ apiClient.interceptors.request.use(
             });
           }
 
-          config.headers.Authorization = `Bearer ${token}`;
+          config.headers.Authorization = `Bearer ${tokenString}`;
+          console.log(
+            '✅ Authorization header impostato:',
+            `Bearer ${tokenString.substring(0, 20)}...`,
+          );
+        } else {
+          console.log('⚠️ Nessun token trovato per endpoint protetto');
         }
       } catch (error) {
-        console.error('Errore nel recupero/verifica del token:', error);
+        console.error('❌ Errore nel recupero/verifica del token:', error);
 
         // In caso di errore nella decodifica del token, fai logout
         const {performAutoLogout} = await import('../utils/authUtils');
         await performAutoLogout('Errore nella verifica del token');
       }
+    } else {
+      console.log('ℹ️ Endpoint non richiede token:', config.url);
     }
 
+    console.log('🎯 Headers finali:', config.headers);
     return config;
   },
   error => {
@@ -96,6 +121,7 @@ apiClient.interceptors.response.use(
 
     // Gestione errore 401 - Token scaduto o non valido
     if (response?.status === 401) {
+      console.log('❌ Errore 401 ricevuto dal server');
       const {performAutoLogout} = await import('../utils/authUtils');
       await performAutoLogout('Errore 401 dal server');
 
@@ -109,6 +135,7 @@ apiClient.interceptors.response.use(
 
     // Gestione errori di rete
     if (!response) {
+      console.log('❌ Errore di rete:', error.message);
       const networkError = {
         type: 'NETWORK_ERROR',
         message: 'Errore di connessione. Verifica la tua connessione internet.',
@@ -129,6 +156,8 @@ apiClient.interceptors.response.use(
       response.data?.message ||
       response.data?.error ||
       `Errore del server (${response.status})`;
+
+    console.log('❌ Errore del server:', response.status, errorMessage);
 
     const serverError = {
       type: 'SERVER_ERROR',

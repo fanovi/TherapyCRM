@@ -14,5 +14,8 @@ return [
             'privateKeyPath' => dirname(__DIR__) .  '/keys/private.key',
             'publicKeyPath' => dirname(__DIR__) . '/keys/public.key',
         ],
+        'authManager' => [
+            'class' => 'yii\rbac\DbManager',
+        ],
     ],
 ];
