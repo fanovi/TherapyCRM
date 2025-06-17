@@ -625,14 +625,40 @@ class AuthController extends Controller
      */
     private function decodeSensitiveData($userData)
     {
-        // TODO: Implementare la decodifica dei dati sensibili se sono codificati nel DB
-        // Esempio:
-        // if (!empty($userData['codice_fiscale'])) {
-        //     $userData['codice_fiscale'] = Yii::$app->security->decryptByPassword(
-        //         base64_decode($userData['codice_fiscale']), 
-        //         Yii::$app->params['encryptionKey']
-        //     );
-        // }
+        try {
+            $encryptionKey = Yii::$app->params['encryptionKey'];
+            
+            // Decodifica il telefono se presente e crittografato
+            if (!empty($userData['telefono'])) {
+                try {
+                    $decryptedPhone = Yii::$app->security->decryptByKey(
+                        base64_decode($userData['telefono']), 
+                        $encryptionKey
+                    );
+                    $userData['telefono'] = $decryptedPhone;
+                } catch (\Exception $e) {
+                    Yii::error("Failed to decrypt phone number: " . $e->getMessage(), __METHOD__);
+                    // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)
+                }
+            }
+            
+            // Decodifica l'indirizzo se presente e crittografato
+            if (!empty($userData['indirizzo'])) {
+                try {
+                    $decryptedAddress = Yii::$app->security->decryptByKey(
+                        base64_decode($userData['indirizzo']), 
+                        $encryptionKey
+                    );
+                    $userData['indirizzo'] = $decryptedAddress;
+                } catch (\Exception $e) {
+                    Yii::error("Failed to decrypt address: " . $e->getMessage(), __METHOD__);
+                    // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Yii::error("Error in decodeSensitiveData: " . $e->getMessage(), __METHOD__);
+        }
         
         return $userData;
     }
