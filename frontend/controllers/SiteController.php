@@ -55,6 +55,18 @@ class SiteController extends Controller
     /**
      * {@inheritdoc}
      */
+    public function beforeAction($action)
+    {
+        if ($action->id === 'error') {
+            $this->layout = 'error';
+        }
+        
+        return parent::beforeAction($action);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function actions()
     {
         return [
