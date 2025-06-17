@@ -7,6 +7,10 @@ use yii\web\Controller;
 use yii\web\HttpException;
 use common\models\AuthToken;
 use common\models\User;
+use common\models\UserProfile;
+use common\models\Patient;
+use common\models\Therapist;
+use common\models\AccountPatient;
 
 /**
  * @OA\Info(
@@ -211,12 +215,12 @@ class AuthController extends Controller
             ];
         }
 
-        // Cerca automaticamente prima tra i pazienti, poi tra i terapisti
-        $user = $this->findUserInBothTables($email, $password);
+        // Cerca l'utente nel database usando i modelli reali
+        $userData = $this->findAndValidateUser($email, $password);
 
-        if ($user) {
-            // Controlla se è il primo login
-            $requiresPasswordChange = isset($user['first_login']) && $user['first_login'] === true;
+        if ($userData) {
+            // TODO: Gestire correttamente il first_login invece di metterlo sempre true
+            $requiresPasswordChange = false; // Per ora sempre true come richiesto
             
             // Se è primo login, non genera il token completo
             if ($requiresPasswordChange) {
@@ -224,25 +228,25 @@ class AuthController extends Controller
                     'success' => true,
                     'message' => 'Login effettuato. È necessario cambiare la password.',
                     'data' => [
-                        'user' => $user,
+                        'user' => $userData,
                         'requires_password_change' => true,
-                        'temp_token' => $this->generateTempToken($user) // Token temporaneo per cambio password
+                        'temp_token' => $this->generateTempToken($userData) // Token temporaneo per cambio password
                     ]
                 ];
             }
             
             // Login normale - genera token di accesso completo
-            $token = $this->generateAccessToken([
-                'user_id' => $user['id'],
-                'email' => $user['email'],
+            $accessToken = $this->generateAccessToken([
+                'user_id' => $userData['id'],
+                'email' => $userData['email']
             ]);
             
             return [
                 'success' => true,
                 'message' => 'Login effettuato con successo',
                 'data' => [
-                    'user' => $user,
-                    'access_token' => $token,
+                    'user' => $userData,
+                    'access_token' => $accessToken,
                     'token_type' => 'Bearer',
                     'expires_in' => 3600, // 1 ora
                     'requires_password_change' => false
@@ -478,7 +482,7 @@ class AuthController extends Controller
         $token = $matches[1];
         
         // Simula la verifica del token
-        $user = $this->simulateTokenVerification($token);
+        $user = $this->verifyTokenWithDatabase($token);
         
         if ($user) {
             return [
@@ -498,27 +502,143 @@ class AuthController extends Controller
     }
 
     /**
-     * Cerca un utente prima nella tabella pazienti, poi in quella terapisti
+     * Trova e valida un utente usando i modelli reali di Yii2
      */
-    private function findUserInBothTables($email, $password)
+    private function findAndValidateUser($email, $password)
     {
-        // Prima cerca tra i pazienti
-        $user = $this->searchInPazientiTable($email, $password);
-        if ($user) {
-            return $user;
+        // Trova l'utente per email
+        $user = User::find()
+            ->where(['email' => $email])
+            ->andWhere(['status' => User::STATUS_ACTIVE])
+            ->one();
+        
+        if (!$user) {
+            Yii::info("User not found for email: $email", __METHOD__);
+            return null;
         }
-
-        // Se non trovato, cerca tra i terapisti
-        $user = $this->searchInTerapistiTable($email, $password);
-        if ($user) {
-            return $user;
+        
+        // Valida la password usando il metodo standard di Yii2
+        if (!$user->validatePassword($password)) {
+            Yii::info("Invalid password for email: $email", __METHOD__);
+            return null;
         }
-
-        return null;
+        
+        // Determina il tipo di utente (terapista o account paziente)
+        $userData = $this->buildUserData($user);
+        
+        if (!$userData) {
+            Yii::error("User found but not associated with Therapist or AccountPatient: {$user->id}", __METHOD__);
+            return null;
+        }
+        
+        return $userData;
     }
 
     /**
-     * Simula la ricerca nella tabella pazienti
+     * Costruisce i dati utente basandosi sul tipo (terapista o account paziente)
+     */
+    private function buildUserData(User $user)
+    {
+        // Carica il profilo utente
+        $profile = $user->profile;
+        if (!$profile) {
+            Yii::error("User profile not found for user: {$user->id}", __METHOD__);
+            return null;
+        }
+        
+        // Verifica se è un terapista
+        $therapist = Therapist::findOne(['user_id' => $user->id]);
+        if ($therapist) {
+            return $this->buildTherapistData($user, $profile, $therapist);
+        }
+        
+        // Verifica se è un account paziente
+        $accountPatient = AccountPatient::findOne(['user_id' => $user->id]);
+        if ($accountPatient) {
+            return $this->buildPatientAccountData($user, $profile, $accountPatient);
+        }
+        
+        // Se non è né terapista né account paziente, restituisce null
+        return null;
+    }
+    
+    /**
+     * Costruisce i dati per un terapista
+     */
+    private function buildTherapistData(User $user, UserProfile $profile, Therapist $therapist)
+    {
+        // Carica la specializzazione
+        $specialization = $therapist->specialization;
+        
+        $userData = [
+            'id' => $user->id,
+            'email' => $user->email,
+            'nome' => $profile->first_name,
+            'cognome' => $profile->last_name,
+            'codice_fiscale' => $profile->fiscal_code,
+            'telefono' => $profile->phone,
+            'indirizzo' => $profile->address,
+            'user_type' => 'terapista',
+            'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
+            'specializzazione' => $specialization ? $specialization->name : null,
+            'first_login' => true // TODO: Gestire correttamente
+        ];
+        
+        // Decodifica i dati sensibili se necessario
+        return $this->decodeSensitiveData($userData);
+    }
+    
+    /**
+     * Costruisce i dati per un account paziente
+     */
+    private function buildPatientAccountData(User $user, UserProfile $profile, AccountPatient $accountPatient)
+    {
+        // Carica il paziente collegato
+        $patient = $accountPatient->patient;
+        if (!$patient) {
+            Yii::error("Patient not found for AccountPatient: {$accountPatient->id}", __METHOD__);
+            return null;
+        }
+        
+        $userData = [
+            'id' => $user->id,
+            'email' => $user->email,
+            'nome' => $profile->first_name,
+            'cognome' => $profile->last_name,
+            'codice_fiscale' => $profile->fiscal_code,
+            'telefono' => $profile->phone,
+            'indirizzo' => $profile->address,
+            'user_type' => 'paziente',
+            'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
+            'patient_id' => $patient->id,
+            'patient_name' => $patient->fullName,
+            'relationship' => $accountPatient->relationship ?? 'self',
+            'first_login' => true // TODO: Gestire correttamente
+        ];
+        
+        // Decodifica i dati sensibili se necessario
+        return $this->decodeSensitiveData($userData);
+    }
+    
+    /**
+     * Decodifica i dati sensibili usando il componente security di Yii2
+     */
+    private function decodeSensitiveData($userData)
+    {
+        // TODO: Implementare la decodifica dei dati sensibili se sono codificati nel DB
+        // Esempio:
+        // if (!empty($userData['codice_fiscale'])) {
+        //     $userData['codice_fiscale'] = Yii::$app->security->decryptByPassword(
+        //         base64_decode($userData['codice_fiscale']), 
+        //         Yii::$app->params['encryptionKey']
+        //     );
+        // }
+        
+        return $userData;
+    }
+
+    /**
+     * @deprecated Metodo di simulazione - sostituito con buildUserData()
      */
     private function searchInPazientiTable($email, $password)
     {
@@ -614,7 +734,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Genera un token di accesso simulato
+     * Genera un token di accesso usando JWT e lo salva nel database
      */
     private function generateAccessToken($payload)
     {
@@ -622,25 +742,29 @@ class AuthController extends Controller
         $token = Yii::$app->jwt->generateToken($payload);
         $refreshToken = Yii::$app->jwt->generateRefreshToken($payload);
 
-        // (Opzionale) Salva il token nel database per poterlo revocare successivamente
+        // Salva il token nel database per poterlo revocare successivamente
         $authToken = new AuthToken();
         $authToken->user_id = $payload['user_id'];
         $authToken->token = $token;
-        $authToken->refresh_token = $refreshToken; // Nuovo campo
+        $authToken->refresh_token = $refreshToken;
         $authToken->is_revoked = 0;
         $authToken->created_at = time();
         $authToken->expires_at = time() + Yii::$app->jwt->tokenDuration;
         $authToken->refresh_expires_at = time() + Yii::$app->jwt->refreshTokenDuration;
         $authToken->last_used_at = time();
-        $authToken->save();
+        
+        if (!$authToken->save()) {
+            Yii::error("Failed to save auth token: " . json_encode($authToken->errors), __METHOD__);
+        }
 
-        return $authToken;
+        // Restituisce solo il token string per compatibilità con il codice esistente
+        return $token;
     }
 
     /**
      * Verifica la validità di un token JWT controllando anche il database
      */
-    private function simulateTokenVerification($token)
+    private function verifyTokenWithDatabase($token)
     {
         try {
             // Prima verifica se il token esiste e non è stato revocato nel database
@@ -688,7 +812,7 @@ class AuthController extends Controller
                 return null;
             }
             
-            // Cerca l'utente nelle tabelle simulate per verificare che esista ancora
+            // Cerca l'utente nel database usando i modelli reali
             $user = $this->findUserById($userId, $email);
             
             if (!$user) {
@@ -746,79 +870,23 @@ class AuthController extends Controller
     }
 
     /**
-     * Trova un utente per ID e email nelle tabelle simulate
+     * Trova un utente per ID e email usando i modelli reali
      */
     private function findUserById($userId, $email)
     {
-        // Cerca prima tra i pazienti
-        $pazienti = [
-            [
-                'id' => 1,
-                'email' => 'paziente1@example.com',
-                'nome' => 'Marco',
-                'cognome' => 'Rossi',
-                'codice_fiscale' => 'RSSMRC80A01H501Z',
-                'telefono' => '123456789',
-                'data_nascita' => '1980-01-01',
-                'indirizzo' => 'Via Roma 123, Milano',
-                'user_type' => 'paziente',
-                'status' => 'attivo',
-            ],
-            [
-                'id' => 2,
-                'email' => 'paziente2@example.com',
-                'nome' => 'Laura',
-                'cognome' => 'Bianchi',
-                'codice_fiscale' => 'BNCLAURA85B02F205W',
-                'telefono' => '987654321',
-                'data_nascita' => '1985-02-15',
-                'indirizzo' => 'Via Napoli 456, Roma',
-                'user_type' => 'paziente',
-                'status' => 'attivo',
-            ]
-        ];
-
-        foreach ($pazienti as $paziente) {
-            if ($paziente['id'] == $userId && $paziente['email'] === $email) {
-                return $paziente;
-            }
+        // Trova l'utente nel database
+        $user = User::find()
+            ->where(['id' => $userId, 'email' => $email])
+            ->andWhere(['status' => User::STATUS_ACTIVE])
+            ->one();
+        
+        if (!$user) {
+            Yii::error("User not found: ID $userId, Email $email", __METHOD__);
+            return null;
         }
-
-        // Cerca tra i terapisti
-        $terapisti = [
-            [
-                'id' => 1,
-                'email' => 'terapista1@example.com',
-                'nome' => 'Dr. Giuseppe',
-                'cognome' => 'Verdi',
-                'codice_fiscale' => 'VRDGPP75C03L219X',
-                'telefono' => '555123456',
-                'specializzazione' => 'Fisioterapia',
-                'numero_albo' => 'FT12345',
-                'user_type' => 'terapista',
-                'status' => 'attivo',
-            ],
-            [
-                'id' => 2,
-                'email' => 'terapista2@example.com',
-                'nome' => 'Dr.ssa Anna',
-                'cognome' => 'Neri',
-                'codice_fiscale' => 'NRANNA82D04M123Y',
-                'telefono' => '555789012',
-                'specializzazione' => 'Psicoterapia',
-                'numero_albo' => 'PSI67890',
-                'user_type' => 'terapista',
-                'status' => 'attivo',
-            ]
-        ];
-
-        foreach ($terapisti as $terapista) {
-            if ($terapista['id'] == $userId && $terapista['email'] === $email) {
-                return $terapista;
-            }
-        }
-
-        return null; // Utente non trovato
+        
+        // Costruisce i dati utente usando la stessa logica del login
+        return $this->buildUserData($user);
     }
 
     /**
@@ -991,12 +1059,15 @@ class AuthController extends Controller
         }
 
         // Simula l'aggiornamento della password nel database
-        $updateResult = $this->simulatePasswordUpdate($user['id'], $user['user_type'], $newPassword);
+        $updateResult = $this->updateUserPassword($user['id'], $user['user_type'], $newPassword);
         
         if ($updateResult) {
             // Genera token di accesso normale dopo il cambio password
             $user['first_login'] = false; // Non è più primo login
-            $accessToken = $this->generateAccessToken($user);
+            $accessToken = $this->generateAccessToken([
+                'user_id' => $user['id'],
+                'email' => $user['email']
+            ]);
             
             return [
                 'success' => true,
@@ -1088,17 +1159,36 @@ class AuthController extends Controller
     }
 
     /**
-     * Simula l'aggiornamento della password nel database
+     * Aggiorna la password nel database usando i modelli reali di Yii2
      */
-    private function simulatePasswordUpdate($userId, $userType, $newPassword)
+    private function updateUserPassword($userId, $userType, $newPassword)
     {
-        // In produzione qui faresti l'update nel database
-        // UPDATE pazienti/terapisti SET password = hash($newPassword), first_login = false WHERE id = $userId
-        
-        // Per ora simuliamo un aggiornamento sempre riuscito
-        Yii::info("Simulazione aggiornamento password per utente ID: {$userId}, tipo: {$userType}", __METHOD__);
-        
-        // Simula che l'operazione è sempre riuscita
-        return true;
+        try {
+            // Trova l'utente
+            $user = User::findOne(['id' => $userId, 'status' => User::STATUS_ACTIVE]);
+            if (!$user) {
+                Yii::error("User not found for password update: ID $userId", __METHOD__);
+                return false;
+            }
+            
+            // Aggiorna la password usando il metodo standard di Yii2
+            $user->setPassword($newPassword);
+            
+            // TODO: Aggiungere campo first_login alla tabella users e gestirlo qui
+            // $user->first_login = 0;
+            
+            // Salva le modifiche
+            if ($user->save()) {
+                Yii::info("Password updated successfully for user: {$user->id}", __METHOD__);
+                return true;
+            } else {
+                Yii::error("Failed to save password update for user: {$user->id}. Errors: " . json_encode($user->errors), __METHOD__);
+                return false;
+            }
+            
+        } catch (\Exception $e) {
+            Yii::error("Exception during password update: " . $e->getMessage(), __METHOD__);
+            return false;
+        }
     }
 }

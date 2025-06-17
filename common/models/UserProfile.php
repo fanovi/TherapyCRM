@@ -37,7 +37,12 @@ class UserProfile extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
         ];
     }
 
@@ -49,11 +54,10 @@ class UserProfile extends ActiveRecord
         return [
             [['user_id', 'first_name', 'last_name'], 'required'],
             [['user_id'], 'integer'],
-            [['address'], 'string'],
+            [['address', 'phone'], 'string'],
             [['created_at', 'updated_at'], 'safe'],
             [['first_name', 'last_name'], 'string', 'max' => 100],
             [['fiscal_code'], 'string', 'max' => 16],
-            [['phone'], 'string', 'max' => 20],
             [['fiscal_code'], 'unique'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];

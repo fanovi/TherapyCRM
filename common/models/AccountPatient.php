@@ -12,7 +12,8 @@ use yii\behaviors\TimestampBehavior;
  * @property int $id
  * @property int $user_id
  * @property int $patient_id
- * @property string $relationship
+ * @property bool $has_parental_authority
+ * @property string $relationship_type
  * @property int $can_view_appointments
  * @property int $can_cancel_appointments
  * @property string $created_at
@@ -23,10 +24,9 @@ use yii\behaviors\TimestampBehavior;
  */
 class AccountPatient extends ActiveRecord
 {
-    const RELATIONSHIP_PARENT = 'parent';
-    const RELATIONSHIP_GUARDIAN = 'guardian';
-    const RELATIONSHIP_SPOUSE = 'spouse';
     const RELATIONSHIP_SELF = 'self';
+    const RELATIONSHIP_PARENT = 'parent';
+    const RELATIONSHIP_TUTOR = 'tutor';
     const RELATIONSHIP_OTHER = 'other';
 
     /**
@@ -43,7 +43,14 @@ class AccountPatient extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'createdAtAttribute' => 'created_at',
+                'updatedAtAttribute' => false,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
         ];
     }
 
@@ -53,11 +60,11 @@ class AccountPatient extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'patient_id', 'relationship'], 'required'],
-            [['user_id', 'patient_id', 'can_view_appointments', 'can_cancel_appointments'], 'integer'],
-            [['can_view_appointments', 'can_cancel_appointments'], 'boolean'],
-            [['relationship'], 'string', 'max' => 50],
-            [['relationship'], 'in', 'range' => $this->getRelationshipOptions()],
+            [['user_id', 'patient_id', 'relationship_type'], 'required'],
+            [['user_id', 'patient_id'], 'integer'],
+            [['has_parental_authority'], 'boolean'],
+            [['relationship_type'], 'string', 'max' => 10],
+            [['relationship_type'], 'in', 'range' => $this->getRelationshipOptions()],
             [['user_id', 'patient_id'], 'unique', 'targetAttribute' => ['user_id', 'patient_id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
@@ -73,11 +80,9 @@ class AccountPatient extends ActiveRecord
             'id' => 'ID',
             'user_id' => 'Utente',
             'patient_id' => 'Paziente',
-            'relationship' => 'Relazione',
-            'can_view_appointments' => 'Può visualizzare appuntamenti',
-            'can_cancel_appointments' => 'Può cancellare appuntamenti',
+            'relationship_type' => 'Tipo Relazione',
+            'has_parental_authority' => 'Ha Autorità Genitoriale',
             'created_at' => 'Creato il',
-            'updated_at' => 'Aggiornato il',
         ];
     }
 
@@ -111,8 +116,7 @@ class AccountPatient extends ActiveRecord
         return [
             self::RELATIONSHIP_SELF,
             self::RELATIONSHIP_PARENT,
-            self::RELATIONSHIP_GUARDIAN,
-            self::RELATIONSHIP_SPOUSE,
+            self::RELATIONSHIP_TUTOR,
             self::RELATIONSHIP_OTHER,
         ];
     }
@@ -127,8 +131,7 @@ class AccountPatient extends ActiveRecord
         return [
             self::RELATIONSHIP_SELF => 'Io stesso',
             self::RELATIONSHIP_PARENT => 'Genitore',
-            self::RELATIONSHIP_GUARDIAN => 'Tutore',
-            self::RELATIONSHIP_SPOUSE => 'Coniuge',
+            self::RELATIONSHIP_TUTOR => 'Tutore',
             self::RELATIONSHIP_OTHER => 'Altro',
         ];
     }
@@ -141,27 +144,17 @@ class AccountPatient extends ActiveRecord
     public function getRelationshipLabel()
     {
         $labels = static::getRelationshipLabels();
-        return $labels[$this->relationship] ?? $this->relationship;
+        return $labels[$this->relationship_type] ?? $this->relationship_type;
     }
 
     /**
-     * Checks if user can view patient appointments
+     * Checks if user has parental authority
      *
      * @return bool
      */
-    public function canViewAppointments()
+    public function hasParentalAuthority()
     {
-        return (bool) $this->can_view_appointments;
-    }
-
-    /**
-     * Checks if user can cancel patient appointments
-     *
-     * @return bool
-     */
-    public function canCancelAppointments()
-    {
-        return (bool) $this->can_cancel_appointments;
+        return (bool) $this->has_parental_authority;
     }
 
     /**

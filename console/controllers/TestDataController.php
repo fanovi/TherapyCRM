@@ -9,6 +9,7 @@ use common\models\User;
 use common\models\UserProfile;
 use common\models\Therapist;
 use common\models\Patient;
+use common\models\AccountPatient;
 use common\models\TherapeuticPlan;
 use common\models\PlanTherapy;
 use common\models\Appointment;
@@ -531,9 +532,10 @@ class TestDataController extends Controller
     private function createUser($email, $firstName, $lastName)
     {
         $user = new User();
+        $user->username = $email; // Usa la mail anche come username
         $user->email = $email;
-        $user->setPassword('password123');
-        $user->generateAuthKey();
+        $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+        $user->auth_key = Yii::$app->security->generateRandomString();
         $user->status = User::STATUS_ACTIVE;
         $user->save();
 
@@ -542,7 +544,8 @@ class TestDataController extends Controller
         $profile->first_name = $firstName;
         $profile->last_name = $lastName;
         $profile->fiscal_code = strtoupper(substr($firstName, 0, 3) . substr($lastName, 0, 3)) . '00A00A000A';
-        $profile->phone = '333' . sprintf('%07d', rand(1000000, 9999999));
+        $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3331234567', Yii::$app->params['encryptionKey']));
+        $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Roma 123, 80100 Napoli (NA)', Yii::$app->params['encryptionKey']));
         $profile->save();
 
         return $user;
@@ -576,5 +579,175 @@ class TestDataController extends Controller
         foreach ($statusStats as $stat) {
             $this->stdout("   {$stat['status']}: {$stat['count']}\n");
         }
+    }
+
+    /**
+     * Crea un utente terapista specifico per test
+     */
+    public function actionCreateTherapistUser()
+    {
+        $this->stdout("👨‍⚕️ Creazione utente terapista di test...\n");
+        
+        $email = 'terapista@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente terapista con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Crea l'utente
+            $user = new User();
+            $user->username = $email; // Usa la mail anche come username
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Mario';
+            $profile->last_name = 'Rossi';
+            $profile->fiscal_code = 'RSSMRA80A01H501T';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3331234567', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Roma 123, 80100 Napoli (NA)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Crea il profilo terapista
+            $specializations = Specialization::find()->all();
+            if (empty($specializations)) {
+                throw new \Exception('Nessuna specializzazione trovata. Eseguire prima generate-all per creare i dati base.');
+            }
+
+            $therapist = new Therapist();
+            $therapist->user_id = $user->id;
+            $therapist->specialization_id = $specializations[0]->id; // Prima specializzazione disponibile
+            $therapist->weekly_hours_contract = 38;
+            $therapist->calendar_color = '#3b82f6';
+            $therapist->is_active = true;
+            
+            if (!$therapist->save()) {
+                throw new \Exception('Errore nella creazione terapista: ' . implode(', ', $therapist->getFirstErrors()));
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Utente terapista creato con successo!\n");
+            $this->stdout("   Email: $email\n");
+            $this->stdout("   Password: 12345678\n");
+            $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Specializzazione: {$specializations[0]->name}\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Crea un paziente e il relativo account utente per test
+     */
+    public function actionCreatePatientUser()
+    {
+        $this->stdout("👶 Creazione paziente e utente collegato di test...\n");
+        
+        $email = 'paziente@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente paziente con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Controlla che esistano i distretti
+            $districts = District::find()->all();
+            if (empty($districts)) {
+                throw new \Exception('Nessun distretto trovato. Eseguire prima generate-all per creare i dati base.');
+            }
+
+            // Crea prima il paziente
+            $patient = new Patient();
+            $patient->first_name = 'Giulia';
+            $patient->last_name = 'Bianchi';
+            $patient->birth_date = '2015-03-15';
+            $patient->fiscal_code = 'BNCGLI15C55F205R';
+            $patient->district_id = $districts[0]->id;
+            $patient->notes = 'Paziente di test creato automaticamente. Genitore: Anna Bianchi (Madre)';
+            
+            if (!$patient->save()) {
+                throw new \Exception('Errore nella creazione paziente: ' . implode(', ', $patient->getFirstErrors()));
+            }
+
+            // Crea l'utente collegato al paziente
+            $user = new User();
+            $user->username = $email; // Usa la mail anche come username
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente (del genitore/tutore)
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Anna';
+            $profile->last_name = 'Bianchi';
+            $profile->fiscal_code = 'BNCNNA75D48F205X';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3339876543', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Garibaldi 45, 20100 Milano (MI)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Crea il collegamento utente-paziente
+            $accountPatient = new AccountPatient();
+            $accountPatient->user_id = $user->id;
+            $accountPatient->patient_id = $patient->id;
+            $accountPatient->relationship_type = 'parent';
+            $accountPatient->has_parental_authority = true;
+            
+            if (!$accountPatient->save()) {
+                throw new \Exception('Errore nella creazione collegamento paziente: ' . implode(', ', $accountPatient->getFirstErrors()));
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Paziente e utente collegato creati con successo!\n");
+            $this->stdout("   PAZIENTE:\n");
+            $this->stdout("     Nome: {$patient->first_name} {$patient->last_name}\n");
+            $this->stdout("     Data nascita: {$patient->birth_date}\n");
+            $this->stdout("     Codice fiscale: {$patient->fiscal_code}\n");
+            $this->stdout("   ACCOUNT GENITORE:\n");
+            $this->stdout("     Email: $email\n");
+            $this->stdout("     Password: 12345678\n");
+            $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("     Relazione: Madre del paziente\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
     }
 } 

@@ -37,7 +37,11 @@ class AuthToken extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'createdAtAttribute' => 'created_at',
+                'updatedAtAttribute' => false, // Non utilizzare updated_at
+            ],
         ];
     }
 
