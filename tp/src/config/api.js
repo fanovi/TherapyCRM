@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://127.0.0.1:3307/TherapyCRM/api',
+  BASE_URL: 'http://127.0.0.1/TherapyCRM/api',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',

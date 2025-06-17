@@ -17,5 +17,13 @@ return [
         'authManager' => [
             'class' => 'yii\rbac\DbManager',
         ],
+        'oneSignal' => [
+            'class' => 'common\components\OneSignalService',
+            'appId' => '', // Configura con il tuo OneSignal App ID
+            'restApiKey' => '', // Configura con la tua OneSignal REST API Key
+        ],
+        'notificationService' => [
+            'class' => 'common\components\NotificationService',
+        ],
     ],
 ];
