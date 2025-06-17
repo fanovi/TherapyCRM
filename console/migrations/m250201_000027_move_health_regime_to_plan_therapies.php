@@ -23,7 +23,7 @@ class m250201_000027_move_health_regime_to_plan_therapies extends Migration
         $this->execute("
             UPDATE {{%plan_therapies}} pt
             INNER JOIN {{%therapeutic_plans}} tp ON pt.therapeutic_plan_id = tp.id
-            SET pt.health_regime = tp.health_regime
+            SET pt.health_regime = COALESCE(tp.health_regime, 'L11')
         ");
 
         // 3. Rimuovi il campo health_regime dalla tabella therapeutic_plans

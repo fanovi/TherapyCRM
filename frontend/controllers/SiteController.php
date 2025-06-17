@@ -268,4 +268,10 @@ class SiteController extends Controller
             'model' => $model
         ]);
     }
+
+    //TODO da rimuovere
+    public function actionForm()
+    {
+        return $this->render('form');
+    }
 }

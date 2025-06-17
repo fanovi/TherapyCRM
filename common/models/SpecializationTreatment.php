@@ -1,0 +1,137 @@
+<?php
+
+namespace common\models;
+
+use Yii;
+use yii\db\ActiveRecord;
+
+/**
+ * This is the model class for table "specialization_treatments".
+ *
+ * @property int $id
+ * @property int $specialization_id
+ * @property int $treatment_type_id
+ * @property int|null $duration_minutes
+ * @property int|null $max_sessions_per_week
+ * @property string|null $notes
+ *
+ * @property Specialization $specialization
+ * @property TreatmentType $treatmentType
+ */
+class SpecializationTreatment extends ActiveRecord
+{
+    /**
+     * {@inheritdoc}
+     */
+    public static function tableName()
+    {
+        return '{{%specialization_treatments}}';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function rules()
+    {
+        return [
+            [['specialization_id', 'treatment_type_id'], 'required'],
+            [['specialization_id', 'treatment_type_id', 'duration_minutes', 'max_sessions_per_week'], 'integer'],
+            [['notes'], 'string'],
+            [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
+            [['max_sessions_per_week'], 'integer', 'min' => 1, 'max' => 10],
+            [['specialization_id', 'treatment_type_id'], 'unique', 'targetAttribute' => ['specialization_id', 'treatment_type_id']],
+            [['specialization_id'], 'exist', 'skipOnError' => true, 'targetClass' => Specialization::class, 'targetAttribute' => ['specialization_id' => 'id']],
+            [['treatment_type_id'], 'exist', 'skipOnError' => true, 'targetClass' => TreatmentType::class, 'targetAttribute' => ['treatment_type_id' => 'id']],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'specialization_id' => 'Specializzazione',
+            'treatment_type_id' => 'Tipo Trattamento',
+            'duration_minutes' => 'Durata (minuti)',
+            'max_sessions_per_week' => 'Max Sedute/Settimana',
+            'notes' => 'Note',
+        ];
+    }
+
+    /**
+     * Gets query for [[Specialization]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSpecialization()
+    {
+        return $this->hasOne(Specialization::class, ['id' => 'specialization_id']);
+    }
+
+    /**
+     * Gets query for [[TreatmentType]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTreatmentType()
+    {
+        return $this->hasOne(TreatmentType::class, ['id' => 'treatment_type_id']);
+    }
+
+    /**
+     * Gets formatted combination name
+     *
+     * @return string
+     */
+    public function getFullName()
+    {
+        return $this->specialization->name . ' - ' . $this->treatmentType->name;
+    }
+
+    /**
+     * Gets all combinations for dropdown
+     *
+     * @return array
+     */
+    public static function getDropdownData()
+    {
+        $combinations = static::find()
+            ->joinWith(['specialization', 'treatmentType'])
+            ->orderBy(['specializations.name' => SORT_ASC, 'treatment_types.name' => SORT_ASC])
+            ->all();
+
+        $result = [];
+        foreach ($combinations as $combination) {
+            $result[$combination->id] = $combination->getFullName();
+        }
+
+        return $result;
+    }
+
+    /**
+     * Gets combinations by specialization
+     *
+     * @param int $specializationId
+     * @return static[]
+     */
+    public static function findBySpecialization($specializationId)
+    {
+        return static::find()
+            ->where(['specialization_id' => $specializationId])
+            ->joinWith('treatmentType')
+            ->orderBy('treatment_types.name')
+            ->all();
+    }
+
+    /**
+     * Gets default duration for treatment
+     *
+     * @return int
+     */
+    public function getDefaultDuration()
+    {
+        return $this->duration_minutes ?: 45; // Default 45 minutes
+    }
+} 
