@@ -506,8 +506,9 @@ class AuthController extends Controller
      */
     private function findAndValidateUser($email, $password)
     {
-        // Trova l'utente per email
+        // Trova l'utente per email con eager loading del profilo
         $user = User::find()
+            ->with('profile') // Eager loading per evitare N+1 query
             ->where(['email' => $email])
             ->andWhere(['status' => User::STATUS_ACTIVE])
             ->one();
@@ -546,16 +547,22 @@ class AuthController extends Controller
             return null;
         }
         
-        // Verifica se è un terapista
-        $therapist = Therapist::findOne(['user_id' => $user->id]);
+        // Verifica se è un terapista con eager loading della specializzazione
+        $therapist = Therapist::find()
+            ->with('specialization') // Eager loading per evitare N+1 query
+            ->where(['user_id' => $user->id])
+            ->one();
         if ($therapist) {
             return $this->buildTherapistData($user, $profile, $therapist);
         }
         
-        // Verifica se è un account paziente
-        $accountPatient = AccountPatient::findOne(['user_id' => $user->id]);
-        if ($accountPatient) {
-            return $this->buildPatientAccountData($user, $profile, $accountPatient);
+        // Verifica se è un account paziente con eager loading dei pazienti
+        $accountPatients = AccountPatient::find()
+            ->with('patient') // Eager loading per evitare N+1 query
+            ->where(['user_id' => $user->id])
+            ->all();
+        if (!empty($accountPatients)) {
+            return $this->buildPatientAccountData($user, $profile, $accountPatients[0], $accountPatients);
         }
         
         // Se non è né terapista né account paziente, restituisce null
@@ -567,7 +574,7 @@ class AuthController extends Controller
      */
     private function buildTherapistData(User $user, UserProfile $profile, Therapist $therapist)
     {
-        // Carica la specializzazione
+        // La specializzazione è già caricata tramite eager loading
         $specialization = $therapist->specialization;
         
         $userData = [
@@ -591,20 +598,22 @@ class AuthController extends Controller
     /**
      * Costruisce i dati per un account paziente
      */
-    private function buildPatientAccountData(User $user, UserProfile $profile, AccountPatient $accountPatient)
+    private function buildPatientAccountData(User $user, UserProfile $profile, AccountPatient $accountPatient, $accountPatients = null)
     {
-        // Trova tutti i pazienti collegati a questo account utente
-        $accountPatients = AccountPatient::find()
-            ->where(['user_id' => $user->id])
-            ->with('patient') // Eager loading per performance
-            ->all();
+        // Se non sono stati passati i dati, li recuperiamo (fallback)
+        if ($accountPatients === null) {
+            $accountPatients = AccountPatient::find()
+                ->where(['user_id' => $user->id])
+                ->with('patient') // Eager loading per performance
+                ->all();
+        }
         
         if (empty($accountPatients)) {
             Yii::error("No patients found for AccountPatient user: {$user->id}", __METHOD__);
             return null;
         }
         
-        // Costruisce l'array dei pazienti
+        // Costruisce l'array dei pazienti (i dati sono già caricati tramite eager loading)
         $patients = [];
         foreach ($accountPatients as $ap) {
             $patient = $ap->patient;
