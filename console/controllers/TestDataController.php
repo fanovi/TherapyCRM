@@ -750,4 +750,63 @@ class TestDataController extends Controller
 
         return ExitCode::OK;
     }
+
+    /**
+     * Crea un utente manager per test
+     */
+    public function actionCreateManagerUser()
+    {
+        $this->stdout("👨‍💼 Creazione utente manager di test...\n");
+        
+        $email = 'manager@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente manager con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Crea l'utente
+            $user = new User();
+            $user->username = $email; // Usa la mail anche come username
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Antonio';
+            $profile->last_name = 'Verdi';
+            $profile->fiscal_code = 'VRDNTN80A01H501Z';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3337654321', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Milano 87, 80100 Napoli (NA)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Utente manager creato con successo!\n");
+            $this->stdout("   Email: $email\n");
+            $this->stdout("   Password: 12345678\n");
+            $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Codice fiscale: {$profile->fiscal_code}\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
 } 

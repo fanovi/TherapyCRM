@@ -7,10 +7,9 @@ use frontend\models\VerifyEmailForm;
 use Yii;
 use yii\base\InvalidArgumentException;
 use yii\web\BadRequestHttpException;
-use yii\web\Controller;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
-use common\models\LoginForm;
+use frontend\models\LoginForm;
 use frontend\models\PasswordResetRequestForm;
 use frontend\models\ResetPasswordForm;
 use frontend\models\SignupForm;
@@ -19,37 +18,39 @@ use frontend\models\ContactForm;
 /**
  * Site controller
  */
-class SiteController extends Controller
+class SiteController extends BaseController
 {
     /**
      * {@inheritdoc}
      */
     public function behaviors()
     {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'only' => ['logout', 'signup'],
-                'rules' => [
-                    [
-                        'actions' => ['signup'],
-                        'allow' => true,
-                        'roles' => ['?'],
-                    ],
-                    [
-                        'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
-                    ],
-                ],
+        $behaviors = parent::behaviors();
+        
+        // Sovrascrivere le regole di accesso per permettere accesso pubblico a azioni specifiche
+        $behaviors['access']['rules'] = [
+            [
+                // Permettere accesso alla pagina di login, error e azioni di registrazione per tutti
+                'actions' => ['login', 'error', 'signup', 'request-password-reset', 'reset-password', 'verify-email', 'resend-verification-email'],
+                'allow' => true,
+                'roles' => ['?', '@'], // ? = guest, @ = authenticated
             ],
-            'verbs' => [
-                'class' => VerbFilter::class,
-                'actions' => [
-                    'logout' => ['post'],
-                ],
+            [
+                // Tutte le altre azioni solo per utenti autenticati
+                'allow' => true,
+                'roles' => ['@'],
             ],
         ];
+        
+        // Aggiungere comportamenti specifici per verbi
+        $behaviors['verbs'] = [
+            'class' => VerbFilter::class,
+            'actions' => [
+                'logout' => ['post'],
+            ],
+        ];
+        
+        return $behaviors;
     }
 
     /**
