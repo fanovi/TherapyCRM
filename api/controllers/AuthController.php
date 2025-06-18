@@ -593,10 +593,34 @@ class AuthController extends Controller
      */
     private function buildPatientAccountData(User $user, UserProfile $profile, AccountPatient $accountPatient)
     {
-        // Carica il paziente collegato
-        $patient = $accountPatient->patient;
-        if (!$patient) {
-            Yii::error("Patient not found for AccountPatient: {$accountPatient->id}", __METHOD__);
+        // Trova tutti i pazienti collegati a questo account utente
+        $accountPatients = AccountPatient::find()
+            ->where(['user_id' => $user->id])
+            ->with('patient') // Eager loading per performance
+            ->all();
+        
+        if (empty($accountPatients)) {
+            Yii::error("No patients found for AccountPatient user: {$user->id}", __METHOD__);
+            return null;
+        }
+        
+        // Costruisce l'array dei pazienti
+        $patients = [];
+        foreach ($accountPatients as $ap) {
+            $patient = $ap->patient;
+            if ($patient) {
+                $patients[] = [
+                    'patient_id' => $patient->id,
+                    'patient_name' => $patient->fullName,
+                    'relationship' => $ap->relationship_type ?? 'self',
+                    'has_parental_authority' => (bool) $ap->has_parental_authority,
+                    'account_patient_id' => $ap->id
+                ];
+            }
+        }
+        
+        if (empty($patients)) {
+            Yii::error("No valid patients found for AccountPatient user: {$user->id}", __METHOD__);
             return null;
         }
         
@@ -610,9 +634,7 @@ class AuthController extends Controller
             'indirizzo' => $profile->address,
             'user_type' => 'paziente',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
-            'patient_id' => $patient->id,
-            'patient_name' => $patient->fullName,
-            'relationship' => $accountPatient->relationship ?? 'self',
+            'patients' => $patients, // Array di tutti i pazienti collegati
             'first_login' => true // TODO: Gestire correttamente
         ];
         
