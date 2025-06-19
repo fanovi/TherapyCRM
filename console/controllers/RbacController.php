@@ -502,6 +502,150 @@ class RbacController extends Controller
     }
 
     /**
+     * Inizializza tutte le assegnazioni di permessi ai ruoli secondo la configurazione di default
+     * 
+     * Uso: ./yii rbac/setup-default-permissions
+     */
+    public function actionSetupDefaultPermissions()
+    {
+        $this->stdout("Inizializzazione delle assegnazioni di permessi di default...\n");
+        $this->stdout("============================================================\n\n");
+
+        try {
+            // Configurazione default dei permessi per ogni ruolo
+            $rolePermissions = [
+                'admin' => [
+                    'create_admin',
+                    'create_coordinator', 
+                    'create_patient',
+                    'delete_admin',
+                    'delete_coordinator',
+                    'manage_appointments',
+                    'manage_communications',
+                    'manage_documents',
+                    'manage_patients',
+                    'manage_plans',
+                    'manage_system',
+                    'manage_therapists',
+                    'manage_users',
+                    'update_admin',
+                    'update_coordinator',
+                    'view_admin',
+                    'view_coordinator',
+                    'view_reports',
+                    'view_statistics'
+                ],
+                'coordinator' => [
+                    'manage_appointments',
+                    'manage_patients',
+                    'manage_plans',
+                    'manage_therapists',
+                    'update_therapist',
+                    'view_documents',
+                    'view_reports',
+                    'view_therapist'
+                ],
+                'manager' => [
+                    'create_therapist',
+                    'delete_therapist',
+                    'manage_communications',
+                    'manage_documents',
+                    'update_patient',
+                    'update_therapist',
+                    'view_patient',
+                    'view_statistics',
+                    'view_therapist'
+                ],
+                'patient' => [
+                    'view_own_appointments',
+                    'view_own_data'
+                ],
+                'patient_family' => [
+                    'view_own_appointments',
+                    'view_own_data',
+                    'view_patient_data'
+                ],
+                'therapist' => [
+                    'manage_appointments',
+                    'view_own_appointments',
+                    'view_patient',
+                    'view_patient_data'
+                ]
+            ];
+
+            $assignedCount = 0;
+            $skippedCount = 0;
+            $errorCount = 0;
+
+            foreach ($rolePermissions as $roleName => $permissions) {
+                $this->stdout("Configurazione ruolo '{$roleName}':\n");
+                
+                // Verifica che il ruolo esista
+                $role = AuthItem::findOne(['name' => $roleName, 'type' => AuthItem::TYPE_ROLE]);
+                if (!$role) {
+                    $this->stderr("  ✗ Ruolo '{$roleName}' non esiste. Saltato.\n");
+                    $errorCount++;
+                    continue;
+                }
+
+                foreach ($permissions as $permissionName) {
+                    // Verifica che il permesso esista
+                    $permission = AuthItem::findOne(['name' => $permissionName, 'type' => AuthItem::TYPE_PERMISSION]);
+                    if (!$permission) {
+                        $this->stderr("  ✗ Permesso '{$permissionName}' non esiste. Saltato.\n");
+                        $errorCount++;
+                        continue;
+                    }
+
+                    // Verifica se l'associazione esiste già
+                    $existingAssignment = AuthItemChild::findOne(['parent' => $roleName, 'child' => $permissionName]);
+                    if ($existingAssignment) {
+                        $this->stdout("  - {$permissionName} (già assegnato)\n");
+                        $skippedCount++;
+                        continue;
+                    }
+
+                    // Crea l'associazione
+                    $assignment = new AuthItemChild();
+                    $assignment->parent = $roleName;
+                    $assignment->child = $permissionName;
+
+                    if ($assignment->save()) {
+                        $this->stdout("  ✓ {$permissionName}\n");
+                        $assignedCount++;
+                    } else {
+                        $this->stderr("  ✗ Errore nell'assegnazione di '{$permissionName}'\n");
+                        $errorCount++;
+                    }
+                }
+                $this->stdout("\n");
+            }
+
+            // Riepilogo
+            $this->stdout("Riepilogo operazione:\n");
+            $this->stdout("====================\n");
+            $this->stdout("✓ Permessi assegnati: {$assignedCount}\n");
+            $this->stdout("- Già esistenti: {$skippedCount}\n");
+            if ($errorCount > 0) {
+                $this->stderr("✗ Errori: {$errorCount}\n");
+            }
+            $this->stdout("\n");
+
+            if ($errorCount > 0) {
+                $this->stderr("Operazione completata con errori.\n");
+                return self::EXIT_CODE_ERROR;
+            } else {
+                $this->stdout("✓ Configurazione default dei permessi completata con successo!\n");
+                return self::EXIT_CODE_NORMAL;
+            }
+
+        } catch (\Exception $e) {
+            $this->stderr("Errore durante l'inizializzazione: {$e->getMessage()}\n");
+            return self::EXIT_CODE_ERROR;
+        }
+    }
+
+    /**
      * Mostra l'help con tutti i comandi disponibili
      * 
      * Uso: ./yii rbac/help
@@ -518,6 +662,7 @@ class RbacController extends Controller
             'assign-permission-to-user [user_id] [permesso]' => 'Associa un permesso ad un utente',
             'assign-role-to-user [user_id] [ruolo]' => 'Associa un ruolo ad un utente',
             'revoke-from-user [user_id] [ruolo_o_permesso]' => 'Revoca un ruolo/permesso da un utente',
+            'setup-default-permissions' => 'Inizializza tutte le assegnazioni di permessi di default',
             'list-roles' => 'Lista tutti i ruoli esistenti',
             'list-permissions' => 'Lista tutti i permessi esistenti',
             'user-assignments [user_id]' => 'Mostra le assegnazioni di un utente',
@@ -534,6 +679,7 @@ class RbacController extends Controller
         $this->stdout("./yii rbac/create-permission view_reports \"Visualizzare i report\"\n");
         $this->stdout("./yii rbac/assign-permission-to-role manager view_reports\n");
         $this->stdout("./yii rbac/assign-role-to-user 1 manager\n");
+        $this->stdout("./yii rbac/setup-default-permissions\n");
         $this->stdout("./yii rbac/user-assignments 1\n");
 
         return self::EXIT_CODE_NORMAL;

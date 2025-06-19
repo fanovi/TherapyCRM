@@ -12,7 +12,7 @@ $this->title = 'Coordinatori';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
-<div class="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
+<div class="mx-auto max-w-full p-4 md:p-6">
     <!-- Breadcrumb Start -->
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -42,26 +42,39 @@ $this->params['breadcrumbs'][] = $this->title;
             </p>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800">
+        <!-- Scrollable Table Container -->
+        <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
             <?php Pjax::begin(); ?>
             
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
                 'filterModel' => $searchModel,
-                'tableOptions' => ['class' => 'w-full text-sm text-left text-gray-500 dark:text-gray-400'],
-                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
+                'options' => ['class' => 'min-w-full'],
+                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
+                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0'],
+                'filterRowOptions' => ['class' => 'bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600'],
                 'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
                 'columns' => [
                     [
                         'attribute' => 'id',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[80px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'placeholder' => 'ID...'
+                        ],
                     ],
                     [
                         'attribute' => 'first_name',
                         'label' => 'Nome',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'placeholder' => 'Nome...'
+                        ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->first_name : '';
                         }
@@ -69,22 +82,37 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'attribute' => 'last_name',
                         'label' => 'Cognome',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'placeholder' => 'Cognome...'
+                        ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->last_name : '';
                         }
                     ],
                     [
                         'attribute' => 'email',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'placeholder' => 'Email...'
+                        ],
                     ],
                     [
                         'attribute' => 'phone',
                         'label' => 'Telefono',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'placeholder' => 'Telefono...'
+                        ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->phone : '';
                         }
@@ -92,23 +120,27 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'attribute' => 'status',
                         'label' => 'Stato',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                        'value' => function($model) {
-                            return $model->status == 'active' ? 'Attivo' : 'Inattivo';
-                        },
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filter' => [10 => 'Attivo', 0 => 'Inattivo'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
+                            'prompt' => 'Stato...'
+                        ],
                         'format' => 'raw',
                         'content' => function($model) {
-                            $statusClass = $model->status == 'active' ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
-                            $statusText = $model->status == 'active' ? 'Attivo' : 'Inattivo';
+                            $statusClass = $model->status == 10 ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
+                            $statusText = $model->status == 10 ? 'Attivo' : 'Inattivo';
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $statusText . '</span>';
                         }
                     ],
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-4 py-2'],
                         'template' => '{view} {update} {delete}',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {

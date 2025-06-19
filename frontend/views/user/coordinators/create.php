@@ -9,8 +9,8 @@ use common\models\District;
 /** @var common\models\User $user */
 /** @var common\models\UserProfile $profile */
 
-$this->title = 'Nuovo Amministratore';
-$this->params['breadcrumbs'][] = ['label' => 'Amministratori', 'url' => ['index']];
+$this->title = 'Nuovo Coordinatore';
+$this->params['breadcrumbs'][] = ['label' => 'Coordinatori', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
@@ -31,8 +31,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         </a>
                     </li>
                     <li>
-                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/administrators']) ?>">
-                            Amministratori
+                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/coordinators']) ?>">
+                            Coordinatori
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
@@ -49,16 +49,16 @@ $this->params['breadcrumbs'][] = $this->title;
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Dati Amministratore
+                Dati Coordinatore
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Inserisci i dati per creare un nuovo amministratore del sistema.
+                Inserisci i dati per creare un nuovo coordinatore del sistema.
             </p>
         </div>
         
         <div class="border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
             <?php $form = ActiveForm::begin([
-                'id' => 'administrator-form',
+                'id' => 'coordinator-form',
                 'options' => ['class' => 'space-y-6'],
             ]); ?>
             
@@ -89,7 +89,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <div>
                     <?= $form->field($user, 'email')->textInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'admin@esempio.com',
+                        'placeholder' => 'coordinatore@esempio.com',
                         'type' => 'email'
                     ])->label('Email', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
@@ -166,9 +166,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     'class' => 'px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
                 ]) ?>
                 
-                <?= Html::submitButton('Crea Amministratore', [
+                <?= Html::submitButton('Crea Coordinatore', [
                     'class' => 'px-6 py-2.5 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800',
-                    'form' => 'administrator-form'
+                    'form' => 'coordinator-form'
                 ]) ?>
             </div>
         </div>
