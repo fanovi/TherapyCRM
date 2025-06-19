@@ -183,6 +183,298 @@ use yii\helpers\Url;
                     </li>
                     <!-- Menu Item Profile -->
 
+                    <!-- Menu Item Administrators -->
+                    <?php if (Yii::$app->user->can('create_admin')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Administrators' ? '':'Administrators')"
+                            class="menu-item group"
+                            :class="(selected === 'Administratcleaors') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Administrators') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M5 3.5C3.61929 3.5 2.5 4.61929 2.5 6V18C2.5 19.3807 3.61929 20.5 5 20.5H19C20.3807 20.5 21.5 19.3807 21.5 18V6C21.5 4.61929 20.3807 3.5 19 3.5H5ZM4 6C4 5.44772 4.44772 5 5 5H19C19.5523 5 20 5.44772 20 6V8H4V6ZM4 18V9.5H20V18C20 18.5523 19.5523 19 19 19H5C4.44772 19 4 18.5523 4 18ZM6.5 12.75C6.5 12.3358 6.83579 12 7.25 12H11.25C11.6642 12 12 12.3358 12 12.75C12 13.1642 11.6642 13.5 11.25 13.5H7.25C6.83579 13.5 6.5 13.1642 6.5 12.75ZM15.5 14.5C16.0523 14.5 16.5 14.0523 16.5 13.5C16.5 12.9477 16.0523 12.5 15.5 12.5C14.9477 12.5 14.5 12.9477 14.5 13.5C14.5 14.0523 14.9477 14.5 15.5 14.5ZM18 13.5C18 14.0523 17.5523 14.5 17 14.5C16.4477 14.5 16 14.0523 16 13.5C16 12.9477 16.4477 12.5 17 12.5C17.5523 12.5 18 12.9477 18 13.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Amministratori
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Administrators') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Administrators') ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/administrators']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Visualizza Amministratori
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/create-administrator']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Nuovo Amministratore
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Administrators -->
+
+                    <!-- Menu Item Coordinators -->
+                    <?php if (Yii::$app->user->can('create_coordinator')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Coordinators' ? '':'Coordinators')"
+                            class="menu-item group"
+                            :class="(selected === 'Coordinators') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Coordinators') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 2C13.1046 2 14 2.89543 14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 10.8954 2 12 2ZM12 3.5C11.7239 3.5 11.5 3.72386 11.5 4C11.5 4.27614 11.7239 4.5 12 4.5C12.2761 4.5 12.5 4.27614 12.5 4C12.5 3.72386 12.2761 3.5 12 3.5ZM7.5 8.5C8.32843 8.5 9 9.17157 9 10C9 10.8284 8.32843 11.5 7.5 11.5C6.67157 11.5 6 10.8284 6 10C6 9.17157 6.67157 8.5 7.5 8.5ZM16.5 8.5C17.3284 8.5 18 9.17157 18 10C18 10.8284 17.3284 11.5 16.5 11.5C15.6716 11.5 15 10.8284 15 10C15 9.17157 15.6716 8.5 16.5 8.5ZM5.25 14C4.00736 14 3 15.0074 3 16.25V19.75C3 20.9926 4.00736 22 5.25 22H18.75C19.9926 22 21 20.9926 21 19.75V16.25C21 15.0074 19.9926 14 18.75 14H5.25ZM4.5 16.25C4.5 15.8358 4.83579 15.5 5.25 15.5H18.75C19.1642 15.5 19.5 15.8358 19.5 16.25V19.75C19.5 20.1642 19.1642 20.5 18.75 20.5H5.25C4.83579 20.5 4.5 20.1642 4.5 19.75V16.25Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Coordinatori
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Coordinators') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Coordinators') ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/coordinators']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Visualizza Coordinatori
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/create-coordinator']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Nuovo Coordinatore
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Coordinators -->
+
+                    <!-- Menu Item Therapists -->
+                    <?php if (Yii::$app->user->can('create_therapist')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Therapists' ? '':'Therapists')"
+                            class="menu-item group"
+                            :class="(selected === 'Therapists') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Therapists') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M7.5 6C8.32843 6 9 6.67157 9 7.5C9 8.32843 8.32843 9 7.5 9C6.67157 9 6 8.32843 6 7.5C6 6.67157 6.67157 6 7.5 6ZM16.5 6C17.3284 6 18 6.67157 18 7.5C18 8.32843 17.3284 9 16.5 9C15.6716 9 15 8.32843 15 7.5C15 6.67157 15.6716 6 16.5 6ZM12 11C13.1046 11 14 11.8954 14 13C14 14.1046 13.1046 15 12 15C10.8954 15 10 14.1046 10 13C10 11.8954 10.8954 11 12 11ZM18.364 10.636C18.9497 11.2218 18.9497 12.1716 18.364 12.7574L17.6569 13.4645C17.2663 13.8551 16.633 13.8551 16.2425 13.4645C15.8519 13.074 15.8519 12.4408 16.2425 12.0503L16.9496 11.3431C17.5354 10.7574 18.4851 10.7574 19.0709 11.3431ZM5.636 10.636C6.22176 10.0503 7.17157 10.0503 7.75736 10.636L8.46447 11.3431C8.85499 11.7337 8.85499 12.3668 8.46447 12.7574C8.07394 13.1479 7.44078 13.1479 7.05025 12.7574L6.34315 12.0503C5.75736 11.4645 5.75736 10.5147 6.34315 9.92893ZM3 19.5C3 17.567 4.567 16 6.5 16H17.5C19.433 16 21 17.567 21 19.5C21 20.8807 19.8807 22 18.5 22H5.5C4.11929 22 3 20.8807 3 19.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Terapisti
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Therapists') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Therapists') ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/therapists']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Visualizza Terapisti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/create-therapist']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Nuovo Terapista
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Therapists -->
+
+                    <!-- Menu Item Patients -->
+                    <?php if (Yii::$app->user->can('create_patient')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Patients' ? '':'Patients')"
+                            class="menu-item group"
+                            :class="(selected === 'Patients') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Patients') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 3.5C8.96243 3.5 6.5 5.96243 6.5 9C6.5 12.0376 8.96243 14.5 12 14.5C15.0376 14.5 17.5 12.0376 17.5 9C17.5 5.96243 15.0376 3.5 12 3.5ZM5 9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9C19 12.866 15.866 16 12 16C8.13401 16 5 12.866 5 9ZM12 18.5C7.30558 18.5 3.5 20.3431 3.5 22.5C3.5 23.3284 4.17157 24 5 24H19C19.8284 24 20.5 23.3284 20.5 22.5C20.5 20.3431 16.6944 18.5 12 18.5ZM2 22.5C2 19.1863 6.47715 17 12 17C17.5228 17 22 19.1863 22 22.5C22 24.1569 20.6569 25.5 19 25.5H5C3.34315 25.5 2 24.1569 2 22.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Pazienti
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Patients') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Patients') ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/patient/index']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Visualizza Pazienti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/patient/create']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Nuovo Paziente
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Patients -->
+
                     <!-- Menu Item Forms -->
                     <li>
                         <a

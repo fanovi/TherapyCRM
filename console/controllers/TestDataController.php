@@ -642,10 +642,18 @@ class TestDataController extends Controller
 
             $transaction->commit();
             
+            // Assegna il ruolo di terapista
+            $auth = Yii::$app->authManager;
+            $therapistRole = $auth->getRole('therapist');
+            if ($therapistRole) {
+                $auth->assign($therapistRole, $user->id);
+            }
+
             $this->stdout("✅ Utente terapista creato con successo!\n");
             $this->stdout("   Email: $email\n");
             $this->stdout("   Password: 12345678\n");
             $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Ruolo: Therapist\n");
             $this->stdout("   Specializzazione: {$specializations[0]->name}\n");
             
         } catch (\Exception $e) {
@@ -729,6 +737,13 @@ class TestDataController extends Controller
                 throw new \Exception('Errore nella creazione collegamento paziente: ' . implode(', ', $accountPatient->getFirstErrors()));
             }
 
+            // Assegna il ruolo di paziente
+            $auth = Yii::$app->authManager;
+            $patientRole = $auth->getRole('patient');
+            if ($patientRole) {
+                $auth->assign($patientRole, $user->id);
+            }
+
             $transaction->commit();
             
             $this->stdout("✅ Paziente e utente collegato creati con successo!\n");
@@ -740,6 +755,7 @@ class TestDataController extends Controller
             $this->stdout("     Email: $email\n");
             $this->stdout("     Password: 12345678\n");
             $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("     Ruolo: Patient\n");
             $this->stdout("     Relazione: Madre del paziente\n");
             
         } catch (\Exception $e) {
@@ -793,12 +809,154 @@ class TestDataController extends Controller
                 throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
             }
 
+            // Assegna il ruolo di manager
+            $auth = Yii::$app->authManager;
+            $managerRole = $auth->getRole('manager');
+            if ($managerRole) {
+                $auth->assign($managerRole, $user->id);
+            }
+
             $transaction->commit();
             
             $this->stdout("✅ Utente manager creato con successo!\n");
             $this->stdout("   Email: $email\n");
             $this->stdout("   Password: 12345678\n");
             $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Ruolo: Manager\n");
+            $this->stdout("   Codice fiscale: {$profile->fiscal_code}\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Crea un utente amministratore per test
+     */
+    public function actionCreateAdminUser()
+    {
+        $this->stdout("👑 Creazione utente amministratore di test...\n");
+        
+        $email = 'admin@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente admin con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Crea l'utente
+            $user = new User();
+            $user->username = $email; // Usa la mail anche come username
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('admin123');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Super';
+            $profile->last_name = 'Admin';
+            $profile->fiscal_code = 'DMNSPR70A01H501A';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3331111111', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Amministrazione 1, 80100 Napoli (NA)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Assegna il ruolo di amministratore
+            $auth = Yii::$app->authManager;
+            $adminRole = $auth->getRole('admin');
+            if ($adminRole) {
+                $auth->assign($adminRole, $user->id);
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Utente amministratore creato con successo!\n");
+            $this->stdout("   Email: $email\n");
+            $this->stdout("   Password: admin123\n");
+            $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Ruolo: Admin (accesso completo al sistema)\n");
+            $this->stdout("   Codice fiscale: {$profile->fiscal_code}\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Crea un utente coordinatore per test
+     */
+    public function actionCreateCoordinatorUser()
+    {
+        $this->stdout("👨‍💼 Creazione utente coordinatore di test...\n");
+        
+        $email = 'coordinatore@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente coordinatore con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Crea l'utente
+            $user = new User();
+            $user->username = $email; // Usa la mail anche come username
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Laura';
+            $profile->last_name = 'Neri';
+            $profile->fiscal_code = 'NRELRA85T55F205B';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3332222222', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Coordinamento 15, 80100 Napoli (NA)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Assegna il ruolo di coordinatore
+            $auth = Yii::$app->authManager;
+            $coordinatorRole = $auth->getRole('coordinator');
+            if ($coordinatorRole) {
+                $auth->assign($coordinatorRole, $user->id);
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Utente coordinatore creato con successo!\n");
+            $this->stdout("   Email: $email\n");
+            $this->stdout("   Password: 12345678\n");
+            $this->stdout("   Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   Ruolo: Coordinator\n");
             $this->stdout("   Codice fiscale: {$profile->fiscal_code}\n");
             
         } catch (\Exception $e) {
@@ -906,6 +1064,13 @@ class TestDataController extends Controller
                 throw new \Exception('Errore nella creazione collegamento secondo paziente: ' . implode(', ', $accountPatient2->getFirstErrors()));
             }
 
+            // Assegna il ruolo di paziente
+            $auth = Yii::$app->authManager;
+            $patientRole = $auth->getRole('patient');
+            if ($patientRole) {
+                $auth->assign($patientRole, $user->id);
+            }
+
             $transaction->commit();
             
             $this->stdout("✅ Utente genitore con 2 pazienti creato con successo!\n");
@@ -913,6 +1078,7 @@ class TestDataController extends Controller
             $this->stdout("     Email: $email\n");
             $this->stdout("     Password: 12345678\n");
             $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("     Ruolo: Patient\n");
             $this->stdout("     CF: {$profile->fiscal_code}\n");
             $this->stdout("   PRIMO PAZIENTE (FIGLIO):\n");
             $this->stdout("     Nome: {$patient1->first_name} {$patient1->last_name}\n");
@@ -1038,6 +1204,13 @@ class TestDataController extends Controller
                 }
             }
 
+            // Assegna il ruolo di paziente
+            $auth = Yii::$app->authManager;
+            $patientRole = $auth->getRole('patient');
+            if ($patientRole) {
+                $auth->assign($patientRole, $user->id);
+            }
+
             $transaction->commit();
             
             $this->stdout("✅ Famiglia numerosa (3 pazienti) creata con successo!\n");
@@ -1045,6 +1218,7 @@ class TestDataController extends Controller
             $this->stdout("     Email: $email\n");
             $this->stdout("     Password: 12345678\n");
             $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("     Ruolo: Patient\n");
             $this->stdout("   PAZIENTI:\n");
             
             foreach ($patients as $index => $patient) {

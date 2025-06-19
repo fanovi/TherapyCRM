@@ -30,6 +30,16 @@ class User extends ActiveRecord implements IdentityInterface
     const STATUS_ACTIVE = 'active';
     const STATUS_INACTIVE = 'inactive';
 
+    /**
+     * @var string password per il form
+     */
+    public $password;
+    
+    /**
+     * @var string password repeat per il form
+     */
+    public $password_repeat;
+
 
     /**
      * {@inheritdoc}
@@ -57,6 +67,29 @@ class User extends ActiveRecord implements IdentityInterface
         return [
             ['status', 'default', 'value' => self::STATUS_ACTIVE],
             ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE]],
+            [['email'], 'required'],
+            [['email'], 'email'],
+            [['email'], 'unique', 'targetClass' => '\common\models\User', 'message' => 'Questa email è già stata registrata.'],
+            [['password'], 'required', 'on' => 'create'],
+            [['password'], 'string', 'min' => 6],
+            [['password_repeat'], 'required', 'on' => 'create'],
+            [['password_repeat'], 'compare', 'compareAttribute' => 'password', 'message' => 'Le password devono coincidere.'],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'email' => 'Email',
+            'password' => 'Password',
+            'password_repeat' => 'Conferma Password',
+            'status' => 'Stato',
+            'created_at' => 'Creato il',
+            'updated_at' => 'Aggiornato il',
         ];
     }
 
@@ -67,6 +100,15 @@ class User extends ActiveRecord implements IdentityInterface
     public function getProfile()
     {
         return $this->hasOne(UserProfile::class, ['user_id' => 'id']);
+    }
+
+    /**
+     * Relazione con le assegnazioni di ruoli/permessi
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAuthAssignments()
+    {
+        return $this->hasMany(AuthAssignment::class, ['user_id' => 'id']);
     }
 
     /**
