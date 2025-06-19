@@ -98,6 +98,69 @@ class PatientController extends Controller
     }
 
     /**
+     * Displays a single patient
+     */
+    public function actionView($id)
+    {
+        if (!Yii::$app->user->can('view_patients')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti.');
+        }
+
+        return $this->render('view', [
+            'model' => $this->findModel($id),
+        ]);
+    }
+
+    /**
+     * Updates an existing patient
+     */
+    public function actionUpdate($id)
+    {
+        if (!Yii::$app->user->can('update_patient')) {
+            throw new ForbiddenHttpException('Non hai i permessi per modificare pazienti.');
+        }
+
+        $patient = $this->findModel($id);
+        
+        // Get districts for dropdown
+        $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+
+        if ($patient->load(Yii::$app->request->post())) {
+            if ($patient->save()) {
+                Yii::$app->session->setFlash('success', 'Paziente aggiornato con successo.');
+                return $this->redirect(['view', 'id' => $patient->id]);
+            } else {
+                Yii::$app->session->setFlash('error', 'Errore nell\'aggiornare il paziente: ' . implode(', ', $patient->getFirstErrors()));
+            }
+        }
+
+        return $this->render('update', [
+            'patient' => $patient,
+            'districts' => $districts,
+        ]);
+    }
+
+    /**
+     * Deletes an existing patient
+     */
+    public function actionDelete($id)
+    {
+        if (!Yii::$app->user->can('delete_patient')) {
+            throw new ForbiddenHttpException('Non hai i permessi per eliminare pazienti.');
+        }
+
+        $patient = $this->findModel($id);
+        
+        if ($patient->delete()) {
+            Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Errore nell\'eliminare il paziente.');
+        }
+
+        return $this->redirect(['index']);
+    }
+
+    /**
      * Creates credentials and account for patient
      */
     public function actionCreateCredentials($id)

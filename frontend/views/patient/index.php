@@ -4,11 +4,10 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
 
-/** @var yii\web\View $this */
-/** @var yii\data\ActiveDataProvider $dataProvider */
-/** @var frontend\models\UserSearch $searchModel */
+/* @var $this yii\web\View */
+/* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = 'Gestione Coordinatori';
+$this->title = 'Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
@@ -18,131 +17,93 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
             
-            <nav>
-                <ol class="flex items-center gap-1.5">
-                    <li>
-                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/site/index']) ?>">
-                            Home
-                            <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </a>
-                    </li>
-                    <li class="text-sm text-gray-800 dark:text-white/90" x-text="pageName"></li>
-                </ol>
-            </nav>
+            <!-- Action Button -->
+            <?php if (Yii::$app->user->can('create_patient')): ?>
+            <div>
+                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Paziente', 
+                    ['create'], [
+                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
+                ]) ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     <!-- Breadcrumb End -->
 
-    <!-- Action Buttons -->
-    <div class="mb-6 flex flex-wrap items-center gap-3">
-        <?php if (Yii::$app->user->can('create_coordinator')): ?>
-        <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Coordinatore', 
-            ['create-coordinator'], [
-            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-        ]) ?>
-        <?php endif; ?>
-    </div>
-
-    <!-- Coordinators List Card -->
+    <!-- Content Start -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Lista Coordinatori
+                Lista Pazienti
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Gestisci tutti i coordinatori del sistema.
+                Gestisci i pazienti del sistema.
             </p>
         </div>
         
         <div class="border-t border-gray-100 dark:border-gray-800">
             <?php Pjax::begin(); ?>
-
+            
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
-                'filterModel' => $searchModel,
                 'tableOptions' => ['class' => 'w-full text-sm text-left text-gray-500 dark:text-gray-400'],
                 'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
                 'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
                 'columns' => [
-                    ['class' => 'yii\grid\SerialColumn'],
-
                     [
                         'attribute' => 'id',
                         'headerOptions' => ['class' => 'px-6 py-3'],
                         'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
                     ],
                     [
-                        'attribute' => 'username',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                    ],
-                    [
-                        'attribute' => 'email',
-                        'format' => 'email',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                    ],
-                    [
-                        'attribute' => 'profile.nome',
+                        'attribute' => 'first_name',
                         'label' => 'Nome',
                         'headerOptions' => ['class' => 'px-6 py-3'],
                         'contentOptions' => ['class' => 'px-6 py-4'],
-                        'value' => function($model) {
-                            return $model->profile ? $model->profile->nome : '-';
-                        }
                     ],
                     [
-                        'attribute' => 'profile.cognome',
+                        'attribute' => 'last_name',
                         'label' => 'Cognome',
                         'headerOptions' => ['class' => 'px-6 py-3'],
                         'contentOptions' => ['class' => 'px-6 py-4'],
+                    ],
+                    [
+                        'attribute' => 'fiscal_code',
+                        'label' => 'Codice Fiscale',
+                        'headerOptions' => ['class' => 'px-6 py-3'],
+                        'contentOptions' => ['class' => 'px-6 py-4'],
+                    ],
+                    [
+                        'attribute' => 'birth_date',
+                        'label' => 'Data di Nascita',
+                        'headerOptions' => ['class' => 'px-6 py-3'],
+                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'format' => 'date',
+                    ],
+                    [
+                        'attribute' => 'district.name',
+                        'label' => 'Distretto',
+                        'headerOptions' => ['class' => 'px-6 py-3'],
+                        'contentOptions' => ['class' => 'px-6 py-4'],
                         'value' => function($model) {
-                            return $model->profile ? $model->profile->cognome : '-';
+                            return $model->district ? $model->district->name : '-';
                         }
                     ],
                     [
-                        'attribute' => 'status',
-                        'label' => 'Stato',
-                        'format' => 'raw',
+                        'attribute' => 'notes',
+                        'label' => 'Note',
                         'headerOptions' => ['class' => 'px-6 py-3'],
                         'contentOptions' => ['class' => 'px-6 py-4'],
                         'value' => function($model) {
-                            if ($model->status == 10) {
-                                return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900">Attivo</span>';
-                            } else {
-                                return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900">Inattivo</span>';
-                            }
+                            return $model->notes ? (strlen($model->notes) > 30 ? substr($model->notes, 0, 30) . '...' : $model->notes) : '-';
                         },
-                        'filter' => [10 => 'Attivo', 0 => 'Inattivo']
                     ],
-                    [
-                        'attribute' => 'created_at',
-                        'label' => 'Creato il',
-                        'format' => ['datetime', 'php:d/m/Y H:i'],
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                    ],
-
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
                         'headerOptions' => ['class' => 'px-6 py-3'],
                         'contentOptions' => ['class' => 'px-6 py-4'],
-                        'template' => '{view} {update} {delete}',
-                        'urlCreator' => function ($action, $model, $key, $index) {
-                            if ($action === 'view') {
-                                return ['view-coordinator', 'id' => $model->id];
-                            }
-                            if ($action === 'update') {
-                                return ['update-coordinator', 'id' => $model->id];
-                            }
-                            if ($action === 'delete') {
-                                return ['delete-coordinator', 'id' => $model->id];
-                            }
-                            return [$action, 'id' => $model->id];
-                        },
+                        'template' => '{view} {update} {credentials} {delete}',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', 
@@ -152,21 +113,29 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]);
                             },
                             'update' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('update_coordinator')) return '';
+                                if (!Yii::$app->user->can('update_patient')) return '';
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
                                     $url, [
                                     'title' => 'Modifica',
                                     'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3'
                                 ]);
                             },
+                            'credentials' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('create_patient')) return '';
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>', 
+                                    ['create-credentials', 'id' => $model->id], [
+                                    'title' => 'Crea Credenziali',
+                                    'class' => 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-3'
+                                ]);
+                            },
                             'delete' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('delete_coordinator')) return '';
+                                if (!Yii::$app->user->can('delete_patient')) return '';
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>', 
                                     $url, [
                                     'title' => 'Elimina',
                                     'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
                                     'data' => [
-                                        'confirm' => 'Sei sicuro di voler eliminare questo coordinatore?',
+                                        'confirm' => 'Sei sicuro di voler eliminare questo paziente?',
                                         'method' => 'post',
                                     ],
                                 ]);
@@ -175,7 +144,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     ],
                 ],
             ]); ?>
-
+            
             <?php Pjax::end(); ?>
         </div>
     </div>

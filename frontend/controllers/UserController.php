@@ -110,6 +110,81 @@ class UserController extends Controller
     }
 
     /**
+     * Displays a single administrator
+     */
+    public function actionViewAdministrator($id)
+    {
+        if (!Yii::$app->user->can('view_admin')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare gli amministratori.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        return $this->render('administrators/view', [
+            'model' => $user,
+        ]);
+    }
+
+    /**
+     * Updates an existing administrator
+     */
+    public function actionUpdateAdministrator($id)
+    {
+        if (!Yii::$app->user->can('update_admin')) {
+            throw new ForbiddenHttpException('Non hai i permessi per modificare amministratori.');
+        }
+
+        $user = $this->findUserModel($id);
+        $profile = $user->profile ?: new UserProfile(['user_id' => $user->id]);
+
+        if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if (!$user->save()) {
+                    throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                if (!$profile->save()) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Amministratore aggiornato con successo.');
+                return $this->redirect(['view-administrator', 'id' => $user->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('administrators/update', [
+            'user' => $user,
+            'profile' => $profile,
+        ]);
+    }
+
+    /**
+     * Deletes an existing administrator
+     */
+    public function actionDeleteAdministrator($id)
+    {
+        if (!Yii::$app->user->can('delete_admin')) {
+            throw new ForbiddenHttpException('Non hai i permessi per eliminare amministratori.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        if ($user->delete()) {
+            Yii::$app->session->setFlash('success', 'Amministratore eliminato con successo.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Errore nell\'eliminare l\'amministratore.');
+        }
+
+        return $this->redirect(['administrators']);
+    }
+
+    /**
      * Lists coordinators
      */
     public function actionCoordinators()
@@ -172,6 +247,81 @@ class UserController extends Controller
             'user' => $user,
             'profile' => $profile,
         ]);
+    }
+
+    /**
+     * Displays a single coordinator
+     */
+    public function actionViewCoordinator($id)
+    {
+        if (!Yii::$app->user->can('view_coordinator')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i coordinatori.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        return $this->render('coordinators/view', [
+            'model' => $user,
+        ]);
+    }
+
+    /**
+     * Updates an existing coordinator
+     */
+    public function actionUpdateCoordinator($id)
+    {
+        if (!Yii::$app->user->can('update_coordinator')) {
+            throw new ForbiddenHttpException('Non hai i permessi per modificare coordinatori.');
+        }
+
+        $user = $this->findUserModel($id);
+        $profile = $user->profile ?: new UserProfile(['user_id' => $user->id]);
+
+        if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if (!$user->save()) {
+                    throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                if (!$profile->save()) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Coordinatore aggiornato con successo.');
+                return $this->redirect(['view-coordinator', 'id' => $user->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('coordinators/update', [
+            'user' => $user,
+            'profile' => $profile,
+        ]);
+    }
+
+    /**
+     * Deletes an existing coordinator
+     */
+    public function actionDeleteCoordinator($id)
+    {
+        if (!Yii::$app->user->can('delete_coordinator')) {
+            throw new ForbiddenHttpException('Non hai i permessi per eliminare coordinatori.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        if ($user->delete()) {
+            Yii::$app->session->setFlash('success', 'Coordinatore eliminato con successo.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Errore nell\'eliminare il coordinatore.');
+        }
+
+        return $this->redirect(['coordinators']);
     }
 
     /**
@@ -257,5 +407,21 @@ class UserController extends Controller
             'therapist' => $therapist,
             'specializations' => $specializations,
         ]);
+    }
+
+    /**
+     * Finds the User model based on its primary key value.
+     * If the model is not found, a 404 HTTP exception will be thrown.
+     * @param integer $id
+     * @return User the loaded model
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    protected function findUserModel($id)
+    {
+        if (($model = User::findOne($id)) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('La pagina richiesta non esiste.');
     }
 } 
