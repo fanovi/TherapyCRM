@@ -524,6 +524,12 @@ class AuthController extends Controller
             return null;
         }
         
+        // Verifica il permesso app_login tramite RBAC
+        if (!$this->hasAppLoginPermission($user)) {
+            Yii::error("User {$user->id} (email: $email) does not have app_login permission", __METHOD__);
+            return null;
+        }
+        
         // Determina il tipo di utente (terapista o account paziente)
         $userData = $this->buildUserData($user);
         
@@ -533,6 +539,28 @@ class AuthController extends Controller
         }
         
         return $userData;
+    }
+
+    /**
+     * Verifica se l'utente ha il permesso app_login tramite RBAC
+     *
+     * @param User $user
+     * @return bool
+     */
+    private function hasAppLoginPermission($user)
+    {
+        if (!$user) {
+            return false;
+        }
+        
+        // Verifica il permesso tramite il sistema RBAC di Yii2
+        $authManager = Yii::$app->authManager;
+        if (!$authManager) {
+            Yii::error("AuthManager non configurato correttamente", __METHOD__);
+            return false;
+        }
+        
+        return $authManager->checkAccess($user->id, 'app_login');
     }
 
     /**
