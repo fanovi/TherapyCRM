@@ -74,7 +74,7 @@ class LoginForm extends Model
     }
 
     /**
-     * Valida che l'utente non sia un terapista o account paziente
+     * Valida che l'utente abbia il permesso platform_login
      *
      * @param string $attribute
      * @param array $params
@@ -85,17 +85,9 @@ class LoginForm extends Model
             $user = $this->getUser();
             
             if ($user) {
-                // Controlla se l'utente è un terapista
-                $therapist = Therapist::findOne(['user_id' => $user->id]);
-                if ($therapist) {
-                    $this->addError($attribute, 'Accesso non consentito. I terapisti non possono accedere a questa piattaforma.');
-                    return;
-                }
-                
-                // Controlla se l'utente è un account paziente
-                $accountPatient = AccountPatient::findOne(['user_id' => $user->id]);
-                if ($accountPatient) {
-                    $this->addError($attribute, 'Accesso non consentito. Gli account pazienti non possono accedere a questa piattaforma.');
+                // Verifica se l'utente ha il permesso platform_login tramite RBAC
+                if (!$this->hasPermissionToLogin($user)) {
+                    $this->addError($attribute, 'Accesso non consentito. Non hai i permessi necessari per accedere a questa piattaforma.');
                     return;
                 }
             }
@@ -112,9 +104,9 @@ class LoginForm extends Model
         if ($this->validate()) {
             $user = $this->getUser();
             
-            // Double check: verifica finale che l'utente non sia terapista o paziente
-            if ($this->isRestrictedUser($user)) {
-                Yii::error("Tentativo di login non autorizzato per user_id: {$user->id}, email: {$user->email}", __METHOD__);
+            // Double check: verifica finale che l'utente abbia il permesso platform_login
+            if (!$this->hasPermissionToLogin($user)) {
+                Yii::error("Tentativo di login non autorizzato per user_id: {$user->id}, email: {$user->email} - Permesso platform_login mancante", __METHOD__);
                 return false;
             }
             
@@ -130,7 +122,30 @@ class LoginForm extends Model
     }
 
     /**
+     * Verifica se l'utente ha il permesso platform_login tramite RBAC
+     *
+     * @param User $user
+     * @return bool
+     */
+    private function hasPermissionToLogin($user)
+    {
+        if (!$user) {
+            return false;
+        }
+        
+        // Verifica il permesso tramite il sistema RBAC di Yii2
+        $authManager = Yii::$app->authManager;
+        if (!$authManager) {
+            Yii::error("AuthManager non configurato correttamente", __METHOD__);
+            return false;
+        }
+        
+        return $authManager->checkAccess($user->id, 'platform_login');
+    }
+
+    /**
      * Controlla se l'utente è di tipo ristretto (terapista o paziente)
+     * @deprecated Questo metodo è deprecato, usa hasPermissionToLogin() con RBAC
      *
      * @param User $user
      * @return bool
