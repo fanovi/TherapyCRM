@@ -58,8 +58,8 @@ class SiteController extends BaseController
      */
     public function beforeAction($action)
     {
-        if ($action->id === 'error') {
-            $this->layout = 'error';
+        if ($action->id === 'error' || $action->id === 'login') {
+            $this->layout = 'blank';
         }
         
         return parent::beforeAction($action);

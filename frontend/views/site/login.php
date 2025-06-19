@@ -132,12 +132,19 @@ $this->params['breadcrumbs'][] = $this->title;
 <style>
 .field-loginform-email.has-error .form-control,
 .field-loginform-password.has-error .form-control {
-    @apply border-red-300 dark:border-red-700;
+    border-color: #fca5a5 !important;
+}
+
+.dark .field-loginform-email.has-error .form-control,
+.dark .field-loginform-password.has-error .form-control {
+    border-color: #b91c1c !important;
 }
 
 .field-loginform-email .help-block,
 .field-loginform-password .help-block,
 .field-loginform-rememberme .help-block {
-    @apply text-red-500 text-sm mt-1;
+    color: #ef4444 !important;
+    font-size: 0.875rem !important;
+    margin-top: 0.25rem !important;
 }
 </style>
