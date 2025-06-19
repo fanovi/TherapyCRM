@@ -809,4 +809,256 @@ class TestDataController extends Controller
 
         return ExitCode::OK;
     }
+
+    /**
+     * Crea un utente paziente con più pazienti collegati per testare lo switch
+     */
+    public function actionCreatePatientUserMultiple()
+    {
+        $this->stdout("👨‍👩‍👧‍👦 Creazione utente con più pazienti collegati...\n");
+        
+        $email = 'genitore@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Controlla che esistano i distretti
+            $districts = District::find()->all();
+            if (empty($districts)) {
+                throw new \Exception('Nessun distretto trovato. Eseguire prima generate-all per creare i dati base.');
+            }
+
+            // Crea il primo paziente (figlio)
+            $patient1 = new Patient();
+            $patient1->first_name = 'Marco';
+            $patient1->last_name = 'Rossi';
+            $patient1->birth_date = '2012-08-22';
+            $patient1->fiscal_code = 'RSSMRC12M22F205L';
+            $patient1->district_id = $districts[0]->id;
+            $patient1->notes = 'Primo figlio - paziente di test per sistema multi-paziente';
+            
+            if (!$patient1->save()) {
+                throw new \Exception('Errore nella creazione primo paziente: ' . implode(', ', $patient1->getFirstErrors()));
+            }
+
+            // Crea il secondo paziente (figlia)
+            $patient2 = new Patient();
+            $patient2->first_name = 'Sofia';
+            $patient2->last_name = 'Rossi';
+            $patient2->birth_date = '2016-04-10';
+            $patient2->fiscal_code = 'RSSSFO16D50F205P';
+            $patient2->district_id = $districts[0]->id;
+            $patient2->notes = 'Seconda figlia - paziente di test per sistema multi-paziente';
+            
+            if (!$patient2->save()) {
+                throw new \Exception('Errore nella creazione secondo paziente: ' . implode(', ', $patient2->getFirstErrors()));
+            }
+
+            // Crea l'utente genitore
+            $user = new User();
+            $user->username = $email;
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente genitore
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Maria';
+            $profile->last_name = 'Rossi';
+            $profile->fiscal_code = 'RSSMRA80E45F205T';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3334567890', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Roma 123, 20121 Milano (MI)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Crea il collegamento con il primo paziente
+            $accountPatient1 = new AccountPatient();
+            $accountPatient1->user_id = $user->id;
+            $accountPatient1->patient_id = $patient1->id;
+            $accountPatient1->relationship_type = 'parent';
+            $accountPatient1->has_parental_authority = true;
+            
+            if (!$accountPatient1->save()) {
+                throw new \Exception('Errore nella creazione collegamento primo paziente: ' . implode(', ', $accountPatient1->getFirstErrors()));
+            }
+
+            // Crea il collegamento con il secondo paziente
+            $accountPatient2 = new AccountPatient();
+            $accountPatient2->user_id = $user->id;
+            $accountPatient2->patient_id = $patient2->id;
+            $accountPatient2->relationship_type = 'parent';
+            $accountPatient2->has_parental_authority = true;
+            
+            if (!$accountPatient2->save()) {
+                throw new \Exception('Errore nella creazione collegamento secondo paziente: ' . implode(', ', $accountPatient2->getFirstErrors()));
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Utente genitore con 2 pazienti creato con successo!\n");
+            $this->stdout("   ACCOUNT GENITORE:\n");
+            $this->stdout("     Email: $email\n");
+            $this->stdout("     Password: 12345678\n");
+            $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("     CF: {$profile->fiscal_code}\n");
+            $this->stdout("   PRIMO PAZIENTE (FIGLIO):\n");
+            $this->stdout("     Nome: {$patient1->first_name} {$patient1->last_name}\n");
+            $this->stdout("     Data nascita: {$patient1->birth_date}\n");
+            $this->stdout("     CF: {$patient1->fiscal_code}\n");
+            $this->stdout("   SECONDO PAZIENTE (FIGLIA):\n");
+            $this->stdout("     Nome: {$patient2->first_name} {$patient2->last_name}\n");
+            $this->stdout("     Data nascita: {$patient2->birth_date}\n");
+            $this->stdout("     CF: {$patient2->fiscal_code}\n");
+            $this->stdout("   🔄 Questo account permetterà di testare lo switch tra pazienti!\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Crea un utente genitore con 3 pazienti per test avanzati
+     */
+    public function actionCreatePatientUserFamily()
+    {
+        $this->stdout("👨‍👩‍👧‍👧‍👦 Creazione famiglia numerosa (3 pazienti)...\n");
+        
+        $email = 'famiglia@test.it';
+        
+        // Controlla se l'utente esiste già
+        if (User::find()->where(['email' => $email])->exists()) {
+            $this->stdout("⚠️  L'utente con email '$email' esiste già!\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Controlla che esistano i distretti
+            $districts = District::find()->all();
+            if (empty($districts)) {
+                throw new \Exception('Nessun distretto trovato. Eseguire prima generate-all per creare i dati base.');
+            }
+
+            // Array di pazienti da creare
+            $patientsData = [
+                [
+                    'first_name' => 'Alessandro',
+                    'last_name' => 'Verdi',
+                    'birth_date' => '2010-01-15',
+                    'fiscal_code' => 'VRDLSN10A15F205M',
+                    'notes' => 'Figlio maggiore - test famiglia numerosa'
+                ],
+                [
+                    'first_name' => 'Francesca',
+                    'last_name' => 'Verdi',
+                    'birth_date' => '2013-06-08',
+                    'fiscal_code' => 'VRDFNC13H48F205Q',
+                    'notes' => 'Figlia di mezzo - test famiglia numerosa'
+                ],
+                [
+                    'first_name' => 'Matteo',
+                    'last_name' => 'Verdi',
+                    'birth_date' => '2017-11-22',
+                    'fiscal_code' => 'VRDMTT17S22F205W',
+                    'notes' => 'Figlio minore - test famiglia numerosa'
+                ]
+            ];
+
+            $patients = [];
+            
+            // Crea tutti i pazienti
+            foreach ($patientsData as $patientData) {
+                $patient = new Patient();
+                $patient->first_name = $patientData['first_name'];
+                $patient->last_name = $patientData['last_name'];
+                $patient->birth_date = $patientData['birth_date'];
+                $patient->fiscal_code = $patientData['fiscal_code'];
+                $patient->district_id = $districts[0]->id;
+                $patient->notes = $patientData['notes'];
+                
+                if (!$patient->save()) {
+                    throw new \Exception("Errore nella creazione paziente {$patientData['first_name']}: " . implode(', ', $patient->getFirstErrors()));
+                }
+                
+                $patients[] = $patient;
+            }
+
+            // Crea l'utente genitore
+            $user = new User();
+            $user->username = $email;
+            $user->email = $email;
+            $user->password_hash = Yii::$app->security->generatePasswordHash('12345678');
+            $user->auth_key = Yii::$app->security->generateRandomString();
+            $user->status = User::STATUS_ACTIVE;
+            
+            if (!$user->save()) {
+                throw new \Exception('Errore nella creazione utente: ' . implode(', ', $user->getFirstErrors()));
+            }
+
+            // Crea il profilo utente genitore
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+            $profile->first_name = 'Carla';
+            $profile->last_name = 'Verdi';
+            $profile->fiscal_code = 'VRDCRL78M42F205K';
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3335678901', Yii::$app->params['encryptionKey']));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Corso Buenos Aires 45, 20124 Milano (MI)', Yii::$app->params['encryptionKey']));
+            
+            if (!$profile->save()) {
+                throw new \Exception('Errore nella creazione profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            // Crea i collegamenti con tutti i pazienti
+            foreach ($patients as $patient) {
+                $accountPatient = new AccountPatient();
+                $accountPatient->user_id = $user->id;
+                $accountPatient->patient_id = $patient->id;
+                $accountPatient->relationship_type = 'parent';
+                $accountPatient->has_parental_authority = true;
+                
+                if (!$accountPatient->save()) {
+                    throw new \Exception("Errore nella creazione collegamento paziente {$patient->first_name}: " . implode(', ', $accountPatient->getFirstErrors()));
+                }
+            }
+
+            $transaction->commit();
+            
+            $this->stdout("✅ Famiglia numerosa (3 pazienti) creata con successo!\n");
+            $this->stdout("   ACCOUNT GENITORE:\n");
+            $this->stdout("     Email: $email\n");
+            $this->stdout("     Password: 12345678\n");
+            $this->stdout("     Nome: {$profile->first_name} {$profile->last_name}\n");
+            $this->stdout("   PAZIENTI:\n");
+            
+            foreach ($patients as $index => $patient) {
+                $this->stdout("     " . ($index + 1) . ". {$patient->first_name} {$patient->last_name} ({$patient->birth_date})\n");
+            }
+            
+            $this->stdout("   🔄 Perfetto per testare il sistema di switch tra più pazienti!\n");
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        return ExitCode::OK;
+    }
 } 

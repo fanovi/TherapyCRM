@@ -17,6 +17,7 @@ import {setStore} from './src/services/authService';
 import {setStore as setAxiosStore} from './src/services/axiosConfig';
 import {setStore as setAuthUtilsStore} from './src/utils/authUtils';
 import ErrorModal from './src/components/ErrorModal';
+import oneSignalService from './src/services/oneSignalService';
 import moment from 'moment';
 import 'moment/locale/it';
 import 'react-native-gesture-handler';
@@ -28,6 +29,9 @@ moment.locale('it');
 setStore(store);
 setAxiosStore(store);
 setAuthUtilsStore(store);
+
+// Inizializza OneSignal
+oneSignalService.initialize();
 
 // Debug token al caricamento (solo in sviluppo) - DISABILITATO PER DEBUG
 /*

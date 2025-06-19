@@ -19,8 +19,8 @@ return [
         ],
         'oneSignal' => [
             'class' => 'common\components\OneSignalService',
-            'appId' => '', // Configura con il tuo OneSignal App ID
-            'restApiKey' => '', // Configura con la tua OneSignal REST API Key
+            'appId' => '517b6b4d-1c8f-40cf-a814-34830eb24aca',
+            'restApiKey' => 'os_v2_app_kf5wwti4r5am7kaugsbq5mskzicz5jhjntyuke4m3vdyeiwiwx7fxjcmzxolepvcevylcaqddtpsj57j2v3lszs34hesqvjpzfima4i',
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',

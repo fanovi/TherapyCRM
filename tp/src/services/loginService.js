@@ -6,6 +6,7 @@ import {
   changePasswordSuccess,
   logoutUser,
 } from '../slices/authSlice';
+import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
 
 export const loginService = {
@@ -43,6 +44,15 @@ export const loginService = {
             tempToken: response.tempToken,
           }),
         );
+
+        // Gestisci i pazienti anche per il primo login
+        if (response.user.patients && response.user.patients.length > 0) {
+          console.log(
+            '👥 Setting patients for first login:',
+            response.user.patients.length,
+          );
+          dispatch(setPatientsFromLogin(response.user.patients));
+        }
       } else {
         // Login normale - utente completamente autenticato
         console.log('✅ Normal login - user fully authenticated');
@@ -69,6 +79,15 @@ export const loginService = {
             requiresPasswordChange: false,
           }),
         );
+
+        // Gestisci i pazienti per login normale
+        if (response.user.patients && response.user.patients.length > 0) {
+          console.log(
+            '👥 Setting patients for normal login:',
+            response.user.patients.length,
+          );
+          dispatch(setPatientsFromLogin(response.user.patients));
+        }
       }
 
       return response;
@@ -118,6 +137,15 @@ export const loginService = {
         }),
       );
 
+      // Gestisci i pazienti dopo il cambio password
+      if (response.user.patients && response.user.patients.length > 0) {
+        console.log(
+          '👥 Setting patients after password change:',
+          response.user.patients.length,
+        );
+        dispatch(setPatientsFromLogin(response.user.patients));
+      }
+
       return response;
     } catch (error) {
       console.error('❌ Password change failed:', error.message);
@@ -129,6 +157,10 @@ export const loginService = {
   async logout(dispatch) {
     try {
       console.log('🚪 Starting logout process...');
+
+      // Reset dei pazienti prima del logout completo
+      dispatch(resetPatients());
+      console.log('👥 Patients data reset');
 
       // Chiama l'API di logout (se il token è ancora valido)
       try {
@@ -157,6 +189,7 @@ export const loginService = {
     } catch (error) {
       console.error('❌ Logout error:', error);
       // Anche in caso di errore, pulisci lo stato locale
+      dispatch(resetPatients());
       await AsyncStorage.multiRemove([
         'authToken',
         'refreshToken',

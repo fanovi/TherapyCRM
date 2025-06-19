@@ -180,6 +180,8 @@ export const authService = {
           status: user.status || 'attivo',
           isFirstLogin: !!requires_password_change,
           isPasswordResetRequired: !!requires_password_change,
+          // Add patients info for users with patients
+          patients: user.patients || [],
           // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',

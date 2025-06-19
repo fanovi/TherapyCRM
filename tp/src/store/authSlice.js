@@ -126,6 +126,15 @@ const authSlice = createSlice({
         state.tempToken = action.payload.tempToken;
         state.isAuthenticated = !state.requiresPasswordChange;
         state.error = null;
+
+        // Gestisci i pazienti se presenti
+        if (
+          action.payload.user.patients &&
+          action.payload.user.patients.length > 0
+        ) {
+          // Dispatcha l'azione per impostare i pazienti
+          // Questo sarà gestito dal patientSlice
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;

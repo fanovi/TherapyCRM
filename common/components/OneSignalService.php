@@ -92,7 +92,9 @@ class OneSignalService extends Component
         }
 
         try {
-            $response = $this->_httpClient->post('notifications', $payload)->send();
+            $response = $this->_httpClient->post('notifications', json_encode($payload), [
+                'Content-Type' => 'application/json'
+            ])->send();
             
             if ($response->isOk) {
                 $result = $response->data;
@@ -105,6 +107,56 @@ class OneSignalService extends Component
             }
         } catch (\Exception $e) {
             Yii::error('OneSignal request failed: ' . $e->getMessage(), __METHOD__);
+            throw $e;
+        }
+    }
+
+    /**
+     * Invia una notifica agli utenti in logout (user_id = -1)
+     *
+     * @param string $title Titolo della notifica
+     * @param string $message Messaggio della notifica
+     * @param array $data Dati aggiuntivi
+     * @param array $options Opzioni aggiuntive
+     * @return array
+     * @throws \Exception
+     */
+    public function sendToLoggedOutUsers($title, $message, $data = [], $options = [])
+    {
+        $payload = array_merge([
+            'app_id' => $this->appId,
+            'filters' => [
+                [
+                    'field' => 'tag',
+                    'key' => 'user_id',
+                    'relation' => '=',
+                    'value' => '-1'
+                ]
+            ],
+            'headings' => ['en' => $title, 'it' => $title],
+            'contents' => ['en' => $message, 'it' => $message],
+        ], $options);
+
+        if (!empty($data)) {
+            $payload['data'] = $data;
+        }
+
+        try {
+            $response = $this->_httpClient->post('notifications', json_encode($payload), [
+                'Content-Type' => 'application/json'
+            ])->send();
+            
+            if ($response->isOk) {
+                $result = $response->data;
+                Yii::info('OneSignal notification sent to logged out users: ' . json_encode($result), __METHOD__);
+                return $result;
+            } else {
+                $error = 'OneSignal API error: ' . $response->statusCode . ' - ' . $response->content;
+                Yii::error($error, __METHOD__);
+                throw new \Exception($error);
+            }
+        } catch (\Exception $e) {
+            Yii::error('OneSignal logged out users request failed: ' . $e->getMessage(), __METHOD__);
             throw $e;
         }
     }
@@ -133,7 +185,9 @@ class OneSignalService extends Component
         }
 
         try {
-            $response = $this->_httpClient->post('notifications', $payload)->send();
+            $response = $this->_httpClient->post('notifications', json_encode($payload), [
+                'Content-Type' => 'application/json'
+            ])->send();
             
             if ($response->isOk) {
                 $result = $response->data;
@@ -171,6 +225,7 @@ class OneSignalService extends Component
     /**
      * Crea i filtri per i tag degli utenti
      * OneSignal supporta filtri OR tra i tag
+     * Esclude automaticamente user_id = -1 (utenti in logout)
      *
      * @param array $userIds
      * @return array
@@ -179,7 +234,24 @@ class OneSignalService extends Component
     {
         $filters = [];
         
-        foreach ($userIds as $index => $userId) {
+        // Rimuovi eventuali valori -1 o 0 dalla lista (utenti in logout)
+        $validUserIds = array_filter($userIds, function($userId) {
+            return $userId > 0;
+        });
+        
+        if (empty($validUserIds)) {
+            // Se non ci sono utenti validi, crea un filtro che non matcha nulla
+            return [
+                [
+                    'field' => 'tag',
+                    'key' => 'user_id',
+                    'relation' => '=',
+                    'value' => 'invalid_user'
+                ]
+            ];
+        }
+        
+        foreach ($validUserIds as $index => $userId) {
             $filter = [
                 'field' => 'tag',
                 'key' => 'user_id',

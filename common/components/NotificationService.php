@@ -174,7 +174,7 @@ class NotificationService extends Component
             
             // Per le notifiche broadcast, creiamo un record speciale nel database
             $notification = new Notification([
-                'recipient_user_id' => 0, // 0 indica broadcast
+                'recipient_user_id' => null, // NULL indica broadcast
                 'sender_user_id' => $senderId,
                 'notification_type' => $type,
                 'title' => $title,

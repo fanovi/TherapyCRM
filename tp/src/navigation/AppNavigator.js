@@ -10,6 +10,7 @@ import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import AuthNavigator from './AuthNavigator';
 import PatientNavigator from './PatientNavigator';
 import TherapistNavigator from './TherapistNavigator';
+import useOneSignal from '../hooks/useOneSignal';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,9 @@ const AppNavigator = () => {
     state => state.auth,
   );
   const [isLoading, setIsLoading] = useState(true);
+
+  // Inizializza OneSignal e gestisce i tag dell'utente
+  useOneSignal();
 
   useEffect(() => {
     checkInitialAuth();
