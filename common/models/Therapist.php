@@ -52,7 +52,7 @@ class Therapist extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'specialization_id'], 'required'],
+            [['user_id', 'specialization_id', 'weekly_hours_contract'], 'required'],
             [['user_id', 'specialization_id', 'weekly_hours_contract'], 'integer'],
             [['is_active'], 'boolean'],
             [['created_at', 'updated_at'], 'safe'],

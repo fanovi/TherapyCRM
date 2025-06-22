@@ -45,9 +45,66 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
     <!-- Breadcrumb End -->
 
+    <!-- Flash Messages -->
+    <?php if (Yii::$app->session->hasFlash('success')): ?>
+        <div class="mb-6 rounded-lg bg-green-50 p-4 border border-green-200 dark:bg-green-900/20 dark:border-green-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-green-800 dark:text-green-200">
+                        <?= Yii::$app->session->getFlash('success') ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if (Yii::$app->session->hasFlash('error')): ?>
+        <div class="mb-6 rounded-lg bg-red-50 p-4 border border-red-200 dark:bg-red-900/20 dark:border-red-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-red-800 dark:text-red-200">
+                        <?= Yii::$app->session->getFlash('error') ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if (Yii::$app->session->hasFlash('info')): ?>
+        <div class="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        <?= Yii::$app->session->getFlash('info') ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <?php $form = ActiveForm::begin([
         'id' => 'therapist-form',
         'options' => ['class' => 'space-y-6'],
+        'fieldConfig' => [
+            'errorOptions' => [
+                'class' => 'text-red-600 text-xs mt-1 block dark:text-red-400'
+            ],
+        ],
     ]); ?>
 
     <!-- Dati Personali -->
@@ -274,28 +331,24 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 
-    <?php ActiveForm::end(); ?>
-
-    <!-- Fixed Bottom Action Bar -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 z-50">
-        <div class="mx-auto max-w-4xl flex items-center justify-between gap-3">
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-                * Tutti i campi sono obbligatori
-            </div>
+    <!-- Action Buttons -->
+    <div class="mt-8 flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            * Tutti i campi sono obbligatori
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <?= Html::a('Annulla', ['index'], [
+                'class' => 'px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
+            ]) ?>
             
-            <div class="flex items-center gap-3">
-                <?= Html::a('Annulla', ['index'], [
-                    'class' => 'px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
-                ]) ?>
-                
-                <?= Html::submitButton('Crea Terapista', [
-                    'class' => 'px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800',
-                    'form' => 'therapist-form'
-                ]) ?>
-            </div>
+            <?= Html::submitButton('Crea Terapista', [
+                'class' => 'px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800',
+                'name' => 'submit-button',
+                'type' => 'submit'
+            ]) ?>
         </div>
     </div>
 
-    <!-- Bottom padding to avoid overlap with fixed bar -->
-    <div class="h-20"></div>
+    <?php ActiveForm::end(); ?>
 </div>

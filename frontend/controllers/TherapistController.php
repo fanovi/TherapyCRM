@@ -100,45 +100,78 @@ class TherapistController extends Controller
         // Get specializations for dropdown
         $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
 
+        // Debug: Log POST data
+        if (Yii::$app->request->isPost) {
+            Yii::info('POST ricevuto: ' . print_r(Yii::$app->request->post(), true), 'therapist-create');
+            Yii::$app->session->setFlash('info', 'Form inviato! Dati ricevuti.');
+        }
+
         if ($user->load(Yii::$app->request->post()) && 
             $profile->load(Yii::$app->request->post()) && 
             $therapist->load(Yii::$app->request->post())) {
             
-            $transaction = Yii::$app->db->beginTransaction();
-            try {
-                // Save user
-                if (!$user->save()) {
-                    throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+            // Prepare user data
+            $user->setPassword($user->password);
+            $user->generateAuthKey();
+            $user->status = User::STATUS_ACTIVE;
+            $user->username = $user->email; // Usa email come username
+            
+            // Validate only User first (independent validation)
+            if (!$user->validate()) {
+                Yii::$app->session->setFlash('error', 'Errori User: ' . implode(', ', $user->getFirstErrors()));
+                // Show form with errors
+            } else {
+                // User is valid, start transaction and save user first
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    // Save user first to get the ID
+                    if (!$user->save(false)) {
+                        throw new \Exception('Errore nel salvare l\'utente.');
+                    }
+
+                    // Now set user_id and validate dependent models
+                    $profile->user_id = $user->id;
+                    $therapist->user_id = $user->id;
+                    
+                    // Validate profile
+                    if (!$profile->validate()) {
+                        throw new \Exception('Errori Profile: ' . implode(', ', $profile->getFirstErrors()));
+                    }
+                    
+                    // Validate therapist (now with proper user_id)
+                    if (!$therapist->validate()) {
+                        throw new \Exception('Errori Therapist: ' . implode(', ', $therapist->getFirstErrors()));
+                    }
+                    
+                    // Encrypt sensitive data before saving
+                    $this->encryptSensitiveData($profile);
+                    
+                    // Save profile
+                    if (!$profile->save(false)) {
+                        throw new \Exception('Errore nel salvare il profilo.');
+                    }
+
+                    // Save therapist
+                    if (!$therapist->save(false)) {
+                        throw new \Exception('Errore nel salvare il terapista.');
+                    }
+
+                    // Assign therapist role
+                    $auth = Yii::$app->authManager;
+                    $therapistRole = $auth->getRole('therapist');
+                    if ($therapistRole) {
+                        $auth->assign($therapistRole, $user->id);
+                    }
+
+                    $transaction->commit();
+                    Yii::$app->session->setFlash('success', 'Terapista creato con successo.');
+                    return $this->redirect(['view', 'id' => $therapist->id]);
+
+                } catch (\Exception $e) {
+                    // Rollback everything including the user
+                    $transaction->rollBack();
+                    Yii::$app->session->setFlash('error', $e->getMessage());
                 }
-
-                // Save profile
-                $profile->user_id = $user->id;
-                
-                // Crittografa i dati sensibili prima di salvare
-                $this->encryptSensitiveData($profile);
-                
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
-                }
-
-                // Save therapist
-                $therapist->user_id = $user->id;
-                if (!$therapist->save()) {
-                    throw new \Exception('Errore nel salvare il terapista: ' . implode(', ', $therapist->getFirstErrors()));
-                }
-
-                // Assign therapist role
-                $auth = Yii::$app->authManager;
-                $therapistRole = $auth->getRole('therapist');
-                $auth->assign($therapistRole, $user->id);
-
-                $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Terapista creato con successo.');
-                return $this->redirect(['view', 'id' => $therapist->id]);
-
-            } catch (\Exception $e) {
-                $transaction->rollBack();
-                Yii::$app->session->setFlash('error', $e->getMessage());
             }
         }
 
