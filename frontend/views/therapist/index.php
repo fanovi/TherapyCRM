@@ -179,7 +179,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 
                                 if ($model->is_active) {
                                     // Show deactivate button for active therapists
-                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 12l12 0"></path></svg>', 
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
                                         $toggleUrl, [
                                         'title' => 'Disattiva',
                                         'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
