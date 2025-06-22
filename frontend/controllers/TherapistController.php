@@ -49,6 +49,7 @@ class TherapistController extends Controller
         $dataProvider = new ActiveDataProvider([
             'query' => Therapist::find()
                 ->joinWith(['user', 'user.profile', 'specialization'])
+                ->where(['therapists.is_active' => 1]) // Show only active therapists
                 ->orderBy('user_profiles.last_name, user_profiles.first_name'),
             'pagination' => [
                 'pageSize' => 20,
@@ -238,7 +239,7 @@ class TherapistController extends Controller
     }
 
     /**
-     * Deletes an existing Therapist model.
+     * Soft deletes an existing Therapist model by setting is_active to 0.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -255,12 +256,15 @@ class TherapistController extends Controller
         
         $transaction = Yii::$app->db->beginTransaction();
         try {
-            // Delete therapist first, then user (due to foreign key constraints)
-            if ($therapist->delete() && $user->delete()) {
+            // Soft delete: set therapist as inactive instead of deleting from database
+            $therapist->is_active = 0;
+            $user->status = User::STATUS_INACTIVE; // Also deactivate the user account
+            
+            if ($therapist->save(false) && $user->save(false)) {
                 $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Terapista eliminato con successo.');
+                Yii::$app->session->setFlash('success', 'Terapista disattivato con successo.');
             } else {
-                throw new \Exception('Errore nell\'eliminare il terapista.');
+                throw new \Exception('Errore nel disattivare il terapista.');
             }
         } catch (\Exception $e) {
             $transaction->rollBack();
