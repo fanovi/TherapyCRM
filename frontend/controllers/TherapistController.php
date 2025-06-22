@@ -100,12 +100,6 @@ class TherapistController extends Controller
         // Get specializations for dropdown
         $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
 
-        // Debug: Log POST data
-        if (Yii::$app->request->isPost) {
-            Yii::info('POST ricevuto: ' . print_r(Yii::$app->request->post(), true), 'therapist-create');
-            Yii::$app->session->setFlash('info', 'Form inviato! Dati ricevuti.');
-        }
-
         if ($user->load(Yii::$app->request->post()) && 
             $profile->load(Yii::$app->request->post()) && 
             $therapist->load(Yii::$app->request->post())) {
@@ -116,63 +110,61 @@ class TherapistController extends Controller
             $user->status = User::STATUS_ACTIVE;
             $user->username = $user->email; // Usa email come username
             
-            // Validate only User first (independent validation)
-            if (!$user->validate()) {
-                Yii::$app->session->setFlash('error', 'Errori User: ' . implode(', ', $user->getFirstErrors()));
-                // Show form with errors
-            } else {
-                // User is valid, start transaction and save user first
-                $transaction = Yii::$app->db->beginTransaction();
-                try {
-                    // Save user first to get the ID
-                    if (!$user->save(false)) {
-                        throw new \Exception('Errore nel salvare l\'utente.');
-                    }
+            // Step 1: Validate and save User first (it's independent)
+            if ($user->validate() && $user->save()) {
+                // Step 2: Now we have a valid user ID, assign it to dependent models
+                $profile->user_id = $user->id;
+                $therapist->user_id = $user->id;
+                
+                // Step 3: Validate dependent models with real user_id
+                $profileValid = $profile->validate();
+                $therapistValid = $therapist->validate();
+                
+                if ($profileValid && $therapistValid) {
+                    // Step 4: Everything is valid, start transaction for remaining saves
+                    $transaction = Yii::$app->db->beginTransaction();
+                    try {
+                        // Encrypt sensitive data before saving
+                        $this->encryptSensitiveData($profile);
+                        
+                        // Save profile
+                        if (!$profile->save(false)) {
+                            throw new \Exception('Errore nel salvare il profilo.');
+                        }
 
-                    // Now set user_id and validate dependent models
-                    $profile->user_id = $user->id;
-                    $therapist->user_id = $user->id;
-                    
-                    // Validate profile
-                    if (!$profile->validate()) {
-                        throw new \Exception('Errori Profile: ' . implode(', ', $profile->getFirstErrors()));
-                    }
-                    
-                    // Validate therapist (now with proper user_id)
-                    if (!$therapist->validate()) {
-                        throw new \Exception('Errori Therapist: ' . implode(', ', $therapist->getFirstErrors()));
-                    }
-                    
-                    // Encrypt sensitive data before saving
-                    $this->encryptSensitiveData($profile);
-                    
-                    // Save profile
-                    if (!$profile->save(false)) {
-                        throw new \Exception('Errore nel salvare il profilo.');
-                    }
+                        // Save therapist
+                        if (!$therapist->save(false)) {
+                            throw new \Exception('Errore nel salvare il terapista.');
+                        }
 
-                    // Save therapist
-                    if (!$therapist->save(false)) {
-                        throw new \Exception('Errore nel salvare il terapista.');
+                        // Assign therapist role
+                        $auth = Yii::$app->authManager;
+                        $therapistRole = $auth->getRole('therapist');
+                        if ($therapistRole) {
+                            $auth->assign($therapistRole, $user->id);
+                        }
+
+                        $transaction->commit();
+                        Yii::$app->session->setFlash('success', 'Terapista creato con successo.');
+                        return $this->redirect(['view', 'id' => $therapist->id]);
+
+                    } catch (\Exception $e) {
+                        $transaction->rollBack();
+                        // If Profile/Therapist save fails, we need to rollback the User too
+                        $user->delete();
+                        Yii::$app->session->setFlash('error', $e->getMessage());
                     }
-
-                    // Assign therapist role
-                    $auth = Yii::$app->authManager;
-                    $therapistRole = $auth->getRole('therapist');
-                    if ($therapistRole) {
-                        $auth->assign($therapistRole, $user->id);
-                    }
-
-                    $transaction->commit();
-                    Yii::$app->session->setFlash('success', 'Terapista creato con successo.');
-                    return $this->redirect(['view', 'id' => $therapist->id]);
-
-                } catch (\Exception $e) {
-                    // Rollback everything including the user
-                    $transaction->rollBack();
-                    Yii::$app->session->setFlash('error', $e->getMessage());
+                } else {
+                    // Profile or Therapist validation failed
+                    // Rollback: delete the user since dependent models are invalid
+                    $user->delete();
+                    // The form will show the validation errors automatically
                 }
             }
+            // If User validation fails, errors will be shown automatically
+            // Reset user_id to null for dependent models to avoid foreign key display issues
+            $profile->user_id = null;
+            $therapist->user_id = null;
         }
 
         return $this->render('create', [
