@@ -21,7 +21,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php if (Yii::$app->user->can('create_therapist')): ?>
             <div>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Terapista', 
-                    ['/user/create-therapist'], [
+                    ['create'], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
                 ]) ?>
             </div>
@@ -129,15 +129,6 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'template' => '{view} {update} {delete}',
                         'urlCreator' => function ($action, $model, $key, $index) {
-                            if ($action === 'view') {
-                                return ['view-therapist', 'id' => $model->id];
-                            }
-                            if ($action === 'update') {
-                                return ['update-therapist', 'id' => $model->id];
-                            }
-                            if ($action === 'delete') {
-                                return ['delete-therapist', 'id' => $model->id];
-                            }
                             return [$action, 'id' => $model->id];
                         },
                         'buttons' => [

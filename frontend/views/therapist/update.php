@@ -10,8 +10,8 @@ use yii\widgets\ActiveForm;
 /** @var array $specializations */
 
 $this->title = 'Modifica Terapista: ' . $profile->first_name . ' ' . $profile->last_name;
-$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['therapists']];
-$this->params['breadcrumbs'][] = ['label' => $profile->first_name . ' ' . $profile->last_name, 'url' => ['view-therapist', 'id' => $therapist->id]];
+$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => $profile->first_name . ' ' . $profile->last_name, 'url' => ['view', 'id' => $therapist->id]];
 $this->params['breadcrumbs'][] = 'Modifica';
 ?>
 
@@ -34,7 +34,7 @@ $this->params['breadcrumbs'][] = 'Modifica';
                             </a>
                         </li>
                         <li>
-                            <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/therapists']) ?>">
+                            <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>">
                                 Terapisti
                                 <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -166,7 +166,7 @@ $this->params['breadcrumbs'][] = 'Modifica';
 <div class="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
     <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <div class="flex items-center justify-end gap-3">
-            <?= Html::a('Annulla', ['view-therapist', 'id' => $therapist->id], [
+            <?= Html::a('Annulla', ['view', 'id' => $therapist->id], [
                 'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
             ]) ?>
             

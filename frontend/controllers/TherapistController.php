@@ -1,0 +1,345 @@
+<?php
+
+namespace frontend\controllers;
+
+use Yii;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\web\ForbiddenHttpException;
+use yii\data\ActiveDataProvider;
+use yii\helpers\ArrayHelper;
+use common\models\User;
+use common\models\UserProfile;
+use common\models\Therapist;
+use common\models\Specialization;
+
+/**
+ * TherapistController implements the CRUD actions for Therapist model.
+ */
+class TherapistController extends Controller
+{
+    /**
+     * {@inheritdoc}
+     */
+    public function behaviors()
+    {
+        return [
+            'access' => [
+                'class' => \yii\filters\AccessControl::class,
+                'rules' => [
+                    [
+                        'allow' => true,
+                        'roles' => ['@'],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Lists all Therapist models.
+     * @return mixed
+     */
+    public function actionIndex()
+    {
+        if (!Yii::$app->user->can('view_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i terapisti.');
+        }
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => Therapist::find()
+                ->joinWith(['user', 'user.profile', 'specialization'])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name'),
+            'pagination' => [
+                'pageSize' => 20,
+            ],
+        ]);
+
+        return $this->render('index', [
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Displays a single Therapist model.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionView($id)
+    {
+        if (!Yii::$app->user->can('view_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i terapisti.');
+        }
+
+        $model = $this->findModel($id);
+        
+        // Decodifica i dati sensibili del profilo utente
+        $this->decryptSensitiveData($model->user->profile);
+        
+        return $this->render('view', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Creates a new Therapist model.
+     * If creation is successful, the browser will be redirected to the 'view' page.
+     * @return mixed
+     */
+    public function actionCreate()
+    {
+        if (!Yii::$app->user->can('create_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per creare terapisti.');
+        }
+
+        $user = new User(['scenario' => 'create']);
+        $profile = new UserProfile();
+        $therapist = new Therapist();
+
+        // Get specializations for dropdown
+        $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
+
+        if ($user->load(Yii::$app->request->post()) && 
+            $profile->load(Yii::$app->request->post()) && 
+            $therapist->load(Yii::$app->request->post())) {
+            
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                // Save user
+                if (!$user->save()) {
+                    throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                // Save profile
+                $profile->user_id = $user->id;
+                
+                // Crittografa i dati sensibili prima di salvare
+                $this->encryptSensitiveData($profile);
+                
+                if (!$profile->save()) {
+                    throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Save therapist
+                $therapist->user_id = $user->id;
+                if (!$therapist->save()) {
+                    throw new \Exception('Errore nel salvare il terapista: ' . implode(', ', $therapist->getFirstErrors()));
+                }
+
+                // Assign therapist role
+                $auth = Yii::$app->authManager;
+                $therapistRole = $auth->getRole('therapist');
+                $auth->assign($therapistRole, $user->id);
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Terapista creato con successo.');
+                return $this->redirect(['view', 'id' => $therapist->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('create', [
+            'user' => $user,
+            'profile' => $profile,
+            'therapist' => $therapist,
+            'specializations' => $specializations,
+        ]);
+    }
+
+    /**
+     * Updates an existing Therapist model.
+     * If update is successful, the browser will be redirected to the 'view' page.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionUpdate($id)
+    {
+        if (!Yii::$app->user->can('update_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per modificare terapisti.');
+        }
+
+        $therapist = $this->findModel($id);
+        $user = $therapist->user;
+        $profile = $user->profile ?: new UserProfile(['user_id' => $user->id]);
+
+        // Decodifica i dati sensibili per mostrarli nel form
+        $this->decryptSensitiveData($profile);
+
+        // Get specializations for dropdown
+        $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
+
+        if ($user->load(Yii::$app->request->post()) && 
+            $profile->load(Yii::$app->request->post()) && 
+            $therapist->load(Yii::$app->request->post())) {
+            
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if (!$user->save()) {
+                    throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili prima di salvare
+                $this->encryptSensitiveData($profile);
+
+                if (!$profile->save()) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                if (!$therapist->save()) {
+                    throw new \Exception('Errore nell\'aggiornare il terapista: ' . implode(', ', $therapist->getFirstErrors()));
+                }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Terapista aggiornato con successo.');
+                return $this->redirect(['view', 'id' => $therapist->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('update', [
+            'user' => $user,
+            'profile' => $profile,
+            'therapist' => $therapist,
+            'specializations' => $specializations,
+        ]);
+    }
+
+    /**
+     * Deletes an existing Therapist model.
+     * If deletion is successful, the browser will be redirected to the 'index' page.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionDelete($id)
+    {
+        if (!Yii::$app->user->can('delete_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per eliminare terapisti.');
+        }
+
+        $therapist = $this->findModel($id);
+        $user = $therapist->user;
+        
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Delete therapist first, then user (due to foreign key constraints)
+            if ($therapist->delete() && $user->delete()) {
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Terapista eliminato con successo.');
+            } else {
+                throw new \Exception('Errore nell\'eliminare il terapista.');
+            }
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::$app->session->setFlash('error', $e->getMessage());
+        }
+
+        return $this->redirect(['index']);
+    }
+
+    /**
+     * Finds the Therapist model based on its primary key value.
+     * If the model is not found, a 404 HTTP exception will be thrown.
+     * @param integer $id
+     * @return Therapist the loaded model
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    protected function findModel($id)
+    {
+        if (($model = Therapist::findOne($id)) !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('Il terapista richiesto non esiste.');
+    }
+
+    /**
+     * Decodifica i dati sensibili del profilo utente
+     * @param UserProfile $profile
+     */
+    private function decryptSensitiveData($profile)
+    {
+        if (!$profile) {
+            return;
+        }
+
+        try {
+            $encryptionKey = Yii::$app->params['encryptionKey'];
+            
+            // Decodifica il telefono se presente e crittografato
+            if (!empty($profile->phone)) {
+                try {
+                    $decryptedPhone = Yii::$app->security->decryptByKey(
+                        base64_decode($profile->phone), 
+                        $encryptionKey
+                    );
+                    $profile->phone = $decryptedPhone;
+                } catch (\Exception $e) {
+                    Yii::error("Failed to decrypt phone number: " . $e->getMessage(), __METHOD__);
+                    // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)
+                }
+            }
+            
+            // Decodifica l'indirizzo se presente e crittografato
+            if (!empty($profile->address)) {
+                try {
+                    $decryptedAddress = Yii::$app->security->decryptByKey(
+                        base64_decode($profile->address), 
+                        $encryptionKey
+                    );
+                    $profile->address = $decryptedAddress;
+                } catch (\Exception $e) {
+                    Yii::error("Failed to decrypt address: " . $e->getMessage(), __METHOD__);
+                    // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Yii::error("Error in decryptSensitiveData: " . $e->getMessage(), __METHOD__);
+        }
+    }
+
+    /**
+     * Crittografa i dati sensibili del profilo utente prima del salvataggio
+     * @param UserProfile $profile
+     */
+    private function encryptSensitiveData($profile)
+    {
+        if (!$profile) {
+            return;
+        }
+
+        try {
+            $encryptionKey = Yii::$app->params['encryptionKey'];
+            
+            // Crittografa il telefono se presente
+            if (!empty($profile->phone)) {
+                $encryptedPhone = base64_encode(Yii::$app->security->encryptByKey(
+                    $profile->phone, 
+                    $encryptionKey
+                ));
+                $profile->phone = $encryptedPhone;
+            }
+            
+            // Crittografa l'indirizzo se presente
+            if (!empty($profile->address)) {
+                $encryptedAddress = base64_encode(Yii::$app->security->encryptByKey(
+                    $profile->address, 
+                    $encryptionKey
+                ));
+                $profile->address = $encryptedAddress;
+            }
+            
+        } catch (\Exception $e) {
+            Yii::error("Error in encryptSensitiveData: " . $e->getMessage(), __METHOD__);
+        }
+    }
+} 

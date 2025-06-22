@@ -10,7 +10,7 @@ use yii\widgets\ActiveForm;
 /** @var array $specializations */
 
 $this->title = 'Nuovo Terapista';
-$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['therapists']];
+$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
@@ -31,7 +31,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </a>
                     </li>
                     <li>
-                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/therapists']) ?>">
+                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>">
                             Terapisti
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -284,7 +284,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </div>
             
             <div class="flex items-center gap-3">
-                <?= Html::a('Annulla', ['therapists'], [
+                <?= Html::a('Annulla', ['index'], [
                     'class' => 'px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
                 ]) ?>
                 

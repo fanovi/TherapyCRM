@@ -7,7 +7,7 @@ use yii\widgets\DetailView;
 /** @var common\models\Therapist $model */
 
 $this->title = $model->user->profile->first_name . ' ' . $model->user->profile->last_name;
-$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['therapists']];
+$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
@@ -28,7 +28,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </a>
                     </li>
                     <li>
-                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/therapists']) ?>">
+                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>">
                             Terapisti
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -47,7 +47,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="flex flex-wrap items-center gap-3">
             <!-- Torna alla Lista -->
             <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Torna alla Lista', 
-                ['therapists'], [
+                ['index'], [
                 'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
             ]) ?>
         </div>
@@ -55,14 +55,14 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="flex flex-wrap items-center gap-3">
             <?php if (Yii::$app->user->can('update_therapist')): ?>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>Modifica Terapista', 
-                    ['update-therapist', 'id' => $model->id], [
+                    ['update', 'id' => $model->id], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
             <?php endif; ?>
             
             <?php if (Yii::$app->user->can('delete_therapist')): ?>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>Elimina', 
-                    ['delete-therapist', 'id' => $model->id], [
+                    ['delete', 'id' => $model->id], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
                     'data' => [
                         'confirm' => 'Sei sicuro di voler eliminare questo terapista?',
@@ -81,7 +81,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </h3>
             <?php if (Yii::$app->user->can('update_therapist')): ?>
                 <?= Html::a('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
-                    ['update-therapist', 'id' => $model->id], [
+                    ['update', 'id' => $model->id], [
                     'class' => 'inline-flex items-center p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition-colors',
                     'title' => 'Modifica dati personali'
                 ]) ?>
@@ -131,7 +131,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </h3>
             <?php if (Yii::$app->user->can('update_therapist')): ?>
                 <?= Html::a('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
-                    ['update-therapist', 'id' => $model->id], [
+                    ['update', 'id' => $model->id], [
                     'class' => 'inline-flex items-center p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition-colors',
                     'title' => 'Modifica dati professionali'
                 ]) ?>

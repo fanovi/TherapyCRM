@@ -383,14 +383,14 @@ use yii\helpers\Url;
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
-                                        href="<?= \yii\helpers\Url::to(['/user/therapists']) ?>"
+                                        href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>"
                                         class="menu-dropdown-item group">
                                         Visualizza Terapisti
                                     </a>
                                 </li>
                                 <li>
                                     <a
-                                        href="<?= \yii\helpers\Url::to(['/user/create-therapist']) ?>"
+                                        href="<?= \yii\helpers\Url::to(['/therapist/create']) ?>"
                                         class="menu-dropdown-item group">
                                         Nuovo Terapista
                                     </a>
