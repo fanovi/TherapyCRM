@@ -61,14 +61,25 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php endif; ?>
             
             <?php if (Yii::$app->user->can('delete_therapist')): ?>
-                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 12l12 0"></path></svg>Disattiva', 
-                    ['delete', 'id' => $model->id], [
-                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-error-500 border border-transparent rounded-lg hover:bg-error-500 focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2',
-                    'data' => [
-                        'confirm' => 'Sei sicuro di voler disattivare questo terapista? Potrà essere riattivato in seguito.',
-                        'method' => 'post',
-                    ],
-                ]) ?>
+                <?php if ($model->is_active): ?>
+                    <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18 12M6 12l12 0"></path></svg>Disattiva', 
+                        ['toggle-status', 'id' => $model->id], [
+                        'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-error-500 border border-transparent rounded-lg hover:bg-error-500 focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2',
+                        'data' => [
+                            'confirm' => 'Sei sicuro di voler disattivare questo terapista? Potrà essere riattivato in seguito.',
+                            'method' => 'post',
+                        ],
+                    ]) ?>
+                <?php else: ?>
+                    <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Attiva', 
+                        ['toggle-status', 'id' => $model->id], [
+                        'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-success-500 border border-transparent rounded-lg hover:bg-success-500 focus:outline-none focus:ring-2 focus:ring-success-500 focus:ring-offset-2',
+                        'data' => [
+                            'confirm' => 'Sei sicuro di voler attivare questo terapista?',
+                            'method' => 'post',
+                        ],
+                    ]) ?>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

@@ -12,6 +12,7 @@ use common\models\User;
 use common\models\UserProfile;
 use common\models\Therapist;
 use common\models\Specialization;
+use frontend\models\TherapistSearch;
 
 /**
  * TherapistController implements the CRUD actions for Therapist model.
@@ -46,17 +47,18 @@ class TherapistController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i terapisti.');
         }
 
-        $dataProvider = new ActiveDataProvider([
-            'query' => Therapist::find()
-                ->joinWith(['user', 'user.profile', 'specialization'])
-                ->where(['therapists.is_active' => 1]) // Show only active therapists
-                ->orderBy('user_profiles.last_name, user_profiles.first_name'),
-            'pagination' => [
-                'pageSize' => 20,
-            ],
-        ]);
+        $searchModel = new TherapistSearch();
+        
+        // Set default filter to show only active therapists if no filter is applied
+        $queryParams = Yii::$app->request->queryParams;
+        if (!isset($queryParams['TherapistSearch']['is_active'])) {
+            $queryParams['TherapistSearch']['is_active'] = 1;
+        }
+        
+        $dataProvider = $searchModel->search($queryParams);
 
         return $this->render('index', [
+            'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
     }
@@ -239,16 +241,16 @@ class TherapistController extends Controller
     }
 
     /**
-     * Soft deletes an existing Therapist model by setting is_active to 0.
-     * If deletion is successful, the browser will be redirected to the 'index' page.
+     * Toggles the active status of an existing Therapist model.
+     * If the therapist is active, it will be deactivated, and vice versa.
      * @param integer $id
      * @return mixed
      * @throws NotFoundHttpException if the model cannot be found
      */
-    public function actionDelete($id)
+    public function actionToggleStatus($id)
     {
         if (!Yii::$app->user->can('delete_therapist')) {
-            throw new ForbiddenHttpException('Non hai i permessi per eliminare terapisti.');
+            throw new ForbiddenHttpException('Non hai i permessi per gestire lo stato dei terapisti.');
         }
 
         $therapist = $this->findModel($id);
@@ -256,15 +258,19 @@ class TherapistController extends Controller
         
         $transaction = Yii::$app->db->beginTransaction();
         try {
-            // Soft delete: set therapist as inactive instead of deleting from database
-            $therapist->is_active = 0;
-            $user->status = User::STATUS_INACTIVE; // Also deactivate the user account
+            // Toggle active status
+            $newStatus = !$therapist->is_active;
+            $therapist->is_active = $newStatus;
+            
+            // Also toggle user account status
+            $user->status = $newStatus ? User::STATUS_ACTIVE : User::STATUS_INACTIVE;
             
             if ($therapist->save(false) && $user->save(false)) {
                 $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Terapista disattivato con successo.');
+                $message = $newStatus ? 'Terapista attivato con successo.' : 'Terapista disattivato con successo.';
+                Yii::$app->session->setFlash('success', $message);
             } else {
-                throw new \Exception('Errore nel disattivare il terapista.');
+                throw new \Exception('Errore nel cambiare lo stato del terapista.');
             }
         } catch (\Exception $e) {
             $transaction->rollBack();
