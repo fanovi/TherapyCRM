@@ -48,7 +48,14 @@ $this->params['breadcrumbs'][] = 'Modifica';
         </div>
         <!-- Breadcrumb End -->
 
-        <?php $form = ActiveForm::begin(['id' => 'therapist-update-form']); ?>
+        <?php $form = ActiveForm::begin([
+            'id' => 'therapist-update-form',
+            'fieldConfig' => [
+                'options' => ['class' => 'mb-4'],
+                'errorOptions' => ['class' => 'text-error-600 text-sm mt-1'],
+                'inputOptions' => ['class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2'],
+            ]
+        ]); ?>
 
         <!-- Dati Personali -->
         <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
@@ -62,21 +69,18 @@ $this->params['breadcrumbs'][] = 'Modifica';
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <?= $form->field($profile, 'first_name')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => 'Nome'
                         ])->label('Nome <span class="text-red-500">*</span>', ['encode' => false]) ?>
                     </div>
 
                     <div>
                         <?= $form->field($profile, 'last_name')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => 'Cognome'
                         ])->label('Cognome <span class="text-red-500">*</span>', ['encode' => false]) ?>
                     </div>
 
                     <div>
                         <?= $form->field($user, 'email')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => 'email@example.com',
                             'type' => 'email'
                         ])->label('Email <span class="text-red-500">*</span>', ['encode' => false]) ?>
@@ -84,21 +88,18 @@ $this->params['breadcrumbs'][] = 'Modifica';
 
                     <div>
                         <?= $form->field($profile, 'phone')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => '+39 123 456 7890'
                         ])->label('Telefono') ?>
                     </div>
 
                     <div>
                         <?= $form->field($profile, 'fiscal_code')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => 'RSSMRA80A01H501X'
                         ])->label('Codice Fiscale') ?>
                     </div>
 
                     <div class="sm:col-span-2">
                         <?= $form->field($profile, 'address')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'placeholder' => 'Via Roma 123, 00100 Roma (RM)'
                         ])->label('Indirizzo') ?>
                     </div>
@@ -118,14 +119,12 @@ $this->params['breadcrumbs'][] = 'Modifica';
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <?= $form->field($therapist, 'specialization_id')->dropDownList($specializations, [
-                            'prompt' => 'Seleziona specializzazione...',
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2'
+                            'prompt' => 'Seleziona specializzazione...'
                         ])->label('Specializzazione <span class="text-red-500">*</span>', ['encode' => false]) ?>
                     </div>
 
                     <div>
                         <?= $form->field($therapist, 'weekly_hours_contract')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'type' => 'number',
                             'min' => 1,
                             'max' => 40,
@@ -135,7 +134,6 @@ $this->params['breadcrumbs'][] = 'Modifica';
 
                     <div>
                         <?= $form->field($therapist, 'calendar_color')->textInput([
-                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2',
                             'type' => 'color',
                             'value' => $therapist->calendar_color ?: '#6B7280'
                         ])->label('Colore Calendario') ?>
@@ -181,7 +179,45 @@ $this->params['breadcrumbs'][] = 'Modifica';
 <script>
 function therapistUpdateForm() {
     return {
-        // Form functionality if needed
+        init() {
+            // Gestione classi di errore sui campi
+            this.handleFieldErrors();
+        },
+        
+        handleFieldErrors() {
+            // Trova tutti i campi con errori
+            document.querySelectorAll('.field-error').forEach(field => {
+                const input = field.querySelector('input, select, textarea');
+                if (input) {
+                    input.classList.add('border-error-500', 'focus:border-error-500', 'focus:ring-error-500/10');
+                    input.classList.remove('border-gray-300', 'focus:border-brand-500', 'focus:ring-brand-500');
+                }
+            });
+            
+            // Trova tutti i campi con messaggi di errore
+            document.querySelectorAll('.help-block-error').forEach(errorBlock => {
+                errorBlock.classList.add('text-error-600', 'text-sm', 'mt-1');
+            });
+        }
     }
 }
+
+// Esegui al caricamento della pagina
+document.addEventListener('DOMContentLoaded', function() {
+    // Aggiungi classe di errore ai campi che hanno errori
+    document.querySelectorAll('.has-error').forEach(function(fieldContainer) {
+        fieldContainer.classList.add('field-error');
+        
+        const input = fieldContainer.querySelector('input, select, textarea');
+        if (input) {
+            input.classList.add('border-error-500', 'focus:border-error-500', 'focus:ring-error-500/10');
+            input.classList.remove('border-gray-300', 'focus:border-brand-500', 'focus:ring-brand-500');
+        }
+    });
+    
+    // Stilizza i messaggi di errore
+    document.querySelectorAll('.help-block-error').forEach(function(errorMsg) {
+        errorMsg.classList.add('text-error-600', 'text-sm', 'mt-1', 'font-medium');
+    });
+});
 </script> 

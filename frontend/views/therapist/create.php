@@ -102,7 +102,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'options' => ['class' => 'space-y-6'],
         'fieldConfig' => [
             'errorOptions' => [
-                'class' => 'text-red-600 text-xs mt-1 block dark:text-red-400'
+                'class' => 'text-error-600 text-sm mt-1 font-medium dark:text-error-500'
             ],
         ],
     ]); ?>
@@ -366,6 +366,9 @@ $this->params['breadcrumbs'][] = $this->title;
         const form = document.getElementById('therapist-form');
         
         if (form) {
+            // Gestione classi di errore sui campi esistenti
+            handleFieldErrors();
+            
             form.addEventListener('submit', function(e) {
                 // Resetta eventuali messaggi di errore precedenti
                 const errorElements = form.querySelectorAll('.field-error');
@@ -396,6 +399,24 @@ $this->params['breadcrumbs'][] = $this->title;
                         return false;
                     }
                 }
+            });
+        }
+        
+        function handleFieldErrors() {
+            // Aggiungi classe di errore ai campi che hanno errori
+            document.querySelectorAll('.has-error').forEach(function(fieldContainer) {
+                fieldContainer.classList.add('field-error');
+                
+                const input = fieldContainer.querySelector('input, select, textarea');
+                if (input) {
+                    input.classList.add('border-error-500', 'focus:border-error-500', 'focus:ring-error-500/10');
+                    input.classList.remove('border-gray-300', 'focus:border-brand-300', 'focus:ring-brand-500/10');
+                }
+            });
+            
+            // Stilizza i messaggi di errore
+            document.querySelectorAll('.help-block-error').forEach(function(errorMsg) {
+                errorMsg.classList.add('text-error-600', 'text-sm', 'mt-1', 'font-medium');
             });
         }
     });

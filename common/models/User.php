@@ -67,12 +67,12 @@ class User extends ActiveRecord implements IdentityInterface
         return [
             ['status', 'default', 'value' => self::STATUS_ACTIVE],
             ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE]],
-            [['email'], 'required'],
-            [['email'], 'email'],
+            [['email'], 'required', 'message' => 'L\'email è obbligatoria.'],
+            [['email'], 'email', 'message' => 'Inserisci un indirizzo email valido.'],
             [['email'], 'unique', 'targetClass' => '\common\models\User', 'message' => 'Questa email è già stata registrata.'],
-            [['password'], 'required', 'on' => 'create'],
-            [['password'], 'string', 'min' => 6],
-            [['password_repeat'], 'required', 'on' => 'create'],
+            [['password'], 'required', 'on' => 'create', 'message' => 'La password è obbligatoria.'],
+            [['password'], 'string', 'min' => 6, 'message' => 'La password deve contenere almeno 6 caratteri.'],
+            [['password_repeat'], 'required', 'on' => 'create', 'message' => 'La conferma password è obbligatoria.'],
             [['password_repeat'], 'compare', 'compareAttribute' => 'password', 'message' => 'Le password devono coincidere.'],
         ];
     }

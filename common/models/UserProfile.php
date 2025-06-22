@@ -52,14 +52,14 @@ class UserProfile extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'first_name', 'last_name'], 'required'],
-            [['user_id'], 'integer'],
+            [['user_id', 'first_name', 'last_name'], 'required', 'message' => '{attribute} è obbligatorio.'],
+            [['user_id'], 'integer', 'message' => 'L\'ID utente deve essere un numero valido.'],
             [['address', 'phone'], 'string'],
             [['created_at', 'updated_at'], 'safe'],
-            [['first_name', 'last_name'], 'string', 'max' => 100],
-            [['fiscal_code'], 'string', 'max' => 16],
-            [['fiscal_code'], 'unique'],
-            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
+            [['first_name', 'last_name'], 'string', 'max' => 100, 'message' => '{attribute} non può superare i 100 caratteri.'],
+            [['fiscal_code'], 'string', 'max' => 16, 'message' => 'Il codice fiscale non può superare i 16 caratteri.'],
+            [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id'], 'message' => 'Utente non valido.'],
         ];
     }
 

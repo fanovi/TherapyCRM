@@ -52,15 +52,16 @@ class Therapist extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'specialization_id', 'weekly_hours_contract'], 'required'],
-            [['user_id', 'specialization_id', 'weekly_hours_contract'], 'integer'],
+            [['user_id', 'specialization_id', 'weekly_hours_contract'], 'required', 'message' => '{attribute} è obbligatorio.'],
+            [['user_id', 'specialization_id', 'weekly_hours_contract'], 'integer', 'message' => '{attribute} deve essere un numero valido.'],
+            [['weekly_hours_contract'], 'integer', 'min' => 1, 'max' => 40, 'message' => 'Le ore settimanali devono essere comprese tra 1 e 40.'],
             [['is_active'], 'boolean'],
             [['created_at', 'updated_at'], 'safe'],
-            [['calendar_color'], 'string', 'max' => 7],
-            [['calendar_color'], 'match', 'pattern' => '/^#[0-9A-Fa-f]{6}$/'], // Validazione colore hex
-            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
-            [['specialization_id'], 'exist', 'skipOnError' => true, 'targetClass' => Specialization::class, 'targetAttribute' => ['specialization_id' => 'id']],
-            [['user_id'], 'unique'], // Un utente può essere solo un terapista
+            [['calendar_color'], 'string', 'max' => 7, 'message' => 'Il colore del calendario non è valido.'],
+            [['calendar_color'], 'match', 'pattern' => '/^#[0-9A-Fa-f]{6}$/', 'message' => 'Il colore deve essere in formato esadecimale (es. #FF0000).'],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id'], 'message' => 'Utente non valido.'],
+            [['specialization_id'], 'exist', 'skipOnError' => true, 'targetClass' => Specialization::class, 'targetAttribute' => ['specialization_id' => 'id'], 'message' => 'Specializzazione non valida.'],
+            [['user_id'], 'unique', 'message' => 'Questo utente è già associato a un altro terapista.'],
         ];
     }
 
