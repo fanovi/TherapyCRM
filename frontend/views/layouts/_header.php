@@ -94,7 +94,7 @@ use yii\helpers\Html;
 
       <div class="hidden lg:block">
         <form>
-          <div class="relative">
+          <div class="relative" id="search-container">
             <span class="absolute top-1/2 left-4 -translate-y-1/2">
               <svg
                 class="fill-gray-500 dark:fill-gray-400"
@@ -112,16 +112,45 @@ use yii\helpers\Html;
             </span>
             <input
               type="text"
-              placeholder="Search or type command..."
+              placeholder="Cerca utenti nel gestionale..."
               id="search-input"
+              autocomplete="off"
               class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pr-14 pl-12 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden xl:w-[430px] dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30" />
 
             <button
+              type="button"
               id="search-button"
               class="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
               <span> ⌘ </span>
               <span> K </span>
             </button>
+
+            <!-- Loading spinner -->
+            <div id="search-loading" class="absolute top-1/2 right-16 -translate-y-1/2 hidden">
+              <svg class="animate-spin h-4 w-4 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+
+            <!-- Dropdown dei risultati -->
+            <div
+              id="search-results"
+              class="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto hidden">
+              <div id="search-results-content"></div>
+              <div id="search-no-results" class="p-4 text-center text-gray-500 dark:text-gray-400 hidden">
+                <p>Nessun risultato trovato</p>
+              </div>
+              <div id="search-pagination" class="border-t border-gray-200 dark:border-gray-800 p-3 flex justify-between items-center hidden">
+                <button id="search-prev" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
+                  ← Precedente
+                </button>
+                <span id="search-info" class="text-xs text-gray-500"></span>
+                <button id="search-next" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
+                  Successivo →
+                </button>
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -655,3 +684,289 @@ use yii\helpers\Html;
   </div>
 </header>
 <!-- ===== Header End ===== -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const searchContainer = document.getElementById('search-container');
+    const searchResults = document.getElementById('search-results');
+    const searchResultsContent = document.getElementById('search-results-content');
+    const searchNoResults = document.getElementById('search-no-results');
+    const searchLoading = document.getElementById('search-loading');
+    const searchPagination = document.getElementById('search-pagination');
+    const searchPrev = document.getElementById('search-prev');
+    const searchNext = document.getElementById('search-next');
+    const searchInfo = document.getElementById('search-info');
+    
+    let currentQuery = '';
+    let currentPage = 1;
+    let totalPages = 1;
+    let searchTimeout = null;
+    let currentRequest = null;
+
+    // Funzione per nascondere i risultati
+    function hideResults() {
+        searchResults.classList.add('hidden');
+        searchLoading.classList.add('hidden');
+    }
+
+    // Funzione per mostrare i risultati
+    function showResults() {
+        searchResults.classList.remove('hidden');
+    }
+
+    // Funzione per mostrare il loading
+    function showLoading() {
+        searchLoading.classList.remove('hidden');
+        hideResultsContent();
+    }
+
+    // Funzione per nascondere il loading
+    function hideLoading() {
+        searchLoading.classList.add('hidden');
+    }
+
+    // Funzione per nascondere il contenuto dei risultati
+    function hideResultsContent() {
+        searchResultsContent.innerHTML = '';
+        searchNoResults.classList.add('hidden');
+        searchPagination.classList.add('hidden');
+    }
+
+    // Funzione per eseguire la ricerca
+    function performSearch(query, page = 1) {
+        if (query.length < 2) {
+            hideResults();
+            return;
+        }
+
+        // Cancella la richiesta precedente se esiste
+        if (currentRequest) {
+            currentRequest.abort();
+        }
+
+        showLoading();
+        showResults();
+
+                 // Crea l'URL per la ricerca
+         const apiUrl = `<?= \yii\helpers\Url::to(['/search/user']) ?>?q=${encodeURIComponent(query)}&page=${page}&limit=10`;
+
+        currentRequest = fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin' // Include cookies per l'autenticazione di sessione
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            hideLoading();
+            
+            if (data.success && data.data.length > 0) {
+                displayResults(data.data);
+                updatePagination(data.pagination);
+            } else {
+                showNoResults();
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            if (error.name !== 'AbortError') {
+                console.error('Search error:', error);
+                showNoResults();
+            }
+        });
+    }
+
+    // Funzione per mostrare i risultati
+    function displayResults(results) {
+        hideResultsContent();
+        
+        const resultsHtml = results.map(result => {
+            const roleClass = getRoleClass(result.type);
+            const avatarBg = getAvatarBgColor(result.type);
+            
+            return `
+                <div class="search-result-item p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0" 
+                     data-url="${result.detail_url}" data-type="${result.type}">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center">
+                                <span class="text-sm font-medium text-white">${result.avatar_initials}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${result.name}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleClass}">${result.role}</span>
+                            </p>
+                            ${result.email ? `<p class="text-xs text-gray-400 truncate mt-1">${result.email}</p>` : ''}
+                        </div>
+                        <div class="flex-shrink-0">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        searchResultsContent.innerHTML = resultsHtml;
+        
+        // Aggiungi event listeners per i click
+        document.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const url = this.dataset.url;
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+        });
+    }
+
+    // Funzione per mostrare nessun risultato
+    function showNoResults() {
+        hideResultsContent();
+        searchNoResults.classList.remove('hidden');
+    }
+
+    // Funzione per aggiornare la paginazione
+    function updatePagination(pagination) {
+        if (pagination.pages > 1) {
+            searchPagination.classList.remove('hidden');
+            searchInfo.textContent = `Pagina ${pagination.page} di ${pagination.pages} (${pagination.total} risultati)`;
+            
+            currentPage = pagination.page;
+            totalPages = pagination.pages;
+            
+            searchPrev.disabled = currentPage === 1;
+            searchNext.disabled = currentPage === totalPages;
+            
+            if (searchPrev.disabled) {
+                searchPrev.classList.add('disabled:text-gray-400', 'disabled:cursor-not-allowed');
+            } else {
+                searchPrev.classList.remove('disabled:text-gray-400', 'disabled:cursor-not-allowed');
+            }
+            
+            if (searchNext.disabled) {
+                searchNext.classList.add('disabled:text-gray-400', 'disabled:cursor-not-allowed');
+            } else {
+                searchNext.classList.remove('disabled:text-gray-400', 'disabled:cursor-not-allowed');
+            }
+        } else {
+            searchPagination.classList.add('hidden');
+        }
+    }
+
+    // Funzione per ottenere la classe CSS del ruolo
+    function getRoleClass(type) {
+        switch(type) {
+            case 'therapist':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+            case 'patient':
+                return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            case 'patient_account':
+                return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+            case 'admin':
+                return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            case 'manager':
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+            case 'coordinator':
+                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        }
+    }
+
+    // Funzione per ottenere il colore di sfondo dell'avatar
+    function getAvatarBgColor(type) {
+        switch(type) {
+            case 'therapist':
+                return 'bg-blue-500';
+            case 'patient':
+                return 'bg-green-500';
+            case 'patient_account':
+                return 'bg-purple-500';
+            case 'admin':
+                return 'bg-red-500';
+            case 'manager':
+                return 'bg-orange-500';
+            case 'coordinator':
+                return 'bg-yellow-500';
+            default:
+                return 'bg-gray-500';
+        }
+    }
+
+
+
+    // Event listener per l'input di ricerca
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        currentQuery = query;
+        currentPage = 1;
+        
+        // Cancella il timeout precedente
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Imposta un nuovo timeout per evitare troppe richieste
+        searchTimeout = setTimeout(() => {
+            performSearch(query, 1);
+        }, 300);
+    });
+
+    // Event listener per il focus sull'input
+    searchInput.addEventListener('focus', function() {
+        if (currentQuery && currentQuery.length >= 2) {
+            showResults();
+        }
+    });
+
+    // Event listener per nascondere i risultati quando si clicca fuori
+    document.addEventListener('click', function(event) {
+        if (!searchContainer.contains(event.target)) {
+            hideResults();
+        }
+    });
+
+    // Event listeners per la paginazione
+    searchPrev.addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            performSearch(currentQuery, currentPage);
+        }
+    });
+
+    searchNext.addEventListener('click', function() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            performSearch(currentQuery, currentPage);
+        }
+    });
+
+    // Supporto per scorciatoia da tastiera (Cmd+K o Ctrl+K)
+    document.addEventListener('keydown', function(event) {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+            event.preventDefault();
+            searchInput.focus();
+        }
+        
+        // Supporto per navigazione con frecce nei risultati
+        if (searchResults.classList.contains('hidden') === false) {
+            if (event.key === 'Escape') {
+                hideResults();
+                searchInput.blur();
+            }
+        }
+    });
+});
+</script>

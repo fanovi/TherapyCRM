@@ -56,7 +56,7 @@ class PatientController extends Controller
         }
 
         $searchModel = new PatientSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
 
         return $this->render('index', [
             'searchModel' => $searchModel,

@@ -57,6 +57,8 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                'GET search/user' => 'search/user',
+                // Altre route qui...
             ],
         ],
     ],

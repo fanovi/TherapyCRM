@@ -39,7 +39,7 @@ class PatientSearch extends Patient
      *
      * @return ActiveDataProvider
      */
-    public function search($params)
+    public function searchDataProvider($params)
     {
         $query = Patient::find()
             ->with('district')
