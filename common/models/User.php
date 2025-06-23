@@ -40,6 +40,15 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public $password_repeat;
 
+    /**
+     * {@inheritdoc}
+     */
+    public function scenarios()
+    {
+        $scenarios = parent::scenarios();
+        $scenarios['create'] = ['email', 'password', 'password_repeat', 'status'];
+        return $scenarios;
+    }
 
     /**
      * {@inheritdoc}
