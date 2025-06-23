@@ -167,13 +167,10 @@ $this->params['breadcrumbs'][] = $this->title;
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
 
-                    <?= $form->field($accountPatient, 'notes')->textarea([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Note aggiuntive sulla relazione...',
-                        'rows' => 3
-                    ])->label('Note', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    <?= $form->field($accountPatient, 'has_parental_authority')->checkbox([
+                        'class' => 'w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600',
+                        'template' => '<div class="flex items-center">{input}<label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300" for="{for}">{label}</label></div>{hint}{error}'
+                    ])->label('Ha Autorità Genitoriale') ?>
                 </div>
 
                 <!-- Buttons -->

@@ -7,8 +7,8 @@ use yii\helpers\ArrayHelper;
 use common\models\District;
 
 /* @var $this yii\web\View */
-/* @var $dataProvider yii\data\ActiveDataProvider */
 /* @var $searchModel frontend\models\PatientSearch */
+/* @var $dataProvider yii\data\ActiveDataProvider */
 
 $this->title = 'Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
@@ -47,47 +47,6 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
             </p>
         </div>
         
-        <!-- Filters -->
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4 sm:px-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Cerca per nome/cognome
-                    </label>
-                    <input type="text" id="search-name" placeholder="Inserisci nome o cognome..." 
-                           class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Distretto
-                    </label>
-                    <select id="filter-district" 
-                            class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                        <option value="">Tutti i distretti</option>
-                        <?php foreach ($districts as $id => $name): ?>
-                            <option value="<?= Html::encode($name) ?>"><?= Html::encode($name) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Codice Fiscale
-                    </label>
-                    <input type="text" id="search-fiscal" placeholder="Cerca per codice fiscale..." 
-                           class="shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
-                </div>
-                
-                <div class="flex items-end">
-                    <button type="button" onclick="resetFilters()" 
-                            class="h-10 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
-                        Reset Filtri
-                    </button>
-                </div>
-            </div>
-        </div>
-        
         <div class="border-t border-gray-100 dark:border-gray-800">
             <!-- Horizontal scroll wrapper -->
             <div class="overflow-x-auto">
@@ -98,32 +57,42 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
                 
                 <?= GridView::widget([
                     'dataProvider' => $dataProvider,
+                    'filterModel' => $searchModel,
                     'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
                     'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
                     'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
+                    'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                     'columns' => [
                         [
                             'attribute' => 'id',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[80px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'ID...'],
                         ],
                         [
                             'attribute' => 'first_name',
                             'label' => 'Nome',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Nome...'],
                         ],
                         [
                             'attribute' => 'last_name',
                             'label' => 'Cognome',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cognome...'],
                         ],
                         [
                             'attribute' => 'fiscal_code',
                             'label' => 'Codice Fiscale',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[160px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap font-mono text-xs'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Codice fiscale...'],
                             'value' => function($model) {
                                 return $model->fiscal_code ?: '-';
                             }
@@ -133,21 +102,34 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
                             'label' => 'Data di Nascita',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[130px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filter' => false, // No filter for birth date
                             'format' => ['date', 'php:d/m/Y'],
                         ],
                         [
                             'label' => 'Età',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[80px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-center'],
+                            'filter' => false, // No filter for age
                             'value' => function($model) {
                                 return $model->age ? $model->age . ' anni' : '-';
                             }
                         ],
                         [
-                            'attribute' => 'district.name',
+                            'attribute' => 'district_id',
                             'label' => 'Distretto',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filter' => Html::activeDropDownList(
+                                $searchModel,
+                                'district_id',
+                                $districts,
+                                [
+                                    'prompt' => 'Tutti i distretti',
+                                    'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                                ]
+                            ),
                             'value' => function($model) {
                                 return $model->district ? $model->district->name : '-';
                             }
@@ -157,6 +139,7 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
                             'label' => 'Note',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 max-w-xs truncate'],
+                            'filter' => false, // No filter for notes
                             'value' => function($model) {
                                 return $model->notes ? (strlen($model->notes) > 50 ? substr($model->notes, 0, 50) . '...' : $model->notes) : '-';
                             },
@@ -166,6 +149,7 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
                             'label' => 'Creato il',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[130px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-xs text-gray-500'],
+                            'filter' => false, // No filter for created date
                             'format' => ['date', 'php:d/m/Y'],
                         ],
                         [
@@ -219,54 +203,4 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
             </div>
         </div>
     </div>
-</div>
-
-<script>
-// Client-side filtering functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const searchName = document.getElementById('search-name');
-    const searchFiscal = document.getElementById('search-fiscal');
-    const filterDistrict = document.getElementById('filter-district');
-    
-    function applyFilters() {
-        const nameValue = searchName.value.toLowerCase();
-        const fiscalValue = searchFiscal.value.toLowerCase();
-        const districtValue = filterDistrict.value.toLowerCase();
-        
-        const rows = document.querySelectorAll('#patients-pjax tbody tr');
-        
-        rows.forEach(row => {
-            const nameCell = row.cells[1]?.textContent.toLowerCase() || '';
-            const surnameCell = row.cells[2]?.textContent.toLowerCase() || '';
-            const fiscalCell = row.cells[3]?.textContent.toLowerCase() || '';
-            const districtCell = row.cells[6]?.textContent.toLowerCase() || '';
-            
-            const nameMatch = nameValue === '' || nameCell.includes(nameValue) || surnameCell.includes(nameValue);
-            const fiscalMatch = fiscalValue === '' || fiscalCell.includes(fiscalValue);
-            const districtMatch = districtValue === '' || districtCell.includes(districtValue);
-            
-            if (nameMatch && fiscalMatch && districtMatch) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    }
-    
-    searchName.addEventListener('input', applyFilters);
-    searchFiscal.addEventListener('input', applyFilters);
-    filterDistrict.addEventListener('change', applyFilters);
-});
-
-function resetFilters() {
-    document.getElementById('search-name').value = '';
-    document.getElementById('search-fiscal').value = '';
-    document.getElementById('filter-district').value = '';
-    
-    // Show all rows
-    const rows = document.querySelectorAll('#patients-pjax tbody tr');
-    rows.forEach(row => {
-        row.style.display = '';
-    });
-}
-</script> 
+</div> 

@@ -15,6 +15,7 @@ use common\models\District;
 use common\models\User;
 use common\models\UserProfile;
 use common\models\AccountPatient;
+use frontend\models\PatientSearch;
 
 /**
  * PatientController handles CRUD operations for patients
@@ -54,16 +55,11 @@ class PatientController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti.');
         }
 
-        $dataProvider = new ActiveDataProvider([
-            'query' => Patient::find()
-                ->with('district')
-                ->orderBy('last_name, first_name'),
-            'pagination' => [
-                'pageSize' => 20,
-            ],
-        ]);
+        $searchModel = new PatientSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         return $this->render('index', [
+            'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
     }
@@ -102,7 +98,7 @@ class PatientController extends Controller
      */
     public function actionView($id)
     {
-        if (!Yii::$app->user->can('view_patients')) {
+        if (!Yii::$app->user->can('view_patient')) {
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti.');
         }
 
