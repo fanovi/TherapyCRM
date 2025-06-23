@@ -12,40 +12,26 @@ $this->title = 'Gestione Coordinatori';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
-<div class="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
+<div class="mx-auto max-w-full p-4 md:p-6">
     <!-- Breadcrumb Start -->
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
             
-            <nav>
-                <ol class="flex items-center gap-1.5">
-                    <li>
-                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/site/index']) ?>">
-                            Home
-                            <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </a>
-                    </li>
-                    <li class="text-sm text-gray-800 dark:text-white/90" x-text="pageName"></li>
-                </ol>
-            </nav>
+            <!-- Action Button -->
+            <?php if (Yii::$app->user->can('create_coordinator')): ?>
+            <div>
+                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Coordinatore', 
+                    ['create-coordinator'], [
+                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
+                ]) ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     <!-- Breadcrumb End -->
 
-    <!-- Action Buttons -->
-    <div class="mb-6 flex flex-wrap items-center gap-3">
-        <?php if (Yii::$app->user->can('create_coordinator')): ?>
-        <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Coordinatore', 
-            ['create-coordinator'], [
-            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-        ]) ?>
-        <?php endif; ?>
-    </div>
-
-    <!-- Coordinators List Card -->
+    <!-- Content Start -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
@@ -56,81 +42,106 @@ $this->params['breadcrumbs'][] = $this->title;
             </p>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800">
+        <!-- Scrollable Table Container -->
+        <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
             <?php Pjax::begin(); ?>
 
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
                 'filterModel' => $searchModel,
-                'tableOptions' => ['class' => 'w-full text-sm text-left text-gray-500 dark:text-gray-400'],
-                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
+                'options' => ['class' => 'min-w-full'],
+                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
+                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0'],
                 'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
+                'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                 'columns' => [
-                    ['class' => 'yii\grid\SerialColumn'],
-
-                    [
-                        'attribute' => 'id',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
-                    ],
                     [
                         'attribute' => 'username',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'label' => 'Username',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra username...'],
                     ],
                     [
-                        'attribute' => 'email',
-                        'format' => 'email',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                    ],
-                    [
-                        'attribute' => 'profile.nome',
+                        'attribute' => 'profile.first_name',
                         'label' => 'Nome',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra nome...'],
                         'value' => function($model) {
-                            return $model->profile ? $model->profile->nome : '-';
+                            return $model->profile ? $model->profile->first_name : '-';
                         }
                     ],
                     [
-                        'attribute' => 'profile.cognome',
+                        'attribute' => 'profile.last_name',
                         'label' => 'Cognome',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra cognome...'],
                         'value' => function($model) {
-                            return $model->profile ? $model->profile->cognome : '-';
+                            return $model->profile ? $model->profile->last_name : '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'email',
+                        'label' => 'Email',
+                        'format' => 'email',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra email...'],
+                    ],
+                    [
+                        'attribute' => 'profile.phone',
+                        'label' => 'Telefono',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra telefono...'],
+                        'value' => function($model) {
+                            return $model->profile && $model->profile->phone ? $model->profile->phone : '-';
                         }
                     ],
                     [
                         'attribute' => 'status',
                         'label' => 'Stato',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'status', 
+                            [10 => 'Attivo', 0 => 'Inattivo'], 
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
                         'format' => 'raw',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
                         'value' => function($model) {
                             if ($model->status == 10) {
                                 return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900">Attivo</span>';
                             } else {
                                 return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900">Inattivo</span>';
                             }
-                        },
-                        'filter' => [10 => 'Attivo', 0 => 'Inattivo']
+                        }
                     ],
                     [
                         'attribute' => 'created_at',
                         'label' => 'Creato il',
                         'format' => ['datetime', 'php:d/m/Y H:i'],
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => false,
                     ],
-
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-6 py-3'],
-                        'contentOptions' => ['class' => 'px-6 py-4'],
-                        'template' => '{view} {update} {delete}',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'template' => '{view} {update} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             if ($action === 'view') {
                                 return ['view-coordinator', 'id' => $model->id];
@@ -138,8 +149,8 @@ $this->params['breadcrumbs'][] = $this->title;
                             if ($action === 'update') {
                                 return ['update-coordinator', 'id' => $model->id];
                             }
-                            if ($action === 'delete') {
-                                return ['delete-coordinator', 'id' => $model->id];
+                            if ($action === 'toggle-status') {
+                                return ['toggle-status', 'id' => $model->id];
                             }
                             return [$action, 'id' => $model->id];
                         },
@@ -159,17 +170,32 @@ $this->params['breadcrumbs'][] = $this->title;
                                     'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3'
                                 ]);
                             },
-                            'delete' => function ($url, $model, $key) {
+                            'toggle-status' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('delete_coordinator')) return '';
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>', 
-                                    $url, [
-                                    'title' => 'Elimina',
-                                    'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
-                                    'data' => [
-                                        'confirm' => 'Sei sicuro di voler eliminare questo coordinatore?',
-                                        'method' => 'post',
-                                    ],
-                                ]);
+                                
+                                if ($model->status == 10) {
+                                    // Show deactivate button for active coordinators
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
+                                        $url, [
+                                        'title' => 'Disattiva',
+                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
+                                        'data' => [
+                                            'confirm' => 'Sei sicuro di voler disattivare questo coordinatore? Potrà essere riattivato in seguito.',
+                                            'method' => 'post',
+                                        ],
+                                    ]);
+                                } else {
+                                    // Show activate button for inactive coordinators
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', 
+                                        $url, [
+                                        'title' => 'Attiva',
+                                        'class' => 'text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-600',
+                                        'data' => [
+                                            'confirm' => 'Sei sicuro di voler attivare questo coordinatore?',
+                                            'method' => 'post',
+                                        ],
+                                    ]);
+                                }
                             },
                         ],
                     ],
