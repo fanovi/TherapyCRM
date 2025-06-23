@@ -112,7 +112,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
                         'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'status', 
-                            [10 => 'Attivo', 0 => 'Inattivo'], 
+                            ['active' => 'Attivo', 'inactive' => 'Inattivo'], 
                             [
                                 'prompt' => 'Tutti',
                                 'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
@@ -120,7 +120,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ),
                         'format' => 'raw',
                         'value' => function($model) {
-                            if ($model->status == 10) {
+                            if ($model->status == 'active') {
                                 return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900">Attivo</span>';
                             } else {
                                 return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900">Inattivo</span>';
@@ -173,7 +173,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'toggle-status' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('delete_coordinator')) return '';
                                 
-                                if ($model->status == 10) {
+                                if ($model->status == 'active') {
                                     // Show deactivate button for active coordinators
                                     return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
                                         $url, [
