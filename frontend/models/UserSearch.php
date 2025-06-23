@@ -26,6 +26,11 @@ class UserSearch extends User
      * @var string Telefono dall'UserProfile
      */
     public $phone;
+    
+    /**
+     * @var string Username dell'User
+     */
+    public $username;
 
     /**
      * {@inheritdoc}
@@ -33,8 +38,9 @@ class UserSearch extends User
     public function rules()
     {
         return [
-            [['id', 'status'], 'integer'],
-            [['email', 'first_name', 'last_name', 'phone'], 'safe'],
+            [['id'], 'integer'],
+            [['status'], 'string'],
+            [['email', 'first_name', 'last_name', 'phone', 'username'], 'safe'],
         ];
     }
 
@@ -71,6 +77,7 @@ class UserSearch extends User
             'sort' => [
                 'attributes' => [
                     'id',
+                    'username',
                     'email',
                     'status',
                     'first_name' => [
@@ -86,6 +93,10 @@ class UserSearch extends User
                         'desc' => ['user_profiles.phone' => SORT_DESC],
                     ],
                 ],
+                'defaultOrder' => [
+                    'last_name' => SORT_ASC,
+                    'first_name' => SORT_ASC,
+                ]
             ],
         ]);
 
@@ -100,10 +111,19 @@ class UserSearch extends User
         // grid filtering conditions
         $query->andFilterWhere([
             'users.id' => $this->id,
-            'users.status' => $this->status,
         ]);
 
-        $query->andFilterWhere(['like', 'users.email', $this->email])
+        // Status filter - handle both string and integer values
+        if (!empty($this->status)) {
+            if ($this->status === 'active') {
+                $query->andWhere(['users.status' => 10]); // STATUS_ACTIVE
+            } elseif ($this->status === 'inactive') {
+                $query->andWhere(['users.status' => 9]); // STATUS_INACTIVE
+            }
+        }
+
+        $query->andFilterWhere(['like', 'users.username', $this->username])
+            ->andFilterWhere(['like', 'users.email', $this->email])
             ->andFilterWhere(['like', 'user_profiles.first_name', $this->first_name])
             ->andFilterWhere(['like', 'user_profiles.last_name', $this->last_name])
             ->andFilterWhere(['like', 'user_profiles.phone', $this->phone]);
