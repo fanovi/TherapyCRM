@@ -54,6 +54,13 @@ class UserController extends Controller
         $searchModel = new \frontend\models\UserSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams, 'admin');
 
+        // Decrittografa i dati sensibili per tutti i modelli nella lista
+        foreach ($dataProvider->getModels() as $user) {
+            if ($user->profile) {
+                $this->decryptSensitiveData($user->profile);
+            }
+        }
+
         return $this->render('administrators/index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
@@ -79,6 +86,9 @@ class UserController extends Controller
                 if (!$user->save()) {
                     throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
+
+                // Crittografa i dati sensibili prima di salvare
+                $this->encryptSensitiveData($profile);
 
                 // Save profile
                 $profile->user_id = $user->id;
@@ -118,6 +128,11 @@ class UserController extends Controller
 
         $user = $this->findUserModel($id);
         
+        // Decodifica i dati sensibili per la visualizzazione
+        if ($user->profile) {
+            $this->decryptSensitiveData($user->profile);
+        }
+        
         return $this->render('administrators/view', [
             'model' => $user,
         ]);
@@ -135,12 +150,18 @@ class UserController extends Controller
         $user = $this->findUserModel($id);
         $profile = $user->profile ?: new UserProfile(['user_id' => $user->id]);
 
+        // Decodifica i dati sensibili per mostrarli nel form
+        $this->decryptSensitiveData($profile);
+
         if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 if (!$user->save()) {
                     throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
+
+                // Crittografa i dati sensibili prima di salvare
+                $this->encryptSensitiveData($profile);
 
                 if (!$profile->save()) {
                     throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
@@ -177,6 +198,42 @@ class UserController extends Controller
             Yii::$app->session->setFlash('success', 'Amministratore eliminato con successo.');
         } else {
             Yii::$app->session->setFlash('error', 'Errore nell\'eliminare l\'amministratore.');
+        }
+
+        return $this->redirect(['administrators']);
+    }
+
+    /**
+     * Toggles the active status of an existing administrator.
+     * If the administrator is active, it will be deactivated, and vice versa.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionToggleStatusAdministrator($id)
+    {
+        if (!Yii::$app->user->can('delete_admin')) {
+            throw new ForbiddenHttpException('Non hai i permessi per gestire lo stato degli amministratori.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Toggle active status - usa i valori stringa corretti (ENUM database)
+            $newStatus = ($user->status == User::STATUS_ACTIVE) ? User::STATUS_INACTIVE : User::STATUS_ACTIVE;
+            $user->status = $newStatus;
+            
+            if ($user->save(false)) {
+                $transaction->commit();
+                $message = ($newStatus == User::STATUS_ACTIVE) ? 'Amministratore attivato con successo.' : 'Amministratore disattivato con successo.';
+                Yii::$app->session->setFlash('success', $message);
+            } else {
+                throw new \Exception('Errore nel cambiare lo stato dell\'amministratore.');
+            }
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::$app->session->setFlash('error', $e->getMessage());
         }
 
         return $this->redirect(['administrators']);

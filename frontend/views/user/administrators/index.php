@@ -123,15 +123,15 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-4 py-2'],
-                        'filter' => [10 => 'Attivo', 0 => 'Inattivo'],
+                        'filter' => ['active' => 'Attivo', 'inactive' => 'Inattivo'],
                         'filterInputOptions' => [
                             'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
                             'prompt' => 'Stato...'
                         ],
                         'format' => 'raw',
                         'content' => function($model) {
-                            $statusClass = $model->status == 10 ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
-                            $statusText = $model->status == 10 ? 'Attivo' : 'Inattivo';
+                            $statusClass = $model->status == 'active' ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
+                            $statusText = $model->status == 'active' ? 'Attivo' : 'Inattivo';
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $statusText . '</span>';
                         }
                     ],
@@ -141,7 +141,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-4 py-2'],
-                        'template' => '{view} {update} {delete}',
+                        'template' => '{view} {update} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             if ($action === 'view') {
                                 return ['view-administrator', 'id' => $model->id];
@@ -149,8 +149,8 @@ $this->params['breadcrumbs'][] = $this->title;
                             if ($action === 'update') {
                                 return ['update-administrator', 'id' => $model->id];
                             }
-                            if ($action === 'delete') {
-                                return ['delete-administrator', 'id' => $model->id];
+                            if ($action === 'toggle-status') {
+                                return ['toggle-status-administrator', 'id' => $model->id];
                             }
                             return [$action, 'id' => $model->id];
                         },
@@ -170,17 +170,32 @@ $this->params['breadcrumbs'][] = $this->title;
                                     'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3'
                                 ]);
                             },
-                            'delete' => function ($url, $model, $key) {
+                            'toggle-status' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('delete_admin')) return '';
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>', 
-                                    $url, [
-                                    'title' => 'Elimina',
-                                    'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
-                                    'data' => [
-                                        'confirm' => 'Sei sicuro di voler eliminare questo amministratore?',
-                                        'method' => 'post',
-                                    ],
-                                ]);
+                                
+                                if ($model->status == 'active') {
+                                    // Show deactivate button for active administrators
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
+                                        $url, [
+                                        'title' => 'Disattiva',
+                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
+                                        'data' => [
+                                            'confirm' => 'Sei sicuro di voler disattivare questo amministratore? Potrà essere riattivato in seguito.',
+                                            'method' => 'post',
+                                        ],
+                                    ]);
+                                } else {
+                                    // Show activate button for inactive administrators
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', 
+                                        $url, [
+                                        'title' => 'Attiva',
+                                        'class' => 'text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-600',
+                                        'data' => [
+                                            'confirm' => 'Sei sicuro di voler attivare questo amministratore?',
+                                            'method' => 'post',
+                                        ],
+                                    ]);
+                                }
                             },
                         ],
                     ],
