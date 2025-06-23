@@ -42,9 +42,25 @@ $this->params['breadcrumbs'][] = $this->title;
             </p>
         </div>
         
+        <!-- Filter Controls -->
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <?= 'Trovati ' . $dataProvider->totalCount . ' terapisti' ?>
+            </div>
+            <div class="flex gap-2">
+                <?= Html::a('Reset Filtri', ['index'], [
+                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
+                ]) ?>
+                <?= Html::button('Aggiorna', [
+                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-brand-600 border border-transparent rounded-md shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
+                    'onclick' => '$.pjax.reload({container:"#therapist-grid-pjax"});'
+                ]) ?>
+            </div>
+        </div>
+        
         <!-- Scrollable Table Container -->
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
-            <?php Pjax::begin(); ?>
+            <?php Pjax::begin(['id' => 'therapist-grid-pjax']); ?>
             
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
@@ -111,19 +127,28 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[110px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => false, // No filter for hours
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'weekly_hours_contract', 
+                            \frontend\models\TherapistSearch::getHoursList(), 
+                            [
+                                'prompt' => 'Tutte',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
                     ],
                     [
                         'attribute' => 'calendar_color',
                         'label' => 'Colore',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[80px]'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => false, // No filter for color
+                        'filterInputOptions' => ['class' => 'w-full px-1 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => '#000000'],
                         'format' => 'raw',
                         'content' => function($model) {
                             $color = $model->calendar_color ?: '#6B7280';
-                            return '<div class="w-6 h-6 rounded-full border-2 border-gray-300 mx-auto" style="background-color: ' . Html::encode($color) . '"></div>';
+                            return '<div class="flex items-center justify-center gap-2">
+                                <div class="w-6 h-6 rounded-full border-2 border-gray-300" style="background-color: ' . Html::encode($color) . '"></div>
+                                <span class="text-xs text-gray-500">' . Html::encode($color) . '</span>
+                            </div>';
                         }
                     ],
                     [
@@ -149,8 +174,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'template' => '{view} {update} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             return [$action, 'id' => $model->id];
@@ -159,16 +185,20 @@ $this->params['breadcrumbs'][] = $this->title;
                             'view' => function ($url, $model, $key) {
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', 
                                     $url, [
-                                    'title' => 'Visualizza',
-                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3'
+                                    'title' => 'Visualizza terapista',
+                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                    'data-bs-toggle' => 'tooltip',
+                                    'data-bs-placement' => 'top'
                                 ]);
                             },
                             'update' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('update_therapist')) return '';
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
                                     $url, [
-                                    'title' => 'Modifica',
-                                    'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3'
+                                    'title' => 'Modifica terapista',
+                                    'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
+                                    'data-bs-toggle' => 'tooltip',
+                                    'data-bs-placement' => 'top'
                                 ]);
                             },
                             'toggle-status' => function ($url, $model, $key) {
@@ -181,8 +211,10 @@ $this->params['breadcrumbs'][] = $this->title;
                                     // Show deactivate button for active therapists
                                     return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
                                         $toggleUrl, [
-                                        'title' => 'Disattiva',
-                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
+                                        'title' => 'Disattiva terapista',
+                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
+                                        'data-bs-toggle' => 'tooltip',
+                                        'data-bs-placement' => 'top',
                                         'data' => [
                                             'confirm' => 'Sei sicuro di voler disattivare questo terapista? Potrà essere riattivato in seguito.',
                                             'method' => 'post',
@@ -192,8 +224,10 @@ $this->params['breadcrumbs'][] = $this->title;
                                     // Show activate button for inactive therapists
                                     return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', 
                                         $toggleUrl, [
-                                        'title' => 'Attiva',
-                                        'class' => 'text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-600',
+                                        'title' => 'Attiva terapista',
+                                        'class' => 'text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-600 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20',
+                                        'data-bs-toggle' => 'tooltip',
+                                        'data-bs-placement' => 'top',
                                         'data' => [
                                             'confirm' => 'Sei sicuro di voler attivare questo terapista?',
                                             'method' => 'post',

@@ -152,4 +152,21 @@ class TherapistSearch extends Therapist
             0 => 'Inattivo',
         ];
     }
+
+    /**
+     * Ottiene la lista delle ore settimanali più comuni per il filtro dropdown
+     * @return array
+     */
+    public static function getHoursList()
+    {
+        return [
+            10 => '10 ore',
+            15 => '15 ore',
+            20 => '20 ore',
+            25 => '25 ore',
+            30 => '30 ore',
+            35 => '35 ore',
+            40 => '40 ore',
+        ];
+    }
 } 
