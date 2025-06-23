@@ -42,9 +42,40 @@ $this->params['breadcrumbs'][] = $this->title;
             </p>
         </div>
         
+        <!-- Filter Controls -->
+        <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                        <?= 'Trovati ' . $dataProvider->totalCount . ' amministratori' ?>
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" 
+                            id="reset-filters"
+                            class="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                            title="Resetta tutti i filtri">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Reset
+                    </button>
+                    <button type="button" 
+                            id="refresh-grid"
+                            class="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                            title="Aggiorna la lista">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Aggiorna
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Scrollable Table Container -->
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
-            <?php Pjax::begin(); ?>
+            <?php Pjax::begin(['id' => 'administrator-grid-pjax']); ?>
             
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
@@ -59,35 +90,35 @@ $this->params['breadcrumbs'][] = $this->title;
                         'attribute' => 'id',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[80px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'placeholder' => 'ID...'
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra ID...'
                         ],
                     ],
                     [
-                        'attribute' => 'profile.first_name',
+                        'attribute' => 'first_name',
                         'label' => 'Nome',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'placeholder' => 'Nome...'
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra nome...'
                         ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->first_name : '';
                         }
                     ],
                     [
-                        'attribute' => 'profile.last_name',
+                        'attribute' => 'last_name',
                         'label' => 'Cognome',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'placeholder' => 'Cognome...'
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra cognome...'
                         ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->last_name : '';
@@ -97,21 +128,21 @@ $this->params['breadcrumbs'][] = $this->title;
                         'attribute' => 'email',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
                         'contentOptions' => ['class' => 'px-4 py-4'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'placeholder' => 'Email...'
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra email...'
                         ],
                     ],
                     [
-                        'attribute' => 'profile.phone',
+                        'attribute' => 'phone',
                         'label' => 'Telefono',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'placeholder' => 'Telefono...'
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra telefono...'
                         ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->phone : '';
@@ -122,12 +153,14 @@ $this->params['breadcrumbs'][] = $this->title;
                         'label' => 'Stato',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
-                        'filter' => ['active' => 'Attivo', 'inactive' => 'Inattivo'],
-                        'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white',
-                            'prompt' => 'Stato...'
-                        ],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'status', 
+                            ['active' => 'Attivo', 'inactive' => 'Inattivo'], 
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
                         'format' => 'raw',
                         'content' => function($model) {
                             $statusClass = $model->status == 'active' ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
@@ -140,7 +173,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'header' => 'Azioni',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-4 py-2'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
                         'template' => '{view} {update} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             if ($action === 'view') {
@@ -156,18 +189,27 @@ $this->params['breadcrumbs'][] = $this->title;
                         },
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', 
+                                return Html::a(
+                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>', 
                                     $url, [
-                                    'title' => 'Visualizza',
-                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3'
+                                    'title' => 'Visualizza amministratore',
+                                    'class' => 'inline-flex items-center p-1 text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors duration-200 mr-2',
+                                    'data-pjax' => '0'
                                 ]);
                             },
                             'update' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('update_admin')) return '';
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
+                                return Html::a(
+                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>', 
                                     $url, [
-                                    'title' => 'Modifica',
-                                    'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3'
+                                    'title' => 'Modifica amministratore',
+                                    'class' => 'inline-flex items-center p-1 text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors duration-200 mr-2',
+                                    'data-pjax' => '0'
                                 ]);
                             },
                             'toggle-status' => function ($url, $model, $key) {
@@ -175,25 +217,33 @@ $this->params['breadcrumbs'][] = $this->title;
                                 
                                 if ($model->status == 'active') {
                                     // Show deactivate button for active administrators
-                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
+                                    return Html::a(
+                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>', 
                                         $url, [
-                                        'title' => 'Disattiva',
-                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
+                                        'title' => 'Disattiva amministratore',
+                                        'class' => 'inline-flex items-center p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-200',
                                         'data' => [
                                             'confirm' => 'Sei sicuro di voler disattivare questo amministratore? Potrà essere riattivato in seguito.',
                                             'method' => 'post',
                                         ],
+                                        'data-pjax' => '0'
                                     ]);
                                 } else {
                                     // Show activate button for inactive administrators
-                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', 
+                                    return Html::a(
+                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>', 
                                         $url, [
-                                        'title' => 'Attiva',
-                                        'class' => 'text-success-600 hover:text-success-700 dark:text-success-500 dark:hover:text-success-600',
+                                        'title' => 'Attiva amministratore',
+                                        'class' => 'inline-flex items-center p-1 text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors duration-200',
                                         'data' => [
                                             'confirm' => 'Sei sicuro di voler attivare questo amministratore?',
                                             'method' => 'post',
                                         ],
+                                        'data-pjax' => '0'
                                     ]);
                                 }
                             },
@@ -205,4 +255,45 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php Pjax::end(); ?>
         </div>
     </div>
-</div> 
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pjaxContainer = '#administrator-grid-pjax';
+    const resetButton = document.getElementById('reset-filters');
+    const refreshButton = document.getElementById('refresh-grid');
+    
+    // Reset all filters
+    resetButton?.addEventListener('click', function() {
+        // Clear all filter inputs
+        const filterInputs = document.querySelectorAll('.filters input, .filters select');
+        filterInputs.forEach(input => {
+            if (input.type === 'text' || input.type === 'email' || input.type === 'number') {
+                input.value = '';
+            } else if (input.tagName === 'SELECT') {
+                input.selectedIndex = 0;
+            }
+        });
+        
+        // Trigger PJAX refresh
+        if (window.$ && window.$.pjax) {
+            window.$.pjax.reload({
+                container: pjaxContainer,
+                timeout: 3000
+            });
+        }
+    });
+    
+    // Refresh grid
+    refreshButton?.addEventListener('click', function() {
+        if (window.$ && window.$.pjax) {
+            window.$.pjax.reload({
+                container: pjaxContainer,
+                timeout: 3000
+            });
+        }
+    });
+    
+    // Il conteggio viene gestito lato server tramite $dataProvider->totalCount
+});
+</script> 

@@ -47,7 +47,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="text-sm text-gray-600 dark:text-gray-400">
-                        <span id="result-count">Caricamento...</span> coordinatori trovati
+                        <?= 'Trovati ' . $dataProvider->totalCount . ' coordinatori' ?>
                     </span>
                 </div>
                 <div class="flex items-center gap-2">
@@ -263,16 +263,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const resetButton = document.getElementById('reset-filters');
     const refreshButton = document.getElementById('refresh-grid');
     
-    // Update result count
-    function updateResultCount() {
-        const rows = document.querySelectorAll('tbody tr');
-        const count = rows.length;
-        const resultCountEl = document.getElementById('result-count');
-        if (resultCountEl) {
-            resultCountEl.textContent = count;
-        }
-    }
-    
     // Reset all filters
     resetButton?.addEventListener('click', function() {
         // Clear all filter inputs
@@ -304,14 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Update count on page load and PJAX updates
-    updateResultCount();
-    
-    // Listen for PJAX events
-    if (window.$) {
-        $(document).on('pjax:complete', pjaxContainer, function() {
-            updateResultCount();
-        });
-    }
+    // Il conteggio viene gestito lato server tramite $dataProvider->totalCount
 });
 </script> 
