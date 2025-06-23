@@ -518,8 +518,10 @@ class RbacController extends Controller
                     'create_admin',
                     'create_coordinator', 
                     'create_patient',
+                    'create_therapist',
                     'delete_admin',
                     'delete_coordinator',
+                    'delete_therapist',
                     'manage_appointments',
                     'manage_communications',
                     'manage_documents',
@@ -530,10 +532,12 @@ class RbacController extends Controller
                     'manage_users',
                     'update_admin',
                     'update_coordinator',
+                    'update_therapist',
                     'view_admin',
                     'view_coordinator',
                     'view_reports',
-                    'view_statistics'
+                    'view_statistics',
+                    'view_therapist'
                 ],
                 'coordinator' => [
                     'manage_appointments',

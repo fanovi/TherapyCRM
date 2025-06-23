@@ -6,12 +6,12 @@ use yii\widgets\DetailView;
 /* @var $this yii\web\View */
 /* @var $model common\models\Patient */
 
-$this->title = $model->first_name . ' ' . $model->last_name;
+$this->title = $model->fullName;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
-<div class="mx-auto max-w-(--breakpoint-2xl) p-4 md:p-6">
+<div class="mx-auto max-w-4xl p-4 md:p-6">
     <!-- Breadcrumb Start -->
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -43,93 +43,147 @@ $this->params['breadcrumbs'][] = $this->title;
     <!-- Breadcrumb End -->
 
     <!-- Action Buttons -->
-    <div class="mb-6 flex flex-wrap items-center gap-3">
+    <div class="mb-6 flex flex-wrap gap-3">
         <?php if (Yii::$app->user->can('update_patient')): ?>
-        <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Modifica', 
-            ['update', 'id' => $model->id], [
-            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-        ]) ?>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>Modifica', 
+                ['update', 'id' => $model->id], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+            ]) ?>
         <?php endif; ?>
         
         <?php if (Yii::$app->user->can('create_patient')): ?>
-        <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg> Crea Credenziali', 
-            ['create-credentials', 'id' => $model->id], [
-            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700'
-        ]) ?>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>Crea Credenziali', 
+                ['create-credentials', 'id' => $model->id], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-green-600 bg-white border border-green-300 rounded-lg hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+            ]) ?>
         <?php endif; ?>
         
-        <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg> Torna alla Lista', 
-            ['index'], [
-            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
-        ]) ?>
+        <?php if (Yii::$app->user->can('delete_patient')): ?>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>Elimina', 
+                ['delete', 'id' => $model->id], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                'data' => [
+                    'confirm' => 'Sei sicuro di voler eliminare questo paziente?',
+                    'method' => 'post',
+                ],
+            ]) ?>
+        <?php endif; ?>
     </div>
 
-    <!-- Patient Details Card -->
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+    <!-- Dati Personali -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Dettagli Paziente
+                Dati Personali
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Informazioni complete del paziente.
+                Informazioni anagrafiche del paziente.
             </p>
         </div>
         
-        <div class="border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
-            <dl class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">ID</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($model->id) ?></dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Nome</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($model->first_name) ?></dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Cognome</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($model->last_name) ?></dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Codice Fiscale</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($model->fiscal_code) ?></dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Data di Nascita</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($model->birth_date) ?></dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Distretto</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">
-                        <?= $model->district ? Html::encode($model->district->name) : '-' ?>
-                    </dd>
-                </div>
-                
-                <div class="sm:col-span-2 lg:col-span-3">
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Note</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">
-                        <?= $model->notes ? Html::encode($model->notes) : 'Nessuna nota disponibile' ?>
-                    </dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Creato il</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">
-                        <?= Yii::$app->formatter->asDatetime($model->created_at) ?>
-                    </dd>
-                </div>
-                
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Aggiornato il</dt>
-                    <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">
-                        <?= Yii::$app->formatter->asDatetime($model->updated_at) ?>
-                    </dd>
-                </div>
-            </dl>
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <?= DetailView::widget([
+                'model' => $model,
+                'options' => ['class' => 'w-full'],
+                'template' => '<tr class="border-b border-gray-100 dark:border-gray-800 last:border-b-0"><th class="px-5 py-4 sm:px-6 text-left text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 w-1/3">{label}</th><td class="px-5 py-4 sm:px-6 text-sm text-gray-800 dark:text-white/90">{value}</td></tr>',
+                'attributes' => [
+                    'id',
+                    [
+                        'attribute' => 'first_name',
+                        'label' => 'Nome',
+                    ],
+                    [
+                        'attribute' => 'last_name', 
+                        'label' => 'Cognome',
+                    ],
+                    [
+                        'attribute' => 'fiscal_code',
+                        'label' => 'Codice Fiscale',
+                        'value' => function($model) {
+                            return $model->fiscal_code ?: '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'birth_date',
+                        'label' => 'Data di Nascita',
+                        'format' => ['date', 'php:d/m/Y'],
+                    ],
+                    [
+                        'label' => 'Età',
+                        'value' => function($model) {
+                            return $model->age ? $model->age . ' anni' : '-';
+                        }
+                    ],
+                ],
+            ]) ?>
+        </div>
+    </div>
+
+    <!-- Informazioni Aggiuntive -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Informazioni Aggiuntive
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Dettagli supplementari del paziente.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <?= DetailView::widget([
+                'model' => $model,
+                'options' => ['class' => 'w-full'],
+                'template' => '<tr class="border-b border-gray-100 dark:border-gray-800 last:border-b-0"><th class="px-5 py-4 sm:px-6 text-left text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 w-1/3">{label}</th><td class="px-5 py-4 sm:px-6 text-sm text-gray-800 dark:text-white/90">{value}</td></tr>',
+                'attributes' => [
+                    [
+                        'attribute' => 'district.name',
+                        'label' => 'Distretto',
+                        'value' => function($model) {
+                            return $model->district ? $model->district->name : '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'notes',
+                        'label' => 'Note',
+                        'value' => function($model) {
+                            return $model->notes ?: '-';
+                        }
+                    ],
+                ],
+            ]) ?>
+        </div>
+    </div>
+
+    <!-- Informazioni di Sistema -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Informazioni di Sistema
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Date di creazione e aggiornamento del paziente.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <?= DetailView::widget([
+                'model' => $model,
+                'options' => ['class' => 'w-full'],
+                'template' => '<tr class="border-b border-gray-100 dark:border-gray-800 last:border-b-0"><th class="px-5 py-4 sm:px-6 text-left text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 w-1/3">{label}</th><td class="px-5 py-4 sm:px-6 text-sm text-gray-800 dark:text-white/90">{value}</td></tr>',
+                'attributes' => [
+                    [
+                        'attribute' => 'created_at',
+                        'label' => 'Creato il',
+                        'format' => ['date', 'php:d/m/Y H:i'],
+                    ],
+                    [
+                        'attribute' => 'updated_at',
+                        'label' => 'Aggiornato il',
+                        'format' => ['date', 'php:d/m/Y H:i'],
+                    ],
+                ],
+            ]) ?>
         </div>
     </div>
 </div> 

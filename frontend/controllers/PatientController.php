@@ -77,7 +77,7 @@ class PatientController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per creare pazienti.');
         }
 
-        $patient = new Patient();
+        $patient = new Patient(['scenario' => 'create']);
         
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
@@ -121,6 +121,7 @@ class PatientController extends Controller
         }
 
         $patient = $this->findModel($id);
+        $patient->scenario = 'update';
         
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');

@@ -62,6 +62,7 @@ class m250619_205539_assign_rbac_permissions extends Migration
             // Aggiungi permessi personalizzati
             'create_admin', 'view_admin', 'update_admin', 'delete_admin',
             'create_coordinator', 'view_coordinator', 'update_coordinator', 'delete_coordinator',
+            'create_therapist', 'view_therapist', 'update_therapist', 'delete_therapist',
             'manage_system', 'view_statistics', 'manage_communications', 'manage_documents'
         ];
 

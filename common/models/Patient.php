@@ -53,6 +53,17 @@ class Patient extends ActiveRecord
     /**
      * {@inheritdoc}
      */
+    public function scenarios()
+    {
+        $scenarios = parent::scenarios();
+        $scenarios['create'] = ['first_name', 'last_name', 'birth_date', 'fiscal_code', 'district_id', 'notes'];
+        $scenarios['update'] = ['first_name', 'last_name', 'birth_date', 'fiscal_code', 'district_id', 'notes'];
+        return $scenarios;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function rules()
     {
         return [
