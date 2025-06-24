@@ -44,6 +44,7 @@ class PatientController extends Controller
                     'delete' => ['POST'],
                     'reset-password' => ['POST', 'GET'], // Allow GET for testing
                     'download-credentials-pdf' => ['GET'],
+                    'send-notification' => ['POST'],
                 ],
             ],
         ];
@@ -484,6 +485,96 @@ class PatientController extends Controller
                 'inline' => false  // Force download instead of inline display
             ]
         );
+    }
+
+    /**
+     * Sends notifications to users linked to selected patients
+     */
+    public function actionSendNotification()
+    {
+        if (!Yii::$app->user->can('create_patient')) {
+            throw new ForbiddenHttpException('Non hai i permessi per inviare notifiche.');
+        }
+
+        if (!Yii::$app->request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Metodo non consentito.');
+        }
+
+        $data = Yii::$app->request->post();
+        
+        // Validazione input
+        if (empty($data['patient_ids']) || empty($data['title']) || empty($data['message'])) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return [
+                'success' => false,
+                'error' => 'Parametri mancanti: seleziona almeno un paziente e inserisci titolo e messaggio.'
+            ];
+        }
+
+        $patientIds = is_array($data['patient_ids']) ? $data['patient_ids'] : [$data['patient_ids']];
+        $title = trim($data['title']);
+        $message = trim($data['message']);
+
+        try {
+            // Ottieni tutti gli user_id collegati ai pazienti selezionati
+            $userIds = $this->getUsersLinkedToPatients($patientIds);
+            
+            if (empty($userIds)) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                return [
+                    'success' => false,
+                    'error' => 'Nessun account collegato ai pazienti selezionati.'
+                ];
+            }
+
+            // Invia le notifiche utilizzando il servizio
+            $result = Yii::$app->notificationService->sendNotification(
+                $userIds,
+                $title,
+                $message,
+                \common\models\Notification::TYPE_INFO,
+                Yii::$app->user->id
+            );
+
+            // Log dell'operazione
+            Yii::info('Invio notifiche ai pazienti: ' . implode(',', $patientIds) . 
+                     ' - Utenti destinatari: ' . implode(',', $userIds) . 
+                     ' - Risultato: ' . print_r($result, true), __METHOD__);
+
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return [
+                'success' => true,
+                'message' => sprintf(
+                    'Notifica inviata con successo a %d account collegati ai pazienti selezionati.',
+                    $result['notifications_created']
+                ),
+                'details' => [
+                    'patients_count' => count($patientIds),
+                    'accounts_notified' => $result['notifications_created'],
+                    'errors' => $result['errors'] ?? []
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore invio notifiche ai pazienti: ' . $e->getMessage(), __METHOD__);
+            
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return [
+                'success' => false,
+                'error' => 'Errore durante l\'invio delle notifiche: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ottiene gli user_id di tutti gli account collegati ai pazienti specificati
+     *
+     * @param array $patientIds Array degli ID dei pazienti
+     * @return array Array degli user_id collegati
+     */
+    private function getUsersLinkedToPatients($patientIds)
+    {
+        return Patient::getLinkedUsersForPatients($patientIds);
     }
 
     /**

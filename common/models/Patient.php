@@ -198,20 +198,61 @@ class Patient extends ActiveRecord
      *
      * @return array
      */
-    public static function getDropdownData()
+    public static function getListData()
     {
         return ArrayHelper::map(
-            static::find()->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])->all(),
+            static::find()->orderBy('last_name, first_name')->all(),
             'id',
-            'fullName'
+            function($model) {
+                return $model->last_name . ' ' . $model->first_name;
+            }
         );
     }
 
     /**
-     * Searches patients by name or fiscal code
+     * Gets linked users (accounts) for this patient
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLinkedUsers()
+    {
+        return $this->hasMany(User::class, ['id' => 'user_id'])
+            ->viaTable('{{%account_patients}}', ['patient_id' => 'id'])
+            ->where(['users.status' => User::STATUS_ACTIVE]);
+    }
+
+    /**
+     * Gets IDs of all linked users for this patient
+     *
+     * @return array
+     */
+    public function getLinkedUserIds()
+    {
+        return $this->getLinkedUsers()->select('id')->column();
+    }
+
+    /**
+     * Gets all linked users for multiple patients
+     *
+     * @param array $patientIds
+     * @return array Array of user IDs
+     */
+    public static function getLinkedUsersForPatients($patientIds)
+    {
+        return AccountPatient::find()
+            ->select('user_id')
+            ->distinct()
+            ->where(['patient_id' => $patientIds])
+            ->innerJoin('users', 'users.id = account_patients.user_id')
+            ->andWhere(['users.status' => User::STATUS_ACTIVE])
+            ->column();
+    }
+
+    /**
+     * Search patients by query string
      *
      * @param string $query
-     * @return \yii\db\ActiveQuery
+     * @return array
      */
     public static function search($query)
     {
@@ -219,17 +260,18 @@ class Patient extends ActiveRecord
             ->where(['like', 'first_name', $query])
             ->orWhere(['like', 'last_name', $query])
             ->orWhere(['like', 'fiscal_code', $query])
-            ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC]);
+            ->limit(20)
+            ->all();
     }
 
     /**
-     * Gets active therapeutic plan
+     * Gets active therapeutic plan for this patient
      *
      * @return TherapeuticPlan|null
      */
     public function getActiveTherapeuticPlan()
     {
-        return $this->getTherapeuticPlans()
+        return $this->hasOne(TherapeuticPlan::class, ['patient_id' => 'id'])
             ->where(['status' => 'active'])
             ->one();
     }
