@@ -66,8 +66,10 @@ $(document).ready(function() {
     }
     
     function openModal() {
-        // Aggiorna il contatore nel modal
-        const modalData = Alpine.$data(document.querySelector('[x-data*="showModal"]'));
+        // Trova e apri la modale TailAdmin
+        const modal = document.getElementById('notificationModal');
+        const modalData = Alpine.$data(modal.querySelector('[x-data]'));
+        
         if (modalData) {
             modalData.selectedCount = selectedPatients.length;
             modalData.showModal = true;
@@ -75,12 +77,17 @@ $(document).ready(function() {
             modalData.success = '';
             modalData.title = '';
             modalData.message = '';
+            
+            // Mostra la modale
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
         }
     }
     
     // Funzione globale per inviare le notifiche (chiamata dal modal Alpine)
     window.sendPatientNotifications = async function() {
-        const modalData = Alpine.$data(document.querySelector('[x-data*="showModal"]'));
+        const modal = document.getElementById('notificationModal');
+        const modalData = Alpine.$data(modal.querySelector('[x-data]'));
         
         if (!modalData) return;
         
@@ -115,7 +122,7 @@ $(document).ready(function() {
                 
                 // Chiudi modal e resetta selezioni dopo 2 secondi
                 setTimeout(() => {
-                    modalData.showModal = false;
+                    modalData.closeModal();
                     clearAllSelections();
                 }, 2000);
                 

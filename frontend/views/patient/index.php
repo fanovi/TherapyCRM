@@ -5,6 +5,7 @@ use yii\grid\GridView;
 use yii\widgets\Pjax;
 use yii\helpers\ArrayHelper;
 use common\models\District;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\PatientSearch */
@@ -17,8 +18,6 @@ $this->params['breadcrumbs'][] = $this->title;
 $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
 // Registra il CSS per le notifiche e il JS
-use yii\helpers\Url;
-
 $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification']));
 $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
 ?>
@@ -43,20 +42,20 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
     <!-- Breadcrumb End -->
 
     <!-- Barra azioni notifiche (nascosta di default) -->
-    <div id="notification-actions-bar" class="hidden items-center justify-between mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-700">
+    <div id="notification-actions-bar" class="hidden items-center justify-between mb-4 p-4 bg-gray-50 border border-gray-200 rounded-2xl dark:bg-white/[0.03] dark:border-gray-800">
         <div class="flex items-center">
-            <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-brand-500 mr-2 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"></path>
             </svg>
-            <span class="text-blue-800 dark:text-blue-200">
+            <span class="text-gray-800 dark:text-white/90 font-medium">
                 <span id="selected-patients-count">0</span> pazienti selezionati
             </span>
         </div>
         <div class="flex items-center space-x-3">
             <button id="send-notifications-btn" 
-                    class="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                 </svg>
                 Invia Notifica
             </button>
@@ -256,137 +255,207 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
     </div>
 </div>
 
-<!-- Modal Notifiche -->
-<div x-data="{
-    showModal: false,
-    selectedCount: 0,
-    title: '',
-    message: '',
-    isLoading: false,
-    errors: '',
-    success: '',
-    
-    openModal(count) {
-        this.selectedCount = count;
-        this.showModal = true;
-        this.resetMessages();
-        this.$nextTick(() => {
-            this.$refs.titleInput?.focus();
-        });
-    },
-    
-    closeModal() {
-        this.showModal = false;
-        this.resetForm();
-    },
-    
-    resetForm() {
-        this.title = '';
-        this.message = '';
-        this.resetMessages();
-    },
-    
-    resetMessages() {
-        this.errors = '';
-        this.success = '';
-    }
-}" 
-     x-show="showModal" 
-     x-cloak
-     @open-modal.window="openModal($event.detail.count)"
-     class="fixed inset-0 z-50 overflow-y-auto"
-     style="display: none;">
-     
-    <!-- Overlay -->
-    <div class="fixed inset-0 bg-gray-900/50 transition-opacity" @click="closeModal()"></div>
-    
-    <!-- Modal Content -->
-    <div class="flex min-h-full items-center justify-center p-4">
-        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-auto dark:bg-gray-800"
-             @click.stop>
-             
-            <!-- Header -->
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        Invia Notifica
-                    </h3>
-                    <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+<!-- BEGIN MODAL -->
+<div
+    class="fixed inset-0 items-center justify-center hidden p-5 overflow-y-auto modal z-99999"
+    id="notificationModal"
+>
+    <div
+        class="modal-close-btn fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
+    ></div>
+    <div
+        class="modal-dialog modal-dialog-scrollable modal-lg no-scrollbar relative flex w-full max-w-[600px] flex-col overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 lg:p-8"
+        x-data="{
+            showModal: false,
+            selectedCount: 0,
+            title: '',
+            message: '',
+            isLoading: false,
+            errors: '',
+            success: '',
+            
+            openModal(count) {
+                this.selectedCount = count;
+                this.showModal = true;
+                this.resetMessages();
+                document.getElementById('notificationModal').classList.remove('hidden');
+                document.getElementById('notificationModal').classList.add('flex');
+                this.$nextTick(() => {
+                    this.$refs.titleInput?.focus();
+                });
+            },
+            
+            closeModal() {
+                this.showModal = false;
+                this.resetForm();
+                document.getElementById('notificationModal').classList.add('hidden');
+                document.getElementById('notificationModal').classList.remove('flex');
+            },
+            
+            resetForm() {
+                this.title = '';
+                this.message = '';
+                this.resetMessages();
+            },
+            
+            resetMessages() {
+                this.errors = '';
+                this.success = '';
+            }
+        }"
+        @open-modal.window="openModal($event.detail.count)"
+    >
+        <!-- close btn -->
+        <button
+            class="modal-close-btn absolute right-5 top-5 z-999 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/[0.07] dark:hover:text-gray-300 sm:h-11 sm:w-11"
+            @click="closeModal()"
+        >
+            <svg
+                class="fill-current"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M6.04289 16.5418C5.65237 16.9323 5.65237 17.5655 6.04289 17.956C6.43342 18.3465 7.06658 18.3465 7.45711 17.956L11.9987 13.4144L16.5408 17.9565C16.9313 18.347 17.5645 18.347 17.955 17.9565C18.3455 17.566 18.3455 16.9328 17.955 16.5423L13.4129 12.0002L17.955 7.45808C18.3455 7.06756 18.3455 6.43439 17.955 6.04387C17.5645 5.65335 16.9313 5.65335 16.5408 6.04387L11.9987 10.586L7.45711 6.04439C7.06658 5.65386 6.43342 5.65386 6.04289 6.04439C5.65237 6.43491 5.65237 7.06808 6.04289 7.4586L10.5845 12.0002L6.04289 16.5418Z"
+                    fill=""
+                />
+            </svg>
+        </button>
+
+        <div
+            class="flex flex-col px-2 overflow-y-auto modal-content custom-scrollbar"
+        >
+            <div class="modal-header">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10">
+                        <svg class="h-5 w-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                         </svg>
-                    </button>
+                    </div>
+                    <h5
+                        class="font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl"
+                    >
+                        Invia Notifica
+                    </h5>
                 </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Invia una notifica informativa a tutti gli account collegati ai pazienti selezionati
+                </p>
             </div>
             
-            <!-- Body -->
-            <div class="px-6 py-4">
-                <!-- Info -->
-                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-700">
-                    <p class="text-sm text-blue-800 dark:text-blue-200">
-                        La notifica sarà inviata a tutti gli account collegati ai <strong><span x-text="selectedCount"></span> pazienti selezionati</strong>.
-                    </p>
+            <div class="mt-6 modal-body">
+                <!-- Info Alert -->
+                <div class="mb-6 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-900/20">
+                    <div class="flex items-start">
+                        <svg class="mr-3 mt-0.5 h-5 w-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="text-sm">
+                            <p class="font-medium text-brand-800 dark:text-brand-200">
+                                <span x-text="selectedCount"></span> pazienti selezionati
+                            </p>
+                            <p class="mt-1 text-brand-700 dark:text-brand-300">
+                                La notifica sarà inviata a tutti gli account collegati ai pazienti selezionati
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Form -->
-                <form @submit.prevent="window.sendPatientNotifications()" class="space-y-4">
-                    <div>
-                        <label for="notification-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div>
+                    <div class="mb-6">
+                        <label
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                        >
                             Titolo Notifica *
                         </label>
-                        <input type="text" 
-                               x-ref="titleInput"
-                               x-model="title"
-                               id="notification-title" 
-                               class="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                               placeholder="Inserisci il titolo..."
-                               maxlength="100"
-                               required>
+                        <input
+                            x-ref="titleInput"
+                            x-model="title"
+                            type="text"
+                            class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                            placeholder="Inserisci il titolo della notifica..."
+                            maxlength="100"
+                            required
+                        />
                     </div>
 
-                    <div>
-                        <label for="notification-message" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <div class="mb-6">
+                        <label
+                            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                        >
                             Messaggio *
                         </label>
-                        <textarea x-model="message"
-                                  id="notification-message" 
-                                  rows="4"
-                                  class="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                  placeholder="Inserisci il messaggio..."
-                                  maxlength="500"
-                                  required></textarea>
+                        <textarea
+                            x-model="message"
+                            rows="4"
+                            class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                            placeholder="Inserisci il messaggio della notifica..."
+                            maxlength="500"
+                            required
+                        ></textarea>
                     </div>
-                </form>
+                </div>
 
                 <!-- Messages -->
                 <div x-show="errors" x-cloak class="mb-4">
-                    <div class="bg-red-50 border border-red-200 rounded-md p-3 dark:bg-red-900/20 dark:border-red-700">
-                        <p class="text-sm text-red-800 dark:text-red-200" x-text="errors"></p>
+                    <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                        <div class="flex items-start">
+                            <svg class="mr-3 mt-0.5 h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm text-red-800 dark:text-red-200" x-text="errors"></p>
+                        </div>
                     </div>
                 </div>
                 
                 <div x-show="success" x-cloak class="mb-4">
-                    <div class="bg-green-50 border border-green-200 rounded-md p-3 dark:bg-green-900/20 dark:border-green-700">
-                        <p class="text-sm text-green-800 dark:text-green-200" x-text="success"></p>
+                    <div class="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+                        <div class="flex items-start">
+                            <svg class="mr-3 mt-0.5 h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm text-green-800 dark:text-green-200" x-text="success"></p>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Footer -->
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 dark:border-gray-700 dark:bg-gray-800 flex justify-end space-x-3">
-                <button type="button" 
-                        @click="showModal = false"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+            <div class="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
+                <button
+                    type="button"
+                    class="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+                    @click="closeModal()"
+                >
                     Annulla
                 </button>
-                <button type="button" 
-                        :disabled="isLoading || !title.trim() || !message.trim()"
-                        @click="window.sendPatientNotifications()"
-                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span x-show="!isLoading">Invia Notifica</span>
-                    <span x-show="isLoading">Invio...</span>
+                <button
+                    type="button"
+                    id="send-notification-modal-btn"
+                    :disabled="isLoading || !title.trim() || !message.trim()"
+                    @click="window.sendPatientNotifications()"
+                    class="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                >
+                    <span x-show="!isLoading" class="flex items-center gap-2">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                        Invia Notifica
+                    </span>
+                    <span x-show="isLoading" class="flex items-center gap-2">
+                        <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Invio in corso...
+                    </span>
                 </button>
             </div>
         </div>
     </div>
-</div> 
+</div>
+<!-- END MODAL --> 
