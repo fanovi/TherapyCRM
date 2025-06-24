@@ -13,10 +13,11 @@ use yii\widgets\ActiveForm;
 
 $this->title = 'Crea Credenziali per ' . $patient->first_name . ' ' . $patient->last_name;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => $patient->fullName, 'url' => ['view', 'id' => $patient->id]];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
-<div class="mx-auto max-w-6xl p-4 md:p-6">
+<div class="mx-auto max-w-4xl p-4 md:p-6">
     <!-- Breadcrumb Start -->
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -40,6 +41,14 @@ $this->params['breadcrumbs'][] = $this->title;
                             </svg>
                         </a>
                     </li>
+                    <li>
+                        <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/patient/view', 'id' => $patient->id]) ?>">
+                            <?= Html::encode($patient->fullName) ?>
+                            <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </a>
+                    </li>
                     <li class="text-sm text-gray-800 dark:text-white/90" x-text="pageName"></li>
                 </ol>
             </nav>
@@ -47,145 +56,217 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
     <!-- Breadcrumb End -->
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <!-- Patient Information Card -->
-        <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="px-5 py-4 sm:px-6 sm:py-5">
-                <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                    Informazioni Paziente
-                </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Dati del paziente per cui creare le credenziali.
-                </p>
-            </div>
-            
-            <div class="border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
-                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Nome</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->first_name) ?></dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Cognome</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->last_name) ?></dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Codice Fiscale</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->fiscal_code) ?></dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Data di Nascita</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->birth_date) ?></dd>
-                    </div>
-                </dl>
+    <?php $form = ActiveForm::begin([
+        'id' => 'credentials-form',
+        'enableClientValidation' => true,
+        'validateOnSubmit' => true,
+        'validateOnChange' => true,
+        'validateOnBlur' => true,
+        'options' => ['class' => 'space-y-6'],
+        'fieldConfig' => [
+            'errorOptions' => ['class' => 'text-red-500 text-sm mt-1 help-block-error'],
+        ],
+    ]); ?>
+
+    <style>
+    .has-error .form-control {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 1px #ef4444 !important;
+    }
+    .help-block-error {
+        color: #ef4444 !important;
+    }
+    </style>
+
+    <!-- Informazioni Paziente -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Informazioni Paziente
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Dati del paziente per cui creare le credenziali di accesso.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Nome</label>
+                    <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->first_name) ?></div>
+                </div>
+                
+                <div class="sm:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Cognome</label>
+                    <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->last_name) ?></div>
+                </div>
+                
+                <div class="sm:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Codice Fiscale</label>
+                    <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->fiscal_code ?: '-') ?></div>
+                </div>
+                
+                <div class="sm:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Data di Nascita</label>
+                    <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode(Yii::$app->formatter->asDate($patient->birth_date)) ?></div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- Credentials Form Card -->
-        <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="px-5 py-4 sm:px-6 sm:py-5">
-                <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                    Crea Account Utente
-                </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Inserisci i dati per creare l'account associato al paziente.
-                </p>
-            </div>
-            
-            <div class="border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
-                <?php $form = ActiveForm::begin([
-                    'id' => 'credentials-form',
-                    'options' => ['class' => 'space-y-6'],
-                ]); ?>
-
-                <!-- Account Credentials -->
-                <div class="space-y-4">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-white/90">Credenziali di Accesso</h4>
-                    
-                    <?= $form->field($user, 'username')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Nome utente per il login'
-                    ])->label('Username', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-
+    <!-- Credenziali di Accesso -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Credenziali di Accesso
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Inserisci email e password per l'accesso all'app mobile.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-2">
                     <?= $form->field($user, 'email')->input('email', [
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Email per il login'
-                    ])->label('Email', [
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'inserisci.email@esempio.com'
+                    ])->label('Email di Accesso', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
+                </div>
 
+                <div class="sm:col-span-1">
                     <?= $form->field($user, 'password')->passwordInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Password (minimo 6 caratteri)'
                     ])->label('Password', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
 
-                <!-- Profile Information -->
-                <div class="space-y-4 border-t border-gray-100 pt-6 dark:border-gray-800">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-white/90">Informazioni Profilo</h4>
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <?= $form->field($profile, 'first_name')->textInput([
-                            'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
-                        ])->label('Nome', [
-                            'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                        ]) ?>
+                <div class="sm:col-span-1">
+                    <?= $form->field($user, 'password_repeat')->passwordInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Ripeti la password'
+                    ])->label('Conferma Password', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                        <?= $form->field($profile, 'last_name')->textInput([
-                            'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
-                        ])->label('Cognome', [
-                            'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                        ]) ?>
-                    </div>
-
+    <!-- Informazioni Profilo -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Informazioni Profilo
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Dati della persona che utilizzerà l'account.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'first_name')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Inserisci nome'
+                    ])->label('Nome', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+                
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'last_name')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Inserisci cognome'
+                    ])->label('Cognome', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+                
+                <div class="sm:col-span-1">
                     <?= $form->field($profile, 'fiscal_code')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'RSSMRA80E45F205T'
                     ])->label('Codice Fiscale', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
-
+                </div>
+                
+                <div class="sm:col-span-1">
                     <?= $form->field($profile, 'phone')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => '+39 123 456 7890'
                     ])->label('Telefono', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
-
-                <!-- Relationship Information -->
-                <div class="space-y-4 border-t border-gray-100 pt-6 dark:border-gray-800">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-white/90">Relazione con il Paziente</h4>
-                    
-                    <?= $form->field($accountPatient, 'relationship_type')->dropDownList($relationshipLabels, [
-                        'prompt' => 'Seleziona relazione...',
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
-                    ])->label('Tipo di Relazione', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-
-                    <?= $form->field($accountPatient, 'has_parental_authority')->checkbox([
-                        'class' => 'w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600',
-                        'template' => '<div class="flex items-center">{input}<label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300" for="{for}">{label}</label></div>{hint}{error}'
-                    ])->label('Ha Autorità Genitoriale') ?>
-                </div>
-
-                <!-- Buttons -->
-                <div class="flex items-center justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-800">
-                    <?= Html::a('Annulla', ['index'], [
-                        'class' => 'px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 dark:focus:ring-gray-700'
-                    ]) ?>
-                    
-                    <?= Html::submitButton('Crea Credenziali', [
-                        'class' => 'px-6 py-2.5 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-                    ]) ?>
-                </div>
-                
-                <?php ActiveForm::end(); ?>
             </div>
         </div>
     </div>
+
+    <!-- Relazione con il Paziente -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Relazione con il Paziente
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Specifica il tipo di relazione e i permessi.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <?= $form->field($accountPatient, 'relationship_type')->dropDownList($relationshipLabels, [
+                        'prompt' => 'Seleziona tipo di relazione...',
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
+                    ])->label('Tipo di Relazione', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+                
+                <div class="sm:col-span-2">
+                    <div class="flex items-center">
+                        <?= $form->field($accountPatient, 'has_parental_authority')->checkbox([
+                            'class' => 'w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600',
+                            'template' => '{input}',
+                            'labelOptions' => ['style' => 'display:none;'],
+                        ]) ?>
+                        <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Ha Autorità Genitoriale
+                        </label>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Seleziona se questa persona ha l'autorità genitoriale sul paziente.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
+        <div>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
+                ['view', 'id' => $patient->id], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+            ]) ?>
+        </div>
+        
+        <div class="flex space-x-3">
+            <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Crea Credenziali', [
+                'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'id' => 'submit-button',
+                'style' => 'background-color: #2563eb !important; color: white !important;'
+            ]) ?>
+        </div>
+    </div>
+
+    <?php ActiveForm::end(); ?>
 </div> 

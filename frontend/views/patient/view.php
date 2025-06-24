@@ -5,6 +5,39 @@ use yii\widgets\DetailView;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Patient */
+/* @var $accountPatients common\models\AccountPatient[] */
+
+// Reset Password functionality
+$this->registerJs("
+window.resetPasswordManual = function(userId) {
+    if (!confirm('Sei sicuro di voler resettare la password per questo utente? Verrà generato un PDF con le nuove credenziali.')) {
+        return false;
+    }
+    
+    var actionUrl = '" . \yii\helpers\Url::to(['reset-password']) . "';
+    
+    // Use AJAX to reset password and generate PDF
+    $.ajax({
+        url: actionUrl,
+        type: 'POST',
+        data: {
+            'userId': userId,
+            '" . Yii::$app->request->csrfParam . "': '" . Yii::$app->request->csrfToken . "'
+        },
+        success: function(response) {
+            // Trigger PDF download
+            window.open('" . \yii\helpers\Url::to(['download-credentials-pdf']) . "', '_blank');
+            // Reload page to show success message
+            location.reload();
+        },
+        error: function(xhr, status, error) {
+            console.error('Errore nel reset password:', error);
+            console.error('Response:', xhr.responseText);
+            alert('Errore nel reset password: ' + (xhr.responseJSON ? xhr.responseJSON.message : error));
+        }
+    });
+};
+", \yii\web\View::POS_READY);
 
 $this->title = $model->fullName;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
@@ -186,4 +219,130 @@ $this->params['breadcrumbs'][] = $this->title;
             ]) ?>
         </div>
     </div>
+
+    <!-- Account Collegati -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mt-6">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Account Collegati
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Account utente associati a questo paziente per l'accesso all'app mobile.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <?php if (empty($accountPatients)): ?>
+                <div class="px-5 py-8 sm:px-6 text-center">
+                    <div class="text-gray-400 dark:text-gray-500 mb-4">
+                        <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-800 dark:text-white/90 mb-2">Nessun account collegato</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Non ci sono account utente associati a questo paziente.
+                    </p>
+                    <?php if (Yii::$app->user->can('create_patient')): ?>
+                        <?= Html::a('Crea Credenziali', ['create-credentials', 'id' => $model->id], [
+                            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700'
+                        ]) ?>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <?php foreach ($accountPatients as $accountPatient): ?>
+                        <div class="px-5 py-4 sm:px-6 flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <div class="h-10 w-10 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center">
+                                            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">
+                                            <?= Html::encode($accountPatient->user->profile ? 
+                                                $accountPatient->user->profile->first_name . ' ' . $accountPatient->user->profile->last_name : 
+                                                'Utente Senza Profilo'
+                                            ) ?>
+                                        </p>
+                                        <div class="flex items-center space-x-4 mt-1">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                                </svg>
+                                                <?= Html::encode($accountPatient->user->email) ?>
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center space-x-4 mt-1">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                <?= Html::encode($accountPatient->getRelationshipLabel()) ?>
+                                            </span>
+                                            <?php if ($accountPatient->hasParentalAuthority()): ?>
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                    Autorità Genitoriale
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <?php if (Yii::$app->user->can('update_patient')): ?>
+                                <div class="flex-shrink-0">
+                                    <div class="flex gap-2">
+                                        <button onclick="resetPasswordManual(<?= $accountPatient->user_id ?>)" 
+                                                class="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                title="Reset Password e Genera PDF">
+                                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v-2l8.257-8.257C18.22 5.781 19.22 5 20.5 5.5s1.5 2.5.5 3.5L15 7z"></path>
+                                            </svg>
+                                            Reset Password
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <?php if (Yii::$app->user->can('create_patient')): ?>
+                    <div class="px-5 py-4 sm:px-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/20">
+                        <?= Html::a('
+                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Aggiungi Nuovo Account
+                        ', ['create-credentials', 'id' => $model->id], [
+                            'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-brand-600 bg-white border border-brand-300 rounded-lg hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-brand-600 dark:text-brand-400 dark:hover:bg-brand-900/20'
+                        ]) ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Debug PDF Download (solo per test) -->
+    <?php if (Yii::$app->user->can('update_patient') && !empty($accountPatients)): ?>
+        <div class="rounded-2xl border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 mt-6">
+            <div class="px-5 py-4 sm:px-6 sm:py-5">
+                <h3 class="text-base font-medium text-yellow-800 dark:text-yellow-200">
+                    🔧 Test PDF Download
+                </h3>
+                <p class="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
+                    Link diretto per testare il download del PDF delle credenziali.
+                </p>
+                <div class="mt-3">
+                    <a href="<?= \yii\helpers\Url::to(['download-credentials-pdf']) ?>" 
+                       target="_blank"
+                       class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-yellow-600 border border-transparent rounded-lg hover:bg-yellow-700">
+                        📄 Test Download PDF Diretto
+                    </a>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 </div> 

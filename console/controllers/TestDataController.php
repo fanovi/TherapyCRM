@@ -304,7 +304,6 @@ class TestDataController extends Controller
     {
         $patients = Patient::find()->limit(30)->all(); // 30 piani attivi
         $treatments = TreatmentType::find()->all();
-        $regimes = ['L11', 'L11DOM', 'ABA', 'Private'];
 
         foreach ($patients as $patient) {
             if (!TherapeuticPlan::find()->where(['patient_id' => $patient->id])->exists()) {
@@ -312,8 +311,9 @@ class TestDataController extends Controller
                 $plan->patient_id = $patient->id;
                 $plan->start_date = date('Y-m-d', strtotime('-' . rand(0, 90) . ' days'));
                 $plan->duration_days = 180;
-                $plan->health_regime = $regimes[array_rand($regimes)];
                 $plan->status = 'active';
+                $plan->diagnosis = 'Diagnosi di test per ' . $patient->first_name;
+                $plan->objectives = 'Obiettivi terapeutici personalizzati';
                 $plan->created_by = 1; // Admin
                 $plan->save();
 

@@ -19,6 +19,7 @@ use yii\web\IdentityInterface;
  * @property string $email
  * @property string $auth_key
  * @property string $status
+ * @property integer $requires_password_change
  * @property integer $created_at
  * @property integer $updated_at
  * @property string $password write-only password
@@ -76,6 +77,8 @@ class User extends ActiveRecord implements IdentityInterface
         return [
             ['status', 'default', 'value' => self::STATUS_ACTIVE],
             ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE]],
+            ['requires_password_change', 'boolean'],
+            ['requires_password_change', 'default', 'value' => 0],
             [['email'], 'required', 'message' => 'L\'email è obbligatoria.'],
             [['email'], 'email', 'message' => 'Inserisci un indirizzo email valido.'],
             [['email'], 'unique', 'targetClass' => '\common\models\User', 'message' => 'Questa email è già stata registrata.'],
@@ -97,6 +100,7 @@ class User extends ActiveRecord implements IdentityInterface
             'password' => 'Password',
             'password_repeat' => 'Conferma Password',
             'status' => 'Stato',
+            'requires_password_change' => 'Richiede Cambio Password',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];

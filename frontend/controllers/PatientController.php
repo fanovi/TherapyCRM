@@ -15,6 +15,7 @@ use common\models\District;
 use common\models\User;
 use common\models\UserProfile;
 use common\models\AccountPatient;
+use common\models\AuthToken;
 use frontend\models\PatientSearch;
 
 /**
@@ -41,6 +42,8 @@ class PatientController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'reset-password' => ['POST', 'GET'], // Allow GET for testing
+                    'download-credentials-pdf' => ['GET'],
                 ],
             ],
         ];
@@ -102,8 +105,17 @@ class PatientController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti.');
         }
 
+        $model = $this->findModel($id);
+        
+        // Load associated accounts
+        $accountPatients = AccountPatient::find()
+            ->where(['patient_id' => $id])
+            ->with(['user', 'user.profile'])
+            ->all();
+
         return $this->render('view', [
-            'model' => $this->findModel($id),
+            'model' => $model,
+            'accountPatients' => $accountPatients,
         ]);
     }
 
@@ -176,12 +188,35 @@ class PatientController extends Controller
         $profile->last_name = $patient->last_name;
         $profile->fiscal_code = $patient->fiscal_code;
 
-        if ($user->load(Yii::$app->request->post()) && 
-            $profile->load(Yii::$app->request->post()) && 
-            $accountPatient->load(Yii::$app->request->post())) {
+        $postData = Yii::$app->request->post();
+        Yii::info('POST data received: ' . print_r($postData, true));
+        
+        if ($user->load($postData) && 
+            $profile->load($postData) && 
+            $accountPatient->load($postData)) {
+            
+            Yii::info('Models loaded successfully - User: ' . print_r($user->attributes, true));
+            Yii::info('Profile: ' . print_r($profile->attributes, true));
+            Yii::info('AccountPatient: ' . print_r($accountPatient->attributes, true));
             
             $transaction = Yii::$app->db->beginTransaction();
             try {
+                // Save password before hashing for PDF generation
+                $plainPassword = $user->password;
+                
+                // Set username (use email as username)
+                $user->username = $user->email;
+                
+                // Set password hash and auth key before saving user
+                $user->setPassword($user->password);
+                $user->generateAuthKey();
+                
+                // Set requires_password_change to true for new accounts
+                if ($user->hasAttribute('requires_password_change')) {
+                    $user->requires_password_change = 1;
+                    Yii::info('Campo requires_password_change impostato a true per nuovo utente');
+                }
+                
                 // Save user
                 if (!$user->save()) {
                     throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
@@ -203,15 +238,29 @@ class PatientController extends Controller
                 // Assign patient_family role
                 $auth = Yii::$app->authManager;
                 $patientRole = $auth->getRole('patient_family');
-                $auth->assign($patientRole, $user->id);
+                if ($patientRole) {
+                    $auth->assign($patientRole, $user->id);
+                }
 
                 $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Credenziali create con successo per il paziente.');
-                return $this->redirect(['index']);
+                
+                // Generate PDF with credentials automatically
+                $this->generateCredentialsPdf($user, $plainPassword);
+                
+                Yii::$app->session->setFlash('success', 'Credenziali create con successo! Il PDF con le credenziali si aprirà automaticamente.');
+                return $this->redirect(['view', 'id' => $patient->id]);
 
             } catch (\Exception $e) {
                 $transaction->rollBack();
-                Yii::$app->session->setFlash('error', $e->getMessage());
+                Yii::error('Errore durante la creazione credenziali: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+                Yii::$app->session->setFlash('error', 'Errore: ' . $e->getMessage());
+            }
+        } else {
+            Yii::info('Models NOT loaded properly from POST data');
+            if (Yii::$app->request->isPost) {
+                Yii::info('Request is POST but models failed to load');
+            } else {
+                Yii::info('Request is not POST - initial page load');
             }
         }
 
@@ -222,6 +271,219 @@ class PatientController extends Controller
             'accountPatient' => $accountPatient,
             'relationshipLabels' => AccountPatient::getRelationshipLabels(),
         ]);
+    }
+
+    /**
+     * Resets password for a user account and generates PDF with credentials
+     */
+    public function actionResetPassword($userId = null)
+    {
+        // Accept userId from both URL parameter and POST data
+        if ($userId === null) {
+            $userId = Yii::$app->request->post('userId');
+        }
+        
+        if (!$userId) {
+            throw new \yii\web\BadRequestHttpException('Missing userId parameter');
+        }
+        
+        if (!Yii::$app->user->can('update_patient')) {
+            Yii::error('Permessi insufficienti per utente: ' . Yii::$app->user->id);
+            throw new ForbiddenHttpException('Non hai i permessi per resettare password.');
+        }
+
+        $user = User::findOne($userId);
+        if (!$user) {
+            Yii::error('Utente non trovato con ID: ' . $userId);
+            throw new NotFoundHttpException('Utente non trovato.');
+        }
+
+        Yii::info('Utente trovato: ' . $user->email);
+
+        // Generate new random password
+        $newPassword = $this->generateRandomPassword();
+        Yii::info('Nuova password generata: ' . $newPassword);
+        
+        // Set the new password and require password change on first login
+        $user->setPassword($newPassword);
+        
+        // Check if user has requires_password_change field and set it to true
+        if ($user->hasAttribute('requires_password_change')) {
+            $user->requires_password_change = 1;
+            Yii::info('Campo requires_password_change impostato a true');
+        }
+        
+        if ($user->save()) {
+            Yii::info('Password salvata con successo per utente: ' . $user->email);
+            
+            // Revoke all existing auth tokens for this user
+            $revokedTokens = AuthToken::updateAll(
+                ['is_revoked' => 1], 
+                ['user_id' => $user->id, 'is_revoked' => 0]
+            );
+            Yii::info('Revocati ' . $revokedTokens . ' token esistenti per utente: ' . $user->email);
+            
+            // Generate PDF with credentials
+            Yii::info('Inizio generazione PDF...');
+            $this->generateCredentialsPdf($user, $newPassword);
+            
+            Yii::$app->session->setFlash('success', 'Password resettata e PDF generato con successo. Tutti i token di accesso precedenti sono stati revocati.');
+            Yii::info('Flash message impostato');
+        } else {
+            Yii::error('Errore nel salvare la password: ' . implode(', ', $user->getFirstErrors()));
+            Yii::$app->session->setFlash('error', 'Errore nel resettare la password.');
+        }
+
+        // Handle AJAX requests differently
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return ['status' => 'success', 'message' => 'Password resettata con successo'];
+        }
+        
+        // Find patient ID to redirect back for non-AJAX requests
+        $accountPatient = AccountPatient::findOne(['user_id' => $userId]);
+        if ($accountPatient) {
+            return $this->redirect(['view', 'id' => $accountPatient->patient_id]);
+        }
+        
+        return $this->redirect(['index']);
+    }
+
+    /**
+     * Generates a random password
+     */
+    private function generateRandomPassword($length = 12)
+    {
+        $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        $password = '';
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $characters[rand(0, strlen($characters) - 1)];
+        }
+        return $password;
+    }
+
+    /**
+     * Generates PDF with user credentials
+     */
+    private function generateCredentialsPdf($user, $password)
+    {
+        try {
+            Yii::info('Inizio generazione PDF per utente: ' . $user->email);
+            
+            // Create HTML content for PDF
+            $html = $this->renderPartial('_credentials_pdf', [
+                'user' => $user,
+                'password' => $password,
+                'generatedAt' => date('d/m/Y H:i'),
+            ]);
+            
+            Yii::info('HTML generato per PDF, lunghezza: ' . strlen($html));
+            
+            // Create mPDF instance with custom temp directory
+            $tempDir = Yii::getAlias('@frontend/runtime/mpdf');
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0777, true);
+                Yii::info('Creata directory temporanea: ' . $tempDir);
+            }
+            
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'A4',
+                'orientation' => 'P',
+                'margin_left' => 20,
+                'margin_right' => 20,
+                'margin_top' => 20,
+                'margin_bottom' => 20,
+                'margin_header' => 10,
+                'margin_footer' => 10,
+                'tempDir' => $tempDir,
+            ]);
+            
+            Yii::info('mPDF istanziato correttamente');
+            
+            // Set document properties
+            $mpdf->SetTitle('Credenziali di Accesso - TherapyCRM');
+            $mpdf->SetAuthor('TherapyCRM');
+            $mpdf->SetCreator('TherapyCRM System');
+            
+            // Write HTML to PDF
+            $mpdf->WriteHTML($html);
+            
+            Yii::info('HTML scritto in mPDF');
+            
+            // Generate filename
+            $filename = 'credenziali_' . str_replace(['@', '.'], ['_', '_'], $user->email) . '_' . date('Y-m-d_H-i-s') . '.pdf';
+            
+            // Generate PDF content
+            $pdfContent = $mpdf->Output('', 'S');
+            
+            Yii::info('PDF generato, dimensione: ' . strlen($pdfContent) . ' bytes');
+            
+            // Store PDF data in session for download
+            Yii::$app->session->set('pdf_data', [
+                'content' => $pdfContent,
+                'filename' => $filename
+            ]);
+            
+            Yii::info('PDF salvato in sessione con nome: ' . $filename);
+            
+            // Generate JavaScript to open PDF download in new window
+            $downloadUrl = \yii\helpers\Url::to(['download-credentials-pdf']);
+            Yii::info('URL download generato: ' . $downloadUrl);
+            
+            $this->view->registerJs("
+                console.log('Aprendo finestra download PDF...');
+                console.log('URL: " . $downloadUrl . "');
+                
+                // Try multiple methods to open the PDF
+                setTimeout(function() {
+                    var newWindow = window.open('" . $downloadUrl . "', '_blank');
+                    if (!newWindow) {
+                        console.log('Popup bloccato, provo con location.href');
+                        alert('Il download del PDF sta per iniziare...');
+                        window.location.href = '" . $downloadUrl . "';
+                    }
+                }, 100);
+            ");
+            
+            Yii::info('JavaScript registrato per apertura finestra');
+            
+        } catch (\Exception $e) {
+            Yii::error('Errore nella generazione PDF: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+            Yii::$app->session->setFlash('error', 'Errore nella generazione del PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Downloads the generated credentials PDF
+     */
+    public function actionDownloadCredentialsPdf()
+    {
+        Yii::info('Tentativo di download PDF - Inizio');
+        
+        $pdfData = Yii::$app->session->get('pdf_data');
+        
+        if (!$pdfData) {
+            Yii::error('PDF non trovato in sessione');
+            throw new NotFoundHttpException('PDF non trovato. Rigenerare le credenziali.');
+        }
+
+        Yii::info('PDF trovato in sessione: ' . $pdfData['filename'] . ', dimensione: ' . strlen($pdfData['content']) . ' bytes');
+
+        // Remove from session after use
+        Yii::$app->session->remove('pdf_data');
+
+        Yii::info('Headers e content impostati per download PDF');
+        
+        // Use Yii response to send PDF properly
+        return Yii::$app->response->sendContentAsFile(
+            $pdfData['content'],
+            $pdfData['filename'],
+            [
+                'mimeType' => 'application/pdf',
+                'inline' => false  // Force download instead of inline display
+            ]
+        );
     }
 
     /**
