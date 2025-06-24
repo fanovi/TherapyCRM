@@ -57,7 +57,7 @@ const TherapistNotificationsScreen = () => {
         setLoadingMore(true);
       }
 
-      const response = await getNotifications(pageNum, 15);
+      const response = await getNotifications(pageNum, 10); // 10 per pagina
 
       if (response.success && response.data) {
         let newNotifications = response.data.notifications || [];
@@ -81,9 +81,9 @@ const TherapistNotificationsScreen = () => {
           setNotifications(prev => [...prev, ...newNotifications]);
         }
 
-        // Verifica se ci sono altre pagine
+        // Verifica se ci sono altre pagine usando has_next
         const {pagination} = response.data;
-        setHasMore(pagination && pagination.page < pagination.pages);
+        setHasMore(pagination && pagination.has_next);
         setPage(pageNum);
       }
     } catch (error) {
@@ -95,28 +95,11 @@ const TherapistNotificationsScreen = () => {
     }
   };
 
-  const handleNotificationPress = async notification => {
-    try {
-      // Se non è stata ancora letta, segnala come letta
-      if (!notification.read_at) {
-        if (notification.requires_read_confirmation) {
-          await confirmNotificationRead(notification.id);
-        } else {
-          await markNotificationAsRead(notification.id);
-        }
-
-        // Aggiorna la lista locale
-        setNotifications(prev =>
-          prev.map(n =>
-            n.id === notification.id
-              ? {...n, read_at: new Date().toISOString()}
-              : n,
-          ),
-        );
-      }
-    } catch (error) {
-      console.error('Errore segnando notifica come letta:', error);
-    }
+  const handleNotificationPress = notification => {
+    // Naviga al dettaglio della notifica
+    navigation.navigate('NotificationDetail', {
+      notificationId: notification.id,
+    });
   };
 
   const handleLoadMore = () => {
@@ -294,13 +277,14 @@ const TherapistNotificationsScreen = () => {
             {notification.title}
           </Text>
 
-          {notification.message && (
+          {notification.message_preview && (
             <Text
               style={[
                 styles.notificationMessage,
                 {color: theme.colors.onSurfaceVariant},
-              ]}>
-              {notification.message}
+              ]}
+              numberOfLines={2}>
+              {notification.message_preview}
             </Text>
           )}
 
@@ -314,28 +298,32 @@ const TherapistNotificationsScreen = () => {
                 {formatDate(notification.created_at)}
               </Text>
 
-              {notification.sender_user_id && notification.senderUser && (
+              {notification.sender_name && (
                 <Text
                   style={[
                     styles.senderInfo,
                     {color: theme.colors.onSurfaceVariant},
                   ]}>
-                  Da:{' '}
-                  {notification.senderUser.name ||
-                    notification.senderUser.email}
+                  • {notification.sender_name}
                 </Text>
               )}
             </View>
 
-            {notification.read_at && (
-              <Text
-                style={[
-                  styles.readStatus,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                ✓ Letto
-              </Text>
-            )}
+            <View style={styles.footerRight}>
+              {notification.read_at ? (
+                <Icon
+                  name="check-circle"
+                  size={16}
+                  color={theme.colors.primary}
+                />
+              ) : (
+                <Icon
+                  name="chevron-right"
+                  size={20}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              )}
+            </View>
           </View>
         </Card.Content>
       </Card>
@@ -647,6 +635,9 @@ const styles = StyleSheet.create({
   },
   footerLeft: {
     flex: 1,
+  },
+  footerRight: {
+    marginLeft: 8,
   },
   notificationDate: {
     fontSize: 12,

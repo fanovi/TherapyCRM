@@ -59,10 +59,17 @@ return [
             'rules' => [
                 'GET search/user' => 'search/user',
                 // Notification routes
+                'GET notifications' => 'notification/index',
+                'GET notifications/<id:\d+>' => 'notification/view',
+                'GET notifications/unread' => 'notification/unread',
                 'GET notifications/has-blocking' => 'notification/has-blocking',
                 'GET notifications/blocking' => 'notification/blocking',
+                'POST notifications/<id:\d+>/mark-read' => 'notification/mark-read',
                 'POST notifications/<id:\d+>/confirm-read' => 'notification/confirm-read',
                 'POST notifications/<id:\d+>/mark-viewed' => 'notification/mark-viewed',
+                'POST notifications/send' => 'notification/send',
+                'POST notifications/send-template' => 'notification/send-template',
+                'POST notifications/broadcast' => 'notification/broadcast',
                 'POST notifications/create-test' => 'notification/create-test',
                 // Altre route qui...
             ],

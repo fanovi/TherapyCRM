@@ -193,7 +193,7 @@ export const getUnreadNotifications = async (limit = 50) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getNotifications = async (page = 1, limit = 20) => {
+export const getNotifications = async (page = 1, limit = 10) => {
   try {
     console.log(`🔔 Recuperando notifiche (page: ${page}, limit: ${limit})...`);
 
@@ -205,6 +205,25 @@ export const getNotifications = async (page = 1, limit = 20) => {
     return response.data;
   } catch (error) {
     console.error('❌ Errore recuperando notifiche:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ottiene il dettaglio completo di una notifica
+ * @param {number} notificationId
+ * @returns {Promise}
+ */
+export const getNotificationDetail = async notificationId => {
+  try {
+    console.log(`🔔 Recuperando dettaglio notifica ${notificationId}...`);
+
+    const response = await apiClient.get(`/notifications/${notificationId}`);
+
+    console.log('✅ Dettaglio notifica recuperato:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore recuperando dettaglio notifica:', error);
     throw error;
   }
 };

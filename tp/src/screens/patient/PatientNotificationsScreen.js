@@ -47,6 +47,10 @@ const PatientNotificationsScreen = () => {
 
   const fetchNotifications = async (pageNum = 1, refresh = false) => {
     try {
+      console.log(
+        `📱 PatientNotifications: Recupero notifiche pagina ${pageNum}, refresh: ${refresh}`,
+      );
+
       if (refresh) {
         setRefreshing(true);
         setPage(1);
@@ -55,10 +59,14 @@ const PatientNotificationsScreen = () => {
         setLoadingMore(true);
       }
 
-      const response = await getNotifications(pageNum, 15);
+      const response = await getNotifications(pageNum, 10); // 10 per pagina
+      console.log('📱 PatientNotifications: Risposta ricevuta:', response);
 
       if (response.success && response.data) {
         const newNotifications = response.data.notifications || [];
+        console.log(
+          `📱 PatientNotifications: ${newNotifications.length} notifiche ricevute`,
+        );
 
         // Applica il filtro
         let filteredNotifications = newNotifications;
@@ -67,6 +75,9 @@ const PatientNotificationsScreen = () => {
         } else if (filter === 'read') {
           filteredNotifications = newNotifications.filter(n => n.read_at);
         }
+        console.log(
+          `📱 PatientNotifications: ${filteredNotifications.length} notifiche dopo filtro '${filter}'`,
+        );
 
         if (refresh || pageNum === 1) {
           setNotifications(filteredNotifications);
@@ -74,13 +85,32 @@ const PatientNotificationsScreen = () => {
           setNotifications(prev => [...prev, ...filteredNotifications]);
         }
 
-        // Verifica se ci sono altre pagine
+        // Verifica se ci sono altre pagine usando has_next
         const {pagination} = response.data;
-        setHasMore(pagination && pagination.page < pagination.pages);
+        setHasMore(pagination && pagination.has_next);
         setPage(pageNum);
+        console.log('📱 PatientNotifications: Paginazione:', pagination);
+      } else {
+        console.warn('📱 PatientNotifications: Risposta non valida:', response);
+        setNotifications([]);
       }
     } catch (error) {
-      console.error('Errore recupero notifiche:', error);
+      console.error(
+        '❌ PatientNotifications: Errore recupero notifiche:',
+        error,
+      );
+      console.error('❌ PatientNotifications: Tipo errore:', error.type);
+      console.error(
+        '❌ PatientNotifications: Messaggio errore:',
+        error.message,
+      );
+      console.error(
+        '❌ PatientNotifications: Errore completo:',
+        JSON.stringify(error, null, 2),
+      );
+
+      // In caso di errore, mostra lista vuota
+      setNotifications([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,28 +118,11 @@ const PatientNotificationsScreen = () => {
     }
   };
 
-  const handleNotificationPress = async notification => {
-    try {
-      // Se non è stata ancora letta, segnala come letta
-      if (!notification.read_at) {
-        if (notification.requires_read_confirmation) {
-          await confirmNotificationRead(notification.id);
-        } else {
-          await markNotificationAsRead(notification.id);
-        }
-
-        // Aggiorna la lista locale
-        setNotifications(prev =>
-          prev.map(n =>
-            n.id === notification.id
-              ? {...n, read_at: new Date().toISOString()}
-              : n,
-          ),
-        );
-      }
-    } catch (error) {
-      console.error('Errore segnando notifica come letta:', error);
-    }
+  const handleNotificationPress = notification => {
+    // Naviga al dettaglio della notifica
+    navigation.navigate('NotificationDetail', {
+      notificationId: notification.id,
+    });
   };
 
   const handleLoadMore = () => {
@@ -250,34 +263,52 @@ const PatientNotificationsScreen = () => {
             {notification.title}
           </Text>
 
-          {notification.message && (
+          {notification.message_preview && (
             <Text
               style={[
                 styles.notificationMessage,
                 {color: theme.colors.onSurfaceVariant},
-              ]}>
-              {notification.message}
+              ]}
+              numberOfLines={2}>
+              {notification.message_preview}
             </Text>
           )}
 
           <View style={styles.notificationFooter}>
-            <Text
-              style={[
-                styles.notificationDate,
-                {color: theme.colors.onSurfaceVariant},
-              ]}>
-              {formatDate(notification.created_at)}
-            </Text>
-
-            {notification.read_at && (
+            <View style={styles.footerLeft}>
               <Text
                 style={[
-                  styles.readStatus,
+                  styles.notificationDate,
                   {color: theme.colors.onSurfaceVariant},
                 ]}>
-                Letto il {formatDate(notification.read_at)}
+                {formatDate(notification.created_at)}
               </Text>
-            )}
+              {notification.sender_name && (
+                <Text
+                  style={[
+                    styles.senderName,
+                    {color: theme.colors.onSurfaceVariant},
+                  ]}>
+                  • {notification.sender_name}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.footerRight}>
+              {notification.read_at ? (
+                <Icon
+                  name="check-circle"
+                  size={16}
+                  color={theme.colors.primary}
+                />
+              ) : (
+                <Icon
+                  name="chevron-right"
+                  size={20}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              )}
+            </View>
           </View>
         </Card.Content>
       </Card>
@@ -463,14 +494,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  footerRight: {
+    marginLeft: 8,
   },
   notificationDate: {
     fontSize: 12,
   },
-  readStatus: {
-    fontSize: 11,
-    fontStyle: 'italic',
+  senderName: {
+    fontSize: 12,
+    marginLeft: 4,
   },
   loadMoreContainer: {
     padding: 20,

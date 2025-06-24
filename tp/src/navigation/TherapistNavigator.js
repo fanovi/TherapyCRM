@@ -1,14 +1,33 @@
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {createStackNavigator} from '@react-navigation/stack';
 import {useTheme} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import TherapistDashboardScreen from '../screens/therapist/TherapistDashboardScreen';
 import TherapistPatientsScreen from '../screens/therapist/TherapistPatientsScreen';
 import TherapistCalendarScreen from '../screens/therapist/TherapistCalendarScreen';
 import TherapistNotificationsScreen from '../screens/therapist/TherapistNotificationsScreen';
+import TherapistNotificationDetailScreen from '../screens/therapist/TherapistNotificationDetailScreen';
 import TherapistProfileScreen from '../screens/therapist/TherapistProfileScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+// Stack Navigator per le Notifiche
+const TherapistNotificationsStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Screen
+        name="NotificationsList"
+        component={TherapistNotificationsScreen}
+      />
+      <Stack.Screen
+        name="NotificationDetail"
+        component={TherapistNotificationDetailScreen}
+      />
+    </Stack.Navigator>
+  );
+};
 
 const TherapistNavigator = () => {
   const theme = useTheme();
@@ -62,7 +81,7 @@ const TherapistNavigator = () => {
       />
       <Tab.Screen
         name="Notifications"
-        component={TherapistNotificationsScreen}
+        component={TherapistNotificationsStack}
         options={{title: 'Notifiche'}}
       />
       <Tab.Screen

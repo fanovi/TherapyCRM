@@ -253,11 +253,12 @@ class NotificationController extends Controller
     public function actionIndex()
     {
         $page = Yii::$app->request->get('page', 1);
-        $limit = Yii::$app->request->get('limit', 20);
+        $limit = Yii::$app->request->get('limit', 10); // Default 10 per pagina
         $offset = ($page - 1) * $limit;
 
         try {
             $query = Notification::findByUser(Yii::$app->user->id)
+                ->with(['senderUser']) // Include informazioni mittente
                 ->orderBy(['created_at' => SORT_DESC]);
 
             $total = $query->count();
@@ -266,20 +267,99 @@ class NotificationController extends Controller
                 ->limit($limit)
                 ->all();
 
+            // Prepara dati ottimizzati per la lista (solo campi necessari)
+            $notificationsList = array_map(function($notification) {
+                return [
+                    'id' => $notification->id,
+                    'title' => $notification->title,
+                    'notification_type' => $notification->notification_type,
+                    'requires_read_confirmation' => $notification->requires_read_confirmation,
+                    'read_at' => $notification->read_at,
+                    'viewed_at' => $notification->viewed_at,
+                    'created_at' => $notification->created_at,
+                    // Preview del messaggio (primi 100 caratteri)
+                    'message_preview' => mb_substr(strip_tags($notification->message), 0, 100) . 
+                                       (mb_strlen($notification->message) > 100 ? '...' : ''),
+                    'sender_name' => $notification->senderUser ? 
+                                   $notification->senderUser->username : 'Sistema'
+                ];
+            }, $notifications);
+
             return [
                 'success' => true,
                 'data' => [
-                    'notifications' => $notifications,
+                    'notifications' => $notificationsList,
                     'pagination' => [
                         'total' => $total,
                         'page' => $page,
                         'limit' => $limit,
-                        'pages' => ceil($total / $limit)
+                        'pages' => ceil($total / $limit),
+                        'has_next' => $page < ceil($total / $limit),
+                        'has_prev' => $page > 1
                     ]
                 ]
             ];
 
         } catch (\Exception $e) {
+            Yii::error('Errore recupero notifiche: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ottiene il dettaglio completo di una notifica
+     * 
+     * GET /api/notifications/{id}
+     */
+    public function actionView($id)
+    {
+        try {
+            $notification = Notification::find()
+                ->where([
+                    'id' => $id,
+                    'recipient_user_id' => Yii::$app->user->id
+                ])
+                ->with(['senderUser'])
+                ->one();
+
+            if (!$notification) {
+                return [
+                    'success' => false,
+                    'error' => 'Notifica non trovata'
+                ];
+            }
+
+            // Segna come visualizzata se non lo è già
+            if (!$notification->viewed_at) {
+                $notification->markAsViewed();
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'id' => $notification->id,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'notification_type' => $notification->notification_type,
+                    'requires_read_confirmation' => $notification->requires_read_confirmation,
+                    'read_at' => $notification->read_at,
+                    'viewed_at' => $notification->viewed_at,
+                    'scheduled_for' => $notification->scheduled_for,
+                    'sent_at' => $notification->sent_at,
+                    'created_at' => $notification->created_at,
+                    'sender' => $notification->senderUser ? [
+                        'id' => $notification->senderUser->id,
+                        'username' => $notification->senderUser->username,
+                        'email' => $notification->senderUser->email
+                    ] : null
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero dettaglio notifica: ' . $e->getMessage(), __METHOD__);
             return [
                 'success' => false,
                 'error' => $e->getMessage()

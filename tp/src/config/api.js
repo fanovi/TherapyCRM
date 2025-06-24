@@ -11,6 +11,7 @@ export const API_CONFIG = {
 
     // Notifications
     NOTIFICATIONS: '/notifications',
+    NOTIFICATION_DETAIL: id => `/notifications/${id}`,
     NOTIFICATIONS_UNREAD: '/notifications/unread',
     NOTIFICATIONS_BLOCKING: '/notifications/blocking',
     NOTIFICATIONS_HAS_BLOCKING: '/notifications/has-blocking',

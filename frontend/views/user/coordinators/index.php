@@ -173,7 +173,6 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => false, // ActionColumn non supporta filtri
                         'template' => '{view} {update} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             if ($action === 'view') {
