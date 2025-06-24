@@ -12,8 +12,8 @@ use yii\helpers\ArrayHelper;
  *
  * @property int $id
  * @property string $name
- * @property int $coordinator_id
- * @property string|null $description
+ * @property int $coordinator_user_id
+ * @property int $is_active
  * @property string $created_at
  * @property string $updated_at
  *
@@ -37,7 +37,10 @@ class CoordinatorGroup extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'value' => new \yii\db\Expression('NOW()'),
+            ],
         ];
     }
 
@@ -47,12 +50,12 @@ class CoordinatorGroup extends ActiveRecord
     public function rules()
     {
         return [
-            [['name', 'coordinator_id'], 'required'],
-            [['coordinator_id'], 'integer'],
-            [['description'], 'string'],
+            [['name', 'coordinator_user_id'], 'required'],
+            [['coordinator_user_id', 'is_active'], 'integer'],
+            [['is_active'], 'boolean'],
             [['name'], 'string', 'max' => 100],
             [['name'], 'unique'],
-            [['coordinator_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['coordinator_id' => 'id']],
+            [['coordinator_user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['coordinator_user_id' => 'id']],
         ];
     }
 
@@ -64,8 +67,8 @@ class CoordinatorGroup extends ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Nome Gruppo',
-            'coordinator_id' => 'Coordinatore',
-            'description' => 'Descrizione',
+            'coordinator_user_id' => 'Coordinatore',
+            'is_active' => 'Attivo',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];
@@ -78,7 +81,7 @@ class CoordinatorGroup extends ActiveRecord
      */
     public function getCoordinator()
     {
-        return $this->hasOne(User::class, ['id' => 'coordinator_id']);
+        return $this->hasOne(User::class, ['id' => 'coordinator_user_id']);
     }
 
     /**
@@ -125,7 +128,7 @@ class CoordinatorGroup extends ActiveRecord
     public static function findByCoordinator($coordinatorId)
     {
         return static::find()
-            ->where(['coordinator_id' => $coordinatorId])
+            ->where(['coordinator_user_id' => $coordinatorId])
             ->orderBy('name')
             ->all();
     }

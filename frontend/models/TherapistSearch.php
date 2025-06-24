@@ -35,12 +35,18 @@ class TherapistSearch extends Therapist
     public $specialization_name;
 
     /**
+     * @var array Array of therapist IDs to filter by (for coordinator group filtering)
+     */
+    public $therapist_ids;
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
     {
         return [
             [['id', 'user_id', 'specialization_id', 'weekly_hours_contract'], 'integer'],
+            [['therapist_ids'], 'safe'],
             [['is_active'], 'boolean'],
             [['first_name', 'last_name', 'email', 'specialization_name', 'calendar_color', 'created_at', 'updated_at'], 'safe'],
         ];
@@ -112,6 +118,11 @@ class TherapistSearch extends Therapist
             // uncomment the following line if you do not want to return any records when validation fails
             // $query->where('0=1');
             return $dataProvider;
+        }
+
+        // Filter by therapist IDs if provided (for coordinator group filtering)
+        if (!empty($this->therapist_ids)) {
+            $query->andWhere(['therapists.id' => $this->therapist_ids]);
         }
 
         // grid filtering conditions

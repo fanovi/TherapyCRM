@@ -12,21 +12,16 @@ use yii\behaviors\TimestampBehavior;
  * @property int $id
  * @property int $group_id
  * @property int $therapist_id
- * @property string $role
- * @property int $is_active
- * @property string $joined_at
- * @property string|null $left_at
- * @property string $created_at
- * @property string $updated_at
+ * @property string $assigned_from
+ * @property string|null $assigned_to
+ * @property int $assigned_by
  *
  * @property CoordinatorGroup $group
  * @property Therapist $therapist
+ * @property User $assignedBy
  */
 class GroupTherapist extends ActiveRecord
 {
-    const ROLE_MEMBER = 'member';
-    const ROLE_SUPERVISOR = 'supervisor';
-    const ROLE_ASSISTANT = 'assistant';
 
     /**
      * {@inheritdoc}
@@ -42,7 +37,7 @@ class GroupTherapist extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            // Nessun behavior automatico per i timestamp
         ];
     }
 
@@ -52,27 +47,25 @@ class GroupTherapist extends ActiveRecord
     public function rules()
     {
         return [
-            [['group_id', 'therapist_id', 'role', 'joined_at'], 'required'],
-            [['group_id', 'therapist_id', 'is_active'], 'integer'],
-            [['is_active'], 'boolean'],
-            [['joined_at', 'left_at'], 'date', 'format' => 'php:Y-m-d'],
-            [['role'], 'string', 'max' => 50],
-            [['role'], 'in', 'range' => [self::ROLE_MEMBER, self::ROLE_SUPERVISOR, self::ROLE_ASSISTANT]],
+            [['group_id', 'therapist_id', 'assigned_from', 'assigned_by'], 'required'],
+            [['group_id', 'therapist_id', 'assigned_by'], 'integer'],
+            [['assigned_from', 'assigned_to'], 'date', 'format' => 'php:Y-m-d'],
             [['group_id', 'therapist_id'], 'unique', 'targetAttribute' => ['group_id', 'therapist_id']],
             [['group_id'], 'exist', 'skipOnError' => true, 'targetClass' => CoordinatorGroup::class, 'targetAttribute' => ['group_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
-            [['left_at'], 'validateLeftAt'],
+            [['assigned_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['assigned_by' => 'id']],
+            [['assigned_to'], 'validateAssignedTo'],
         ];
     }
 
     /**
-     * Validates left_at date
+     * Validates assigned_to date
      */
-    public function validateLeftAt($attribute, $params)
+    public function validateAssignedTo($attribute, $params)
     {
-        if (!empty($this->$attribute) && !empty($this->joined_at)) {
-            if ($this->$attribute < $this->joined_at) {
-                $this->addError($attribute, 'La data di uscita non può essere precedente alla data di ingresso');
+        if (!empty($this->$attribute) && !empty($this->assigned_from)) {
+            if ($this->$attribute < $this->assigned_from) {
+                $this->addError($attribute, 'La data di fine assegnazione non può essere precedente alla data di inizio');
             }
         }
     }
@@ -86,12 +79,9 @@ class GroupTherapist extends ActiveRecord
             'id' => 'ID',
             'group_id' => 'Gruppo',
             'therapist_id' => 'Terapista',
-            'role' => 'Ruolo',
-            'is_active' => 'Attivo',
-            'joined_at' => 'Data Ingresso',
-            'left_at' => 'Data Uscita',
-            'created_at' => 'Creato il',
-            'updated_at' => 'Aggiornato il',
+            'assigned_from' => 'Assegnato dal',
+            'assigned_to' => 'Assegnato fino al',
+            'assigned_by' => 'Assegnato da',
         ];
     }
 
@@ -116,37 +106,22 @@ class GroupTherapist extends ActiveRecord
     }
 
     /**
-     * Gets role labels
+     * Gets query for [[AssignedBy]].
      *
-     * @return array
+     * @return \yii\db\ActiveQuery
      */
-    public static function getRoleLabels()
+    public function getAssignedBy()
     {
-        return [
-            self::ROLE_MEMBER => 'Membro',
-            self::ROLE_SUPERVISOR => 'Supervisore',
-            self::ROLE_ASSISTANT => 'Assistente',
-        ];
+        return $this->hasOne(User::class, ['id' => 'assigned_by']);
     }
 
     /**
-     * Gets role label
-     *
-     * @return string
-     */
-    public function getRoleLabel()
-    {
-        $labels = static::getRoleLabels();
-        return $labels[$this->role] ?? $this->role;
-    }
-
-    /**
-     * Checks if therapist is active in group
+     * Checks if therapist is currently active in group
      *
      * @return bool
      */
     public function isActive()
     {
-        return (bool) $this->is_active && empty($this->left_at);
+        return empty($this->assigned_to);
     }
 } 

@@ -142,11 +142,71 @@ class m250125_000000_add_new_permission extends Migration
 - `patient`: Visualizzazione propri dati
 - `patient_family`: Visualizzazione dati familiari
 
-### 8. Database e Migrations
+### 8. Styling CSS e Tailwind
+
+**PROBLEMA**: Pulsanti invisibili per classi CSS non definite
+**CAUSA**: Uso di classi Tailwind non esistenti nel CSS compilato
+**SOLUZIONE**: Usare sempre classi esistenti e testate negli altri form
+
+**CLASSI BUTTON STANDARD**:
+```php
+// ✅ CORRETTO - Classi esistenti
+'class' => 'px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+
+// ❌ SBAGLIATO - Classi non definite
+'class' => 'px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+```
+
+**PATTERN DEBUGGING CSS**:
+1. Controllare se il pulsante è visibile con inspector browser
+2. Verificare che le classi esistano in `frontend/web/css/style.css`
+3. Copiare classi da form funzionanti esistenti
+4. Evitare di creare nuove classi CSS custom senza necessità
+
+### 9. Database e Migrations
 
 - Migrations in `console/migrations/`
 - Usare `yii migrate` per applicare modifiche
 - Modelli in `common/models/`
+
+### 10. Problemi Modelli e Database
+
+**PROBLEMA**: Modelli non allineati con schema database reale
+**SINTOMI**: Errori "unknown property", query che falliscono, relazioni rotte
+**SOLUZIONE**: Sempre verificare schema database prima di modificare modelli
+
+**PATTERN VERIFICA SCHEMA**:
+```bash
+# Verifica struttura tabella
+./yii db/describe table_name
+
+# Controlla relazioni esistenti
+SHOW CREATE TABLE table_name;
+```
+
+**PROBLEMI COMUNI**:
+1. **Campi inesistenti**: Modello con proprietà non presenti nel DB
+2. **TimestampBehavior**: Usare `NOW()` per DATETIME, timestamp Unix per INT
+3. **Relazioni sbagliate**: Foreign key non corrispondenti tra modello e DB
+4. **User Profile mancanti**: Terapisti senza profilo utente creano errori di visualizzazione
+
+**FIX AUTOMATICO PROFILI MANCANTI**:
+```php
+// Console command per creare profili mancanti
+$therapists = Therapist::find()
+    ->joinWith('user')
+    ->leftJoin('user_profiles up', 'users.id = up.user_id')
+    ->where(['up.user_id' => null])
+    ->all();
+    
+foreach ($therapists as $therapist) {
+    $profile = new UserProfile();
+    $profile->user_id = $therapist->user_id;
+    $profile->first_name = $randomFirstName;
+    $profile->last_name = $randomLastName;
+    $profile->save();
+}
+```
 
 ## Comandi Utili
 
@@ -230,6 +290,14 @@ Stai lavorando su un sistema di gestione terapeutica (TherapyCRM) costruito con 
 - Stati: scheduled, completed, absent_justified, absent_not_justified, cancelled
 - Sostituzioni terapisti tracciate separatamente
 - Slot occupati gestiti automaticamente via trigger
+
+### Sistema Gruppi Coordinatori
+- I coordinatori gestiscono gruppi di terapisti assegnati
+- Creazione atomica: coordinatore + terapisti selezionati insieme
+- Schema database: `coordinator_groups` (1:N) `group_therapists`
+- Terapisti attivi: `assigned_to IS NULL`, inattivi: `assigned_to` con data
+- Permessi RBAC: admin/manager (CRUD completo), coordinator (view-only proprio gruppo)
+- Vista coordinatore: `/therapist/my-group` mostra solo terapisti assegnati
 
 ## Schema Database
 

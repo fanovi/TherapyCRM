@@ -377,4 +377,52 @@ class TherapistController extends Controller
             Yii::error("Error in encryptSensitiveData: " . $e->getMessage(), __METHOD__);
         }
     }
+
+    /**
+     * Lists therapists for coordinators (only their own group)
+     * @return mixed
+     */
+    public function actionMyGroup()
+    {
+        if (!Yii::$app->user->can('view_own_group_therapists')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i terapisti del gruppo.');
+        }
+
+        // Find coordinator's group
+        $coordinatorUserId = Yii::$app->user->id;
+        $coordinatorGroup = \common\models\CoordinatorGroup::find()
+            ->where(['coordinator_id' => $coordinatorUserId])
+            ->one();
+
+        if (!$coordinatorGroup) {
+            return $this->render('no-group', [
+                'message' => 'Non sei assegnato a nessun gruppo di terapisti.'
+            ]);
+        }
+
+        // Get therapists in the coordinator's group
+        $therapistIds = \common\models\GroupTherapist::find()
+            ->select('therapist_id')
+            ->where(['group_id' => $coordinatorGroup->id, 'is_active' => 1])
+            ->column();
+
+        $searchModel = new TherapistSearch();
+        $queryParams = Yii::$app->request->queryParams;
+        
+        // Filter to only include therapists in the coordinator's group
+        if (!empty($therapistIds)) {
+            $searchModel->therapist_ids = $therapistIds;
+        } else {
+            // No therapists in group, show empty result
+            $searchModel->therapist_ids = [0]; // Non-existing ID to force empty result
+        }
+        
+        $dataProvider = $searchModel->search($queryParams);
+
+        return $this->render('my-group', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'coordinatorGroup' => $coordinatorGroup,
+        ]);
+    }
 } 
