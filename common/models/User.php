@@ -137,7 +137,28 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public static function findIdentityByAccessToken($token, $type = null)
     {
-        throw new NotSupportedException('"findIdentityByAccessToken" is not implemented.');
+        Yii::info('findIdentityByAccessToken chiamato con token: ' . substr($token, 0, 20) . '...', __METHOD__);
+        
+        try {
+            // Usa il componente JWT per decodificare il token
+            $jwtComponent = Yii::$app->jwt;
+            Yii::info('Componente JWT ottenuto, decodificando token...', __METHOD__);
+            
+            $decodedToken = $jwtComponent->decodeToken($token);
+            Yii::info('Token decodificato: ' . json_encode($decodedToken), __METHOD__);
+            
+            if ($decodedToken && isset($decodedToken['user_id'])) {
+                $user = static::findIdentity($decodedToken['user_id']);
+                Yii::info('Utente trovato: ' . ($user ? $user->id : 'NULL'), __METHOD__);
+                return $user;
+            }
+        } catch (\Exception $e) {
+            Yii::error('Errore nella decodifica del JWT token: ' . $e->getMessage(), __METHOD__);
+            Yii::error('Stack trace: ' . $e->getTraceAsString(), __METHOD__);
+        }
+        
+        Yii::info('Ritornando null da findIdentityByAccessToken', __METHOD__);
+        return null;
     }
 
     /**

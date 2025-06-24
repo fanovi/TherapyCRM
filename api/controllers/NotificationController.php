@@ -22,8 +22,10 @@ class NotificationController extends Controller
     {
         $behaviors = parent::behaviors();
         
-        $behaviors['authenticator'] = [
-            'class' => HttpBearerAuth::class,
+        // Aggiungi il JwtAuthBehavior per proteggere le azioni del controller
+        $behaviors['jwt'] = [
+            'class' => 'common\components\JwtAuthBehavior',
+            'excludeActions' => [], // Tutte le azioni richiedono autenticazione
         ];
         
         $behaviors['contentNegotiator'] = [
@@ -328,6 +330,255 @@ class NotificationController extends Controller
 
         } catch (\Exception $e) {
             Yii::error('Errore elaborazione notifiche programmate: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Verifica se l'utente ha notifiche bloccanti da leggere
+     * 
+     * GET /api/notifications/has-blocking
+     */
+    public function actionHasBlocking()
+    {
+        try {
+            $count = Notification::find()
+                ->where([
+                    'recipient_user_id' => Yii::$app->user->id,
+                    'requires_read_confirmation' => true,
+                    'read_at' => null
+                ])
+                ->count();
+
+            $hasBlocking = $count > 0;
+
+            Yii::info("Utente " . Yii::$app->user->id . " ha {$count} notifiche bloccanti", __METHOD__);
+
+            return [
+                'success' => true,
+                'data' => [
+                    'has_blocking_notifications' => $hasBlocking,
+                    'blocking_count' => $count,
+                    'app_should_be_blocked' => $hasBlocking
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore verifica notifiche bloccanti: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Ottiene le notifiche bloccanti (requires_read_confirmation = true e non lette)
+     * 
+     * GET /api/notifications/blocking
+     */
+    public function actionBlocking()
+    {
+        try {
+            $notifications = Notification::find()
+                ->where([
+                    'recipient_user_id' => Yii::$app->user->id,
+                    'requires_read_confirmation' => true,
+                    'read_at' => null
+                ])
+                ->with(['senderUser'])
+                ->orderBy(['created_at' => SORT_ASC])
+                ->all();
+
+            Yii::info("Trovate " . count($notifications) . " notifiche bloccanti per utente " . Yii::$app->user->id, __METHOD__);
+
+            return [
+                'success' => true,
+                'data' => $notifications
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero notifiche bloccanti: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Conferma la lettura di una notifica bloccante
+     * 
+     * POST /api/notifications/{id}/confirm-read
+     */
+    public function actionConfirmRead($id)
+    {
+        try {
+            $notification = Notification::find()
+                ->where([
+                    'id' => $id,
+                    'recipient_user_id' => Yii::$app->user->id,
+                    'requires_read_confirmation' => true
+                ])
+                ->one();
+
+            if (!$notification) {
+                return [
+                    'success' => false,
+                    'error' => 'Notifica non trovata o non autorizzata'
+                ];
+            }
+
+            if ($notification->read_at) {
+                return [
+                    'success' => true,
+                    'message' => 'Notifica già confermata come letta'
+                ];
+            }
+
+            // Segna come letta
+            $notification->markAsRead();
+
+            Yii::info("Notifica bloccante {$id} confermata come letta dall'utente " . Yii::$app->user->id, __METHOD__);
+
+            return [
+                'success' => true,
+                'message' => 'Lettura confermata'
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error("Errore conferma lettura notifica {$id}: " . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Segna una notifica come visualizzata (ma non necessariamente confermata)
+     * 
+     * POST /api/notifications/{id}/mark-viewed
+     */
+    public function actionMarkViewed($id)
+    {
+        try {
+            $notification = Notification::find()
+                ->where([
+                    'id' => $id,
+                    'recipient_user_id' => Yii::$app->user->id
+                ])
+                ->one();
+
+            if (!$notification) {
+                return [
+                    'success' => false,
+                    'error' => 'Notifica non trovata'
+                ];
+            }
+
+            if ($notification->viewed_at) {
+                return [
+                    'success' => true,
+                    'message' => 'Notifica già visualizzata',
+                    'viewed_at' => $notification->viewed_at
+                ];
+            }
+
+            // Segna come visualizzata
+            $notification->markAsViewed();
+
+            Yii::info("Notifica {$id} visualizzata dall'utente " . Yii::$app->user->id . " alle " . $notification->viewed_at, __METHOD__);
+
+            return [
+                'success' => true,
+                'message' => 'Notifica segnata come visualizzata',
+                'viewed_at' => $notification->viewed_at
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error("Errore segnando notifica {$id} come visualizzata: " . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Crea una notifica di test per sviluppo/debugging
+     * 
+     * POST /api/notifications/create-test
+     * 
+     * Body:
+     * {
+     *   "type": "blocking|normal",
+     *   "title": "Titolo personalizzato (opzionale)",
+     *   "message": "Messaggio personalizzato (opzionale)",
+     *   "recipient_user_id": 123 (opzionale, default: utente corrente)
+     * }
+     */
+    public function actionCreateTest()
+    {
+        // Solo in ambiente di sviluppo
+        if (!YII_DEBUG) {
+            return [
+                'success' => false,
+                'error' => 'Endpoint disponibile solo in ambiente di sviluppo'
+            ];
+        }
+
+        $request = Yii::$app->request;
+        $params = $request->getBodyParams();
+        
+        $type = $params['type'] ?? 'normal';
+        $recipientUserId = $params['recipient_user_id'] ?? Yii::$app->user->id;
+
+        try {
+            $notification = new Notification();
+            $notification->recipient_user_id = $recipientUserId;
+            $notification->sender_user_id = Yii::$app->user->id;
+            
+            if ($type === 'blocking') {
+                $notification->title = $params['title'] ?? 'Test Notifica Bloccante - ' . date('H:i:s');
+                $notification->message = $params['message'] ?? 'Questa è una notifica di test che richiede conferma di lettura. L\'app dovrebbe essere bloccata fino alla conferma. Test creato alle ' . date('Y-m-d H:i:s');
+                $notification->notification_type = Notification::TYPE_MANDATORY_READ;
+                $notification->requires_read_confirmation = true;
+            } else {
+                $notification->title = $params['title'] ?? 'Test Notifica Normale - ' . date('H:i:s');
+                $notification->message = $params['message'] ?? 'Questa è una notifica di test normale. Non blocca l\'app. Test creato alle ' . date('Y-m-d H:i:s');
+                $notification->notification_type = Notification::TYPE_INFO;
+                $notification->requires_read_confirmation = false;
+            }
+
+            if (!$notification->save()) {
+                return [
+                    'success' => false,
+                    'error' => 'Errore salvataggio notifica',
+                    'errors' => $notification->errors
+                ];
+            }
+
+            Yii::info("Notifica di test {$type} creata con ID {$notification->id} per utente {$recipientUserId}", __METHOD__);
+
+            return [
+                'success' => true,
+                'message' => "Notifica di test {$type} creata con successo",
+                'data' => [
+                    'id' => $notification->id,
+                    'type' => $type,
+                    'title' => $notification->title,
+                    'requires_read_confirmation' => $notification->requires_read_confirmation,
+                    'recipient_user_id' => $notification->recipient_user_id,
+                    'created_at' => $notification->created_at
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error("Errore creazione notifica di test: " . $e->getMessage(), __METHOD__);
             return [
                 'success' => false,
                 'error' => $e->getMessage()

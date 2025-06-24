@@ -22,6 +22,116 @@ export const markNotificationAsRead = async notificationId => {
 };
 
 /**
+ * Conferma la lettura di una notifica con requires_read_confirmation
+ * @param {number} notificationId
+ * @returns {Promise}
+ */
+export const confirmNotificationRead = async notificationId => {
+  try {
+    console.log(`🔔 Confermando lettura notifica ${notificationId}...`);
+
+    const response = await apiClient.post(
+      `/notifications/${notificationId}/confirm-read`,
+    );
+
+    console.log('✅ Lettura notifica confermata:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore confermando lettura notifica:', error);
+    throw error;
+  }
+};
+
+/**
+ * Segna una notifica come visualizzata (ma non confermata)
+ * @param {number} notificationId
+ * @returns {Promise}
+ */
+export const markNotificationAsViewed = async notificationId => {
+  try {
+    console.log(`👁️ Segnando notifica ${notificationId} come visualizzata...`);
+
+    const response = await apiClient.post(
+      `/notifications/${notificationId}/mark-viewed`,
+    );
+
+    console.log('✅ Notifica segnata come visualizzata:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore segnando notifica come visualizzata:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verifica se ci sono notifiche bloccanti per l'utente
+ * @returns {Promise}
+ */
+export const hasBlockingNotifications = async () => {
+  try {
+    console.log('🔍 Verificando se ci sono notifiche bloccanti...');
+
+    const response = await apiClient.get('/notifications/has-blocking');
+
+    console.log('✅ Verifica notifiche bloccanti completata:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore verificando notifiche bloccanti:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ottiene le notifiche bloccanti (requires_read_confirmation = true e non lette)
+ * @returns {Promise}
+ */
+export const getBlockingNotifications = async () => {
+  try {
+    console.log('🚨 Recuperando notifiche bloccanti...');
+
+    const response = await apiClient.get('/notifications/blocking');
+
+    console.log('✅ Notifiche bloccanti recuperate:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore recuperando notifiche bloccanti:', error);
+    throw error;
+  }
+};
+
+/**
+ * Crea una notifica di test (solo in sviluppo)
+ * @param {string} type - 'blocking' o 'normal'
+ * @param {string} title - Titolo personalizzato (opzionale)
+ * @param {string} message - Messaggio personalizzato (opzionale)
+ * @returns {Promise}
+ */
+export const createTestNotification = async (
+  type = 'blocking',
+  title = null,
+  message = null,
+) => {
+  try {
+    console.log(`🧪 Creando notifica di test tipo: ${type}...`);
+
+    const payload = {type};
+    if (title) payload.title = title;
+    if (message) payload.message = message;
+
+    const response = await apiClient.post(
+      '/notifications/create-test',
+      payload,
+    );
+
+    console.log('✅ Notifica di test creata:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Errore creando notifica di test:', error);
+    throw error;
+  }
+};
+
+/**
  * Segna multiple notifiche come lette
  * @param {Array} notificationIds
  * @returns {Promise}

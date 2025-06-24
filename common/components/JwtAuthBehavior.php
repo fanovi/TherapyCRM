@@ -49,6 +49,11 @@ class JwtAuthBehavior extends Behavior
 
         // Get the authorization header
         $authHeader = Yii::$app->request->headers->get('Authorization');
+        
+        // Fallback per Apache che potrebbe non passare l'header correttamente
+        if (!$authHeader) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
+        }
 
         if (!$authHeader || !preg_match('/^Bearer\s+(.*?)$/', $authHeader, $matches)) {
             throw new UnauthorizedHttpException('Il token di autenticazione non è stato fornito.');

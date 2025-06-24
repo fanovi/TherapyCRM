@@ -11,6 +11,9 @@ import AuthNavigator from './AuthNavigator';
 import PatientNavigator from './PatientNavigator';
 import TherapistNavigator from './TherapistNavigator';
 import useOneSignal from '../hooks/useOneSignal';
+import useBlockingNotifications from '../hooks/useBlockingNotifications';
+import BlockingNotificationOverlay from '../components/BlockingNotificationOverlay';
+import NotificationModal from '../components/NotificationModal';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +26,14 @@ const AppNavigator = () => {
 
   // Inizializza OneSignal e gestisce i tag dell'utente
   useOneSignal();
+
+  // Gestisce le notifiche bloccanti
+  useBlockingNotifications({
+    autoCheck: true,
+    enablePolling: true,
+    pollingInterval: 30000, // 30 secondi
+    checkOnForeground: true,
+  });
 
   useEffect(() => {
     checkInitialAuth();
@@ -148,6 +159,12 @@ const AppNavigator = () => {
             <Stack.Screen name="Therapist" component={TherapistNavigator} />
           )}
         </Stack.Navigator>
+
+        {/* Overlay per notifiche bloccanti - mostrato solo se autenticato */}
+        {isAuthenticated && <BlockingNotificationOverlay />}
+
+        {/* Modal per lettura notifiche */}
+        {isAuthenticated && <NotificationModal />}
       </NavigationContainer>
     </SafeAreaWrapper>
   );

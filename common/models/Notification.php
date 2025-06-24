@@ -17,6 +17,7 @@ use yii\behaviors\TimestampBehavior;
  * @property string|null $message
  * @property bool $requires_read_confirmation
  * @property string|null $read_at
+ * @property string|null $viewed_at
  * @property string|null $scheduled_for
  * @property string|null $sent_at
  * @property string $created_at
@@ -71,7 +72,7 @@ class Notification extends ActiveRecord
             [['recipient_user_id', 'sender_user_id'], 'integer'],
             [['message'], 'string'],
             [['requires_read_confirmation'], 'boolean'],
-            [['read_at', 'scheduled_for', 'sent_at', 'created_at'], 'safe'],
+            [['read_at', 'viewed_at', 'scheduled_for', 'sent_at', 'created_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
             [['notification_type'], 'in', 'range' => [self::TYPE_INFO, self::TYPE_REMINDER, self::TYPE_DEADLINE, self::TYPE_MANDATORY_READ]],
             [['recipient_user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['recipient_user_id' => 'id']],
@@ -93,6 +94,7 @@ class Notification extends ActiveRecord
             'message' => 'Messaggio',
             'requires_read_confirmation' => 'Richiede Conferma Lettura',
             'read_at' => 'Letto Il',
+            'viewed_at' => 'Visualizzato Il',
             'scheduled_for' => 'Programmato Per',
             'sent_at' => 'Inviato Il',
             'created_at' => 'Creato Il',
@@ -127,6 +129,17 @@ class Notification extends ActiveRecord
     }
 
     /**
+     * Segna la notifica come visualizzata
+     */
+    public function markAsViewed()
+    {
+        if (!$this->viewed_at) {
+            $this->viewed_at = date('Y-m-d H:i:s');
+            $this->save(false);
+        }
+    }
+
+    /**
      * Segna la notifica come inviata
      */
     public function markAsSent()
@@ -145,6 +158,16 @@ class Notification extends ActiveRecord
     public function isRead()
     {
         return $this->read_at !== null;
+    }
+
+    /**
+     * Verifica se la notifica è stata visualizzata
+     * 
+     * @return bool
+     */
+    public function isViewed()
+    {
+        return $this->viewed_at !== null;
     }
 
     /**

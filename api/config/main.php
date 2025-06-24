@@ -58,6 +58,12 @@ return [
             'showScriptName' => false,
             'rules' => [
                 'GET search/user' => 'search/user',
+                // Notification routes
+                'GET notifications/has-blocking' => 'notification/has-blocking',
+                'GET notifications/blocking' => 'notification/blocking',
+                'POST notifications/<id:\d+>/confirm-read' => 'notification/confirm-read',
+                'POST notifications/<id:\d+>/mark-viewed' => 'notification/mark-viewed',
+                'POST notifications/create-test' => 'notification/create-test',
                 // Altre route qui...
             ],
         ],
