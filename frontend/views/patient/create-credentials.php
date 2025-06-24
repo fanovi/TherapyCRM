@@ -232,16 +232,17 @@ $this->params['breadcrumbs'][] = $this->title;
                 </div>
                 
                 <div class="sm:col-span-2">
-                    <div class="flex items-center">
-                        <?= $form->field($accountPatient, 'has_parental_authority')->checkbox([
-                            'class' => 'w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600',
-                            'template' => '{input}',
-                            'labelOptions' => ['style' => 'display:none;'],
-                        ]) ?>
-                        <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Ha Autorità Genitoriale
-                        </label>
-                    </div>
+                    <?= $form->field($accountPatient, 'has_parental_authority', [
+                        'template' => '<div class="flex items-center">{input}{label}</div>{error}{hint}',
+                        'labelOptions' => [
+                            'class' => 'ml-2 text-sm font-medium text-gray-700 dark:text-gray-300'
+                        ],
+                        'options' => ['class' => '']
+                    ])->checkbox([
+                        'class' => 'w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600',
+                        'uncheck' => '0',
+                        'value' => '1'
+                    ])->label('Ha Autorità Genitoriale') ?>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Seleziona se questa persona ha l'autorità genitoriale sul paziente.
                     </p>

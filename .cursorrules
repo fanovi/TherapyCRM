@@ -1,0 +1,155 @@
+# Cursor Rules per TherapyCRM
+
+## Struttura del Progetto
+
+- **Framework**: Yii2 Advanced Application Template
+- **Struttura**: Multi-applicazione (api/, backend/, frontend/, console/, common/)
+- **Database**: MySQL con migrations in console/migrations/
+- **Frontend**: Tailwind CSS + JavaScript
+- **PDF**: mPDF per generazione documenti
+
+## Problemi Comuni e Soluzioni
+
+### 1. JavaScript di Yii e data-method
+
+**PROBLEMA**: `data-method="post"` di Yii non sempre funziona correttamente, causa refresh della pagina invece di POST
+**SOLUZIONE**: Usare AJAX manuale per azioni critiche:
+
+```javascript
+// Invece di data-method="post", usa AJAX
+$.ajax({
+  url: url,
+  type: "POST",
+  data: {
+    _csrf: $("meta[name=csrf-token]").attr("content"),
+    param: value,
+  },
+  success: function (response) {
+    // Gestisci risposta
+  },
+});
+```
+
+### 2. Generazione PDF con mPDF
+
+**PROBLEMA**: Directory temporanee non scrivibili, errori di permessi
+**SOLUZIONI**:
+
+- Creare directory `frontend/runtime/mpdf` con permessi 755
+- Configurare mPDF con directory temporanea corretta
+- Gestire download PDF via AJAX con `window.open()` per evitare refresh
+
+### 3. Checkbox e Form Yii
+
+**PROBLEMA**: Template personalizzati possono nascondere elementi
+**SOLUZIONE**:
+
+```php
+// Invece di template: '{input}' con label nascosta
+$form->field($model, 'field')->checkbox([
+    'template' => '<div class="flex items-center">{input}{label}</div>',
+    'class' => 'checkbox-classes'
+])
+```
+
+### 4. Debugging e Logging
+
+**BEST PRACTICES**:
+
+- Sempre aggiungere logging dettagliato per azioni critiche
+- Usare `Yii::info()` per debug temporaneo
+- Controllare sempre `frontend/runtime/logs/app.log`
+- Aggiungere debug JavaScript per problemi client-side
+
+### 5. Controller Actions
+
+**PATTERN**: Gestire sia richieste AJAX che normali:
+
+```php
+public function actionSomething($param) {
+    // Logica principale
+
+    if (Yii::$app->request->isAjax) {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        return ['status' => 'success', 'data' => $data];
+    }
+
+    return $this->redirect(['view', 'id' => $id]);
+}
+```
+
+### 6. Asset Management
+
+- AppAsset include automaticamente YiiAsset
+- Non registrare YiiAsset separatamente nelle viste
+- jQuery è disponibile globalmente
+
+### 7. Gestione Permessi
+
+- Usare sempre `Yii::$app->user->can('permission')` per controllo accessi
+- Centralizzare logica di permessi in common/components/
+
+### 8. Database e Migrations
+
+- Migrations in `console/migrations/`
+- Usare `yii migrate` per applicare modifiche
+- Modelli in `common/models/`
+
+## Comandi Utili
+
+### Sviluppo
+
+```bash
+# Applicare migrations
+./yii migrate
+
+# Pulire cache
+./yii cache/flush-all
+
+# Generare modelli
+./yii gii/model
+
+# Monitorare logs
+tail -f frontend/runtime/logs/app.log
+```
+
+### Debugging
+
+```bash
+# Verificare permessi directory
+ls -la frontend/runtime/
+
+# Cercare errori nei log
+grep -i error frontend/runtime/logs/app.log
+
+# Verificare configurazione PHP
+php -m | grep -i pdf
+```
+
+## Naming Conventions
+
+- Controllers: `PascalCase` + `Controller.php`
+- Actions: `actionCamelCase`
+- Views: `kebab-case.php`
+- Models: `PascalCase.php`
+- JavaScript functions: `camelCase`
+
+## Sicurezza
+
+- Sempre usare CSRF token nelle richieste POST
+- Validare parametri input
+- Controllare permessi utente prima di ogni azione
+- Escapare output HTML con `Html::encode()`
+
+## Performance
+
+- Usare cache per query pesanti
+- Ottimizzare asset con compression
+- Lazy loading per dati non critici
+- Minimizzare chiamate database
+
+## Testing
+
+- Test funzionali in `tests/functional/`
+- Test unità in `tests/unit/`
+- Usare Codeception per test automatizzati
