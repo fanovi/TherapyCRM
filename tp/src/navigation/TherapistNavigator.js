@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import TherapistDashboardScreen from '../screens/therapist/TherapistDashboardScreen';
 import TherapistPatientsScreen from '../screens/therapist/TherapistPatientsScreen';
 import TherapistCalendarScreen from '../screens/therapist/TherapistCalendarScreen';
+import TherapistNotificationsScreen from '../screens/therapist/TherapistNotificationsScreen';
 import TherapistProfileScreen from '../screens/therapist/TherapistProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -24,6 +25,8 @@ const TherapistNavigator = () => {
             iconName = 'people';
           } else if (route.name === 'Calendar') {
             iconName = 'schedule';
+          } else if (route.name === 'Notifications') {
+            iconName = 'notifications';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           }
@@ -56,6 +59,11 @@ const TherapistNavigator = () => {
         name="Calendar"
         component={TherapistCalendarScreen}
         options={{title: 'Agenda'}}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={TherapistNotificationsScreen}
+        options={{title: 'Notifiche'}}
       />
       <Tab.Screen
         name="Profile"

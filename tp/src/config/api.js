@@ -8,6 +8,18 @@ export const API_CONFIG = {
     CHANGE_FIRST_PASSWORD: '/auth/change-first-password',
     RESET_PASSWORD: '/auth/reset-password', // Future implementation
     REFRESH_TOKEN: '/auth/refresh', // Future implementation
+
+    // Notifications
+    NOTIFICATIONS: '/notifications',
+    NOTIFICATIONS_UNREAD: '/notifications/unread',
+    NOTIFICATIONS_BLOCKING: '/notifications/blocking',
+    NOTIFICATIONS_HAS_BLOCKING: '/notifications/has-blocking',
+    NOTIFICATION_MARK_READ: id => `/notifications/${id}/mark-read`,
+    NOTIFICATION_CONFIRM_READ: id => `/notifications/${id}/confirm-read`,
+    NOTIFICATION_MARK_VIEWED: id => `/notifications/${id}/mark-viewed`,
+    NOTIFICATIONS_SEND: '/notifications/send',
+    NOTIFICATIONS_SEND_TEMPLATE: '/notifications/send-template',
+    NOTIFICATIONS_CREATE_TEST: '/notifications/create-test',
   },
   TIMEOUT: 10000, // 10 seconds
 };

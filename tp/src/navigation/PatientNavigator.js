@@ -4,6 +4,7 @@ import {useTheme} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PatientHomeScreen from '../screens/patient/PatientHomeScreen';
 import PatientCalendarScreen from '../screens/patient/PatientCalendarScreen';
+import PatientNotificationsScreen from '../screens/patient/PatientNotificationsScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -21,6 +22,8 @@ const PatientNavigator = () => {
             iconName = 'home';
           } else if (route.name === 'Calendar') {
             iconName = 'event';
+          } else if (route.name === 'Notifications') {
+            iconName = 'notifications';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           }
@@ -48,6 +51,11 @@ const PatientNavigator = () => {
         name="Calendar"
         component={PatientCalendarScreen}
         options={{title: 'Calendario'}}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={PatientNotificationsScreen}
+        options={{title: 'Notifiche'}}
       />
       <Tab.Screen
         name="Profile"

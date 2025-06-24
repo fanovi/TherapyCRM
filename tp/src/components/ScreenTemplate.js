@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, StyleSheet, ScrollView, StatusBar} from 'react-native';
 import {Text, IconButton, useTheme} from 'react-native-paper';
+import NotificationBadge from './NotificationBadge';
 
 const ScreenTemplate = ({
   children,
@@ -11,6 +12,7 @@ const ScreenTemplate = ({
   showHeader = true,
   useBackgroundColor = true,
   useHeaderBackground = true,
+  showNotifications = true,
 }) => {
   const theme = useTheme();
   const ContentComponent = scrollable ? ScrollView : View;
@@ -56,7 +58,12 @@ const ScreenTemplate = ({
                 </Text>
               )}
             </View>
-            <View style={styles.headerRight}>{headerRight}</View>
+            <View style={styles.headerRight}>
+              {showNotifications && (
+                <NotificationBadge style={styles.notificationBadge} />
+              )}
+              {headerRight}
+            </View>
           </View>
         </View>
       )}
@@ -94,7 +101,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginLeft: 16,
+  },
+  notificationBadge: {
+    marginRight: 8,
   },
   title: {
     fontSize: 24,

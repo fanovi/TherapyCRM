@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # Cursor Rules per TherapyCRM
 
@@ -89,10 +89,58 @@ public function actionSomething($param) {
 - Non registrare YiiAsset separatamente nelle viste
 - jQuery è disponibile globalmente
 
-### 7. Gestione Permessi
+### 7. Gestione Permessi RBAC
 
-- Usare sempre `Yii::$app->user->can('permission')` per controllo accessi
+**REGOLA FONDAMENTALE**: Tutti i permessi e ruoli devono essere gestiti ESCLUSIVAMENTE tramite migration, MAI con comandi console diretti.
+
+**WORKFLOW OBBLIGATORIO**:
+- Per ogni nuovo permesso: creare migration in `console/migrations/`
+- Per ogni nuovo ruolo: creare migration in `console/migrations/`
+- Per ogni nuova assegnazione: creare migration in `console/migrations/`
+
+**PATTERN MIGRATION RBAC**:
+```php
+class m250125_000000_add_new_permission extends Migration
+{
+    public function safeUp()
+    {
+        $auth = Yii::$app->authManager;
+        
+        // Crea permesso
+        $permission = $auth->createPermission('new_permission');
+        $permission->description = 'Descrizione permesso';
+        $auth->add($permission);
+        
+        // Assegna a ruoli
+        $role = $auth->getRole('role_name');
+        if ($role && !$auth->hasChild($role, $permission)) {
+            $auth->addChild($role, $permission);
+        }
+    }
+    
+    public function safeDown()
+    {
+        $auth = Yii::$app->authManager;
+        $permission = $auth->getPermission('new_permission');
+        if ($permission) {
+            $auth->remove($permission);
+        }
+    }
+}
+```
+
+**CONTROLLI ACCESSO**:
+- Usare sempre `Yii::$app->user->can('permission')` nei controller
 - Centralizzare logica di permessi in common/components/
+- Documentare tutti i permessi nella migration
+
+**STRUTTURA RUOLI ATTUALE**:
+- `admin`: Accesso completo al sistema
+- `manager`: Gestione completa pazienti, terapisti, piani
+- `coordinator`: Gestione limitata terapisti assegnati
+- `therapist`: Gestione propri appuntamenti e pazienti
+- `patient`: Visualizzazione propri dati
+- `patient_family`: Visualizzazione dati familiari
 
 ### 8. Database e Migrations
 
@@ -158,3 +206,522 @@ php -m | grep -i pdf
 - Test funzionali in `tests/functional/`
 - Test unità in `tests/unit/`
 - Usare Codeception per test automatizzati
+
+
+# Therapy CRM System - Cursor Rules
+
+Stai lavorando su un sistema di gestione terapeutica (TherapyCRM) costruito con Yii2 (backend) e React (frontend).
+
+## Logica di Business Principale
+
+### Gestione Piani Terapeutici
+- I piani terapeutici sono creati dall'Amministrazione (solo terapie + ore, NESSUNA programmazione)
+- Il Manager (Sharon) assegna i terapisti e crea gli orari usando il calendario drag-drop
+- I piani hanno regimi sanitari: L11, L11DOM, L11PG, L11SEM, ABA, FKT, Private, PDOM, Other
+- Ogni piano ha una data di inizio, durata in giorni e data fine calcolata automaticamente
+
+### Sistema Assenze
+- Regola del 10%: pazienti che superano il 10% di assenze ingiustificate subiscono conseguenze
+- Le assenze giustificate possono essere recuperate con appuntamenti di recupero
+- Contatori automatici aggiornati via trigger per performance
+
+### Gestione Appuntamenti
+- Pattern ricorrenti per appuntamenti settimanali
+- Stati: scheduled, completed, absent_justified, absent_not_justified, cancelled
+- Sostituzioni terapisti tracciate separatamente
+- Slot occupati gestiti automaticamente via trigger
+
+## Schema Database
+
+### Convenzioni Tabelle
+- Usa snake_case per tabelle (plurale): `users`, `patients`, `therapeutic_plans`, `appointments`
+- Sempre includere: `id` (AUTO_INCREMENT), `created_at`, `updated_at` timestamps
+- Campi status usano ENUM con valori predefiniti
+- Indici su tutte le foreign key e campi frequentemente interrogati
+- Colonne GENERATED per campi calcolati (es. `end_date` da `start_date + duration_days`)
+
+### Struttura Principale
+```sql
+-- Esempio di relazioni chiave
+users -> user_profiles (1:1)
+users -> therapists (1:1)
+patients -> therapeutic_plans (1:N)
+therapeutic_plans -> plan_therapies (1:N)
+plan_therapies -> appointments (1:N)
+appointments -> absences (1:1)
+```
+
+### Tabelle Ottimizzazione
+- `therapist_busy_slots`: cache slot occupati (aggiornata via trigger)
+- `absence_counters`: contatori materializzati per performance
+- `therapist_calendar_mv`: vista per calendario terapisti
+
+## Convenzioni Yii2
+
+### Modelli ActiveRecord
+```php
+class TherapeuticPlan extends ActiveRecord
+{
+    public function behaviors()
+    {
+        return [
+            TimestampBehavior::class,
+            BlameableBehavior::class,
+        ];
+    }
+    
+    public function rules()
+    {
+        return [
+            [['patient_id', 'start_date', 'duration_days', 'health_regime'], 'required'],
+            ['health_regime', 'in', 'range' => ['L11', 'L11DOM', 'L11PG', 'L11SEM', 'ABA', 'FKT', 'Private', 'PDOM', 'Other']],
+            ['status', 'in', 'range' => ['draft', 'active', 'expired', 'renewed']],
+        ];
+    }
+}
+```
+
+### Relazioni Standard
+```php
+// Nel modello TherapeuticPlan
+public function getPatient()
+{
+    return $this->hasOne(Patient::class, ['id' => 'patient_id']);
+}
+
+public function getPlanTherapies()
+{
+    return $this->hasMany(PlanTherapy::class, ['therapeutic_plan_id' => 'id']);
+}
+
+// Sempre usare eager loading
+TherapeuticPlan::find()->with(['patient', 'planTherapies.treatmentType'])->all();
+```
+
+### Transazioni per Operazioni Multiple
+```php
+$transaction = Yii::$app->db->beginTransaction();
+try {
+    // Crea piano
+    $plan->save();
+    // Crea terapie
+    foreach ($therapies as $therapy) {
+        $planTherapy = new PlanTherapy();
+        $planTherapy->save();
+    }
+    $transaction->commit();
+} catch (Exception $e) {
+    $transaction->rollBack();
+    throw $e;
+}
+```
+
+## Struttura API
+
+### Endpoint RESTful
+```php
+// Controller standard
+GET    /api/therapeutic-plans           // Lista piani
+POST   /api/therapeutic-plans           // Crea piano
+GET    /api/therapeutic-plans/{id}      // Dettaglio piano
+PUT    /api/therapeutic-plans/{id}      // Aggiorna piano
+DELETE /api/therapeutic-plans/{id}      // Elimina piano
+
+// Endpoint specializzati
+POST   /api/appointments/bulk           // Crea appuntamenti in batch
+PUT    /api/appointments/{id}/status    // Cambia stato appuntamento
+POST   /api/absences/{id}/recover       // Crea recupero per assenza
+```
+
+### Response JSON Consistenti
+```php
+// Successo
+return [
+    'success' => true,
+    'data' => $data,
+    'meta' => ['total' => $count, 'page' => $page]
+];
+
+// Errore
+return [
+    'success' => false,
+    'error' => 'Messaggio errore',
+    'code' => 'ERROR_CODE'
+];
+```
+
+### Autenticazione e Sicurezza
+- HttpBearerAuth per API mobile
+- Rate limiting su tutti gli endpoint
+- CORS abilitato per frontend React
+- RBAC con ruoli: admin, coordinator, therapist, patient_family
+
+## Frontend React
+
+### Componenti Funzionali
+```jsx
+// Usa sempre functional components con hooks
+import { useState, useEffect, useCallback } from 'react';
+
+const TherapistCalendar = ({ therapistId }) => {
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(false);
+    
+    const fetchAppointments = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await api.get(`/therapists/${therapistId}/appointments`);
+            setAppointments(response.data);
+        } catch (error) {
+            console.error('Error fetching appointments:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [therapistId]);
+    
+    useEffect(() => {
+        fetchAppointments();
+    }, [fetchAppointments]);
+};
+```
+
+### Dipendenze Standard
+- `react-dnd` per funzionalità drag-drop calendario
+- `axios` per chiamate API con interceptor per auth
+- `date-fns` per manipolazione date (NON moment.js)
+- `Tailwind CSS` per styling
+- `react-query` per cache e sincronizzazione dati
+
+### Pattern Drag & Drop
+```jsx
+import { useDrag, useDrop } from 'react-dnd';
+
+const AppointmentSlot = ({ appointment, onDrop }) => {
+    const [{ isDragging }, drag] = useDrag({
+        type: 'appointment',
+        item: { id: appointment.id, therapistId: appointment.therapist_id },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    });
+    
+    const [{ isOver }, drop] = useDrop({
+        accept: 'appointment',
+        drop: (item) => onDrop(item, appointment.slot_time),
+        collect: (monitor) => ({
+            isOver: monitor.isOver(),
+        }),
+    });
+};
+```
+
+## Pattern Chiave
+
+### Controllo Disponibilità Terapista
+```php
+// Prima di programmare, controlla sempre disponibilità
+if (TherapistAvailability::isAvailable($therapistId, $datetime, $duration)) {
+    $appointment = new Appointment();
+    $appointment->therapist_id = $therapistId;
+    $appointment->appointment_datetime = $datetime;
+    $appointment->save();
+}
+```
+
+### Aggiornamento Contatori Assenze
+```php
+// Dopo aver segnato un'assenza
+public function afterSave($insert, $changedAttributes)
+{
+    parent::afterSave($insert, $changedAttributes);
+    if ($insert) {
+        AbsenceCounter::updateCounters($this->patient_id, $this->getTherapeuticPlanId());
+    }
+}
+```
+
+### Pattern Ricerca Ottimizzata
+```php
+// Usa sempre indici composti per query frequenti
+$appointments = Appointment::find()
+    ->where(['therapist_id' => $therapistId])
+    ->andWhere(['between', 'appointment_datetime', $startDate, $endDate])
+    ->with(['patient', 'planTherapy.treatmentType'])
+    ->orderBy('appointment_datetime ASC')
+    ->all();
+```
+
+### Gestione Stati Appuntamento
+```php
+class Appointment extends ActiveRecord
+{
+    const STATUS_SCHEDULED = 'scheduled';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_ABSENT_JUSTIFIED = 'absent_justified';
+    const STATUS_ABSENT_NOT_JUSTIFIED = 'absent_not_justified';
+    const STATUS_CANCELLED = 'cancelled';
+    
+    public function markAsCompleted()
+    {
+        $this->status = self::STATUS_COMPLETED;
+        return $this->save();
+    }
+    
+    public function markAsAbsent($justified = false, $reason = null)
+    {
+        $this->status = $justified ? self::STATUS_ABSENT_JUSTIFIED : self::STATUS_ABSENT_NOT_JUSTIFIED;
+        
+        // Crea record assenza
+        $absence = new Absence();
+        $absence->appointment_id = $this->id;
+        $absence->patient_id = $this->patient_id;
+        $absence->is_justified = $justified;
+        $absence->reason = $reason;
+        
+        return $this->save() && $absence->save();
+    }
+}
+```
+
+### Pattern Notifiche Automatiche
+```php
+// Trigger notifiche basate su eventi
+public function afterSave($insert, $changedAttributes)
+{
+    parent::afterSave($insert, $changedAttributes);
+    
+    if ($this->isNewRecord) {
+        NotificationService::sendAppointmentCreated($this);
+    }
+    
+    if (isset($changedAttributes['status']) && $this->status === self::STATUS_CANCELLED) {
+        NotificationService::sendAppointmentCancelled($this);
+    }
+}
+```
+
+## Validazioni Business Specifiche
+
+### Controllo Sovrapposizioni
+```php
+public function validateNoOverlap($attribute, $params)
+{
+    $query = Appointment::find()
+        ->where(['therapist_id' => $this->therapist_id])
+        ->andWhere(['!=', 'id', $this->id])
+        ->andWhere(['status' => 'scheduled']);
+        
+    $endTime = date('Y-m-d H:i:s', strtotime($this->appointment_datetime . ' +' . $this->duration_minutes . ' minutes'));
+    
+    $overlap = $query->andWhere([
+        'or',
+        ['between', 'appointment_datetime', $this->appointment_datetime, $endTime],
+        // Altri controlli sovrapposizione...
+    ])->exists();
+    
+    if ($overlap) {
+        $this->addError($attribute, 'Il terapista ha già un appuntamento in questo orario.');
+    }
+}
+```
+
+### Controllo Limite Ore Settimanali
+```php
+public function validateWeeklyHours($attribute, $params)
+{
+    $weekStart = date('Y-m-d', strtotime('monday this week', strtotime($this->appointment_datetime)));
+    $weekEnd = date('Y-m-d', strtotime('sunday this week', strtotime($this->appointment_datetime)));
+    
+    $weeklyMinutes = Appointment::find()
+        ->where(['therapist_id' => $this->therapist_id])
+        ->andWhere(['between', 'DATE(appointment_datetime)', $weekStart, $weekEnd])
+        ->sum('duration_minutes');
+        
+    $therapist = Therapist::findOne($this->therapist_id);
+    if (($weeklyMinutes + $this->duration_minutes) > ($therapist->weekly_hours_contract * 60)) {
+        $this->addError($attribute, 'Superamento ore settimanali contratto.');
+    }
+}
+```
+
+## Performance e Ottimizzazioni
+
+### Usa Viste Materializzate
+```php
+// Per dashboard e report pesanti
+$calendarData = Yii::$app->db->createCommand('SELECT * FROM therapist_calendar_mv WHERE therapist_id = :id')
+    ->bindValue(':id', $therapistId)
+    ->queryAll();
+```
+
+### Cache Query Frequenti
+```php
+$cacheKey = "therapist_schedule_{$therapistId}_{$date}";
+$schedule = Yii::$app->cache->getOrSet($cacheKey, function() use ($therapistId, $date) {
+    return Appointment::getTherapistSchedule($therapistId, $date);
+}, 3600); // Cache 1 ora
+```
+
+### Batch Operations
+```php
+// Per operazioni in massa
+Yii::$app->db->createCommand()->batchInsert(
+    'appointments',
+    ['pattern_id', 'therapist_id', 'patient_id', 'appointment_datetime', 'duration_minutes'],
+    $appointmentData
+)->execute();
+```
+
+## Sistema RBAC - Gestione Avanzata
+
+### Struttura Completa Permessi
+
+**PERMESSI SISTEMA**:
+- `manage_system`: Configurazione di sistema
+- `view_statistics`: Statistiche e dashboard
+- `platform_login`: Accesso piattaforma web
+- `app_login`: Accesso app mobile
+
+**PERMESSI ENTITÀ** (CRUD Pattern):
+- `{entity}_create`, `{entity}_view`, `{entity}_update`, `{entity}_delete`
+- Entità: user, admin, manager, coordinator, therapist, patient
+- Specializzati: therapeutic_plan, appointment, absence, notification, document_request
+
+**PERMESSI FUNZIONALI**:
+- `manage_*`: Operazioni complesse (calendar, communications, documents)
+- `view_own_*`: Visualizzazione dati personali
+- `view_assigned_*`: Visualizzazione dati assegnati
+
+### Migration RBAC - Best Practices
+
+```php
+class m250125_000000_add_therapy_permissions extends Migration
+{
+    public function safeUp()
+    {
+        $auth = Yii::$app->authManager;
+        
+        // ===== PATTERN: Creazione Permessi =====
+        $permissions = [
+            'manage_therapy_sessions' => 'Gestire sessioni terapeutiche',
+            'view_therapy_progress' => 'Visualizzare progressi terapeutici',
+        ];
+        
+        foreach ($permissions as $name => $description) {
+            if (!$auth->getPermission($name)) {
+                $permission = $auth->createPermission($name);
+                $permission->description = $description;
+                $auth->add($permission);
+                echo "✓ Permesso '$name' creato\n";
+            }
+        }
+        
+        // ===== PATTERN: Assegnazione ai Ruoli =====
+        $rolePermissions = [
+            'manager' => ['manage_therapy_sessions', 'view_therapy_progress'],
+            'therapist' => ['view_therapy_progress'],
+        ];
+        
+        foreach ($rolePermissions as $roleName => $perms) {
+            $role = $auth->getRole($roleName);
+            if ($role) {
+                foreach ($perms as $permName) {
+                    $permission = $auth->getPermission($permName);
+                    if ($permission && !$auth->hasChild($role, $permission)) {
+                        $auth->addChild($role, $permission);
+                        echo "✓ '$permName' assegnato a '$roleName'\n";
+                    }
+                }
+            }
+        }
+    }
+    
+    public function safeDown()
+    {
+        $auth = Yii::$app->authManager;
+        
+        // Rimuovi permessi (cascading rimuove anche assegnazioni)
+        $permissions = ['manage_therapy_sessions', 'view_therapy_progress'];
+        foreach ($permissions as $name) {
+            $permission = $auth->getPermission($name);
+            if ($permission) {
+                $auth->remove($permission);
+                echo "✓ Permesso '$name' rimosso\n";
+            }
+        }
+    }
+}
+```
+
+### Controller - Implementazione Controlli
+
+```php
+class TherapyController extends BaseController
+{
+    public function actionManageSession($patientId)
+    {
+        // SEMPRE controllare permessi prima di ogni azione
+        if (!Yii::$app->user->can('manage_therapy_sessions')) {
+            throw new ForbiddenHttpException('Permesso negato per gestire sessioni terapeutiche.');
+        }
+        
+        // Controllo specifico per entità
+        $patient = Patient::findOne($patientId);
+        if (!$patient || !$this->canAccessPatient($patient)) {
+            throw new ForbiddenHttpException('Accesso negato per questo paziente.');
+        }
+        
+        // Logica business...
+    }
+    
+    private function canAccessPatient($patient)
+    {
+        // Logica specifica per controllo accesso basato su ruolo
+        if (Yii::$app->user->can('view_all_patients')) {
+            return true;
+        }
+        
+        if (Yii::$app->user->can('view_assigned_patients')) {
+            return $this->isPatientAssigned($patient);
+        }
+        
+        return false;
+    }
+}
+```
+
+### Naming Convention RBAC
+
+**PERMESSI**:
+- `{action}_{entity}`: create_patient, view_therapist
+- `manage_{area}`: manage_calendar, manage_communications
+- `{scope}_{action}_{entity}`: view_own_appointments, view_assigned_patients
+
+**RUOLI**:
+- Singolare, lowercase: admin, manager, coordinator, therapist, patient
+- Compound con underscore: patient_family
+
+**DESCRIZIONI**:
+- Verbo infinito + oggetto: "Creare pazienti", "Visualizzare calendario"
+- Specifiche per area: "Gestire comunicazioni di sistema"
+
+### Debugging RBAC
+
+```bash
+# Verificare permessi utente
+./yii rbac/user-assignments [user_id]
+
+# Testare permesso specifico
+./yii rbac/test-permission [user_id] [permission_name]
+
+# Sincronizzare dopo modifiche
+./yii cache/flush-all
+```
+
+### Security Rules
+
+1. **Principio del Minimo Privilegio**: Ogni ruolo ha solo i permessi strettamente necessari
+2. **Controlli Multipli**: Verificare permessi sia a livello controller che model
+3. **Logging**: Registrare accessi sensibili per audit
+4. **Cascading**: Rimozione permessi deve gestire dipendenze
+5. **Testing**: Ogni nuovo permesso deve avere test automatizzato 

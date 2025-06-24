@@ -1,15 +1,20 @@
-import React, {useState, useEffect} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
-import {Badge} from 'react-native-paper';
+import React, {useState, useEffect, useCallback} from 'react';
+import {TouchableOpacity, StyleSheet} from 'react-native';
+import {Badge, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import {getUnreadNotifications} from '../api/notifications';
 
 /**
- * Componente badge per mostrare il numero di notifiche non lette
+ * Badge delle notifiche per l'header - naviga alla pagina dedicata
  */
-const NotificationBadge = ({onPress, style}) => {
+const NotificationBadge = ({style}) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  const theme = useTheme();
+  const navigation = useNavigation();
   const {isAuthenticated, user} = useSelector(state => state.auth);
 
   useEffect(() => {
@@ -18,53 +23,55 @@ const NotificationBadge = ({onPress, style}) => {
 
       // Aggiorna il conteggio ogni 30 secondi
       const interval = setInterval(fetchUnreadCount, 30000);
-
       return () => clearInterval(interval);
     } else {
       setUnreadCount(0);
     }
   }, [isAuthenticated, user]);
 
+  // Aggiorna il conteggio quando la schermata torna in focus
+  // (per esempio quando l'utente torna dalla pagina delle notifiche)
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && user) {
+        fetchUnreadCount();
+      }
+    }, [isAuthenticated, user]),
+  );
+
   const fetchUnreadCount = async () => {
     if (loading) return;
 
     try {
       setLoading(true);
-      const response = await getUnreadNotifications(1); // Solo per il conteggio
-
+      const response = await getUnreadNotifications(1);
       if (response.success && response.data) {
         setUnreadCount(response.data.unread_count || 0);
       }
     } catch (error) {
-      console.error('Errore recupero notifiche non lette:', error);
-      // Non mostrare errori all'utente per questo controllo automatico
+      console.error('Errore recupero conteggio notifiche:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handlePress = () => {
-    if (onPress) {
-      onPress();
-    }
-    // Dopo aver aperto le notifiche, aggiorna il conteggio
-    setTimeout(fetchUnreadCount, 1000);
+    // Naviga alla schermata delle notifiche
+    navigation.navigate('Notifications');
   };
 
-  if (!isAuthenticated || unreadCount === 0) {
-    return (
-      <TouchableOpacity onPress={handlePress} style={[styles.container, style]}>
-        <Text style={styles.bellIcon}>🔔</Text>
-      </TouchableOpacity>
-    );
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
     <TouchableOpacity onPress={handlePress} style={[styles.container, style]}>
-      <Text style={styles.bellIcon}>🔔</Text>
-      <Badge style={styles.badge} size={20}>
-        {unreadCount > 99 ? '99+' : unreadCount}
-      </Badge>
+      <Icon name="notifications" size={24} color={theme.colors.onSurface} />
+      {unreadCount > 0 && (
+        <Badge style={styles.badge} size={18}>
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </Badge>
+      )}
     </TouchableOpacity>
   );
 };
@@ -74,14 +81,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     padding: 8,
   },
-  bellIcon: {
-    fontSize: 24,
-  },
   badge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#ff4444',
+    backgroundColor: '#F44336',
     color: 'white',
     minWidth: 18,
     height: 18,
