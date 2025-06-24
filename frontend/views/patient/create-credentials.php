@@ -270,4 +270,59 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
 
     <?php ActiveForm::end(); ?>
-</div> 
+</div>
+
+<?php
+$this->registerJs("
+$(document).ready(function() {
+    $('#credentials-form').on('beforeSubmit', function(e) {
+        e.preventDefault();
+        
+        var \$form = $(this);
+        var \$submitBtn = $('#submit-button');
+        
+        // Disable submit button and show loading
+        \$submitBtn.prop('disabled', true);
+        \$submitBtn.html('<svg class=\"animate-spin -ml-1 mr-2 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Creazione in corso...');
+        
+        $.ajax({
+            url: \$form.attr('action'),
+            type: 'POST',
+            data: \$form.serialize(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    // Show success message
+                    alert('Credenziali create con successo! Il PDF verrà scaricato automaticamente.');
+                    
+                    // Download PDF automatically
+                    if (response.downloadUrl) {
+                        console.log('Opening PDF download:', response.downloadUrl);
+                        window.open(response.downloadUrl, '_blank');
+                    }
+                    
+                    // Redirect after a short delay
+                    setTimeout(function() {
+                        if (response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                        }
+                    }, 1000);
+                } else {
+                    alert('Errore: ' + (response.message || 'Errore sconosciuto'));
+                    \$submitBtn.prop('disabled', false);
+                    \$submitBtn.html('<svg class=\"mr-2 h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"></path></svg>Crea Credenziali');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', error);
+                alert('Errore di comunicazione con il server. Riprova.');
+                \$submitBtn.prop('disabled', false);
+                \$submitBtn.html('<svg class=\"mr-2 h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"></path></svg>Crea Credenziali');
+            }
+        });
+        
+        return false;
+    });
+});
+");
+?> 

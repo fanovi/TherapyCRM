@@ -35,7 +35,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     Gruppo: <?= Html::encode($coordinatorGroup->name) ?>
                 </h3>
                 <p class="text-sm text-blue-700 dark:text-blue-300">
-                    <?= $coordinatorGroup->description ? Html::encode($coordinatorGroup->description) : 'Visualizza e gestisci i terapisti del tuo gruppo.' ?>
+                    Visualizza e gestisci i terapisti del tuo gruppo.
                 </p>
                 <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
                     <?= $dataProvider->totalCount ?> terapist<?= $dataProvider->totalCount == 1 ? 'a' : 'i' ?> nel gruppo
@@ -142,12 +142,13 @@ $this->params['breadcrumbs'][] = $this->title;
                         'format' => 'raw',
                         'content' => function($model) use ($coordinatorGroup) {
                             $groupTherapist = \common\models\GroupTherapist::find()
-                                ->where(['group_id' => $coordinatorGroup->id, 'therapist_id' => $model->id, 'is_active' => 1])
+                                ->where(['group_id' => $coordinatorGroup->id, 'therapist_id' => $model->id])
+                                ->andWhere(['assigned_to' => null])
                                 ->one();
                             
                             if ($groupTherapist) {
                                 $roleClass = 'bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-900';
-                                return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $roleClass . '">' . Html::encode($groupTherapist->getRoleLabel()) . '</span>';
+                                return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $roleClass . '">Terapista</span>';
                             }
                             
                             return '<span class="text-gray-400">N/D</span>';

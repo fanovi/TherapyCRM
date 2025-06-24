@@ -43,8 +43,9 @@ class PatientController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                     'reset-password' => ['POST', 'GET'], // Allow GET for testing
-                    'download-credentials-pdf' => ['GET'],
+                    'download-credentials-pdf' => ['GET', 'POST'],
                     'send-notification' => ['POST'],
+                    'create-credentials' => ['GET', 'POST'],
                 ],
             ],
         ];
@@ -248,6 +249,17 @@ class PatientController extends Controller
                 // Generate PDF with credentials automatically
                 $this->generateCredentialsPdf($user, $plainPassword);
                 
+                // Handle AJAX requests for automatic PDF download
+                if (Yii::$app->request->isAjax) {
+                    Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                    return [
+                        'success' => true,
+                        'message' => 'Credenziali create con successo!',
+                        'downloadUrl' => \yii\helpers\Url::to(['download-credentials-pdf']),
+                        'redirectUrl' => \yii\helpers\Url::to(['view', 'id' => $patient->id])
+                    ];
+                }
+                
                 Yii::$app->session->setFlash('success', 'Credenziali create con successo! Il PDF con le credenziali si aprirà automaticamente.');
                 return $this->redirect(['view', 'id' => $patient->id]);
 
@@ -427,27 +439,6 @@ class PatientController extends Controller
             ]);
             
             Yii::info('PDF salvato in sessione con nome: ' . $filename);
-            
-            // Generate JavaScript to open PDF download in new window
-            $downloadUrl = \yii\helpers\Url::to(['download-credentials-pdf']);
-            Yii::info('URL download generato: ' . $downloadUrl);
-            
-            $this->view->registerJs("
-                console.log('Aprendo finestra download PDF...');
-                console.log('URL: " . $downloadUrl . "');
-                
-                // Try multiple methods to open the PDF
-                setTimeout(function() {
-                    var newWindow = window.open('" . $downloadUrl . "', '_blank');
-                    if (!newWindow) {
-                        console.log('Popup bloccato, provo con location.href');
-                        alert('Il download del PDF sta per iniziare...');
-                        window.location.href = '" . $downloadUrl . "';
-                    }
-                }, 100);
-            ");
-            
-            Yii::info('JavaScript registrato per apertura finestra');
             
         } catch (\Exception $e) {
             Yii::error('Errore nella generazione PDF: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());

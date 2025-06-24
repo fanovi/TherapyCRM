@@ -391,7 +391,7 @@ class TherapistController extends Controller
         // Find coordinator's group
         $coordinatorUserId = Yii::$app->user->id;
         $coordinatorGroup = \common\models\CoordinatorGroup::find()
-            ->where(['coordinator_id' => $coordinatorUserId])
+            ->where(['coordinator_user_id' => $coordinatorUserId])
             ->one();
 
         if (!$coordinatorGroup) {
@@ -403,7 +403,8 @@ class TherapistController extends Controller
         // Get therapists in the coordinator's group
         $therapistIds = \common\models\GroupTherapist::find()
             ->select('therapist_id')
-            ->where(['group_id' => $coordinatorGroup->id, 'is_active' => 1])
+            ->where(['group_id' => $coordinatorGroup->id])
+            ->andWhere(['assigned_to' => null])
             ->column();
 
         $searchModel = new TherapistSearch();
