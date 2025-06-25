@@ -133,14 +133,39 @@ Nessun parametro richiesto.
 - **fitness**: Certificati idoneità fisica, valutazioni sportive
 - **appointment**: Richieste appuntamenti urgenti, modifiche programmazione
 
-### Risposte di Errore
+### Gestione Errori Standard
+
+Tutti gli errori seguono il formato standardizzato:
+
+```json
+{
+  "success": false,
+  "error": "Messaggio errore leggibile",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "Dettaglio specifico errore"
+  }
+}
+```
+
+#### Codici Errore Comuni:
+
+- `INVALID_REQUEST_TYPE`: Tipologia richiesta non valida
+- `MISSING_REQUIRED_FIELD`: Campo obbligatorio mancante
+- `REQUEST_NOT_FOUND`: Richiesta non trovata
+- `REQUEST_NOT_CANCELLABLE`: Richiesta non annullabile
+- `DOCUMENT_NOT_READY`: Documento non pronto per download
+- `RATE_LIMIT_EXCEEDED`: Limite richieste superato
+- `UNAUTHORIZED`: Token mancante o non valido
+- `ACCESS_DENIED`: Accesso negato
+- `INTERNAL_ERROR`: Errore interno del server
 
 #### 401 Unauthorized
 ```json
 {
   "success": false,
-  "message": "Il token di autenticazione non è stato fornito.",
-  "error_code": "UNAUTHORIZED"
+  "error": "Il token di autenticazione non è stato fornito.",
+  "code": "UNAUTHORIZED"
 }
 ```
 
@@ -148,8 +173,8 @@ Nessun parametro richiesto.
 ```json
 {
   "success": false,
-  "message": "Accesso negato per questo tipo di utente",
-  "error_code": "ACCESS_DENIED"
+  "error": "Accesso negato per questo tipo di utente",
+  "code": "ACCESS_DENIED"
 }
 ```
 
@@ -157,8 +182,8 @@ Nessun parametro richiesto.
 ```json
 {
   "success": false,
-  "message": "Errore interno del server",
-  "error_code": "INTERNAL_ERROR"
+  "error": "Errore interno del server",
+  "code": "INTERNAL_ERROR"
 }
 ```
 
@@ -325,25 +350,37 @@ Content-Type: application/json
 | `last_name` | string | Cognome dell'utente |
 | `relationship_type` | string | Tipo di relazione con il paziente (`self`, `parent`, `tutor`, `other`) |
 
-### Response Errore (400)
+### Response Errore (400) - Validazione
 ```json
 {
   "success": false,
-  "message": "Requisiti della tipologia non soddisfatti",
-  "error_code": "VALIDATION_ERROR",
-  "errors": {
-    "reason": ["Il motivo è obbligatorio per la tipologia 'Certificato Medico'"],
-    "date_from": ["La data di inizio è obbligatoria per la tipologia 'Certificato Medico'"]
+  "error": "Errori di validazione dei campi obbligatori",
+  "code": "MISSING_REQUIRED_FIELD",
+  "details": {
+    "reason": "Il motivo è obbligatorio per la tipologia 'Certificato Medico'",
+    "date_from": "La data di inizio è obbligatoria per la tipologia 'Certificato Medico'"
   }
 }
 ```
 
-### Response Errore (404)
+### Response Errore (404) - Tipologia Non Trovata
 ```json
 {
   "success": false,
-  "message": "Tipologia di richiesta non trovata o non attiva",
-  "error_code": "TYPE_NOT_FOUND"
+  "error": "Tipologia di richiesta non valida o non attiva",
+  "code": "INVALID_REQUEST_TYPE",
+  "details": {
+    "type_id": "Tipologia con ID 999 non trovata"
+  }
+}
+```
+
+### Response Errore (401) - Non Autorizzato
+```json
+{
+  "success": false,
+  "error": "Il token di autenticazione non è stato fornito.",
+  "code": "UNAUTHORIZED"
 }
 ```
 

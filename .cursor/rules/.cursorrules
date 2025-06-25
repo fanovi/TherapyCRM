@@ -140,6 +140,142 @@ return [
 ];
 ```
 
+### Gestione Errori Standardizzata - IMPLEMENTAZIONE COMPLETA
+
+**FORMATO ERRORE STANDARD** (tutti gli endpoint API):
+```php
+// Formato JSON unificato per tutti gli errori
+return [
+    'success' => false,
+    'error' => 'Messaggio errore leggibile per l\'utente',
+    'code' => 'ERROR_CODE',
+    'details' => [  // Opzionale - solo per errori di validazione
+        'field_name' => 'Dettaglio specifico errore'
+    ]
+];
+```
+
+**CODICI ERRORE STANDARD**:
+- `INVALID_REQUEST_TYPE` (404): Tipologia richiesta non valida o inesistente
+- `MISSING_REQUIRED_FIELD` (400): Campo obbligatorio mancante o validazione fallita
+- `UNAUTHORIZED` (401): Token mancante, non valido o scaduto
+- `ACCESS_DENIED` (403): Utente autenticato ma senza permessi
+- `NOT_FOUND` (404): Risorsa non trovata
+- `BAD_REQUEST` (400): Richiesta malformata
+- `INTERNAL_ERROR` (500): Errore interno del server
+
+**METODI HELPER NEI CONTROLLER**:
+```php
+// In ogni controller API - pattern standard
+private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    return $response;
+}
+
+private function formatValidationErrors($validationErrors)
+{
+    $details = [];
+    foreach ($validationErrors as $field => $fieldErrors) {
+        $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+    }
+    return $details;
+}
+
+// Uso nei metodi del controller
+$details = $this->formatValidationErrors($validationErrors);
+return $this->formatErrorResponse('MISSING_REQUIRED_FIELD', 'Errori di validazione dei campi obbligatori', $details, 400);
+```
+
+**JWTAUTHBEHAVIOR MODIFICATO**:
+```php
+// In common/components/JwtAuthBehavior.php
+// NON lanciare più eccezioni, inviare direttamente JSON standardizzato
+private function sendErrorResponse($errorCode, $message, $details = [], $statusCode = 401)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    Yii::$app->response->data = $response;
+    Yii::$app->response->send();
+    Yii::$app->end();
+}
+```
+
+**ERRORCONTROLLER PER ECCEZIONI RESIDUE**:
+```php
+// In api/controllers/ErrorController.php
+// Converte eccezioni Yii2 nel formato standardizzato
+public function actionIndex()
+{
+    $exception = Yii::$app->errorHandler->exception;
+    
+    $codeMap = [
+        'yii\web\UnauthorizedHttpException' => 'UNAUTHORIZED',
+        'yii\web\ForbiddenHttpException' => 'ACCESS_DENIED',
+        'yii\web\NotFoundHttpException' => 'NOT_FOUND',
+        'yii\web\BadRequestHttpException' => 'BAD_REQUEST',
+    ];
+    
+    $code = $codeMap[get_class($exception)] ?? 'INTERNAL_ERROR';
+    
+    return [
+        'success' => false,
+        'error' => $exception->getMessage(),
+        'code' => $code
+    ];
+}
+```
+
+**DOCUMENTAZIONE OPENAPI AGGIORNATA**:
+```php
+/**
+ * @OA\Response(
+ *     response=400,
+ *     description="Errore di validazione",
+ *     @OA\JsonContent(
+ *         @OA\Property(property="success", type="boolean", example=false),
+ *         @OA\Property(property="error", type="string", example="Errori di validazione dei campi obbligatori"),
+ *         @OA\Property(property="code", type="string", example="MISSING_REQUIRED_FIELD"),
+ *         @OA\Property(property="details", type="object", example={"reason": "Il motivo è obbligatorio"})
+ *     )
+ * )
+ */
+```
+
+**TESTING ERRORI**:
+```php
+// Script test in api/test/test_error_handling_standard.php
+// Verifica tutti i codici errore e formati JSON
+// Test: UNAUTHORIZED, INVALID_REQUEST_TYPE, MISSING_REQUIRED_FIELD
+```
+
+**⚠️ CAMPI ELIMINATI** (non usare più):
+- `message` → sostituito da `error`
+- `error_code` → sostituito da `code`  
+- `errors` → sostituito da `details`
+
 ### Autenticazione e Sicurezza
 - HttpBearerAuth per API mobile
 - Rate limiting su tutti gli endpoint

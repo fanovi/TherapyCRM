@@ -13,6 +13,42 @@ alwaysApply: true
 - **Frontend**: Tailwind CSS + JavaScript
 - **PDF**: mPDF per generazione documenti
 
+## ⚠️ REGOLA CRITICA: Gestione Timezone UTC per API
+
+**OBBLIGATORIO**: Tutti i timestamp negli endpoint API DEVONO essere gestiti in UTC per garantire consistenza globale.
+
+### Configurazione Base Timezone
+```php
+// In api/config/bootstrap.php - SEMPRE PRESENTE
+date_default_timezone_set('UTC');
+```
+
+### Pattern DateTime UTC Obbligatori
+```php
+// ❌ SBAGLIATO - Timezone server locale
+$now = new \DateTime();
+
+// ✅ CORRETTO - UTC esplicito
+$now = new \DateTime('now', new \DateTimeZone('UTC'));
+$timestamp = $now->format('Y-m-d\TH:i:s\Z'); // ISO8601 con Z
+
+// ✅ Validazione date UTC
+private function isValidDate($dateString) {
+    if (!$dateString) return false;
+    $date = \DateTime::createFromFormat('Y-m-d', $dateString, new \DateTimeZone('UTC'));
+    return $date && $date->format('Y-m-d') === $dateString;
+}
+
+// ✅ Confronto date timezone-safe
+private function compareDates($dateFrom, $dateTo) {
+    if (!$dateFrom || !$dateTo) return 0;
+    $from = \DateTime::createFromFormat('Y-m-d', $dateFrom, new \DateTimeZone('UTC'));
+    $to = \DateTime::createFromFormat('Y-m-d', $dateTo, new \DateTimeZone('UTC'));
+    if (!$from || !$to) return 0;
+    return $from <=> $to; // Spaceship operator
+}
+```
+
 ## Problemi Comuni e Soluzioni
 
 ### 1. JavaScript di Yii e data-method
@@ -1002,6 +1038,206 @@ class TherapyController extends BaseController
 4. **Cascading**: Rimozione permessi deve gestire dipendenze
 5. **Testing**: Ogni nuovo permesso deve avere test automatizzato
 
+## 🚨 GESTIONE ERRORI STANDARDIZZATA - IMPLEMENTAZIONE COMPLETA
+
+### Formato Errore Standard (OBBLIGATORIO per tutti gli endpoint)
+
+**FORMATO JSON UNIFICATO**:
+```php
+// ✅ NUOVO FORMATO STANDARD - sempre usare questo
+return [
+    'success' => false,
+    'error' => 'Messaggio errore leggibile per l\'utente',
+    'code' => 'ERROR_CODE',
+    'details' => [  // Opzionale - solo per errori di validazione
+        'field_name' => 'Dettaglio specifico errore'
+    ]
+];
+```
+
+**CODICI ERRORE IMPLEMENTATI**:
+- `INVALID_REQUEST_TYPE` (404): Tipologia richiesta non valida o inesistente
+- `MISSING_REQUIRED_FIELD` (400): Campo obbligatorio mancante o validazione fallita
+- `UNAUTHORIZED` (401): Token mancante, non valido o scaduto
+- `ACCESS_DENIED` (403): Utente autenticato ma senza permessi
+- `NOT_FOUND` (404): Risorsa non trovata
+- `BAD_REQUEST` (400): Richiesta malformata
+- `INTERNAL_ERROR` (500): Errore interno del server
+
+### Metodi Helper Controller (Pattern Standard)
+
+**IMPLEMENTAZIONE OBBLIGATORIA** in ogni controller API:
+```php
+// Metodi helper per gestione errori standardizzata
+private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    return $response;
+}
+
+private function formatValidationErrors($validationErrors)
+{
+    $details = [];
+    foreach ($validationErrors as $field => $fieldErrors) {
+        $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+    }
+    return $details;
+}
+
+// Esempio utilizzo
+public function actionCreate()
+{
+    // Validazione...
+    if (!empty($validationErrors)) {
+        $details = $this->formatValidationErrors($validationErrors);
+        return $this->formatErrorResponse(
+            'MISSING_REQUIRED_FIELD', 
+            'Errori di validazione dei campi obbligatori', 
+            $details, 
+            400
+        );
+    }
+    
+    // Tipologia non trovata
+    if (!$requestType) {
+        return $this->formatErrorResponse(
+            'INVALID_REQUEST_TYPE', 
+            'Tipologia di richiesta non trovata o non attiva', 
+            [], 
+            404
+        );
+    }
+}
+```
+
+### JwtAuthBehavior Modificato
+
+**IMPORTANTE**: `JwtAuthBehavior` è stato modificato per NON lanciare più eccezioni ma inviare direttamente JSON standardizzato:
+
+```php
+// In common/components/JwtAuthBehavior.php
+// NUOVO METODO - invia direttamente JSON invece di eccezioni
+private function sendErrorResponse($errorCode, $message, $details = [], $statusCode = 401)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    Yii::$app->response->data = $response;
+    Yii::$app->response->send();
+    Yii::$app->end();
+}
+
+// Utilizzo invece di throw new UnauthorizedHttpException()
+if (!$token) {
+    $this->sendErrorResponse('UNAUTHORIZED', 'Il token di autenticazione non è stato fornito.', [], 401);
+    return false;
+}
+```
+
+### ErrorController per Eccezioni Residue
+
+**CONFIGURAZIONE**: In `api/config/main.php`:
+```php
+'errorHandler' => [
+    'errorAction' => 'error/index',
+],
+```
+
+**CONTROLLER**: `api/controllers/ErrorController.php` converte automaticamente eccezioni Yii2:
+```php
+public function actionIndex()
+{
+    $exception = Yii::$app->errorHandler->exception;
+    
+    $codeMap = [
+        'yii\web\UnauthorizedHttpException' => 'UNAUTHORIZED',
+        'yii\web\ForbiddenHttpException' => 'ACCESS_DENIED',
+        'yii\web\NotFoundHttpException' => 'NOT_FOUND',
+        'yii\web\BadRequestHttpException' => 'BAD_REQUEST',
+    ];
+    
+    $code = $codeMap[get_class($exception)] ?? 'INTERNAL_ERROR';
+    
+    return [
+        'success' => false,
+        'error' => $exception->getMessage(),
+        'code' => $code
+    ];
+}
+```
+
+### Testing Errori
+
+**SCRIPT COMPLETO**: `api/test/test_error_handling_standard.php` verifica:
+- ✅ UNAUTHORIZED (token mancante)
+- ✅ INVALID_REQUEST_TYPE (ID 999 inesistente)
+- ✅ MISSING_REQUIRED_FIELD (validazione base + dinamica)
+- ✅ Formato JSON corretto per tutti gli errori
+- ✅ Status code HTTP appropriati
+
+### ⚠️ CAMPI ELIMINATI (NON usare più)
+
+**VECCHIO FORMATO** (deprecato):
+```php
+// ❌ NON usare più questi campi
+return [
+    'success' => false,
+    'message' => 'Errore',           // → sostituito da 'error'
+    'error_code' => 'CODE',          // → sostituito da 'code'
+    'errors' => ['field' => 'msg']   // → sostituito da 'details'
+];
+```
+
+**NUOVO FORMATO** (standard):
+```php
+// ✅ Usare sempre questo formato
+return [
+    'success' => false,
+    'error' => 'Messaggio errore',
+    'code' => 'ERROR_CODE',
+    'details' => ['field' => 'dettaglio']  // opzionale
+];
+```
+
+### Documentazione OpenAPI Aggiornata
+
+**PATTERN ANNOTATIONS**:
+```php
+/**
+ * @OA\Response(
+ *     response=400,
+ *     description="Errore di validazione",
+ *     @OA\JsonContent(
+ *         @OA\Property(property="success", type="boolean", example=false),
+ *         @OA\Property(property="error", type="string", example="Errori di validazione dei campi obbligatori"),
+ *         @OA\Property(property="code", type="string", example="MISSING_REQUIRED_FIELD"),
+ *         @OA\Property(property="details", type="object", example={"reason": "Il motivo è obbligatorio"})
+ *     )
+ * )
+ */
+```
+
 ## Sviluppo Endpoint API - Pattern e Best Practices
 
 ### Struttura Controller API Standard
@@ -1038,6 +1274,27 @@ class RequestsController extends Controller
         $actions = parent::actions();
         unset($actions['index'], $actions['view'], $actions['create'], $actions['update'], $actions['delete']);
         return $actions;
+    }
+    
+    // ✅ SEMPRE includere metodi helper per errori
+    private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+    {
+        Yii::$app->response->statusCode = $statusCode;
+        return [
+            'success' => false,
+            'error' => $message,
+            'code' => $errorCode,
+            'details' => $details
+        ];
+    }
+    
+    private function formatValidationErrors($validationErrors)
+    {
+        $details = [];
+        foreach ($validationErrors as $field => $fieldErrors) {
+            $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+        }
+        return $details;
     }
 }
 ```
@@ -1391,4 +1648,469 @@ curl_close($ch);
 curl -X POST "http://localhost/TherapyCRM/api/auth/login" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "email=paziente@test.it&password=12345678"
-``` 
+```
+
+## Pattern Avanzati per Futuri Sviluppi
+
+### Sistema Caching API Avanzato
+
+**PATTERN CACHE MULTI-LIVELLO**:
+```php
+// Cache con invalidazione intelligente
+class ApiCacheService
+{
+    public static function getCachedData($key, $callback, $duration = 3600, $tags = [])
+    {
+        $cache = Yii::$app->cache;
+        $data = $cache->get($key);
+        
+        if ($data === false) {
+            $data = $callback();
+            $cache->set($key, $data, $duration, new TagDependency(['tags' => $tags]));
+            
+            // Log cache miss per ottimizzazioni
+            Yii::info("Cache MISS for key: $key", 'api.cache');
+        } else {
+            Yii::info("Cache HIT for key: $key", 'api.cache');
+        }
+        
+        return $data;
+    }
+    
+    public static function invalidateByTags($tags)
+    {
+        TagDependency::invalidate(Yii::$app->cache, $tags);
+        Yii::info("Cache invalidated for tags: " . implode(', ', $tags), 'api.cache');
+    }
+}
+
+// Utilizzo nel controller
+public function actionTypes()
+{
+    $cacheKey = 'request_types_api_' . Yii::$app->user->id;
+    $cacheTags = ['request_types', 'user_' . Yii::$app->user->id];
+    
+    $requestTypes = ApiCacheService::getCachedData(
+        $cacheKey,
+        function() {
+            return RequestType::getForApi();
+        },
+        1800, // 30 minuti
+        $cacheTags
+    );
+    
+    return [
+        'success' => true,
+        'data' => $requestTypes,
+        'meta' => [
+            'cached' => true,
+            'cache_key' => $cacheKey
+        ]
+    ];
+}
+```
+
+### Rate Limiting Avanzato per API
+
+**PATTERN RATE LIMITING PER UTENTE**:
+```php
+// In api/config/main.php
+'components' => [
+    'rateLimiter' => [
+        'class' => 'yii\filters\RateLimiter',
+        'user' => function() {
+            return Yii::$app->user->identity;
+        },
+        'request' => function() {
+            return Yii::$app->request;
+        },
+        'response' => function() {
+            return Yii::$app->response;
+        }
+    ]
+]
+
+// Nel controller API
+public function behaviors()
+{
+    $behaviors = parent::behaviors();
+    
+    $behaviors['rateLimiter'] = [
+        'class' => RateLimiter::class,
+        'only' => ['create', 'update', 'delete'], // Solo azioni critiche
+        'user' => function() {
+            return Yii::$app->user->identity;
+        }
+    ];
+    
+    return $behaviors;
+}
+
+// Nel modello User per implementare RateLimitInterface
+public function getRateLimit($request, $action)
+{
+    // Limiti diversi per ruolo
+    switch ($this->user_type) {
+        case 'admin':
+            return [1000, 3600]; // 1000 richieste/ora
+        case 'therapist':
+            return [500, 3600];  // 500 richieste/ora
+        case 'patient':
+            return [100, 3600];  // 100 richieste/ora
+        default:
+            return [50, 3600];   // 50 richieste/ora
+    }
+}
+```
+
+### Pattern Validazione Complessa
+
+**VALIDAZIONE MULTI-STEP CON DIPENDENZE**:
+```php
+class ComplexValidationService
+{
+    private $errors = [];
+    private $warnings = [];
+    
+    public function validateRequestWithDependencies($data, $requestType, $user)
+    {
+        // Step 1: Validazione base
+        $this->validateBasicFields($data);
+        
+        // Step 2: Validazione specifica per tipo
+        $this->validateTypeSpecificFields($data, $requestType);
+        
+        // Step 3: Validazione business rules
+        $this->validateBusinessRules($data, $requestType, $user);
+        
+        // Step 4: Validazione dipendenze esterne
+        $this->validateExternalDependencies($data, $user);
+        
+        return [
+            'valid' => empty($this->errors),
+            'errors' => $this->errors,
+            'warnings' => $this->warnings
+        ];
+    }
+    
+    private function validateBusinessRules($data, $requestType, $user)
+    {
+        // Controllo limiti per utente
+        $dailyRequests = DocumentRequest::find()
+            ->where(['user_id' => $user->id])
+            ->andWhere(['>=', 'created_at', date('Y-m-d 00:00:00')])
+            ->count();
+            
+        if ($dailyRequests >= $this->getDailyLimit($user)) {
+            $this->errors['daily_limit'][] = 'Limite giornaliero di richieste raggiunto';
+        }
+        
+        // Controllo sovrapposizioni date
+        if (!empty($data['date_from']) && !empty($data['date_to'])) {
+            $overlapping = DocumentRequest::find()
+                ->where(['user_id' => $user->id, 'type_id' => $data['type_id']])
+                ->andWhere(['status' => ['pending', 'processing']])
+                ->andWhere(['or',
+                    ['between', 'date_from', $data['date_from'], $data['date_to']],
+                    ['between', 'date_to', $data['date_from'], $data['date_to']]
+                ])
+                ->exists();
+                
+            if ($overlapping) {
+                $this->warnings['overlap'][] = 'Esiste già una richiesta simile per questo periodo';
+            }
+        }
+    }
+}
+```
+
+### Logging e Monitoring Avanzato
+
+**PATTERN AUDIT COMPLETO**:
+```php
+class ApiAuditService
+{
+    public static function logApiCall($controller, $action, $user, $data = [], $response = [])
+    {
+        $auditLog = new ApiAuditLog();
+        $auditLog->user_id = $user ? $user->id : null;
+        $auditLog->controller = $controller;
+        $auditLog->action = $action;
+        $auditLog->request_data = json_encode($data);
+        $auditLog->response_status = $response['success'] ?? false;
+        $auditLog->response_code = Yii::$app->response->statusCode;
+        $auditLog->ip_address = Yii::$app->request->userIP;
+        $auditLog->user_agent = Yii::$app->request->userAgent;
+        $auditLog->execution_time = microtime(true) - YII_BEGIN_TIME;
+        $auditLog->created_at = new \DateTime('now', new \DateTimeZone('UTC'));
+        
+        $auditLog->save();
+        
+        // Log anche in file per backup
+        Yii::info([
+            'api_call' => [
+                'user_id' => $auditLog->user_id,
+                'endpoint' => "{$controller}/{$action}",
+                'status' => $auditLog->response_status,
+                'execution_time' => $auditLog->execution_time,
+                'timestamp' => $auditLog->created_at->format('Y-m-d\TH:i:s\Z')
+            ]
+        ], 'api.audit');
+    }
+    
+    public static function logSecurityEvent($event, $user, $details = [])
+    {
+        $securityLog = new SecurityLog();
+        $securityLog->event_type = $event;
+        $securityLog->user_id = $user ? $user->id : null;
+        $securityLog->details = json_encode($details);
+        $securityLog->ip_address = Yii::$app->request->userIP;
+        $securityLog->created_at = new \DateTime('now', new \DateTimeZone('UTC'));
+        
+        $securityLog->save();
+        
+        // Alert per eventi critici
+        if (in_array($event, ['failed_login_attempt', 'suspicious_activity', 'unauthorized_access'])) {
+            NotificationService::sendSecurityAlert($event, $user, $details);
+        }
+    }
+}
+
+// Utilizzo nel controller
+public function actionCreate()
+{
+    $startTime = microtime(true);
+    
+    try {
+        // Logica principale...
+        
+        $response = [
+            'success' => true,
+            'data' => $result
+        ];
+        
+        // Log successo
+        ApiAuditService::logApiCall(
+            'requests', 
+            'create', 
+            Yii::$app->user->identity, 
+            $requestData, 
+            $response
+        );
+        
+        return $response;
+        
+    } catch (\Exception $e) {
+        // Log errore
+        ApiAuditService::logApiCall(
+            'requests', 
+            'create', 
+            Yii::$app->user->identity, 
+            $requestData, 
+            ['success' => false, 'error' => $e->getMessage()]
+        );
+        
+        throw $e;
+    }
+}
+```
+
+### Pattern Versioning API
+
+**GESTIONE VERSIONI API**:
+```php
+// In api/config/main.php
+'urlManager' => [
+    'rules' => [
+        // V1 (legacy)
+        'v1/requests/types' => 'v1/requests/types',
+        'v1/requests' => 'v1/requests/create',
+        
+        // V2 (current)
+        'v2/requests/types' => 'requests/types',
+        'v2/requests' => 'requests/create',
+        
+        // Default alla versione corrente
+        'requests/types' => 'requests/types',
+        'requests' => 'requests/create',
+    ]
+]
+
+// Controller base per versioning
+abstract class BaseApiController extends Controller
+{
+    protected $apiVersion;
+    
+    public function init()
+    {
+        parent::init();
+        $this->apiVersion = $this->detectApiVersion();
+    }
+    
+    private function detectApiVersion()
+    {
+        // Da URL
+        if (preg_match('/\/v(\d+)\//', Yii::$app->request->pathInfo, $matches)) {
+            return intval($matches[1]);
+        }
+        
+        // Da header
+        $version = Yii::$app->request->headers->get('API-Version');
+        if ($version) {
+            return intval($version);
+        }
+        
+        // Default
+        return 2;
+    }
+    
+    protected function formatResponse($data, $meta = [])
+    {
+        $response = [
+            'success' => true,
+            'data' => $data,
+            'meta' => array_merge($meta, [
+                'api_version' => $this->apiVersion,
+                'timestamp' => (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z')
+            ])
+        ];
+        
+        // Adattamenti per versioni precedenti
+        if ($this->apiVersion === 1) {
+            return $this->adaptToV1($response);
+        }
+        
+        return $response;
+    }
+}
+```
+
+### Test Automatizzati per API
+
+**PATTERN TESTING AVANZATO**:
+```php
+// tests/api/RequestsApiTest.php
+class RequestsApiTest extends \Codeception\Test\Unit
+{
+    protected $tester;
+    protected $authToken;
+    
+    protected function _before()
+    {
+        // Setup database con fixtures
+        $this->tester->haveFixtures([
+            'users' => UserFixture::class,
+            'request_types' => RequestTypeFixture::class,
+        ]);
+        
+        // Login automatico
+        $this->authToken = $this->getAuthToken('paziente@test.it', '12345678');
+    }
+    
+    public function testGetRequestTypesSuccess()
+    {
+        $response = $this->tester->sendGET('/api/requests/types', [], [
+            'Authorization' => 'Bearer ' . $this->authToken
+        ]);
+        
+        $this->tester->seeResponseCodeIs(200);
+        $this->tester->seeResponseIsJson();
+        
+        $data = json_decode($response, true);
+        $this->assertTrue($data['success']);
+        $this->assertArrayHasKey('data', $data);
+        $this->assertArrayHasKey('meta', $data);
+        
+        // Verifica struttura dati
+        foreach ($data['data'] as $type) {
+            $this->assertArrayHasKey('id', $type);
+            $this->assertArrayHasKey('name', $type);
+            $this->assertArrayHasKey('requires_reason', $type);
+            $this->assertIsBool($type['requires_reason']);
+        }
+    }
+    
+    public function testCreateRequestWithValidation()
+    {
+        $requestData = [
+            'type_id' => 1,
+            'reason' => 'Test reason',
+            'date_from' => '2025-02-01',
+            'date_to' => '2025-02-05'
+        ];
+        
+        $response = $this->tester->sendPOST('/api/requests', $requestData, [
+            'Authorization' => 'Bearer ' . $this->authToken,
+            'Content-Type' => 'application/json'
+        ]);
+        
+        $this->tester->seeResponseCodeIs(201);
+        $data = json_decode($response, true);
+        
+        $this->assertTrue($data['success']);
+        $this->assertArrayHasKey('created_at', $data['data']);
+        
+        // Verifica formato timestamp UTC
+        $this->assertRegExp('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $data['data']['created_at']);
+    }
+    
+    private function getAuthToken($email, $password)
+    {
+        $response = $this->tester->sendPOST('/api/auth/login', [
+            'email' => $email,
+            'password' => $password
+        ]);
+        
+        $data = json_decode($response, true);
+        return $data['data']['access_token'];
+    }
+}
+```
+
+## Checklist Completa Sviluppo API
+
+**ANALISI E PROGETTAZIONE**:
+- [ ] Definire struttura response JSON standard
+- [ ] Identificare validazioni necessarie (base + dinamiche + business rules)
+- [ ] Pianificare ottimizzazioni database (evitare query multiple)
+- [ ] Definire permessi RBAC necessari
+- [ ] Progettare sistema caching appropriato
+- [ ] Pianificare rate limiting per endpoint
+
+**IMPLEMENTAZIONE CORE**:
+- [ ] Configurare timezone UTC (api/config/bootstrap.php)
+- [ ] Aggiungere import modelli necessari
+- [ ] Configurare JwtAuthBehavior con excludeActions appropriato
+- [ ] Implementare gestione timezone UTC per tutti i timestamp
+- [ ] Implementare validazione in 2+ fasi (base, dinamica, business)
+- [ ] Evitare query duplicate nello stesso metodo
+
+**SICUREZZA E MONITORING**:
+- [ ] Implementare logging audit con Yii::info() e Yii::error()
+- [ ] Gestire tutti i casi d'errore (401, 400, 404, 500)
+- [ ] Aggiungere rate limiting appropriato
+- [ ] Implementare audit trail per azioni sensibili
+- [ ] Configurare alerting per eventi di sicurezza
+
+**TESTING E DOCUMENTAZIONE**:
+- [ ] Creare script di test completo in api/test/
+- [ ] Creare test automatizzati con Codeception
+- [ ] Aggiungere documentazione OpenAPI/Swagger
+- [ ] Testare tutti status code e scenari edge case
+- [ ] Test timezone con script dedicato (test_timezone_only.php)
+- [ ] Test performance con dati reali
+- [ ] Aggiornare documentazione API e file rules
+
+**PERFORMANCE E SCALABILITÀ**:
+- [ ] Implementare caching multi-livello dove appropriato
+- [ ] Ottimizzare query database con indici appropriati
+- [ ] Configurare connection pooling se necessario
+- [ ] Monitorare tempi di risposta e identificare bottleneck
+- [ ] Implementare lazy loading per dati non critici
+
+**DEPLOYMENT E MAINTENANCE**:
+- [ ] Configurare logging rotation
+- [ ] Setup monitoring e alerting
+- [ ] Documentare API versioning strategy
+- [ ] Preparare migration path per breaking changes
+- [ ] Setup backup e recovery procedures 

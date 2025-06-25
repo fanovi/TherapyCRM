@@ -90,17 +90,8 @@ class RequestsController extends Controller
      *         description="Non autorizzato - Token mancante o non valido",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Il token di autenticazione non è stato fornito."),
-     *             @OA\Property(property="error_code", type="string", example="UNAUTHORIZED")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=403,
-     *         description="Accesso negato - Utente non autorizzato per questa risorsa",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Accesso negato per questo tipo di utente"),
-     *             @OA\Property(property="error_code", type="string", example="ACCESS_DENIED")
+     *             @OA\Property(property="error", type="string", example="Il token di autenticazione non è stato fornito."),
+     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
      *         )
      *     ),
      *     @OA\Response(
@@ -108,8 +99,8 @@ class RequestsController extends Controller
      *         description="Errore interno del server",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Errore interno del server"),
-     *             @OA\Property(property="error_code", type="string", example="INTERNAL_ERROR")
+     *             @OA\Property(property="error", type="string", example="Errore interno del server"),
+     *             @OA\Property(property="code", type="string", example="INTERNAL_ERROR")
      *         )
      *     )
      * )
@@ -172,23 +163,14 @@ class RequestsController extends Controller
             ];
             
         } catch (UnauthorizedHttpException $e) {
-            // Status code e formato già gestiti automaticamente da Yii2
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-                'error_code' => 'UNAUTHORIZED'
-            ];
+            return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
             
         } catch (\Exception $e) {
             // Log dell'errore per debugging
             Yii::error("Error in RequestsController::actionTypes: " . $e->getMessage(), __METHOD__);
             Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
             
-            return [
-                'success' => false,
-                'message' => 'Errore interno del server',
-                'error_code' => 'INTERNAL_ERROR'
-            ];
+            return $this->formatErrorResponse('INTERNAL_ERROR', 'Errore interno del server', [], 500);
         }
     }
 
@@ -278,13 +260,13 @@ class RequestsController extends Controller
      *         description="Errore di validazione",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Il campo 'reason' è obbligatorio per questa tipologia di richiesta"),
-     *             @OA\Property(property="error_code", type="string", example="VALIDATION_ERROR"),
+     *             @OA\Property(property="error", type="string", example="Errori di validazione dei campi obbligatori"),
+     *             @OA\Property(property="code", type="string", example="MISSING_REQUIRED_FIELD"),
      *             @OA\Property(
-     *                 property="errors",
+     *                 property="details",
      *                 type="object",
-     *                 @OA\Property(property="reason", type="array", @OA\Items(type="string", example="Il motivo è obbligatorio per questa tipologia")),
-     *                 @OA\Property(property="date_from", type="array", @OA\Items(type="string", example="La data di inizio è obbligatoria"))
+     *                 @OA\Property(property="reason", type="string", example="Il motivo è obbligatorio per questa tipologia"),
+     *                 @OA\Property(property="date_from", type="string", example="La data di inizio è obbligatoria")
      *             )
      *         )
      *     ),
@@ -293,8 +275,8 @@ class RequestsController extends Controller
      *         description="Non autorizzato",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Token non valido"),
-     *             @OA\Property(property="error_code", type="string", example="UNAUTHORIZED")
+     *             @OA\Property(property="error", type="string", example="Token non valido"),
+     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
      *         )
      *     ),
      *     @OA\Response(
@@ -302,8 +284,13 @@ class RequestsController extends Controller
      *         description="Tipologia di richiesta non trovata",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Tipologia di richiesta non trovata o non attiva"),
-     *             @OA\Property(property="error_code", type="string", example="TYPE_NOT_FOUND")
+     *             @OA\Property(property="error", type="string", example="Tipologia di richiesta non valida o non attiva"),
+     *             @OA\Property(property="code", type="string", example="INVALID_REQUEST_TYPE"),
+     *             @OA\Property(
+     *                 property="details",
+     *                 type="object",
+     *                 @OA\Property(property="type_id", type="string", example="Tipologia con ID 999 non trovata")
+     *             )
      *         )
      *     ),
      *     @OA\Response(
@@ -311,8 +298,8 @@ class RequestsController extends Controller
      *         description="Errore interno del server",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Errore interno del server"),
-     *             @OA\Property(property="error_code", type="string", example="INTERNAL_ERROR")
+     *             @OA\Property(property="error", type="string", example="Errore interno del server"),
+     *             @OA\Property(property="code", type="string", example="INTERNAL_ERROR")
      *         )
      *     )
      * )
@@ -352,36 +339,31 @@ class RequestsController extends Controller
             // Validazione input base
             $validationErrors = $this->validateRequestData($data);
             if (!empty($validationErrors)) {
-                Yii::$app->response->statusCode = 400;
-                return [
-                    'success' => false,
-                    'message' => 'Errori di validazione',
-                    'error_code' => 'VALIDATION_ERROR',
-                    'errors' => $validationErrors
-                ];
+                $details = $this->formatValidationErrors($validationErrors);
+                return $this->formatErrorResponse('MISSING_REQUIRED_FIELD', 'Errori di validazione dei campi obbligatori', $details, 400);
             }
 
             // Trova la tipologia di richiesta
             $requestType = $this->findRequestTypeById($data['type_id']);
             if (!$requestType) {
-                Yii::$app->response->statusCode = 404;
-                return [
-                    'success' => false,
-                    'message' => 'Tipologia di richiesta non trovata o non attiva',
-                    'error_code' => 'TYPE_NOT_FOUND'
-                ];
+                return $this->formatErrorResponse(
+                    'INVALID_REQUEST_TYPE', 
+                    'Tipologia di richiesta non valida o non attiva', 
+                    ['type_id' => "Tipologia con ID {$data['type_id']} non trovata"], 
+                    404
+                );
             }
 
             // Validazione dinamica basata sui requisiti del tipo
             $dynamicErrors = $this->validateRequestTypeRequirements($data, $requestType);
             if (!empty($dynamicErrors)) {
-                Yii::$app->response->statusCode = 400;
-                return [
-                    'success' => false,
-                    'message' => 'Requisiti della tipologia non soddisfatti',
-                    'error_code' => 'VALIDATION_ERROR',
-                    'errors' => $dynamicErrors
-                ];
+                $details = $this->formatValidationErrors($dynamicErrors);
+                return $this->formatErrorResponse(
+                    'MISSING_REQUIRED_FIELD', 
+                    "Requisiti obbligatori per '{$requestType['name']}' non soddisfatti", 
+                    $details, 
+                    400
+                );
             }
 
             // Simula il salvataggio nel database
@@ -398,23 +380,14 @@ class RequestsController extends Controller
             ];
 
         } catch (UnauthorizedHttpException $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-                'error_code' => 'UNAUTHORIZED'
-            ];
+            return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
 
         } catch (\Exception $e) {
             // Log dell'errore per debugging
             Yii::error("Error in RequestsController::actionCreate: " . $e->getMessage(), __METHOD__);
             Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
 
-            Yii::$app->response->statusCode = 500;
-            return [
-                'success' => false,
-                'message' => 'Errore interno del server',
-                'error_code' => 'INTERNAL_ERROR'
-            ];
+            return $this->formatErrorResponse('INTERNAL_ERROR', 'Errore interno del server', [], 500);
         }
     }
 
@@ -749,5 +722,40 @@ class RequestsController extends Controller
         if (!$from || !$to) return 0;
         
         return $from <=> $to; // -1 se from < to, 0 se uguali, 1 se from > to
+    }
+
+    /**
+     * Formatta una risposta di errore secondo lo standard API
+     */
+    private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+    {
+        Yii::$app->response->statusCode = $statusCode;
+        
+        $response = [
+            'success' => false,
+            'error' => $message,
+            'code' => $errorCode
+        ];
+        
+        if (!empty($details)) {
+            $response['details'] = $details;
+        }
+        
+        return $response;
+    }
+
+    /**
+     * Converte errori di validazione nel formato standard
+     */
+    private function formatValidationErrors($validationErrors)
+    {
+        $details = [];
+        
+        foreach ($validationErrors as $field => $fieldErrors) {
+            // Prendi il primo errore per ogni campo
+            $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+        }
+        
+        return $details;
     }
 } 

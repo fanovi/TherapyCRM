@@ -56,7 +56,8 @@ class JwtAuthBehavior extends Behavior
         }
 
         if (!$authHeader || !preg_match('/^Bearer\s+(.*?)$/', $authHeader, $matches)) {
-            throw new UnauthorizedHttpException('Il token di autenticazione non è stato fornito.');
+            $this->sendErrorResponse('UNAUTHORIZED', 'Il token di autenticazione non è stato fornito.', [], 401);
+            return false;
         }
 
         $token = $matches[1];
@@ -65,12 +66,14 @@ class JwtAuthBehavior extends Behavior
         $authTokenRecord = AuthToken::findOne(['token' => $token, 'is_revoked' => 0]);
 
         if (!$authTokenRecord) {
-            throw new UnauthorizedHttpException('Token non valido o revocato.');
+            $this->sendErrorResponse('UNAUTHORIZED', 'Token non valido o revocato.', [], 401);
+            return false;
         }
 
         // Verifica scadenza del token
         if ($authTokenRecord->expires_at < time()) {
-            throw new UnauthorizedHttpException('Token scaduto.');
+            $this->sendErrorResponse('UNAUTHORIZED', 'Token scaduto.', [], 401);
+            return false;
         }
 
         // Verifica validità del token tramite il componente JWT
@@ -81,7 +84,8 @@ class JwtAuthBehavior extends Behavior
             // Se il token non è valido, revocalo nel database
             $authTokenRecord->is_revoked = 1;
             $authTokenRecord->save();
-            throw new UnauthorizedHttpException('Token non valido.');
+            $this->sendErrorResponse('UNAUTHORIZED', 'Token non valido.', [], 401);
+            return false;
         }
 
         // Aggiorna last_used_at
@@ -91,11 +95,35 @@ class JwtAuthBehavior extends Behavior
         // Imposta l'utente corrente
         $user = User::findOne($authTokenRecord->user_id);
         if (!$user) {
-            throw new UnauthorizedHttpException('Utente non trovato.');
+            $this->sendErrorResponse('UNAUTHORIZED', 'Utente non trovato.', [], 401);
+            return false;
         }
 
         Yii::$app->user->setIdentity($user);
 
         return true;
+    }
+    
+    /**
+     * Invia una risposta di errore nel formato standardizzato
+     */
+    private function sendErrorResponse($errorCode, $message, $details = [], $statusCode = 401)
+    {
+        Yii::$app->response->statusCode = $statusCode;
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $response = [
+            'success' => false,
+            'error' => $message,
+            'code' => $errorCode
+        ];
+        
+        if (!empty($details)) {
+            $response['details'] = $details;
+        }
+        
+        Yii::$app->response->data = $response;
+        Yii::$app->response->send();
+        Yii::$app->end();
     }
 }
