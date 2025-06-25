@@ -31,6 +31,7 @@ class Notification extends ActiveRecord
     const TYPE_REMINDER = 'reminder';
     const TYPE_DEADLINE = 'deadline';
     const TYPE_MANDATORY_READ = 'mandatory_read';
+    const TYPE_INTERNAL_COMMUNICATION = 'internal_communication';
 
     const STATUS_PENDING = 'pending';
     const STATUS_SENT = 'sent';
@@ -74,7 +75,7 @@ class Notification extends ActiveRecord
             [['requires_read_confirmation'], 'boolean'],
             [['read_at', 'viewed_at', 'scheduled_for', 'sent_at', 'created_at'], 'safe'],
             [['title'], 'string', 'max' => 255],
-            [['notification_type'], 'in', 'range' => [self::TYPE_INFO, self::TYPE_REMINDER, self::TYPE_DEADLINE, self::TYPE_MANDATORY_READ]],
+            [['notification_type'], 'in', 'range' => [self::TYPE_INFO, self::TYPE_REMINDER, self::TYPE_DEADLINE, self::TYPE_MANDATORY_READ, self::TYPE_INTERNAL_COMMUNICATION]],
             [['recipient_user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['recipient_user_id' => 'id']],
             [['sender_user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['sender_user_id' => 'id']],
         ];
@@ -257,6 +258,27 @@ class Notification extends ActiveRecord
             self::TYPE_REMINDER => 'Promemoria',
             self::TYPE_DEADLINE => 'Scadenza',
             self::TYPE_MANDATORY_READ => 'Lettura Obbligatoria',
+            self::TYPE_INTERNAL_COMMUNICATION => 'Comunicazione Interna',
         ];
+    }
+
+    /**
+     * Scope per comunicazioni interne del gestionale
+     * 
+     * @return \yii\db\ActiveQuery
+     */
+    public static function findInternalCommunications()
+    {
+        return static::find()->where(['notification_type' => self::TYPE_INTERNAL_COMMUNICATION]);
+    }
+
+    /**
+     * Verifica se è una comunicazione interna
+     * 
+     * @return bool
+     */
+    public function isInternalCommunication()
+    {
+        return $this->notification_type === self::TYPE_INTERNAL_COMMUNICATION;
     }
 } 

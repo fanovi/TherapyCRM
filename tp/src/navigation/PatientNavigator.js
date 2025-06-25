@@ -8,6 +8,9 @@ import PatientCalendarScreen from '../screens/patient/PatientCalendarScreen';
 import PatientNotificationsScreen from '../screens/patient/PatientNotificationsScreen';
 import NotificationDetailScreen from '../screens/patient/NotificationDetailScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
+import PatientRequestsScreen from '../screens/patient/PatientRequestsScreen';
+import CreateRequestScreen from '../screens/patient/CreateRequestScreen';
+import RequestDetailsScreen from '../screens/patient/RequestDetailsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -28,6 +31,17 @@ const NotificationsStack = () => {
   );
 };
 
+// Stack Navigator per le Richieste
+const RequestsStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Screen name="RequestsList" component={PatientRequestsScreen} />
+      <Stack.Screen name="CreateRequest" component={CreateRequestScreen} />
+      <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+    </Stack.Navigator>
+  );
+};
+
 const PatientNavigator = () => {
   const theme = useTheme();
 
@@ -41,6 +55,8 @@ const PatientNavigator = () => {
             iconName = 'home';
           } else if (route.name === 'Calendar') {
             iconName = 'event';
+          } else if (route.name === 'Requests') {
+            iconName = 'description';
           } else if (route.name === 'Notifications') {
             iconName = 'notifications';
           } else if (route.name === 'Profile') {
@@ -70,6 +86,11 @@ const PatientNavigator = () => {
         name="Calendar"
         component={PatientCalendarScreen}
         options={{title: 'Calendario'}}
+      />
+      <Tab.Screen
+        name="Requests"
+        component={RequestsStack}
+        options={{title: 'Richieste'}}
       />
       <Tab.Screen
         name="Notifications"

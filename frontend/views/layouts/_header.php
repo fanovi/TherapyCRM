@@ -200,11 +200,11 @@ use yii\helpers\Html;
             class="hover:text-dark-900 relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
             @click.prevent="dropdownOpen = ! dropdownOpen; notifying = false">
             <span
-              :class="!notifying ? 'hidden' : 'flex'"
-              class="absolute top-0.5 right-0 z-1 h-2 w-2 rounded-full bg-orange-400">
-              <span
-                class="absolute -z-1 inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
-            </span>
+                          id="notification-badge"
+            class="absolute top-0.5 right-0 z-1 h-2 w-2 rounded-full bg-orange-400 hidden">
+            <span
+              class="absolute -z-1 inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
+          </span>
             <svg
               class="fill-current"
               width="20"
@@ -223,12 +223,16 @@ use yii\helpers\Html;
           <!-- Dropdown Start -->
           <div
             x-show="dropdownOpen"
+            @click.stop
             class="shadow-theme-lg dark:bg-gray-dark absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 sm:w-[361px] lg:right-0 dark:border-gray-800">
             <div
               class="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
               <h5
                 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-                Notification
+                Comunicazioni 
+                <span id="unread-count-header" class="hidden ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+                  <span id="unread-count-text">0</span>
+                </span>
               </h5>
 
               <button
@@ -250,269 +254,35 @@ use yii\helpers\Html;
               </button>
             </div>
 
-            <ul class="custom-scrollbar flex h-auto flex-col overflow-y-auto">
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-02.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
+            <!-- Comunicazioni dinamiche via AJAX -->
+            <div id="notifications-container">
+              <div id="notifications-loading" class="flex items-center justify-center py-4">
+                <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Caricamento...</span>
+              </div>
+              
+              <ul id="notifications-list" class="custom-scrollbar flex h-auto flex-col overflow-y-auto hidden">
+                <!-- Le comunicazioni verranno caricate qui via AJAX -->
+              </ul>
+              
+              <div id="notifications-empty" class="hidden py-6 text-center">
+                <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                </svg>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nessuna comunicazione</p>
+              </div>
+            </div>
 
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Terry Franci</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>5 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-03.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Alena Franci</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>8 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-04.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Jocelyn Kenter</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>15 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-05.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-error-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Brandon Philips</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>1 hr ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-02.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Terry Franci</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>5 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-03.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Alena Franci</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>8 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-04.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Jocelyn Kenter</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>15 min ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-
-              <li>
-                <a
-                  class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                  href="#">
-                  <span
-                    class="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                    <img
-                      src="<?= Url::to('@web/images/user/user-05.jpg') ?>"
-                      alt="User"
-                      class="overflow-hidden rounded-full" />
-                    <span
-                      class="bg-error-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                  </span>
-
-                  <span class="block">
-                    <span
-                      class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                      <span class="font-medium text-gray-800 dark:text-white/90">Brandon Philips</span>
-                      requests permission to change
-                      <span class="font-medium text-gray-800 dark:text-white/90">Project - Nganter App</span>
-                    </span>
-
-                    <span
-                      class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <span>Project</span>
-                      <span class="h-1 w-1 rounded-full bg-gray-400"></span>
-                      <span>1 hr ago</span>
-                    </span>
-                  </span>
-                </a>
-              </li>
-            </ul>
-
-            <a
-              href="#"
-              class="text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-              View All Notification
-            </a>
+            <?= Html::a(
+              'Vedi tutte le comunicazioni', 
+              ['communication/index'], 
+              [
+                'class' => 'text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200'
+              ]
+            ) ?>
           </div>
           <!-- Dropdown End -->
         </div>
@@ -968,5 +738,218 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+});
+
+// ===== Sistema Comunicazioni Dropdown =====
+class NotificationSystem {
+    constructor() {
+        this.container = document.getElementById('notifications-container');
+        this.loadingElement = document.getElementById('notifications-loading');
+        this.listElement = document.getElementById('notifications-list');
+        this.emptyElement = document.getElementById('notifications-empty');
+        this.badge = document.getElementById('notification-badge');
+        this.countHeader = document.getElementById('unread-count-header');
+        this.countText = document.getElementById('unread-count-text');
+        
+        this.isLoaded = false;
+        this.unreadCount = 0;
+        
+        this.init();
+    }
+    
+    init() {
+        // Carica comunicazioni quando si apre il dropdown
+        const notificationButton = document.querySelector('[x-data] button');
+        const dropdown = notificationButton?.closest('[x-data]');
+        
+        if (dropdown) {
+            // Usa Alpine.js per intercettare l'apertura del dropdown
+            dropdown.addEventListener('click', () => {
+                setTimeout(() => {
+                    if (!this.isLoaded) {
+                        this.loadNotifications();
+                    }
+                }, 100);
+            });
+        }
+        
+        // Caricamento iniziale per il badge
+        this.loadUnreadCount();
+    }
+    
+    async loadNotifications() {
+        if (this.isLoaded) return;
+        
+        try {
+            this.showLoading();
+            
+            const response = await fetch('<?= \yii\helpers\Url::to(['/communication/header-preview']) ?>', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderNotifications(data.data.notifications);
+                this.updateUnreadCount(data.data.unread_count);
+                this.isLoaded = true;
+            } else {
+                this.showEmpty();
+            }
+            
+        } catch (error) {
+            console.error('Errore caricamento comunicazioni:', error);
+            this.showEmpty();
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
+    async loadUnreadCount() {
+        try {
+            const response = await fetch('<?= \yii\helpers\Url::to(['/communication/header-preview']) ?>', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateUnreadCount(data.data.unread_count);
+            }
+            
+        } catch (error) {
+            console.error('Errore caricamento conteggio:', error);
+        }
+    }
+    
+    renderNotifications(notifications) {
+        if (!notifications || notifications.length === 0) {
+            this.showEmpty();
+            return;
+        }
+        
+        const html = notifications.map(notification => this.createNotificationHtml(notification)).join('');
+        this.listElement.innerHTML = html;
+        this.listElement.classList.remove('hidden');
+        this.emptyElement.classList.add('hidden');
+    }
+    
+    createNotificationHtml(notification) {
+        const typeColors = {
+            'info': 'blue',
+            'reminder': 'amber', 
+            'deadline': 'red',
+            'mandatory_read': 'red',
+            'internal_communication': 'green'
+        };
+        
+        const color = typeColors[notification.notification_type] || 'gray';
+        const isUnread = !notification.is_read;
+        
+        return `
+            <li>
+                <a href="${notification.view_url}" 
+                   class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 ${isUnread ? 'bg-blue-50 dark:bg-blue-900/10' : ''}">
+                    <span class="relative z-1 block h-10 w-full max-w-10 rounded-full">
+                        <div class="w-10 h-10 rounded-full bg-${color}-100 dark:bg-${color}-900/20 flex items-center justify-center">
+                            ${this.getTypeIcon(notification.notification_type, color)}
+                        </div>
+                        ${isUnread ? '<span class="bg-orange-400 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>' : ''}
+                    </span>
+                    
+                    <span class="block flex-1">
+                        <span class="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
+                            <span class="font-medium text-gray-800 dark:text-white/90">${this.escapeHtml(notification.title)}</span>
+                            ${notification.message_preview ? '<br>' + this.escapeHtml(notification.message_preview) : ''}
+                        </span>
+                        
+                        <span class="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                            <span>${notification.type_label}</span>
+                            <span class="h-1 w-1 rounded-full bg-gray-400"></span>
+                            <span>${notification.time_ago}</span>
+                        </span>
+                    </span>
+                </a>
+            </li>
+        `;
+    }
+    
+    getTypeIcon(type, color) {
+        const icons = {
+            'info': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+            'reminder': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"></path>',
+            'deadline': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+            'mandatory_read': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>',
+            'internal_communication': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>'
+        };
+        
+        const iconPath = icons[type] || icons['info'];
+        
+        return `
+            <svg class="w-5 h-5 text-${color}-600 dark:text-${color}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                ${iconPath}
+            </svg>
+        `;
+    }
+    
+    updateUnreadCount(count) {
+        this.unreadCount = count;
+        
+        if (count > 0) {
+            this.badge?.classList.remove('hidden');
+            this.countHeader?.classList.remove('hidden');
+            this.countText.textContent = count;
+        } else {
+            this.badge?.classList.add('hidden');
+            this.countHeader?.classList.add('hidden');
+        }
+    }
+    
+    showLoading() {
+        this.loadingElement?.classList.remove('hidden');
+        this.listElement?.classList.add('hidden');
+        this.emptyElement?.classList.add('hidden');
+    }
+    
+    hideLoading() {
+        this.loadingElement?.classList.add('hidden');
+    }
+    
+    showEmpty() {
+        this.listElement?.classList.add('hidden');
+        this.emptyElement?.classList.remove('hidden');
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Metodo pubblico per ricaricare le comunicazioni
+    refresh() {
+        this.isLoaded = false;
+        this.loadNotifications();
+        this.loadUnreadCount();
+    }
+}
+
+// Inizializza il sistema quando il DOM è pronto
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.notificationSystem === 'undefined') {
+        window.notificationSystem = new NotificationSystem();
+    }
+});
+
 });
 </script>
