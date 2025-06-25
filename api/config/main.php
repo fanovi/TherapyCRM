@@ -71,6 +71,10 @@ return [
                 'POST notifications/send-template' => 'notification/send-template',
                 'POST notifications/broadcast' => 'notification/broadcast',
                 'POST notifications/create-test' => 'notification/create-test',
+                
+                // Request routes
+                'GET requests/types' => 'requests/types',
+                
                 // Altre route qui...
             ],
         ],
