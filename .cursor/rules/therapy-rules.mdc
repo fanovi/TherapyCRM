@@ -18,8 +18,25 @@ alwaysApply: true
 ### 1. JavaScript di Yii e data-method
 
 **PROBLEMA**: `data-method="post"` di Yii non sempre funziona correttamente, causa refresh della pagina invece di POST
-**SOLUZIONE**: Usare AJAX manuale per azioni critiche:
+**SOLUZIONE**: Usare AJAX manuale per azioni critiche
 
+**FUTURE DEVELOPMENT - Usare fetch() invece di jQuery**:
+```javascript
+// ✅ PREFERITO - fetch API moderna
+const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content
+    },
+    body: new URLSearchParams({
+        param: value
+    })
+});
+const data = await response.json();
+```
+
+**LEGACY - jQuery (mantenere per codice esistente)**:
 ```javascript
 // Invece di data-method="post", usa AJAX
 $.ajax({
@@ -35,7 +52,116 @@ $.ajax({
 });
 ```
 
-### 2. Generazione PDF con mPDF
+### 2. Sistema Credenziali PDF (Pazienti e Terapisti)
+
+**IMPLEMENTAZIONE COMPLETA**: Sistema unificato per generazione credenziali PDF per pazienti e terapisti
+
+**PATTERN CONTROLLER CREDENZIALI**:
+```php
+public function actionCreate() {
+    // ... logica di creazione utente ...
+    
+    // Save password before hashing for PDF generation
+    $plainPassword = $user->password;
+    
+    // ... processo di creazione e salvataggio ...
+    
+    if ($success) {
+        // Generate PDF with credentials automatically
+        $this->generateCredentialsPdf($user, $plainPassword);
+        
+        // Handle AJAX requests for automatic PDF download
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return [
+                'success' => true,
+                'message' => 'Credenziali create con successo!',
+                'downloadUrl' => \yii\helpers\Url::to(['download-credentials-pdf']),
+                'redirectUrl' => \yii\helpers\Url::to(['view', 'id' => $model->id])
+            ];
+        }
+        
+        Yii::$app->session->setFlash('success', 'Credenziali create con successo!');
+        return $this->redirect(['view', 'id' => $model->id]);
+    }
+}
+
+public function actionResetPassword($userId) {
+    // Verifiche permessi e validazioni
+    $user = User::findOne($userId);
+    $newPassword = $this->generateRandomPassword();
+    
+    // Reset password e token
+    $user->setPassword($newPassword);
+    $user->generateAuthKey();
+    $user->requires_password_change = 1;
+    
+    if ($user->save()) {
+        // Revoke all existing auth tokens
+        AuthToken::updateAll(['is_revoked' => 1], ['user_id' => $user->id, 'is_revoked' => 0]);
+        
+        // Generate PDF with credentials
+        $this->generateCredentialsPdf($user, $newPassword);
+    }
+}
+
+private function generateCredentialsPdf($user, $password) {
+    // Template specifico: _credentials_pdf.php
+    $html = $this->renderPartial('_credentials_pdf', [
+        'user' => $user,
+        'password' => $password,
+        'generatedAt' => date('d/m/Y H:i'),
+    ]);
+    
+    // mPDF configuration
+    $tempDir = Yii::getAlias('@frontend/runtime/mpdf');
+    $mpdf = new \Mpdf\Mpdf(['tempDir' => $tempDir, /* config */]);
+    $mpdf->WriteHTML($html);
+    
+    // Store in session for download
+    Yii::$app->session->set('pdf_data', [
+        'content' => $mpdf->Output('', 'S'),
+        'filename' => 'credenziali_' . $userType . '_' . $timestamp . '.pdf'
+    ]);
+}
+```
+
+**JAVASCRIPT PATTERN (LEGACY - jQuery)**:
+```javascript
+// Reset password con download automatico PDF
+window.resetPassword = function(userId) {
+    if (!confirm('Sei sicuro di voler resettare la password? Verrà generato un PDF con le nuove credenziali.')) {
+        return false;
+    }
+    
+    var actionUrl = '<?= Url::to(['reset-password']) ?>' + '?userId=' + userId;
+    
+    $.ajax({
+        url: actionUrl,
+        type: 'POST',
+        data: {
+            '<?= Yii::$app->request->csrfParam ?>': '<?= Yii::$app->request->csrfToken ?>'
+        },
+        success: function(response) {
+            // Trigger PDF download
+            window.open('<?= Url::to(['download-credentials-pdf']) ?>', '_blank');
+            location.reload();
+        },
+        error: function(xhr, status, error) {
+            alert('Errore nel reset password: ' + error);
+        }
+    });
+};
+```
+
+**TEMPLATE PDF FEATURES**:
+- Layout responsive con styling inline
+- Badge distintivi per tipo utente (Paziente/Terapista)
+- Istruzioni specifiche per ruolo
+- Avvisi sicurezza e primo accesso obbligatorio
+- Informazioni timestamp e sistema
+
+### 3. Generazione PDF con mPDF
 
 **PROBLEMA**: Directory temporanee non scrivibili, errori di permessi
 **SOLUZIONI**:
@@ -83,11 +209,52 @@ public function actionSomething($param) {
 }
 ```
 
-### 6. Asset Management
+### 6. Asset Management e JavaScript Moderno
 
+**JAVASCRIPT EVOLUTION STRATEGY**:
+- **Implementazioni attuali**: Mantenere jQuery per codice esistente
+- **Nuove funzionalità**: Utilizzare fetch API e JavaScript moderno
+- **Transizione graduale**: Non refactoring di massa, solo nuove implementazioni
+
+**PATTERN FETCH API (FUTURO)**:
+```javascript
+// ✅ Nuovo standard per chiamate API
+async function resetPassword(userId) {
+    if (!confirm('Conferma reset password?')) return;
+    
+    try {
+        const response = await fetch(`/therapist/reset-password?userId=${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content
+            }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        // Download PDF
+        window.open('/therapist/download-credentials-pdf', '_blank');
+        location.reload();
+        
+    } catch (error) {
+        alert(`Errore: ${error.message}`);
+    }
+}
+
+// Event delegation moderno
+document.addEventListener('click', function(e) {
+    if (e.target.dataset.action === 'reset-password') {
+        resetPassword(e.target.dataset.userId);
+    }
+});
+```
+
+**ASSET MANAGEMENT**:
 - AppAsset include automaticamente YiiAsset
 - Non registrare YiiAsset separatamente nelle viste
-- jQuery è disponibile globalmente
+- jQuery è disponibile globalmente per compatibilità
+- Evitare dipendenze jQuery per nuove funzionalità
 
 ### 7. Gestione Permessi RBAC
 
@@ -169,7 +336,48 @@ class m250125_000000_add_new_permission extends Migration
 - Usare `yii migrate` per applicare modifiche
 - Modelli in `common/models/`
 
-### 10. Problemi Modelli e Database
+### 10. Sistema Autenticazione e Sicurezza
+
+**PATTERN GESTIONE CREDENZIALI**:
+```php
+// Generazione password sicura
+private function generateRandomPassword($length = 12) {
+    $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    $password = '';
+    for ($i = 0; $i < $length; $i++) {
+        $password .= $characters[rand(0, strlen($characters) - 1)];
+    }
+    return $password;
+}
+
+// Reset completo di sicurezza
+public function resetUserSecurity($user, $newPassword) {
+    // 1. Hash nuova password
+    $user->setPassword($newPassword);
+    $user->generateAuthKey();
+    
+    // 2. Forza cambio password al primo accesso
+    $user->requires_password_change = 1;
+    
+    // 3. Invalida tutti i token esistenti
+    AuthToken::updateAll(
+        ['is_revoked' => 1], 
+        ['user_id' => $user->id, 'is_revoked' => 0]
+    );
+    
+    return $user->save();
+}
+```
+
+**CHECKLIST SICUREZZA**:
+- ✅ Password temporanee generate automaticamente
+- ✅ Cambio password obbligatorio al primo accesso
+- ✅ Invalidazione token precedenti
+- ✅ Logging di tutte le operazioni sensibili
+- ✅ Controlli RBAC sui permessi di reset
+- ✅ PDF con credenziali generato automaticamente
+
+### 11. Problemi Modelli e Database
 
 **PROBLEMA**: Modelli non allineati con schema database reale
 **SINTOMI**: Errori "unknown property", query che falliscono, relazioni rotte

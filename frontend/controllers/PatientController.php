@@ -260,7 +260,7 @@ class PatientController extends Controller
                     ];
                 }
                 
-                Yii::$app->session->setFlash('success', 'Credenziali create con successo! Il PDF con le credenziali si aprirà automaticamente.');
+                Yii::$app->session->setFlash('success', 'Credenziali create con successo!');
                 return $this->redirect(['view', 'id' => $patient->id]);
 
             } catch (\Exception $e) {

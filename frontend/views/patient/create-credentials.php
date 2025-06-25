@@ -293,7 +293,7 @@ $(document).ready(function() {
             success: function(response) {
                 if (response.success) {
                     // Show success message
-                    alert('Credenziali create con successo! Il PDF verrà scaricato automaticamente.');
+                    alert('Credenziali create con successo!');
                     
                     // Download PDF automatically
                     if (response.downloadUrl) {

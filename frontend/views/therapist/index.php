@@ -174,10 +174,10 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'template' => '{view} {update} {toggle-status}',
+                        'template' => '{view} {update} {reset-password} {toggle-status}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             return [$action, 'id' => $model->id];
                         },
@@ -197,6 +197,17 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url, [
                                     'title' => 'Modifica terapista',
                                     'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
+                                    'data-bs-toggle' => 'tooltip',
+                                    'data-bs-placement' => 'top'
+                                ]);
+                            },
+                            'reset-password' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('update_therapist')) return '';
+                                
+                                return Html::button('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v-2l8.257-8.257C18.22 5.781 19.22 5 20.5 5.5s1.5 2.5.5 3.5L15 7z"></path></svg>', [
+                                    'title' => 'Reset Password e Genera PDF',
+                                    'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
+                                    'onclick' => 'resetTherapistPassword(' . $model->user_id . ')',
                                     'data-bs-toggle' => 'tooltip',
                                     'data-bs-placement' => 'top'
                                 ]);
@@ -244,3 +255,36 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 </div>
+
+<?php
+// Reset Password functionality
+$this->registerJs("
+window.resetTherapistPassword = function(userId) {
+    if (!confirm('Sei sicuro di voler resettare la password per questo terapista? Verrà generato un PDF con le nuove credenziali.')) {
+        return false;
+    }
+    
+    var actionUrl = '" . \yii\helpers\Url::to(['reset-password']) . "' + '?userId=' + userId;
+    
+    // Use AJAX to reset password and generate PDF
+    $.ajax({
+        url: actionUrl,
+        type: 'POST',
+        data: {
+            '" . Yii::$app->request->csrfParam . "': '" . Yii::$app->request->csrfToken . "'
+        },
+        success: function(response) {
+            // Trigger PDF download
+            window.open('" . \yii\helpers\Url::to(['download-credentials-pdf']) . "', '_blank');
+            // Reload page to show success message
+            location.reload();
+        },
+        error: function(xhr, status, error) {
+            console.error('Errore nel reset password:', error);
+            console.error('Response:', xhr.responseText);
+            alert('Errore nel reset password: ' + (xhr.responseJSON ? xhr.responseJSON.message : error));
+        }
+    });
+};
+", \yii\web\View::POS_READY);
+?>
