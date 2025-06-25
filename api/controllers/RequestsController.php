@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\UnauthorizedHttpException;
 use yii\web\BadRequestHttpException;
 use common\models\User;
+use common\models\RequestType;
 
 /**
  * @OA\Tag(
@@ -48,7 +49,7 @@ class RequestsController extends Controller
      * @OA\Get(
      *     path="/requests/types",
      *     summary="Recupera tipologie di richieste",
-     *     description="Restituisce l'elenco delle tipologie di richieste disponibili per i pazienti autenticati",
+     *     description="Restituisce l'elenco delle tipologie di richieste attive dal database per i pazienti autenticati",
      *     operationId="getRequestTypes",
      *     tags={"Richieste"},
      *     security={{"BearerAuth":{}}},
@@ -140,30 +141,33 @@ class RequestsController extends Controller
             // Registra l'accesso per audit
             Yii::info("Request types accessed by user ID: {$currentUser->id}", __METHOD__);
             
-            // Dati statici delle tipologie di richieste
-            // TODO: Sostituire con query al database quando il modello RequestType sarà implementato
-            $requestTypes = $this->getRequestTypesData();
+            // Recupera le tipologie di richieste dal database (una sola query)
+            $requestTypes = RequestType::getForApi();
             
-            // Filtra solo le tipologie attive
-            $activeRequestTypes = array_filter($requestTypes, function($type) {
-                return $type['is_active'] === true;
-            });
+            // Se non ci sono tipologie attive, restituisci array vuoto
+            if (empty($requestTypes)) {
+                Yii::warning("No active request types found in database", __METHOD__);
+                return [
+                    'success' => true,
+                    'data' => [],
+                    'meta' => [
+                        'total' => 0,
+                        'categories' => []
+                    ]
+                ];
+            }
             
-            // Ordina per categoria e poi per nome
-            usort($activeRequestTypes, function($a, $b) {
-                if ($a['category'] === $b['category']) {
-                    return strcmp($a['name'], $b['name']);
-                }
-                return strcmp($a['category'], $b['category']);
-            });
+            // Estrai le categorie dai dati già recuperati (evita seconda query)
+            $activeCategories = array_values(array_unique(array_column($requestTypes, 'category')));
+            sort($activeCategories); // Ordina alfabeticamente
             
-            // Risposta semplificata (formato JSON e status già gestiti globalmente)
+            // Risposta con dati dal database
             return [
                 'success' => true,
-                'data' => array_values($activeRequestTypes),
+                'data' => $requestTypes,
                 'meta' => [
-                    'total' => count($activeRequestTypes),
-                    'categories' => array_unique(array_column($activeRequestTypes, 'category'))
+                    'total' => count($requestTypes),
+                    'categories' => $activeCategories
                 ]
             ];
             
@@ -416,7 +420,8 @@ class RequestsController extends Controller
 
     /**
      * Restituisce i dati statici delle tipologie di richieste
-     * TODO: Sostituire con query al database quando il modello RequestType sarà implementato
+     * @deprecated Sostituito da RequestType::getForApi() - mantenuto per compatibilità test
+     * Utilizzato per sviluppo/testing quando non si ha accesso al database
      */
     private function getRequestTypesData()
     {
@@ -505,19 +510,27 @@ class RequestsController extends Controller
     }
 
     /**
-     * Trova una tipologia di richiesta per ID
+     * Trova una tipologia di richiesta per ID dal database
      */
     private function findRequestTypeById($typeId)
     {
-        $requestTypes = $this->getRequestTypesData();
+        $requestType = RequestType::findActiveById($typeId);
         
-        foreach ($requestTypes as $type) {
-            if ($type['id'] == $typeId && $type['is_active']) {
-                return $type;
-            }
+        if (!$requestType) {
+            return null;
         }
         
-        return null;
+        // Converte il modello in array per mantenere compatibilità con il resto del codice
+        return [
+            'id' => $requestType->id,
+            'name' => $requestType->name,
+            'description' => $requestType->description,
+            'category' => $requestType->category,
+            'estimated_days' => $requestType->estimated_days,
+            'requires_reason' => (bool) $requestType->requires_reason,
+            'requires_date_range' => (bool) $requestType->requires_date_range,
+            'is_active' => (bool) $requestType->is_active,
+        ];
     }
 
     /**

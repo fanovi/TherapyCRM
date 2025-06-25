@@ -22,7 +22,7 @@ email=paziente@example.com&password=password123
 ## Endpoint: GET /requests/types
 
 ### Descrizione
-Recupera l'elenco delle tipologie di richieste disponibili per i pazienti autenticati.
+Recupera l'elenco delle tipologie di richieste attive dal database per i pazienti autenticati.
 
 ### URL
 ```
@@ -195,9 +195,10 @@ const getRequestTypes = async (token) => {
 ## Note per lo Sviluppo
 
 ### Stato Attuale
-- ✅ Endpoint implementato con risposta statica
+- ✅ Endpoint implementato con dati dal database (tabella `request_types`)
 - ✅ Autenticazione JWT Bearer Token
 - ✅ Gestione errori e logging
+- ✅ Fallback per database vuoto con array vuoto
 - ✅ Documentazione OpenAPI/Swagger
 - ✅ Categorizzazione per UI
 - ✅ Metadati per organizzazione frontend
@@ -364,8 +365,8 @@ php api/test/test_create_request_endpoint.php
 
 ### Sviluppi Futuri
 - 🔄 Implementazione modello database `DocumentRequest`
-- 🔄 Implementazione modello database `RequestType`
-- 🔄 Query dinamiche al database
+- ✅ Implementazione modello database `RequestType` (COMPLETATO)
+- ✅ Query dinamiche al database (COMPLETATO)
 - 🔄 Filtri per categoria e stato
 - 🔄 Sistema di upload allegati per richieste
 - 🔄 Permessi RBAC specifici per tipo utente
@@ -401,4 +402,4 @@ Lo script effettua automaticamente:
 - ✅ Sanitizzazione delle risposte
 - ✅ Rate limiting (gestito a livello infrastruttura)
 
-L'endpoint è pronto per l'uso in produzione e può essere esteso facilmente quando sarà disponibile il modello database `RequestType`. 
+L'endpoint è pronto per l'uso in produzione con dati dinamici dal database. Il modello `RequestType` è implementato e funzionante. 
