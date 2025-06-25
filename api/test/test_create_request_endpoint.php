@@ -167,6 +167,7 @@ try {
     echo "🧪 TEST 2.1: Certificato Medico (completo)\n";
     $requestData1 = [
         'type_id' => 1,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => 'Certificato medico per assenza lavorativa dal 15 al 20 gennaio',
         'date_from' => '2025-01-15',
         'date_to' => '2025-01-20',
@@ -186,6 +187,7 @@ try {
     echo "🧪 TEST 2.2: Relazione Terapeutica\n";
     $requestData2 = [
         'type_id' => 2,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => 'Relazione per valutazione progresso terapeutico',
         'notes' => 'Per invio al medico di base'
     ];
@@ -203,6 +205,7 @@ try {
     echo "🧪 TEST 2.3: Certificato Idoneità Fisica (minimale)\n";
     $requestData3 = [
         'type_id' => 4,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'notes' => 'Per iscrizione palestra comunale'
     ];
     
@@ -218,7 +221,8 @@ try {
     // Test 2.4: Richiesta solo con type_id (ultra minimale)
     echo "🧪 TEST 2.4: Richiesta ultra minimale\n";
     $requestData4 = [
-        'type_id' => 6  // Prescrizione Esercizi
+        'type_id' => 6,  // Prescrizione Esercizi
+        'patient_id' => 1 // AGGIUNTO: patient_id ora obbligatorio
     ];
     
     $response4 = makeHttpRequest(
@@ -254,6 +258,7 @@ try {
     echo "🧪 TEST 3.2: Errore - type_id non esistente\n";
     $errorData2 = [
         'type_id' => 999,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => 'Test con tipo inesistente'
     ];
     
@@ -270,6 +275,7 @@ try {
     echo "🧪 TEST 3.3: Errore - reason mancante per Certificato Medico\n";
     $errorData3 = [
         'type_id' => 1,  // Certificato Medico richiede reason
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'date_from' => '2025-01-15',
         'date_to' => '2025-01-20',
         'notes' => 'Test senza reason'
@@ -288,6 +294,7 @@ try {
     echo "🧪 TEST 3.4: Errore - date_from mancante per Certificato Medico\n";
     $errorData4 = [
         'type_id' => 1,  // Certificato Medico richiede date
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => 'Motivo valido',
         'date_to' => '2025-01-20'
         // date_from mancante
@@ -306,6 +313,7 @@ try {
     echo "🧪 TEST 3.5: Errore - formato data non valido\n";
     $errorData5 = [
         'type_id' => 1,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => 'Test formato data sbagliato',
         'date_from' => '15/01/2025',  // Formato sbagliato
         'date_to' => '2025-01-20'
@@ -325,6 +333,7 @@ try {
     $longReason = str_repeat('Testo molto lungo per testare il limite di caratteri. ', 50); // > 1000 caratteri
     $errorData6 = [
         'type_id' => 2,
+        'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
         'reason' => $longReason
     ];
     
@@ -347,7 +356,7 @@ try {
         $baseUrl . '/requests',
         'POST',
         ['Content-Type: application/json'],
-        json_encode(['type_id' => 1])
+        json_encode(['type_id' => 1, 'patient_id' => 1]) // AGGIUNTO: patient_id ora obbligatorio
     );
     
     displayTestResult("Errore: token mancante", $noAuthResponse, 401);
@@ -363,7 +372,7 @@ try {
         $baseUrl . '/requests',
         'POST',
         $invalidAuthHeaders,
-        json_encode(['type_id' => 1])
+        json_encode(['type_id' => 1, 'patient_id' => 1]) // AGGIUNTO: patient_id ora obbligatorio
     );
     
     displayTestResult("Errore: token non valido", $invalidAuthResponse, 401);
@@ -401,8 +410,9 @@ echo "📋 RIEPILOGO ENDPOINT:\n";
 echo "URL: POST $baseUrl/requests\n";
 echo "Headers: Authorization: Bearer {jwt_token}\n";
 echo "         Content-Type: application/json\n";
-echo "Body: JSON con type_id, reason*, date_from*, date_to*, notes\n";
+echo "Body: JSON con type_id, patient_id, reason*, date_from*, date_to*, notes\n";
 echo "      (* = campi opzionali basati sul tipo di richiesta)\n";
+echo "      (patient_id è ora OBBLIGATORIO per tutte le richieste)\n";
 echo "Response: 201 Created con dati richiesta creata\n";
 echo "          400 Bad Request per errori validazione\n";
 echo "          401 Unauthorized per problemi autenticazione\n";

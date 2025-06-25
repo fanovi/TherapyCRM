@@ -45,6 +45,7 @@ $beforeRequest = new DateTime('now', new DateTimeZone('UTC'));
 
 $requestData = [
     'type_id' => 1,
+    'patient_id' => 1, // AGGIUNTO: patient_id ora obbligatorio
     'reason' => 'Test verifica timestamp UTC',
     'date_from' => '2025-02-01',
     'date_to' => '2025-02-05',

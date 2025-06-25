@@ -1,6 +1,6 @@
 <?php
 
-require_once '../config/bootstrap.php';
+require_once __DIR__ . '/../config/bootstrap.php';
 
 echo "🧪 TEST GESTIONE ERRORI STANDARDIZZATA\n";
 echo "=====================================\n\n";
@@ -23,7 +23,7 @@ curl_setopt_array($ch, [
 
 $loginResponse = curl_exec($ch);
 $loginData = json_decode($loginResponse, true);
-$token = $loginData['access_token'] ?? null;
+$token = $loginData['data']['access_token'] ?? null;
 
 if (!$token) {
     echo "❌ ERRORE: Impossibile ottenere token\n";
@@ -38,7 +38,7 @@ $tests = [
         'name' => 'INVALID_REQUEST_TYPE - Tipologia inesistente',
         'method' => 'POST',
         'url' => 'http://localhost/TherapyCRM/api/requests',
-        'data' => json_encode(['type_id' => 999, 'reason' => 'Test']),
+        'data' => json_encode(['type_id' => 999, 'patient_id' => 1, 'reason' => 'Test']), // AGGIUNTO patient_id
         'expected_code' => 'INVALID_REQUEST_TYPE',
         'expected_status' => 404
     ],
@@ -46,7 +46,7 @@ $tests = [
         'name' => 'MISSING_REQUIRED_FIELD - Campo obbligatorio mancante',
         'method' => 'POST',
         'url' => 'http://localhost/TherapyCRM/api/requests',
-        'data' => json_encode(['type_id' => '']), // type_id vuoto
+        'data' => json_encode(['type_id' => '', 'patient_id' => 1]), // type_id vuoto, AGGIUNTO patient_id
         'expected_code' => 'MISSING_REQUIRED_FIELD',
         'expected_status' => 400
     ],
@@ -54,7 +54,7 @@ $tests = [
         'name' => 'MISSING_REQUIRED_FIELD - Reason obbligatorio per tipo 1',
         'method' => 'POST',
         'url' => 'http://localhost/TherapyCRM/api/requests',
-        'data' => json_encode(['type_id' => 1]), // Certificato Medico richiede reason
+        'data' => json_encode(['type_id' => 1, 'patient_id' => 1]), // Certificato Medico richiede reason, AGGIUNTO patient_id
         'expected_code' => 'MISSING_REQUIRED_FIELD',
         'expected_status' => 400
     ],

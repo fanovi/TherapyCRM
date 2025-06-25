@@ -8,6 +8,8 @@ use yii\web\UnauthorizedHttpException;
 use yii\web\BadRequestHttpException;
 use common\models\User;
 use common\models\RequestType;
+use common\models\DocumentRequest;
+use common\models\AccountPatient;
 
 /**
  * @OA\Tag(
@@ -366,25 +368,57 @@ class RequestsController extends Controller
                 );
             }
 
-            // Simula il salvataggio nel database
-            $createdRequest = $this->simulateRequestSaving($data, $requestType, $currentUser);
+            // Salva la richiesta nel database (o restituisce quella esistente)
+            $requestResult = $this->saveDocumentRequest($data, $requestType, $currentUser);
 
-            // Risposta di successo
-            Yii::$app->response->statusCode = 201;
-            Yii::info("Request created successfully with ID: {$createdRequest['id']}", __METHOD__);
+            // Determina status code e messaggio in base al risultato
+            if (isset($requestResult['is_duplicate']) && $requestResult['is_duplicate']) {
+                // Richiesta duplicata - restituisce quella esistente
+                Yii::$app->response->statusCode = 200; // OK invece di 201 Created
+                $message = $requestResult['duplicate_message'];
+                Yii::info("Duplicate request returned for patient {$requestResult['patient_id']}, existing ID: {$requestResult['id']}", __METHOD__);
+            } else {
+                // Nuova richiesta creata
+                Yii::$app->response->statusCode = 201; // Created
+                $message = 'Richiesta creata con successo! Riceverai una notifica quando sarà pronta.';
+                Yii::info("New request created successfully with ID: {$requestResult['id']}", __METHOD__);
+            }
 
             return [
                 'success' => true,
-                'data' => $createdRequest,
-                'message' => 'Richiesta creata con successo! Riceverai una notifica quando sarà pronta.'
+                'data' => $requestResult,
+                'message' => $message
             ];
 
         } catch (UnauthorizedHttpException $e) {
             return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
 
         } catch (\Exception $e) {
+            // Gestisci errori specifici di accesso e permessi
+            $message = $e->getMessage();
+            
+            // Errori di accesso paziente
+            if (strpos($message, 'Non hai i permessi per fare richieste per questo paziente') !== false) {
+                return $this->formatErrorResponse('ACCESS_DENIED', $message, [], 403);
+            }
+            
+            // Errori di accesso paziente con lista accessibili
+            if (strpos($message, 'Pazienti accessibili:') !== false) {
+                return $this->formatErrorResponse('ACCESS_DENIED', $message, [], 403);
+            }
+            
+            // Errori AccountPatient non trovato
+            if (strpos($message, 'AccountPatient non trovato') !== false || strpos($message, 'Nessun AccountPatient trovato') !== false) {
+                return $this->formatErrorResponse('ACCESS_DENIED', 'Non hai accesso a nessun paziente. Contatta l\'amministratore.', [], 403);
+            }
+            
+            // Errori paziente non trovato
+            if (strpos($message, 'Paziente non trovato') !== false) {
+                return $this->formatErrorResponse('NOT_FOUND', 'Paziente non trovato o non accessibile', [], 404);
+            }
+
             // Log dell'errore per debugging
-            Yii::error("Error in RequestsController::actionCreate: " . $e->getMessage(), __METHOD__);
+            Yii::error("Error in RequestsController::actionCreate: " . $message, __METHOD__);
             Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
 
             return $this->formatErrorResponse('INTERNAL_ERROR', 'Errore interno del server', [], 500);
@@ -520,6 +554,13 @@ class RequestsController extends Controller
             $errors['type_id'][] = 'Il campo type_id deve essere un numero intero positivo';
         }
 
+        // patient_id è obbligatorio
+        if (empty($data['patient_id'])) {
+            $errors['patient_id'][] = 'Il campo patient_id è obbligatorio';
+        } elseif (!is_numeric($data['patient_id']) || (int)$data['patient_id'] <= 0) {
+            $errors['patient_id'][] = 'Il campo patient_id deve essere un numero intero positivo';
+        }
+
         // Validazione formato date se presenti
         if (!empty($data['date_from']) && !$this->isValidDate($data['date_from'])) {
             $errors['date_from'][] = 'Il formato della data di inizio non è valido (usa YYYY-MM-DD)';
@@ -574,49 +615,191 @@ class RequestsController extends Controller
     }
 
     /**
-     * Simula il salvataggio della richiesta nel database
-     * TODO: Sostituire con salvataggio reale quando il modello DocumentRequest sarà implementato
+     * Salva la richiesta nel database utilizzando il modello DocumentRequest
      */
-    private function simulateRequestSaving($data, $requestType, $currentUser)
+    private function saveDocumentRequest($data, $requestType, $currentUser)
     {
-        // Simula un ID incrementale
-        $requestId = mt_rand(100, 9999);
+        // Determina il paziente per cui fare la richiesta
+        $patientSelection = $this->determinePatientForRequest($data, $currentUser);
+        $accountPatient = $patientSelection['accountPatient'];
+        $patient = $patientSelection['patient'];
 
-        // Data e ora correnti in UTC
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
-        $createdAt = $now->format('Y-m-d\TH:i:s\Z');
+        // Controlla se esiste già una richiesta attiva per questo paziente e tipo
+        $existingRequest = $this->checkDuplicateRequest($patient->id, $data['type_id']);
+        if ($existingRequest) {
+            // Restituisce la richiesta esistente invece di crearne una nuova
+            return $this->formatExistingRequestResponse($existingRequest, $requestType);
+        }
 
-        // Calcola estimated_completion aggiungendo i giorni lavorativi (in UTC)
-        $estimatedCompletion = $this->calculateEstimatedCompletion($requestType['estimated_days']);
+        // Crea il nuovo DocumentRequest
+        $documentRequest = new DocumentRequest();
+        $documentRequest->patient_id = $patient->id;
+        $documentRequest->request_type_id = $data['type_id'];
+        $documentRequest->requested_by_account_patient_id = $accountPatient->id;
+        $documentRequest->status = DocumentRequest::STATUS_PENDING;
+        $documentRequest->reason = $data['reason'] ?? null;
+        $documentRequest->notes = $data['notes'] ?? null;
+        $documentRequest->date_from = $data['date_from'] ?? null;
+        $documentRequest->date_to = $data['date_to'] ?? null;
+        
+        // Calcola estimated_completion basato sui giorni stimati del tipo
+        $documentRequest->estimated_completion = $documentRequest->calculateEstimatedCompletion();
 
-        // Recupera i dati dell'account che ha creato la richiesta
+        // Salva nel database
+        if (!$documentRequest->save()) {
+            $errors = $documentRequest->getFirstErrors();
+            Yii::error("Error saving DocumentRequest: " . json_encode($errors), __METHOD__);
+            throw new \Exception("Errore nel salvataggio della richiesta: " . implode(', ', $errors));
+        }
+
+        // Log per audit
+        Yii::info("DocumentRequest created successfully with ID: {$documentRequest->id}", __METHOD__);
+
+        // Recupera i dati dell'account per la response
         $createdByData = $this->getCreatedByData($currentUser);
 
-        // Costruisce il record della richiesta
-        $request = [
-            'id' => $requestId,
-            'user_id' => $currentUser->id,
-            'type_id' => $data['type_id'],
+        // Restituisce i dati formattati per l'API
+        return [
+            'id' => $documentRequest->id,
+            'patient_id' => $documentRequest->patient_id,
+            'type_id' => $documentRequest->request_type_id,
             'request_type' => $requestType['name'],
-            'status' => 'pending',
-            'created_at' => $createdAt,
-            'estimated_completion' => $estimatedCompletion,
-            'reason' => $data['reason'] ?? null,
-            'notes' => $data['notes'] ?? null,
-            'date_from' => $data['date_from'] ?? null,
-            'date_to' => $data['date_to'] ?? null,
-            'created_by' => $createdByData
+            'status' => $documentRequest->status,
+            'status_label' => $documentRequest->getStatusLabel(),
+            'created_at' => (new \DateTime($documentRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
+            'estimated_completion' => (new \DateTime($documentRequest->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
+            'reason' => $documentRequest->reason,
+            'notes' => $documentRequest->notes,
+            'date_from' => $documentRequest->date_from,
+            'date_to' => $documentRequest->date_to,
+            'created_by' => $createdByData,
+            'can_be_cancelled' => $documentRequest->canBeCancelled(),
+        ];
+    }
+
+    /**
+     * Determina il paziente per cui fare la richiesta e verifica i permessi
+     *
+     * @param array $data
+     * @param User $currentUser
+     * @return array ['accountPatient' => AccountPatient, 'patient' => Patient]
+     * @throws \Exception
+     */
+    private function determinePatientForRequest($data, $currentUser)
+    {
+        // patient_id è sempre obbligatorio (validato prima)
+        $requestedPatientId = (int) $data['patient_id'];
+
+        // Trova tutti gli AccountPatient per l'utente corrente
+        $accountPatients = AccountPatient::find()
+            ->with(['patient']) // Carica anche i pazienti associati
+            ->where(['user_id' => $currentUser->id])
+            ->all();
+
+        if (empty($accountPatients)) {
+            throw new \Exception("Non hai accesso a nessun paziente. Contatta l'amministratore.");
+        }
+
+        // Verifica che l'utente abbia accesso al paziente specificato
+        $validAccountPatient = null;
+
+        foreach ($accountPatients as $accountPatient) {
+            if ($accountPatient->patient && $accountPatient->patient->id === $requestedPatientId) {
+                $validAccountPatient = $accountPatient;
+                break;
+            }
+        }
+
+        if (!$validAccountPatient) {
+            // Crea lista pazienti accessibili per messaggio informativo
+            $accessiblePatients = [];
+            foreach ($accountPatients as $ap) {
+                if ($ap->patient) {
+                    $accessiblePatients[] = "ID {$ap->patient->id}: {$ap->patient->first_name} {$ap->patient->last_name}";
+                }
+            }
+
+            // Log di sicurezza per tentativo di accesso non autorizzato
+            Yii::warning("User {$currentUser->id} attempted to access patient {$requestedPatientId} without permission. Accessible patients: " . implode(', ', $accessiblePatients), __METHOD__);
+            
+            throw new \Exception("Non hai i permessi per fare richieste per il paziente ID: {$requestedPatientId}. Pazienti accessibili: " . implode(', ', $accessiblePatients));
+        }
+
+        Yii::info("Patient access validated - user {$currentUser->id} accessing patient ID: {$requestedPatientId}", __METHOD__);
+
+        return [
+            'accountPatient' => $validAccountPatient,
+            'patient' => $validAccountPatient->patient
+        ];
+    }
+
+    /**
+     * Controlla se esiste già una richiesta attiva per il paziente e tipo specificato
+     *
+     * @param int $patientId
+     * @param int $requestTypeId
+     * @return DocumentRequest|null
+     */
+    private function checkDuplicateRequest($patientId, $requestTypeId)
+    {
+        return DocumentRequest::find()
+            ->with(['requestedByAccountPatient.user.profile']) // Carica relazioni per created_by
+            ->where([
+                'patient_id' => $patientId,
+                'request_type_id' => $requestTypeId
+            ])
+            ->andWhere(['in', 'status', [
+                DocumentRequest::STATUS_PENDING,
+                DocumentRequest::STATUS_ACCEPTED,
+                DocumentRequest::STATUS_PROCESSING,
+                DocumentRequest::STATUS_READY
+            ]]) // Solo richieste attive (non consegnate, rifiutate o cancellate)
+            ->orderBy(['created_at' => SORT_DESC]) // La più recente
+            ->one();
+    }
+
+    /**
+     * Formatta la response per una richiesta esistente (duplicata)
+     *
+     * @param DocumentRequest $existingRequest
+     * @param array $requestType
+     * @return array
+     */
+    private function formatExistingRequestResponse($existingRequest, $requestType)
+    {
+        // Recupera i dati di chi ha fatto la richiesta originale
+        $originalRequester = [
+            'id' => $existingRequest->requestedByAccountPatient->id,
+            'user_id' => $existingRequest->requestedByAccountPatient->user_id,
+            'first_name' => $existingRequest->requestedByAccountPatient->user->profile ? 
+                           $existingRequest->requestedByAccountPatient->user->profile->first_name : 'N/A',
+            'last_name' => $existingRequest->requestedByAccountPatient->user->profile ? 
+                          $existingRequest->requestedByAccountPatient->user->profile->last_name : 'N/A',
+            'relationship_type' => $existingRequest->requestedByAccountPatient->relationship_type
         ];
 
-        // Log per debugging
-        Yii::info("Simulated request saving: " . json_encode($request), __METHOD__);
+        // Log per audit
+        Yii::info("Duplicate request detected for patient {$existingRequest->patient_id}, returning existing request ID: {$existingRequest->id}", __METHOD__);
 
-        // In un sistema reale qui si farebbe:
-        // $documentRequest = new DocumentRequest();
-        // $documentRequest->attributes = $request;
-        // $documentRequest->save();
-
-        return $request;
+        return [
+            'id' => $existingRequest->id,
+            'patient_id' => $existingRequest->patient_id,
+            'type_id' => $existingRequest->request_type_id,
+            'request_type' => $requestType['name'],
+            'status' => $existingRequest->status,
+            'status_label' => $existingRequest->getStatusLabel(),
+            'created_at' => (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
+            'estimated_completion' => (new \DateTime($existingRequest->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
+            'reason' => $existingRequest->reason,
+            'notes' => $existingRequest->notes,
+            'date_from' => $existingRequest->date_from,
+            'date_to' => $existingRequest->date_to,
+            'created_by' => $originalRequester,
+            'can_be_cancelled' => $existingRequest->canBeCancelled(),
+            'is_duplicate' => true, // Flag per indicare che è una richiesta esistente
+            'duplicate_message' => "Esiste già una richiesta di questo tipo per il paziente, creata da {$originalRequester['first_name']} {$originalRequester['last_name']} il " . 
+                                  (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('d/m/Y \a\l\l\e H:i')
+        ];
     }
 
     /**
