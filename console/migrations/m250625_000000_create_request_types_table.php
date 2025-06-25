@@ -33,18 +33,16 @@ class m250625_000000_create_request_types_table extends Migration
         $this->createIndex('idx_active', '{{%request_types}}', 'is_active');
         $this->createIndex('idx_category_active', '{{%request_types}}', ['category', 'is_active']);
 
-        // Inserisci i dati iniziali (migrati dai dati statici dell'API)
+        // Inserisci i dati iniziali
         $this->batchInsert('{{%request_types}}', 
             ['name', 'description', 'category', 'estimated_days', 'requires_reason', 'requires_date_range', 'is_active'],
             [
                 ['Certificato Medico', 'Richiesta certificato medico per assenza lavorativa', 'medical', 3, 1, 1, 1],
                 ['Relazione Terapeutica', 'Richiesta relazione dettagliata sui progressi terapeutici', 'therapy', 5, 1, 0, 1],
-                ['Programma Riabilitativo', 'Richiesta piano riabilitativo personalizzato per il paziente', 'therapy', 7, 1, 0, 1],
-                ['Certificato Idoneità Fisica', 'Certificato per attività fisica e sportiva', 'fitness', 2, 0, 0, 1],
-                ['Richiesta Appuntamento Urgente', 'Richiesta di appuntamento con priorità alta', 'appointment', 1, 1, 1, 1],
-                ['Copia Cartella Clinica', 'Richiesta copia della cartella clinica del paziente', 'medical', 4, 1, 0, 1],
-                ['Prescrizione Esercizi Domiciliari', 'Richiesta programma di esercizi da svolgere a casa', 'therapy', 3, 0, 0, 1],
-                ['Rivalutazione Funzionale', 'Richiesta rivalutazione completa delle capacità funzionali', 'medical', 6, 1, 0, 1],
+                ['Copia Cartella Clinica', 'Richiesta copia della cartella clinica completa', 'medical', 7, 1, 0, 1],
+                ['Certificato di Idoneità', 'Certificato di idoneità per attività sportiva/lavorativa', 'fitness', 2, 1, 0, 1],
+                ['Referto Esami', 'Richiesta copia referto di esami specifici', 'medical', 1, 0, 1, 1],
+                ['Cambio Appuntamento', 'Richiesta modifica o spostamento appuntamento esistente', 'appointment', 1, 1, 0, 1],
             ]
         );
     }
