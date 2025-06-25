@@ -19,6 +19,40 @@ Content-Type: application/x-www-form-urlencoded
 email=paziente@example.com&password=password123
 ```
 
+## Gestione Timezone UTC
+
+⚠️ **IMPORTANTE:** Tutti i timestamp nell'API sono gestiti in UTC per garantire consistenza globale.
+
+### Configurazione
+- **Timezone server:** UTC (configurato in `api/config/bootstrap.php`)
+- **Formato timestamp:** ISO8601 con suffisso 'Z' (es: `2025-01-25T14:30:00Z`)
+- **Validazione date:** Tutte le date sono validate in UTC
+- **Confronti date:** Tutti i confronti sono timezone-safe
+
+### Esempi Timestamp
+```json
+{
+  "created_at": "2025-01-25T14:30:00Z",
+  "estimated_completion": "2025-01-28T18:00:00Z"
+}
+```
+
+### Conversione Timezone Client
+Se la tua app ha bisogno di mostrare date nel timezone locale:
+
+**JavaScript:**
+```javascript
+const utcDate = "2025-01-25T14:30:00Z";
+const localDate = new Date(utcDate).toLocaleString();
+```
+
+**React Native:**
+```javascript
+import { format } from 'date-fns';
+const utcDate = "2025-01-25T14:30:00Z";
+const localDate = format(new Date(utcDate), 'dd/MM/yyyy HH:mm');
+```
+
 ## Endpoint: GET /requests/types
 
 ### Descrizione

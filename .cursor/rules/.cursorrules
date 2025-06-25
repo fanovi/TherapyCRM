@@ -146,6 +146,74 @@ return [
 - CORS abilitato per frontend React
 - RBAC con ruoli: admin, coordinator, therapist, patient_family
 
+## Gestione Timezone UTC - OBBLIGATORIA per tutti gli Endpoint
+
+⚠️ **REGOLA FONDAMENTALE**: Tutti i timestamp negli endpoint API DEVONO essere gestiti in UTC per garantire consistenza globale.
+
+### Configurazione Base
+```php
+// In api/config/bootstrap.php - OBBLIGATORIO
+date_default_timezone_set('UTC');
+```
+
+### Pattern DateTime UTC
+```php
+// ❌ SBAGLIATO - Timezone server locale
+$now = new \DateTime();
+
+// ✅ CORRETTO - UTC esplicito
+$now = new \DateTime('now', new \DateTimeZone('UTC'));
+$timestamp = $now->format('Y-m-d\TH:i:s\Z'); // ISO8601 con Z
+```
+
+### Funzioni Helper Timezone-Safe
+```php
+// Validazione date UTC
+private function isValidDate($dateString) {
+    if (!$dateString) return false;
+    $date = \DateTime::createFromFormat('Y-m-d', $dateString, new \DateTimeZone('UTC'));
+    return $date && $date->format('Y-m-d') === $dateString;
+}
+
+// Confronto date timezone-safe
+private function compareDates($dateFrom, $dateTo) {
+    if (!$dateFrom || !$dateTo) return 0;
+    $from = \DateTime::createFromFormat('Y-m-d', $dateFrom, new \DateTimeZone('UTC'));
+    $to = \DateTime::createFromFormat('Y-m-d', $dateTo, new \DateTimeZone('UTC'));
+    if (!$from || !$to) return 0;
+    return $from <=> $to; // Spaceship operator per confronto
+}
+```
+
+### Calcolo Giorni Lavorativi in UTC
+```php
+private function calculateEstimatedCompletion($estimatedDays) {
+    $date = new \DateTime('now', new \DateTimeZone('UTC'));
+    $addedDays = 0;
+    
+    while ($addedDays < $estimatedDays) {
+        $date->add(new \DateInterval('P1D'));
+        if ($date->format('N') <= 5) { // Lunedì-Venerdì
+            $addedDays++;
+        }
+    }
+    
+    $date->setTime(18, 0, 0); // Fine giornata lavorativa UTC
+    return $date->format('Y-m-d\TH:i:s\Z');
+}
+```
+
+### Client-Side Conversione Timezone
+```javascript
+// JavaScript - Conversione da UTC a locale
+const utcTimestamp = "2025-01-25T14:30:00Z";
+const localDate = new Date(utcTimestamp).toLocaleString();
+
+// React Native con date-fns
+import { format } from 'date-fns';
+const localDate = format(new Date(utcTimestamp), 'dd/MM/yyyy HH:mm');
+```
+
 ### Pattern Endpoint API - Best Practices
 
 **AUTENTICAZIONE JWT**:
@@ -262,6 +330,44 @@ class RequestType extends ActiveRecord
 - Testare: login, successi, errori validazione, autenticazione
 - Usare token JWT reali, non fake
 - Verificare tutti status code (200, 201, 400, 401, 404)
+- Test timezone: `php api/test/test_timezone_only.php`
+
+**GESTIONE ERRORI E LOGGING**:
+```php
+public function actionCreate()
+{
+    try {
+        // Verifica autenticazione
+        $currentUser = Yii::$app->user->identity;
+        if (!$currentUser) {
+            throw new UnauthorizedHttpException('Utente non autenticato');
+        }
+        
+        // Logging per audit
+        Yii::info("Request created by user ID: {$currentUser->id}", __METHOD__);
+        
+        // Logica principale...
+        
+    } catch (UnauthorizedHttpException $e) {
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
+            'error_code' => 'UNAUTHORIZED'
+        ];
+        
+    } catch (\Exception $e) {
+        // Log dell'errore per debugging
+        Yii::error("Error in actionCreate: " . $e->getMessage(), __METHOD__);
+        Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
+        
+        return [
+            'success' => false,
+            'message' => 'Errore interno del server',
+            'error_code' => 'INTERNAL_ERROR'
+        ];
+    }
+}
+```
 
 ## Frontend React
 
@@ -477,4 +583,33 @@ Yii::$app->db->createCommand()->batchInsert(
     ['pattern_id', 'therapist_id', 'patient_id', 'appointment_datetime', 'duration_minutes'],
     $appointmentData
 )->execute();
-``` 
+```
+
+## Checklist Sviluppo Endpoint API
+
+**PRIMA DI IMPLEMENTARE**:
+- [ ] Definire struttura response JSON standard
+- [ ] Identificare validazioni necessarie (base + dinamiche)
+- [ ] Pianificare ottimizzazioni database (evitare query multiple)
+- [ ] Definire permessi RBAC necessari
+- [ ] Configurare timezone UTC
+
+**DURANTE IMPLEMENTAZIONE**:
+- [ ] Aggiungere import modelli necessari
+- [ ] Configurare JwtAuthBehavior
+- [ ] Implementare gestione timezone UTC per tutti i timestamp
+- [ ] Implementare logging audit con Yii::info() e Yii::error()
+- [ ] Gestire tutti i casi d'errore (401, 400, 404, 500)
+- [ ] Evitare query duplicate nello stesso metodo
+
+**DOPO IMPLEMENTAZIONE**:
+- [ ] Creare script di test completo in api/test/
+- [ ] Aggiungere documentazione OpenAPI/Swagger
+- [ ] Testare tutti status code e scenari
+- [ ] Verificare performance con dati reali
+- [ ] Test timezone con script dedicato
+- [ ] Aggiornare documentazione API
+
+**CREDENZIALI TEST**:
+- `paziente@test.it` / `12345678`
+- `terapista1@example.com` / `password789` 

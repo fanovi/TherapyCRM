@@ -556,9 +556,9 @@ class RequestsController extends Controller
             $errors['date_to'][] = 'Il formato della data di fine non è valido (usa YYYY-MM-DD)';
         }
 
-        // Se entrambe le date sono presenti, verifica che date_from <= date_to
+        // Se entrambe le date sono presenti, verifica che date_from <= date_to (timezone-safe)
         if (!empty($data['date_from']) && !empty($data['date_to'])) {
-            if (strtotime($data['date_from']) > strtotime($data['date_to'])) {
+            if ($this->compareDates($data['date_from'], $data['date_to']) > 0) {
                 $errors['date_to'][] = 'La data di fine deve essere successiva o uguale alla data di inizio';
             }
         }
@@ -609,11 +609,11 @@ class RequestsController extends Controller
         // Simula un ID incrementale
         $requestId = mt_rand(100, 9999);
 
-        // Data e ora correnti
-        $now = new \DateTime();
+        // Data e ora correnti in UTC
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
         $createdAt = $now->format('Y-m-d\TH:i:s\Z');
 
-        // Calcola estimated_completion aggiungendo i giorni lavorativi
+        // Calcola estimated_completion aggiungendo i giorni lavorativi (in UTC)
         $estimatedCompletion = $this->calculateEstimatedCompletion($requestType['estimated_days']);
 
         // Recupera i dati dell'account che ha creato la richiesta
@@ -647,11 +647,12 @@ class RequestsController extends Controller
     }
 
     /**
-     * Calcola la data stimata di completamento aggiungendo giorni lavorativi
+     * Calcola la data stimata di completamento aggiungendo giorni lavorativi (in UTC)
      */
     private function calculateEstimatedCompletion($estimatedDays)
     {
-        $date = new \DateTime();
+        // Inizia da ora in UTC
+        $date = new \DateTime('now', new \DateTimeZone('UTC'));
         $addedDays = 0;
 
         while ($addedDays < $estimatedDays) {
@@ -663,7 +664,7 @@ class RequestsController extends Controller
             }
         }
 
-        // Imposta l'ora a fine giornata lavorativa (18:00)
+        // Imposta l'ora a fine giornata lavorativa (18:00 UTC)
         $date->setTime(18, 0, 0);
 
         return $date->format('Y-m-d\TH:i:s\Z');
@@ -676,7 +677,8 @@ class RequestsController extends Controller
     {
         if (!$dateString) return false;
         
-        $date = \DateTime::createFromFormat('Y-m-d', $dateString);
+        // Crea DateTime in UTC per validazione consistente
+        $date = \DateTime::createFromFormat('Y-m-d', $dateString, new \DateTimeZone('UTC'));
         return $date && $date->format('Y-m-d') === $dateString;
     }
 
@@ -731,5 +733,21 @@ class RequestsController extends Controller
                 'relationship_type' => 'error'
             ];
         }
+    }
+
+    /**
+     * Confronta due date in formato YYYY-MM-DD in modo timezone-safe
+     */
+    private function compareDates($dateFrom, $dateTo)
+    {
+        if (!$dateFrom || !$dateTo) return 0;
+        
+        // Crea DateTime in UTC per confronto consistente
+        $from = \DateTime::createFromFormat('Y-m-d', $dateFrom, new \DateTimeZone('UTC'));
+        $to = \DateTime::createFromFormat('Y-m-d', $dateTo, new \DateTimeZone('UTC'));
+        
+        if (!$from || !$to) return 0;
+        
+        return $from <=> $to; // -1 se from < to, 0 se uguali, 1 se from > to
     }
 } 
