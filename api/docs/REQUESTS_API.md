@@ -202,10 +202,140 @@ const getRequestTypes = async (token) => {
 - ✅ Categorizzazione per UI
 - ✅ Metadati per organizzazione frontend
 
+## Endpoint: POST /requests
+
+### Descrizione
+Crea una nuova richiesta di documento per il paziente autenticato. La validazione è dinamica basata sui requisiti della tipologia selezionata.
+
+### URL
+```
+POST /api/requests
+```
+
+### Headers Richiesti
+```http
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+### Request Body
+```json
+{
+  "type_id": 1,
+  "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
+  "notes": "Note aggiuntive opzionali",
+  "date_from": "2025-01-15",
+  "date_to": "2025-01-20"
+}
+```
+
+### Parametri
+
+| Campo | Tipo | Obbligatorio | Descrizione |
+|-------|------|-------------|-------------|
+| `type_id` | integer | ✅ Sempre | ID della tipologia di richiesta |
+| `reason` | string (max 1000) | ⚠️ Condizionale | Motivo della richiesta (obbligatorio se `requires_reason = true`) |
+| `notes` | string (max 2000) | ❌ Opzionale | Note aggiuntive |
+| `date_from` | string (YYYY-MM-DD) | ⚠️ Condizionale | Data di inizio (obbligatoria se `requires_date_range = true`) |
+| `date_to` | string (YYYY-MM-DD) | ⚠️ Condizionale | Data di fine (obbligatoria se `requires_date_range = true`) |
+
+### Response Successo (201)
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "request_type": "Certificato Medico",
+    "status": "pending",
+    "created_at": "2025-01-25T10:30:00Z",
+    "estimated_completion": "2025-01-28T18:00:00Z",
+    "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
+    "notes": "Note aggiuntive opzionali",
+    "date_from": "2025-01-15",
+    "date_to": "2025-01-20"
+  },
+  "message": "Richiesta creata con successo! Riceverai una notifica quando sarà pronta."
+}
+```
+
+### Response Errore (400)
+```json
+{
+  "success": false,
+  "message": "Requisiti della tipologia non soddisfatti",
+  "error_code": "VALIDATION_ERROR",
+  "errors": {
+    "reason": ["Il motivo è obbligatorio per la tipologia 'Certificato Medico'"],
+    "date_from": ["La data di inizio è obbligatoria per la tipologia 'Certificato Medico'"]
+  }
+}
+```
+
+### Response Errore (404)
+```json
+{
+  "success": false,
+  "message": "Tipologia di richiesta non trovata o non attiva",
+  "error_code": "TYPE_NOT_FOUND"
+}
+```
+
+### Esempi Pratici
+
+#### Certificato Medico (completo)
+```bash
+curl -X POST "http://localhost/TherapyCRM/api/requests" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type_id": 1,
+    "reason": "Certificato per assenza lavorativa",
+    "date_from": "2025-01-15",
+    "date_to": "2025-01-20",
+    "notes": "Richiesta urgente"
+  }'
+```
+
+#### Certificato Idoneità Fisica (minimale)
+```bash
+curl -X POST "http://localhost/TherapyCRM/api/requests" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type_id": 4,
+    "notes": "Per iscrizione palestra"
+  }'
+```
+
+### Validazione Dinamica
+
+La validazione dei campi dipende dalla tipologia selezionata:
+
+```javascript
+// Esempi di validazione basata su tipologia
+if (requestType.requires_reason) {
+    // Campo 'reason' è obbligatorio
+}
+
+if (requestType.requires_date_range) {
+    // Campi 'date_from' e 'date_to' sono obbligatori
+    // date_to >= date_from
+}
+```
+
+### Test Completo
+Per testare l'endpoint con tutti gli scenari:
+
+```bash
+php api/test/test_create_request_endpoint.php
+```
+
 ### Sviluppi Futuri
+- 🔄 Implementazione modello database `DocumentRequest`
 - 🔄 Implementazione modello database `RequestType`
 - 🔄 Query dinamiche al database
 - 🔄 Filtri per categoria e stato
+- 🔄 Sistema di upload allegati per richieste
 - 🔄 Permessi RBAC specifici per tipo utente
 - 🔄 Localizzazione nomi e descrizioni
 - 🔄 Configurazione tempi stimati personalizzabili
