@@ -254,7 +254,17 @@ class RequestsController extends Controller
      *                 @OA\Property(property="reason", type="string", example="Certificato per assenza lavorativa dal 15/01 al 20/01"),
      *                 @OA\Property(property="notes", type="string", example="Note aggiuntive opzionali"),
      *                 @OA\Property(property="date_from", type="string", format="date", example="2025-01-15"),
-     *                 @OA\Property(property="date_to", type="string", format="date", example="2025-01-20")
+     *                 @OA\Property(property="date_to", type="string", format="date", example="2025-01-20"),
+     *                 @OA\Property(
+     *                     property="created_by",
+     *                     type="object",
+     *                     description="Dati dell'account che ha creato la richiesta",
+     *                     @OA\Property(property="id", type="integer", example=789, description="ID dell'AccountPatient"),
+     *                     @OA\Property(property="user_id", type="integer", example=456, description="ID dell'utente"),
+     *                     @OA\Property(property="first_name", type="string", example="Mario", description="Nome dell'utente"),
+     *                     @OA\Property(property="last_name", type="string", example="Rossi", description="Cognome dell'utente"),
+     *                     @OA\Property(property="relationship_type", type="string", enum={"self", "parent", "tutor", "other"}, example="parent", description="Tipo di relazione con il paziente")
+     *                 )
      *             ),
      *             @OA\Property(property="message", type="string", example="Richiesta creata con successo! Riceverai una notifica quando sarà pronta.")
      *         )
@@ -593,6 +603,9 @@ class RequestsController extends Controller
         // Calcola estimated_completion aggiungendo i giorni lavorativi
         $estimatedCompletion = $this->calculateEstimatedCompletion($requestType['estimated_days']);
 
+        // Recupera i dati dell'account che ha creato la richiesta
+        $createdByData = $this->getCreatedByData($currentUser);
+
         // Costruisce il record della richiesta
         $request = [
             'id' => $requestId,
@@ -605,7 +618,8 @@ class RequestsController extends Controller
             'reason' => $data['reason'] ?? null,
             'notes' => $data['notes'] ?? null,
             'date_from' => $data['date_from'] ?? null,
-            'date_to' => $data['date_to'] ?? null
+            'date_to' => $data['date_to'] ?? null,
+            'created_by' => $createdByData
         ];
 
         // Log per debugging
@@ -651,5 +665,58 @@ class RequestsController extends Controller
         
         $date = \DateTime::createFromFormat('Y-m-d', $dateString);
         return $date && $date->format('Y-m-d') === $dateString;
+    }
+
+    /**
+     * Recupera i dati dell'account che ha creato la richiesta
+     * Gli account che fanno richieste sono sempre utenti della tabella account_patients
+     */
+    private function getCreatedByData($currentUser)
+    {
+        try {
+            // Recupera l'AccountPatient per l'utente corrente
+            // Include le relazioni necessarie: user.profile per nome/cognome
+            $accountPatient = \common\models\AccountPatient::find()
+                ->with(['user.profile'])
+                ->where(['user_id' => $currentUser->id])
+                ->one();
+
+            if (!$accountPatient) {
+                // Fallback: se non troviamo AccountPatient, usa dati base dell'utente
+                Yii::warning("AccountPatient not found for user ID: {$currentUser->id}", __METHOD__);
+                
+                return [
+                    'id' => $currentUser->id,
+                    'first_name' => $currentUser->profile ? $currentUser->profile->first_name : 'N/A',
+                    'last_name' => $currentUser->profile ? $currentUser->profile->last_name : 'N/A',
+                    'relationship_type' => 'unknown'
+                ];
+            }
+
+            // Costruisce l'oggetto created_by con i dati dell'account
+            $createdBy = [
+                'id' => $accountPatient->id,
+                'user_id' => $accountPatient->user_id,
+                'first_name' => $accountPatient->user->profile ? $accountPatient->user->profile->first_name : 'N/A',
+                'last_name' => $accountPatient->user->profile ? $accountPatient->user->profile->last_name : 'N/A',
+                'relationship_type' => $accountPatient->relationship_type
+            ];
+
+            // Log per debugging
+            Yii::info("Created by data: " . json_encode($createdBy), __METHOD__);
+
+            return $createdBy;
+
+        } catch (\Exception $e) {
+            // In caso di errore, log e restituisci dati minimi
+            Yii::error("Error retrieving created_by data for user {$currentUser->id}: " . $e->getMessage(), __METHOD__);
+            
+            return [
+                'id' => $currentUser->id,
+                'first_name' => 'N/A',
+                'last_name' => 'N/A',
+                'relationship_type' => 'error'
+            ];
+        }
     }
 } 

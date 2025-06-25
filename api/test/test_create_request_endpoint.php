@@ -73,6 +73,14 @@ function displayTestResult($testName, $response, $expectedCode = 201) {
                 echo "   📊 Status: {$response['data']['data']['status']}\n";
                 echo "   📅 Creata: {$response['data']['data']['created_at']}\n";
                 echo "   ⏰ Completamento stimato: {$response['data']['data']['estimated_completion']}\n";
+                
+                // Mostra i dati created_by se presenti
+                if (isset($response['data']['data']['created_by'])) {
+                    $createdBy = $response['data']['data']['created_by'];
+                    echo "   👤 Creata da: {$createdBy['first_name']} {$createdBy['last_name']}\n";
+                    echo "   🔗 Relazione: {$createdBy['relationship_type']}\n";
+                    echo "   🆔 Account ID: {$createdBy['id']} (User ID: {$createdBy['user_id']})\n";
+                }
             }
             if (isset($response['data']['message'])) {
                 echo "   💬 Messaggio: {$response['data']['message']}\n";

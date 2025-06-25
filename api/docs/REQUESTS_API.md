@@ -252,11 +252,43 @@ Content-Type: application/json
     "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
     "notes": "Note aggiuntive opzionali",
     "date_from": "2025-01-15",
-    "date_to": "2025-01-20"
+    "date_to": "2025-01-20",
+    "created_by": {
+      "id": 789,
+      "user_id": 456,
+      "first_name": "Mario",
+      "last_name": "Rossi",
+      "relationship_type": "parent"
+    }
   },
   "message": "Richiesta creata con successo! Riceverai una notifica quando sarà pronta."
 }
 ```
+
+### Campi di Risposta
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID univoco della richiesta |
+| `request_type` | string | Nome della tipologia di richiesta |
+| `status` | string | Stato della richiesta (`pending`, `processing`, `completed`) |
+| `created_at` | string (ISO 8601) | Data e ora di creazione |
+| `estimated_completion` | string (ISO 8601) | Data stimata di completamento |
+| `reason` | string\|null | Motivo della richiesta |
+| `notes` | string\|null | Note aggiuntive |
+| `date_from` | string\|null | Data di inizio (formato YYYY-MM-DD) |
+| `date_to` | string\|null | Data di fine (formato YYYY-MM-DD) |
+| `created_by` | object | Dati dell'account che ha creato la richiesta |
+
+### Oggetto created_by
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID dell'AccountPatient |
+| `user_id` | integer | ID dell'utente che ha fatto la richiesta |
+| `first_name` | string | Nome dell'utente |
+| `last_name` | string | Cognome dell'utente |
+| `relationship_type` | string | Tipo di relazione con il paziente (`self`, `parent`, `tutor`, `other`) |
 
 ### Response Errore (400)
 ```json
