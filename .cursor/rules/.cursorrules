@@ -146,6 +146,123 @@ return [
 - CORS abilitato per frontend React
 - RBAC con ruoli: admin, coordinator, therapist, patient_family
 
+### Pattern Endpoint API - Best Practices
+
+**AUTENTICAZIONE JWT**:
+```php
+// Tutti i controller API devono usare JwtAuthBehavior
+public function behaviors()
+{
+    $behaviors = parent::behaviors();
+    $behaviors['jwtAuth'] = [
+        'class' => \common\components\JwtAuthBehavior::class,
+        'excludeActions' => [], // Tutte le azioni richiedono autenticazione
+    ];
+    return $behaviors;
+}
+
+// Sempre aggiungere import modelli necessari
+use common\models\RequestType;
+```
+
+**STRUTTURA RESPONSE STANDARD**:
+```php
+// Successo con dati
+return [
+    'success' => true,
+    'data' => $data,
+    'meta' => [
+        'total' => count($data),
+        'categories' => $categories
+    ]
+];
+
+// Errore di validazione
+return [
+    'success' => false,
+    'message' => 'Errori di validazione',
+    'error_code' => 'VALIDATION_ERROR',
+    'errors' => [
+        'field' => ['Messaggio errore specifico']
+    ]
+];
+```
+
+**OTTIMIZZAZIONI PERFORMANCE**:
+```php
+// ❌ EVITARE - Query multiple
+$requestTypes = RequestType::getForApi();
+$activeCategories = RequestType::getActiveCategories(); // Query separata!
+
+// ✅ CORRETTO - Una sola query
+$requestTypes = RequestType::getForApi();
+$activeCategories = array_values(array_unique(array_column($requestTypes, 'category')));
+sort($activeCategories);
+```
+
+**VALIDAZIONE DINAMICA**:
+```php
+// Validazione in 2 fasi: base + dinamica basata su requisiti modello
+private function validateRequestData($data) {
+    // Validazione formato, lunghezza, tipo
+}
+
+private function validateRequestTypeRequirements($data, $requestType) {
+    // Validazione condizionale basata su flags (requires_reason, requires_date_range)
+    if ($requestType['requires_reason'] && empty($data['reason'])) {
+        $errors['reason'][] = "Il motivo è obbligatorio per '{$requestType['name']}'";
+    }
+}
+```
+
+**PATTERN MODELLI API**:
+```php
+class RequestType extends ActiveRecord
+{
+    // Scope per filtrare solo record attivi
+    public static function findActive()
+    {
+        return static::find()->where(['is_active' => true]);
+    }
+    
+    // Metodo formattato per API con cast espliciti
+    public static function getForApi()
+    {
+        $requestTypes = static::findActive()
+            ->orderBy(['category' => SORT_ASC, 'name' => SORT_ASC])
+            ->all();
+            
+        $result = [];
+        foreach ($requestTypes as $type) {
+            $result[] = [
+                'id' => $type->id,
+                'name' => $type->name,
+                'requires_reason' => (bool) $type->requires_reason,
+                'is_active' => (bool) $type->is_active,
+            ];
+        }
+        return $result;
+    }
+}
+```
+
+**ROUTING API**:
+```php
+// In api/config/main.php
+'urlManager' => [
+    'rules' => [
+        'GET requests/types' => 'requests/types',
+        'POST requests' => 'requests/create',
+    ]
+]
+```
+
+**TESTING API**:
+- Creare script test in `api/test/test_endpoint_name.php`
+- Testare: login, successi, errori validazione, autenticazione
+- Usare token JWT reali, non fake
+- Verificare tutti status code (200, 201, 400, 401, 404)
+
 ## Frontend React
 
 ### Componenti Funzionali

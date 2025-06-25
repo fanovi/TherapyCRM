@@ -1000,4 +1000,395 @@ class TherapyController extends BaseController
 2. **Controlli Multipli**: Verificare permessi sia a livello controller che model
 3. **Logging**: Registrare accessi sensibili per audit
 4. **Cascading**: Rimozione permessi deve gestire dipendenze
-5. **Testing**: Ogni nuovo permesso deve avere test automatizzato 
+5. **Testing**: Ogni nuovo permesso deve avere test automatizzato
+
+## Sviluppo Endpoint API - Pattern e Best Practices
+
+### Struttura Controller API Standard
+
+**CONFIGURAZIONE BASE**:
+```php
+<?php
+namespace api\controllers;
+
+use Yii;
+use yii\web\Controller;
+use yii\web\UnauthorizedHttpException;
+use yii\web\BadRequestHttpException;
+use common\models\User;
+use common\models\RequestType; // Sempre import modelli necessari
+
+class RequestsController extends Controller
+{
+    public function behaviors()
+    {
+        $behaviors = parent::behaviors();
+        
+        // Solo JwtAuthBehavior necessario - CORS e JSON già configurati globalmente
+        $behaviors['jwtAuth'] = [
+            'class' => \common\components\JwtAuthBehavior::class,
+            'excludeActions' => [], // Tutte le azioni richiedono autenticazione
+        ];
+        
+        return $behaviors;
+    }
+    
+    public function actions()
+    {
+        $actions = parent::actions();
+        unset($actions['index'], $actions['view'], $actions['create'], $actions['update'], $actions['delete']);
+        return $actions;
+    }
+}
+```
+
+### Pattern Response JSON Consistenti
+
+**SUCCESSO CON DATI**:
+```php
+return [
+    'success' => true,
+    'data' => $requestTypes,
+    'meta' => [
+        'total' => count($requestTypes),
+        'categories' => $activeCategories
+    ]
+];
+```
+
+**SUCCESSO CREAZIONE (201)**:
+```php
+Yii::$app->response->statusCode = 201;
+return [
+    'success' => true,
+    'data' => $createdRecord,
+    'message' => 'Richiesta creata con successo! Riceverai una notifica quando sarà pronta.'
+];
+```
+
+**ERRORE VALIDAZIONE (400)**:
+```php
+Yii::$app->response->statusCode = 400;
+return [
+    'success' => false,
+    'message' => 'Errori di validazione',
+    'error_code' => 'VALIDATION_ERROR',
+    'errors' => [
+        'field_name' => ['Messaggio errore specifico']
+    ]
+];
+```
+
+**ERRORE NOT FOUND (404)**:
+```php
+Yii::$app->response->statusCode = 404;
+return [
+    'success' => false,
+    'message' => 'Tipologia di richiesta non trovata o non attiva',
+    'error_code' => 'TYPE_NOT_FOUND'
+];
+```
+
+### Ottimizzazioni Performance Database
+
+**❌ PROBLEMA - Query Multiple**:
+```php
+// Inefficiente: 2 query separate
+$requestTypes = RequestType::getForApi();           // Query 1
+$activeCategories = RequestType::getActiveCategories(); // Query 2
+```
+
+**✅ SOLUZIONE - Una Sola Query**:
+```php
+// Efficiente: 1 query + elaborazione in memoria
+$requestTypes = RequestType::getForApi();           // Query 1
+$activeCategories = array_values(array_unique(array_column($requestTypes, 'category')));
+sort($activeCategories); // Ordinamento alfabetico
+```
+
+**REGOLA**: Sempre verificare se si stanno facendo query duplicate nello stesso metodo!
+
+### Pattern Modelli per API
+
+**SCOPE ATTIVI**:
+```php
+class RequestType extends ActiveRecord
+{
+    // Scope per filtrare solo record attivi
+    public static function findActive()
+    {
+        return static::find()->where(['is_active' => true]);
+    }
+    
+    // Trova record attivo per ID
+    public static function findActiveById($id)
+    {
+        return static::findActive()->where(['id' => $id])->one();
+    }
+}
+```
+
+**METODO API FORMATTATO**:
+```php
+public static function getForApi()
+{
+    $requestTypes = static::findActive()
+        ->orderBy(['category' => SORT_ASC, 'name' => SORT_ASC])
+        ->all();
+
+    $result = [];
+    foreach ($requestTypes as $type) {
+        $result[] = [
+            'id' => $type->id,
+            'name' => $type->name,
+            'description' => $type->description,
+            'category' => $type->category,
+            'estimated_days' => $type->estimated_days,
+            'requires_reason' => (bool) $type->requires_reason,    // Cast esplicito
+            'requires_date_range' => (bool) $type->requires_date_range,
+            'is_active' => (bool) $type->is_active,
+        ];
+    }
+    
+    return $result;
+}
+```
+
+### Validazione Dinamica Pattern
+
+**VALIDAZIONE IN 2 FASI**:
+```php
+// Fase 1: Validazione base (formato, lunghezza, tipo)
+private function validateRequestData($data)
+{
+    $errors = [];
+    
+    if (empty($data['type_id'])) {
+        $errors['type_id'][] = 'Il campo type_id è obbligatorio';
+    }
+    
+    if (!empty($data['reason']) && strlen($data['reason']) > 1000) {
+        $errors['reason'][] = 'Il motivo non può superare i 1000 caratteri';
+    }
+    
+    if (!empty($data['date_from']) && !$this->isValidDate($data['date_from'])) {
+        $errors['date_from'][] = 'Il formato della data di inizio non è valido (usa YYYY-MM-DD)';
+    }
+    
+    return $errors;
+}
+
+// Fase 2: Validazione dinamica basata su requisiti del tipo
+private function validateRequestTypeRequirements($data, $requestType)
+{
+    $errors = [];
+    
+    // Verifica campo reason se richiesto dal tipo
+    if ($requestType['requires_reason'] && empty($data['reason'])) {
+        $errors['reason'][] = "Il motivo è obbligatorio per la tipologia '{$requestType['name']}'";
+    }
+    
+    // Verifica campi date se richiesti dal tipo
+    if ($requestType['requires_date_range']) {
+        if (empty($data['date_from'])) {
+            $errors['date_from'][] = "La data di inizio è obbligatoria per la tipologia '{$requestType['name']}'";
+        }
+        if (empty($data['date_to'])) {
+            $errors['date_to'][] = "La data di fine è obbligatoria per la tipologia '{$requestType['name']}'";
+        }
+    }
+    
+    return $errors;
+}
+```
+
+### Gestione Errori e Logging
+
+**PATTERN TRY-CATCH**:
+```php
+public function actionTypes()
+{
+    try {
+        // Verifica autenticazione
+        $currentUser = Yii::$app->user->identity;
+        if (!$currentUser) {
+            throw new UnauthorizedHttpException('Utente non autenticato');
+        }
+        
+        // Logging per audit
+        Yii::info("Request types accessed by user ID: {$currentUser->id}", __METHOD__);
+        
+        // Logica principale...
+        
+    } catch (UnauthorizedHttpException $e) {
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
+            'error_code' => 'UNAUTHORIZED'
+        ];
+        
+    } catch (\Exception $e) {
+        // Log dell'errore per debugging
+        Yii::error("Error in RequestsController::actionTypes: " . $e->getMessage(), __METHOD__);
+        Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
+        
+        return [
+            'success' => false,
+            'message' => 'Errore interno del server',
+            'error_code' => 'INTERNAL_ERROR'
+        ];
+    }
+}
+```
+
+### Routing API Configuration
+
+**CONFIGURAZIONE ROTTE**:
+```php
+// In api/config/main.php
+'urlManager' => [
+    'enablePrettyUrl' => true,
+    'showScriptName' => false,
+    'rules' => [
+        'GET requests/types' => 'requests/types',
+        'POST requests' => 'requests/create',
+        'GET requests/<id:\d+>' => 'requests/view',
+        'PUT requests/<id:\d+>' => 'requests/update',
+        'DELETE requests/<id:\d+>' => 'requests/delete',
+    ]
+]
+```
+
+### Testing API - Script Pattern
+
+**STRUTTURA SCRIPT TEST**:
+```php
+// api/test/test_endpoint_name.php
+<?php
+require_once '../config/bootstrap.php';
+
+echo "🧪 TEST ENDPOINT /endpoint\n";
+echo "=====================================\n\n";
+
+// Step 1: Login per token
+echo "🔐 STEP 1: Login per ottenere token JWT\n";
+$loginData = [
+    'email' => 'paziente@test.it',
+    'password' => '12345678'
+];
+
+$ch = curl_init();
+curl_setopt_array($ch, [
+    CURLOPT_URL => 'http://localhost/TherapyCRM/api/auth/login',
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => http_build_query($loginData),
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded']
+]);
+
+$loginResponse = curl_exec($ch);
+$loginData = json_decode($loginResponse, true);
+$token = $loginData['access_token'] ?? null;
+
+if (!$token) {
+    echo "❌ ERRORE: Impossibile ottenere token\n";
+    exit(1);
+}
+
+echo "✅ Token ottenuto\n\n";
+
+// Step 2: Test endpoint
+echo "📋 STEP 2: Test endpoint\n";
+curl_setopt_array($ch, [
+    CURLOPT_URL => 'http://localhost/TherapyCRM/api/endpoint',
+    CURLOPT_HTTPGET => true,
+    CURLOPT_HTTPHEADER => [
+        'Authorization: Bearer ' . $token,
+        'Content-Type: application/json'
+    ]
+]);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$data = json_decode($response, true);
+
+echo "Status: $httpCode\n";
+echo $data['success'] ? "✅ SUCCESS" : "❌ FAILED";
+echo "\n\n";
+
+// Visualizza risultati
+if ($data['success']) {
+    echo "📊 Dati ricevuti:\n";
+    echo "   Total: " . $data['meta']['total'] . "\n";
+    // ... altri dettagli
+}
+
+curl_close($ch);
+```
+
+### Documentazione OpenAPI/Swagger
+
+**ANNOTAZIONI STANDARD**:
+```php
+/**
+ * @OA\Get(
+ *     path="/requests/types",
+ *     summary="Recupera tipologie di richieste",
+ *     description="Restituisce l'elenco delle tipologie di richieste attive dal database",
+ *     operationId="getRequestTypes",
+ *     tags={"Richieste"},
+ *     security={{"BearerAuth":{}}},
+ *     @OA\Response(
+ *         response=200,
+ *         description="Tipologie recuperate con successo",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="success", type="boolean", example=true),
+ *             @OA\Property(property="data", type="array", @OA\Items(type="object")),
+ *             @OA\Property(property="meta", type="object")
+ *         )
+ *     ),
+ *     @OA\Response(response=401, description="Non autorizzato"),
+ *     @OA\Response(response=500, description="Errore interno")
+ * )
+ */
+```
+
+### Checklist Sviluppo Endpoint
+
+**PRIMA DI IMPLEMENTARE**:
+- [ ] Definire struttura response JSON
+- [ ] Identificare validazioni necessarie
+- [ ] Pianificare ottimizzazioni database
+- [ ] Definire permessi RBAC necessari
+
+**DURANTE IMPLEMENTAZIONE**:
+- [ ] Aggiungere import modelli necessari
+- [ ] Configurare JwtAuthBehavior
+- [ ] Implementare logging audit
+- [ ] Gestire tutti i casi d'errore
+- [ ] Evitare query duplicate
+
+**DOPO IMPLEMENTAZIONE**:
+- [ ] Creare script di test completo
+- [ ] Aggiungere documentazione OpenAPI
+- [ ] Testare tutti status code
+- [ ] Verificare performance con dati reali
+- [ ] Aggiornare documentazione API
+
+### Credenziali Test Disponibili
+
+**PAZIENTI**:
+- `paziente@test.it` / `12345678`
+- `paziente1@example.com` / `password123`
+- `paziente2@example.com` / `password123`
+
+**TERAPISTI**:
+- `terapista1@example.com` / `password789`
+- `terapista2@example.com` / `password000`
+
+**ENDPOINT LOGIN**:
+```bash
+curl -X POST "http://localhost/TherapyCRM/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=paziente@test.it&password=12345678"
+``` 
