@@ -49,6 +49,155 @@ private function compareDates($dateFrom, $dateTo) {
 }
 ```
 
+## 🌐 SWAGGER UI - DOCUMENTAZIONE INTERATTIVA API
+
+### Configurazione Swagger UI Completa
+**URL PRINCIPALE**: `http://localhost/TherapyCRM/api/swagger`
+
+**CARATTERISTICHE IMPLEMENTATE**:
+- **Interfaccia interattiva** per testare tutti gli endpoint API in tempo reale
+- **Autenticazione JWT integrata** con pulsante "Authorize" persistente
+- **Documentazione OpenAPI completa** con esempi request/response
+- **Istruzioni step-by-step** per l'autenticazione integrate nell'UI
+- **Persistenza token** durante la sessione di test
+
+### Pattern Swagger Implementati
+
+**SWAGGERCONTROLLER CONFIGURATO**:
+```php
+// In api/controllers/SwaggerController.php
+public function actionJson()
+{
+    // Scansiona automaticamente tutti i controller con annotazioni OpenAPI
+    $swagger = \OpenApi\Generator::scan([
+        Yii::getAlias('@api/controllers/AuthController.php'),
+        Yii::getAlias('@api/controllers/RequestsController.php'),
+        // ⚠️ IMPORTANTE: Aggiungere qui ogni nuovo controller API
+    ], ['validate' => false]);
+    
+    return json_decode($swagger->toJson(), true);
+}
+```
+
+**ANNOTAZIONI OPENAPI STANDARD**:
+```php
+/**
+ * @OA\Info(
+ *     title="TherapyCRM API - Richieste Pazienti",
+ *     version="2.0.0",
+ *     description="API per la gestione delle richieste di documenti dei pazienti"
+ * )
+ * @OA\SecurityScheme(
+ *     securityScheme="BearerAuth",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT",
+ *     description="Inserire il token JWT ottenuto dal login preceduto da 'Bearer '"
+ * )
+ */
+
+/**
+ * @OA\Get(
+ *     path="/requests/types",
+ *     summary="Recupera tipologie di richieste attive",
+ *     tags={"Richieste"},
+ *     security={{"BearerAuth":{}}},
+ *     @OA\Response(
+ *         response=200,
+ *         description="Tipologie recuperate con successo",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="success", type="boolean", example=true),
+ *             @OA\Property(property="data", type="array"),
+ *             @OA\Property(property="meta", type="object")
+ *         )
+ *     ),
+ *     @OA\Response(response=401, description="Token JWT non valido o mancante")
+ * )
+ */
+```
+
+**UI ENHANCEMENTS IMPLEMENTATI**:
+```javascript
+// In api/views/swagger/index.php - Configurazione avanzata
+const ui = SwaggerUIBundle({
+    url: jsonUrl,
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    persistAuthorization: true, // ✅ Mantiene token durante sessione
+    presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+    onComplete: function() {
+        // ✅ Istruzioni automatiche integrate nell'UI
+        const authSection = document.querySelector('.auth-wrapper');
+        if (authSection) {
+            authSection.insertAdjacentHTML('afterbegin', `
+                <div class="swagger-ui-instructions">
+                    <h4>🔐 Come Autenticarsi:</h4>
+                    <ol>
+                        <li><strong>Login:</strong> POST /auth/login con paziente@test.it / 12345678</li>
+                        <li><strong>Token:</strong> Copia access_token dalla response</li>
+                        <li><strong>Authorize:</strong> Clicca qui sopra e incolla: Bearer {token}</li>
+                        <li><strong>Test:</strong> Ora puoi testare tutti gli endpoint protetti!</li>
+                    </ol>
+                </div>
+            `);
+        }
+    }
+});
+```
+
+### Workflow Sviluppo con Swagger
+
+**AGGIUNTA NUOVI ENDPOINT - PROCEDURA OBBLIGATORIA**:
+1. **Implementare controller** con annotazioni OpenAPI complete
+2. **Aggiungere controller** in SwaggerController::actionJson() array
+3. **Testare endpoint** direttamente da Swagger UI
+4. **Documentare esempi** request/response realistici
+5. **Verificare autenticazione** JWT funzionante nell'interfaccia
+
+**TESTING SWAGGER COMPLETO**:
+```bash
+# Script di verifica automatica
+php api/test/test_swagger_endpoints.php
+
+# Verifica manuale UI
+# 1. Aprire http://localhost/TherapyCRM/api/swagger
+# 2. Seguire istruzioni integrate per login
+# 3. Testare tutti gli endpoint dall'interfaccia
+```
+
+**CREDENZIALI TEST INTEGRATE**:
+- **Pazienti**: `paziente@test.it` / `12345678`
+- **Terapisti**: `terapista1@example.com` / `password789`
+- **Login endpoint**: `POST /auth/login` (Content-Type: application/x-www-form-urlencoded)
+- **Token format**: `Bearer {jwt_token}` in Authorization header
+
+### Benefici Swagger UI Implementato
+
+1. **Sviluppo Accelerato**: Test immediati senza script esterni
+2. **Documentazione Vivente**: Sempre aggiornata con il codice
+3. **Onboarding Rapido**: Nuovi sviluppatori possono testare immediatamente
+4. **Debug Semplificato**: Visualizzazione response in tempo reale
+5. **Integrazione Mobile**: Test API prima dell'implementazione app
+6. **Sicurezza Verificata**: Test autenticazione JWT direttamente nell'UI
+7. **Collaborazione Team**: Condivisione endpoint funzionanti
+
+### Risoluzione Problemi Swagger
+
+**ENDPOINT NON VISIBILE**:
+1. Verificare annotazioni OpenAPI nel controller
+2. Aggiungere controller in SwaggerController::actionJson()
+3. Controllare sintassi annotazioni (no errori PHP)
+
+**AUTENTICAZIONE NON FUNZIONA**:
+1. Verificare JwtAuthBehavior configurato nel controller
+2. Testare login manuale per ottenere token valido
+3. Verificare formato: `Bearer {token}` (con spazio)
+
+**UI NON CARICA**:
+1. Verificare rotte swagger in api/config/main.php
+2. Controllare permessi directory api/views/swagger/
+3. Verificare che SwaggerController sia accessibile
+
 ## Problemi Comuni e Soluzioni
 
 ### 1. JavaScript di Yii e data-method
@@ -2067,50 +2216,108 @@ class RequestsApiTest extends \Codeception\Test\Unit
 }
 ```
 
-## Checklist Completa Sviluppo API
+## 📋 CHECKLIST COMPLETA SVILUPPO API (CON SWAGGER INTEGRATO)
 
-**ANALISI E PROGETTAZIONE**:
+### **FASE 1: ANALISI E PROGETTAZIONE**
 - [ ] Definire struttura response JSON standard
 - [ ] Identificare validazioni necessarie (base + dinamiche + business rules)
 - [ ] Pianificare ottimizzazioni database (evitare query multiple)
 - [ ] Definire permessi RBAC necessari
-- [ ] Progettare sistema caching appropriato
-- [ ] Pianificare rate limiting per endpoint
+- [ ] **Progettare annotazioni OpenAPI** per documentazione Swagger
+- [ ] Configurare timezone UTC
 
-**IMPLEMENTAZIONE CORE**:
-- [ ] Configurare timezone UTC (api/config/bootstrap.php)
+### **FASE 2: IMPLEMENTAZIONE CORE**
 - [ ] Aggiungere import modelli necessari
 - [ ] Configurare JwtAuthBehavior con excludeActions appropriato
 - [ ] Implementare gestione timezone UTC per tutti i timestamp
+- [ ] **Implementare metodi helper**: formatErrorResponse(), formatValidationErrors()
 - [ ] Implementare validazione in 2+ fasi (base, dinamica, business)
 - [ ] Evitare query duplicate nello stesso metodo
-
-**SICUREZZA E MONITORING**:
 - [ ] Implementare logging audit con Yii::info() e Yii::error()
-- [ ] Gestire tutti i casi d'errore (401, 400, 404, 500)
-- [ ] Aggiungere rate limiting appropriato
+
+### **FASE 3: DOCUMENTAZIONE SWAGGER** ⭐
+- [ ] **Aggiungere annotazioni OpenAPI complete** nel controller
+- [ ] **Aggiungere controller** in SwaggerController::actionJson() array
+- [ ] **Documentare tutti response codes** (200, 201, 400, 401, 403, 404, 500)
+- [ ] **Includere esempi** request/response realistici nelle annotazioni
+- [ ] **Testare endpoint** direttamente da Swagger UI
+- [ ] **Verificare autenticazione JWT** funzionante in Swagger
+
+### **FASE 4: TESTING COMPLETO**
+- [ ] **Creare script di test** completo in api/test/
+- [ ] **Test Swagger**: Verificare che endpoint sia visibile e testabile nell'UI
+- [ ] **Test autenticazione**: Login + token + chiamate protette
+- [ ] **Test tutti status code** e scenari edge case
+- [ ] **Test timezone** con script dedicato (test_timezone_only.php)
+- [ ] **Test performance** con dati reali
+- [ ] **Test validazioni** dinamiche e business rules
+
+### **FASE 5: SICUREZZA E MONITORING**
+- [ ] Gestire tutti i casi d'errore con formato standardizzato
+- [ ] Implementare rate limiting appropriato
 - [ ] Implementare audit trail per azioni sensibili
 - [ ] Configurare alerting per eventi di sicurezza
+- [ ] Verificare controlli RBAC
 
-**TESTING E DOCUMENTAZIONE**:
-- [ ] Creare script di test completo in api/test/
-- [ ] Creare test automatizzati con Codeception
-- [ ] Aggiungere documentazione OpenAPI/Swagger
-- [ ] Testare tutti status code e scenari edge case
-- [ ] Test timezone con script dedicato (test_timezone_only.php)
-- [ ] Test performance con dati reali
-- [ ] Aggiornare documentazione API e file rules
+### **FASE 6: FINALIZZAZIONE**
+- [ ] **Aggiornare documentazione** API (REQUESTS_API.md)
+- [ ] **Aggiornare status** implementazione (IMPLEMENTATION_STATUS.md)
+- [ ] **Aggiornare file rules** (.cursorrules, therapy-rules.mdc)
+- [ ] **Verificare Swagger UI** accessibile e completo
+- [ ] **Test integrazione** con app mobile (se applicabile)
 
-**PERFORMANCE E SCALABILITÀ**:
-- [ ] Implementare caching multi-livello dove appropriato
-- [ ] Ottimizzare query database con indici appropriati
-- [ ] Configurare connection pooling se necessario
-- [ ] Monitorare tempi di risposta e identificare bottleneck
-- [ ] Implementare lazy loading per dati non critici
+### **🔧 STRUMENTI E RISORSE ESSENZIALI**
 
-**DEPLOYMENT E MAINTENANCE**:
-- [ ] Configurare logging rotation
-- [ ] Setup monitoring e alerting
-- [ ] Documentare API versioning strategy
-- [ ] Preparare migration path per breaking changes
+**SWAGGER UI COMPLETO**:
+- **URL Principale**: `http://localhost/TherapyCRM/api/swagger`
+- **JSON Raw**: `http://localhost/TherapyCRM/api/swagger/json`
+- **Test Script**: `php api/test/test_swagger_endpoints.php`
+
+**CREDENZIALI TEST STANDARD**:
+- **Pazienti**: `paziente@test.it` / `12345678`
+- **Terapisti**: `terapista1@example.com` / `password789`
+- **Login endpoint**: `POST /auth/login` (form-urlencoded)
+- **Token format**: `Bearer {jwt_token}` in Authorization header
+
+**SCRIPT TEST COMPLETI DISPONIBILI**:
+- `test_requests_endpoint.php` - GET /requests/types
+- `test_create_request_endpoint.php` - POST /requests
+- `test_get_patient_requests.php` - GET /requests (paginato)
+- `test_get_single_request.php` - GET /requests/{id}
+- `test_swagger_endpoints.php` - ⭐ **Verifica Swagger completo**
+- `test_error_handling_standard.php` - Test gestione errori
+- `test_timezone_only.php` - Test timezone UTC
+
+### **🎯 PATTERN DI SUCCESSO IMPLEMENTATI**
+
+**CONTROLLER API STANDARD**:
+```php
+// ✅ Pattern completo implementato:
+// 1. Annotazioni OpenAPI complete
+// 2. JwtAuthBehavior configurato
+// 3. Metodi helper per errori standardizzati
+// 4. Logging audit completo
+// 5. Gestione timezone UTC
+// 6. Validazioni dinamiche multi-livello
+```
+
+**WORKFLOW TESTING OTTIMIZZATO**:
+```bash
+# 1. Test script automatico
+php api/test/test_nuovo_endpoint.php
+
+# 2. Test Swagger UI interattivo
+# Aprire http://localhost/TherapyCRM/api/swagger
+# Login automatico + Authorize + Test tutti gli endpoint
+
+# 3. Verifica documentazione completa
+# Controllare annotazioni, esempi, response codes
+```
+
+**DOCUMENTAZIONE COMPLETA GARANTITA**:
+- ✅ Annotazioni OpenAPI nel controller
+- ✅ Esempi cURL, JavaScript, React Native
+- ✅ Descrizione parametri e response dettagliata
+- ✅ Gestione errori documentata e testabile
+- ✅ Swagger UI completamente funzionante e testabile
 - [ ] Setup backup e recovery procedures 
