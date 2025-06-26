@@ -78,6 +78,15 @@ return [
                 'GET requests/<id:\d+>' => 'requests/view',
                 'POST requests' => 'requests/create',
                 
+                // Swagger routes
+                'GET swagger' => 'swagger/index',
+                'GET swagger/json' => 'swagger/json',
+                
+                // Auth routes
+                'POST auth/login' => 'auth/login',
+                'POST auth/logout' => 'auth/logout',
+                'GET auth/verify' => 'auth/verify',
+                
                 // Altre route qui...
             ],
         ],

@@ -35,8 +35,10 @@ class SwaggerController extends Controller
      */
     public function actionJson()
     {
+        // Scansiona tutti i controller con annotazioni OpenAPI
         $swagger = \OpenApi\Generator::scan([
-            Yii::getAlias('@api/controllers/AuthController.php')
+            Yii::getAlias('@api/controllers/AuthController.php'),
+            Yii::getAlias('@api/controllers/RequestsController.php'),
         ], ['validate' => false]);
 
         Yii::$app->response->format = Response::FORMAT_JSON;

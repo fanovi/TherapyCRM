@@ -12,6 +12,34 @@ use common\models\DocumentRequest;
 use common\models\AccountPatient;
 
 /**
+ * @OA\Info(
+ *     title="TherapyCRM API - Richieste Pazienti",
+ *     version="2.0.0",
+ *     description="API per la gestione delle richieste di documenti dei pazienti nel sistema TherapyCRM",
+ *     @OA\Contact(
+ *         email="support@therapycrm.com",
+ *         name="TherapyCRM Support"
+ *     )
+ * )
+ * 
+ * @OA\Server(
+ *     url="/api",
+ *     description="API Server"
+ * )
+ * 
+ * @OA\SecurityScheme(
+ *     securityScheme="BearerAuth",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT",
+ *     description="Inserisci il token JWT ottenuto dal login. Formato: Bearer {token}"
+ * )
+ *
+ * @OA\Tag(
+ *     name="Autenticazione",
+ *     description="Operazioni di autenticazione e gestione token"
+ * )
+ * 
  * @OA\Tag(
  *     name="Richieste",
  *     description="Operazioni relative alle richieste dei pazienti"

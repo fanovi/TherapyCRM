@@ -2,6 +2,50 @@
 
 Documentazione completa per gli endpoint API relativi alle richieste dei pazienti nel sistema TherapyCRM.
 
+## 🌐 Swagger UI - Interfaccia Interattiva
+
+### Accesso Rapido
+**URL:** [http://localhost/TherapyCRM/api/swagger](http://localhost/TherapyCRM/api/swagger)
+
+La documentazione Swagger UI permette di:
+- **Visualizzare** tutti gli endpoint disponibili
+- **Testare** direttamente le API dall'interfaccia web
+- **Autenticarsi** facilmente con il sistema JWT
+- **Vedere** esempi di request e response in tempo reale
+
+### Come Usare Swagger UI
+
+#### 1. 🔐 Autenticazione
+1. **Fai login** usando l'endpoint `POST /auth/login` con le credenziali:
+   - Email: `paziente@test.it`
+   - Password: `12345678`
+2. **Copia il token** dalla risposta (campo `access_token`)
+3. **Clicca "Authorize"** in alto a destra nella UI
+4. **Incolla il token** nel campo (solo il token, senza "Bearer")
+5. **Clicca "Authorize"** per salvare
+
+#### 2. 🧪 Test degli Endpoint
+Una volta autenticato, puoi testare tutti gli endpoint:
+- **GET /requests/types** - Lista tipologie richieste
+- **GET /requests** - Lista richieste paziente (con paginazione)
+- **GET /requests/{id}** - Dettaglio singola richiesta
+- **POST /requests** - Crea nuova richiesta
+
+#### 3. 📊 Vantaggi Swagger UI
+- ✅ **Persistenza token**: Il token rimane salvato durante la sessione
+- ✅ **Validazione automatica**: Controllo parametri in tempo reale
+- ✅ **Esempi interattivi**: Response reali dal server
+- ✅ **Documentazione completa**: Tutti i parametri e response codes
+- ✅ **Istruzioni integrate**: Guide step-by-step per l'autenticazione
+
+### Credenziali di Test
+```
+Email: paziente@test.it
+Password: 12345678
+```
+
+---
+
 ## Autenticazione
 
 Tutti gli endpoint richiedono autenticazione Bearer Token JWT ottenuto tramite login:
@@ -985,7 +1029,18 @@ php api/test/test_get_patient_requests.php
 
 # Test endpoint GET /requests/{id} (singola richiesta)
 php api/test/test_get_single_request.php
+
+# Test completo configurazione Swagger
+php api/test/test_swagger_endpoints.php
 ```
+
+#### Script Test Swagger
+Il nuovo script `test_swagger_endpoints.php` verifica:
+- ✅ **Swagger JSON** accessibile e completo
+- ✅ **Swagger UI** funzionante con istruzioni
+- ✅ **Autenticazione JWT** nel flusso Swagger
+- ✅ **Endpoint protetti** correttamente configurati
+- ✅ **Statistiche complete** degli endpoint disponibili
 
 Gli script effettuano automaticamente:
 1. Login con credenziali di test
