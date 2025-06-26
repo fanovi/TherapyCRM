@@ -53,6 +53,131 @@ const utcDate = "2025-01-25T14:30:00Z";
 const localDate = format(new Date(utcDate), 'dd/MM/yyyy HH:mm');
 ```
 
+## Endpoint: GET /requests/{id}
+
+### Descrizione
+Recupera i dettagli completi di una singola richiesta specifica. L'utente deve avere accesso al paziente associato alla richiesta.
+
+### URL
+```
+GET /api/requests/{id}
+```
+
+### Headers Richiesti
+```http
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+### Parametri Path
+
+| Parametro | Tipo | Richiesto | Descrizione |
+|-----------|------|-----------|-------------|
+| `id` | integer | **Sì** | ID della richiesta da recuperare |
+
+### Risposta di Successo (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "request_type": "Certificato Medico",
+    "status": "completed",
+    "created_at": "2025-01-20T10:30:00Z",
+    "updated_at": "2025-01-23T16:45:00Z",
+    "estimated_completion": "2025-01-25T18:00:00Z",
+    "completed_at": "2025-01-23T16:45:00Z",
+    "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
+    "notes": "Richiesta urgente per datore di lavoro",
+    "date_from": "2025-01-15",
+    "date_to": "2025-01-20",
+    "type_info": {
+      "id": 1,
+      "name": "Certificato Medico",
+      "category": "medical",
+      "estimated_days": 3
+    },
+    "created_by": {
+      "id": 1,
+      "user_id": 4,
+      "first_name": "Anna",
+      "last_name": "Bianchi",
+      "relationship_type": "parent"
+    }
+  }
+}
+```
+
+### Campi Risposta Richiesta
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID univoco della richiesta |
+| `request_type` | string | Nome della tipologia di richiesta |
+| `status` | string | Stato attuale (pending, accepted, processing, ready, delivered, cancelled, rejected) |
+| `created_at` | string | Data creazione in formato UTC ISO8601 |
+| `updated_at` | string | Data ultimo aggiornamento in formato UTC ISO8601 |
+| `estimated_completion` | string | Data stimata completamento in formato UTC ISO8601 |
+| `completed_at` | string\|null | Data completamento effettivo (null se non completata) |
+| `reason` | string\|null | Motivo della richiesta |
+| `notes` | string\|null | Note aggiuntive |
+| `date_from` | string\|null | Data inizio periodo (formato YYYY-MM-DD) |
+| `date_to` | string\|null | Data fine periodo (formato YYYY-MM-DD) |
+| `type_info` | object | Informazioni dettagliate sul tipo di richiesta |
+| `created_by` | object\|null | Informazioni su chi ha creato la richiesta |
+
+### Campi type_info
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID del tipo di richiesta |
+| `name` | string | Nome del tipo di richiesta |
+| `category` | string | Categoria (medical, therapy, fitness, appointment) |
+| `estimated_days` | integer | Giorni lavorativi stimati per completamento |
+
+### Campi created_by
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID dell'AccountPatient |
+| `user_id` | integer | ID dell'utente che ha fatto la richiesta |
+| `first_name` | string | Nome del richiedente |
+| `last_name` | string | Cognome del richiedente |
+| `relationship_type` | string | Tipo di relazione (self, parent, guardian, caregiver) |
+
+### Errori Specifici
+
+#### 404 Not Found - Richiesta non trovata
+```json
+{
+  "success": false,
+  "error": "Richiesta non trovata",
+  "code": "NOT_FOUND"
+}
+```
+
+#### 403 Forbidden - Accesso negato
+```json
+{
+  "success": false,
+  "error": "Non hai i permessi per accedere a questa richiesta. Non hai i permessi per accedere alle richieste del paziente ID: 2. Pazienti accessibili: ID 1: Giulia Bianchi",
+  "code": "ACCESS_DENIED"
+}
+```
+
+#### 400 Bad Request - ID non valido
+```json
+{
+  "success": false,
+  "error": "ID richiesta non valido",
+  "code": "MISSING_REQUIRED_FIELD",
+  "details": {
+    "id": "L'ID deve essere un numero intero positivo"
+  }
+}
+```
+
 ## Endpoint: GET /requests
 
 ### Descrizione
@@ -613,6 +738,134 @@ L'endpoint è progettato per integrarsi perfettamente con l'app React Native esi
 3. **Tempi Stimati**: `estimated_days` può essere mostrato all'utente per gestire le aspettative
 4. **Filtraggio**: Solo le tipologie attive (`is_active: true`) vengono restituite
 
+### Esempi di Utilizzo per GET /requests/{id}
+
+#### cURL - Recupera singola richiesta
+```bash
+# 1. Login per ottenere token
+curl -X POST "http://localhost/TherapyCRM/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=paziente@test.it&password=12345678"
+
+# 2. Recupera richiesta specifica ID 123
+curl -X GET "http://localhost/TherapyCRM/api/requests/123" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json"
+```
+
+#### JavaScript/Fetch API
+```javascript
+const fetchRequestDetail = async (requestId) => {
+  try {
+    const response = await fetch(`/api/requests/${requestId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log('Richiesta:', data.data);
+      console.log('Tipo:', data.data.type_info);
+      console.log('Creata da:', data.data.created_by);
+      return data.data;
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('Error fetching request:', error);
+    throw error;
+  }
+};
+
+// Utilizzo
+fetchRequestDetail(123).then(request => {
+  console.log(`Richiesta ${request.id}: ${request.request_type} - ${request.status}`);
+});
+```
+
+#### React Native
+```javascript
+import { API_BASE_URL } from '../config/api';
+
+const RequestDetailService = {
+  async getRequestDetail(requestId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests/${requestId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.data;
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching request detail:', error);
+      throw error;
+    }
+  }
+};
+
+// Utilizzo nel componente
+const RequestDetailScreen = ({ route }) => {
+  const { requestId } = route.params;
+  const [request, setRequest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadRequestDetail = async () => {
+      try {
+        setLoading(true);
+        const requestData = await RequestDetailService.getRequestDetail(requestId);
+        setRequest(requestData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRequestDetail();
+  }, [requestId]);
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage message={error} />;
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>{request.request_type}</Text>
+      <Text style={styles.status}>Status: {request.status}</Text>
+      <Text style={styles.reason}>{request.reason}</Text>
+      
+      {request.type_info && (
+        <View style={styles.typeInfo}>
+          <Text>Categoria: {request.type_info.category}</Text>
+          <Text>Giorni stimati: {request.type_info.estimated_days}</Text>
+        </View>
+      )}
+      
+      {request.created_by && (
+        <View style={styles.createdBy}>
+          <Text>Richiesta da: {request.created_by.first_name} {request.created_by.last_name}</Text>
+          <Text>Relazione: {request.created_by.relationship_type}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+```
+
 ### Esempi di Utilizzo per GET /requests
 
 #### cURL - Recupera tutte le richieste del paziente
@@ -727,8 +980,11 @@ php api/test/test_requests_endpoint.php
 # Test endpoint POST /requests
 php api/test/test_create_request_endpoint.php
 
-# Test endpoint GET /requests
+# Test endpoint GET /requests (lista paginata)
 php api/test/test_get_patient_requests.php
+
+# Test endpoint GET /requests/{id} (singola richiesta)
+php api/test/test_get_single_request.php
 ```
 
 Gli script effettuano automaticamente:

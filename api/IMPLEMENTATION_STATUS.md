@@ -40,6 +40,20 @@
   - Response format secondo specifiche utente
   - Informazioni `created_by` complete
 
+### Endpoint GET /requests/{id}
+- **URL**: `GET /api/requests/{id}`
+- **Descrizione**: Recupera singola richiesta con dettagli completi
+- **Stato**: ✅ **IMPLEMENTATO E TESTATO**
+- **Features**:
+  - Parametro `id` obbligatorio nel path
+  - Controllo accesso sicurezza paziente
+  - Validazione ID numerico positivo
+  - Eager loading relazioni complete
+  - Response format con `type_info` dettagliato
+  - Informazioni `created_by` complete
+  - Gestione errori 404, 403, 400
+  - Timestamp UTC ISO8601 completi
+
 ## 🔧 VALIDAZIONI IMPLEMENTATE
 
 ### ✅ Validazione Completa
@@ -170,6 +184,25 @@ Per sviluppi futuri potrebbero essere implementati:
 - Dashboard amministrativa
 - Filtri avanzati per ricerca
 - Esportazione dati in PDF/Excel
+
+---
+
+## 📋 RIEPILOGO ENDPOINT COMPLETI
+
+| Endpoint | Metodo | Descrizione | Status |
+|----------|--------|-------------|---------|
+| `/requests/types` | GET | Lista tipologie richieste | ✅ COMPLETO |
+| `/requests` | POST | Crea nuova richiesta | ✅ COMPLETO |
+| `/requests` | GET | Lista richieste paziente | ✅ COMPLETO |
+| `/requests/{id}` | GET | Dettaglio singola richiesta | ✅ COMPLETO |
+
+### Test Scripts Disponibili
+| Script | Endpoint Testato | Descrizione |
+|--------|------------------|-------------|
+| `test_requests_endpoint.php` | GET /requests/types | Test tipologie richieste |
+| `test_create_request_endpoint.php` | POST /requests | Test creazione richiesta |
+| `test_get_patient_requests.php` | GET /requests | Test lista paginata |
+| `test_get_single_request.php` | GET /requests/{id} | Test dettaglio richiesta |
 
 ---
 

@@ -75,6 +75,7 @@ return [
                 // Request routes
                 'GET requests/types' => 'requests/types',
                 'GET requests' => 'requests/index',
+                'GET requests/<id:\d+>' => 'requests/view',
                 'POST requests' => 'requests/create',
                 
                 // Altre route qui...

@@ -414,6 +414,181 @@ class RequestsController extends Controller
     }
 
     /**
+     * @OA\Get(
+     *     path="/requests/{id}",
+     *     summary="Recupera una singola richiesta",
+     *     description="Recupera i dettagli completi di una richiesta specifica. L'utente deve avere accesso al paziente associato alla richiesta.",
+     *     operationId="getRequest",
+     *     tags={"Richieste"},
+     *     security={{"BearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID della richiesta da recuperare",
+     *         @OA\Schema(type="integer", minimum=1, example=123)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Richiesta recuperata con successo",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=123),
+     *                 @OA\Property(property="request_type", type="string", example="Certificato Medico"),
+     *                 @OA\Property(property="status", type="string", example="completed"),
+     *                 @OA\Property(property="created_at", type="string", format="date-time", example="2025-01-20T10:30:00Z"),
+     *                 @OA\Property(property="updated_at", type="string", format="date-time", example="2025-01-23T16:45:00Z"),
+     *                 @OA\Property(property="estimated_completion", type="string", format="date-time", example="2025-01-25T18:00:00Z"),
+     *                 @OA\Property(property="completed_at", type="string", format="date-time", example="2025-01-23T16:45:00Z"),
+     *                 @OA\Property(property="reason", type="string", example="Certificato per assenza lavorativa dal 15/01 al 20/01"),
+     *                 @OA\Property(property="notes", type="string", example="Richiesta urgente per datore di lavoro"),
+     *                 @OA\Property(property="date_from", type="string", format="date", example="2025-01-15"),
+     *                 @OA\Property(property="date_to", type="string", format="date", example="2025-01-20"),
+     *                 @OA\Property(
+     *                     property="type_info",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="name", type="string", example="Certificato Medico"),
+     *                     @OA\Property(property="category", type="string", example="medical"),
+     *                     @OA\Property(property="estimated_days", type="integer", example=3)
+     *                 ),
+     *                 @OA\Property(
+     *                     property="created_by",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="user_id", type="integer", example=4),
+     *                     @OA\Property(property="first_name", type="string", example="Anna"),
+     *                     @OA\Property(property="last_name", type="string", example="Bianchi"),
+     *                     @OA\Property(property="relationship_type", type="string", example="parent")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Richiesta non trovata",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Richiesta non trovata"),
+     *             @OA\Property(property="code", type="string", example="NOT_FOUND")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Accesso negato",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Non hai i permessi per accedere a questa richiesta"),
+     *             @OA\Property(property="code", type="string", example="ACCESS_DENIED")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Non autorizzato",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Token non valido"),
+     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
+     *         )
+     *     )
+     * )
+     *
+     * Recupera una singola richiesta con dettagli completi
+     * GET /requests/{id}
+     * 
+     * Questo endpoint restituisce i dettagli completi di una richiesta specifica
+     * includendo informazioni sul tipo di richiesta e chi l'ha creata.
+     * L'utente deve avere accesso al paziente associato alla richiesta.
+     * 
+     * Parametri path:
+     * - id (obbligatorio): ID della richiesta da recuperare
+     * 
+     * Headers richiesti:
+     * - Authorization: Bearer {jwt_token}
+     * 
+     * Risposta:
+     * - Dettagli completi della richiesta
+     * - Informazioni sul tipo di richiesta (type_info)
+     * - Informazioni su chi ha creato la richiesta (created_by)
+     * - Tutti i timestamp in formato UTC ISO8601
+     */
+    public function actionView($id)
+    {
+        try {
+            // Verifica autenticazione
+            $currentUser = Yii::$app->user->identity;
+            if (!$currentUser) {
+                throw new UnauthorizedHttpException('Utente non autenticato');
+            }
+
+            // Validazione ID
+            if (!is_numeric($id) || (int)$id <= 0) {
+                return $this->formatErrorResponse(
+                    'MISSING_REQUIRED_FIELD', 
+                    'ID richiesta non valido', 
+                    ['id' => 'L\'ID deve essere un numero intero positivo'], 
+                    400
+                );
+            }
+
+            // Trova la richiesta con relazioni
+            $request = DocumentRequest::find()
+                ->with(['requestType', 'requestedByAccountPatient.user.profile', 'patient'])
+                ->where(['id' => $id])
+                ->one();
+
+            if (!$request) {
+                return $this->formatErrorResponse(
+                    'NOT_FOUND', 
+                    'Richiesta non trovata', 
+                    [], 
+                    404
+                );
+            }
+
+            // Verifica accesso al paziente associato alla richiesta
+            $accessCheck = $this->validatePatientAccess($request->patient_id, $currentUser);
+            if (!$accessCheck['hasAccess']) {
+                return $this->formatErrorResponse(
+                    'ACCESS_DENIED', 
+                    'Non hai i permessi per accedere a questa richiesta. ' . $accessCheck['message'], 
+                    [], 
+                    403
+                );
+            }
+
+            // Log per audit
+            Yii::info("Request {$id} accessed by user {$currentUser->id} for patient {$request->patient_id}", __METHOD__);
+
+            // Formatta la risposta secondo le specifiche
+            $data = $this->formatSingleRequestForApi($request);
+
+            return [
+                'success' => true,
+                'data' => $data
+            ];
+
+        } catch (UnauthorizedHttpException $e) {
+            return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
+
+        } catch (\Exception $e) {
+            // Log dell'errore per debugging
+            Yii::error("Error in RequestsController::actionView: " . $e->getMessage(), __METHOD__);
+            Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
+            
+            return $this->formatErrorResponse(
+                'INTERNAL_ERROR', 
+                'Errore interno del server', 
+                [], 
+                500
+            );
+        }
+    }
+
+    /**
      * @OA\Post(
      *     path="/requests",
      *     summary="Crea una nuova richiesta documento",
@@ -1289,6 +1464,75 @@ class RequestsController extends Controller
         ];
 
         // Aggiungi informazioni su chi ha creato la richiesta (come in actionCreate)
+        if ($request->requestedByAccountPatient && $request->requestedByAccountPatient->user) {
+            $user = $request->requestedByAccountPatient->user;
+            $profile = $user->profile;
+            
+            $data['created_by'] = [
+                'id' => $request->requestedByAccountPatient->id,
+                'user_id' => $user->id,
+                'first_name' => $profile ? $profile->first_name : 'N/A',
+                'last_name' => $profile ? $profile->last_name : 'N/A',
+                'relationship_type' => $request->requestedByAccountPatient->relationship_type
+            ];
+        } else {
+            $data['created_by'] = null;
+        }
+
+        // Aggiungi timestamp opzionali per workflow completo
+        if ($request->delivered_at) {
+            $data['delivered_at'] = (new \DateTime($request->delivered_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        }
+
+        if ($request->rejected_at) {
+            $data['rejected_at'] = (new \DateTime($request->rejected_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+            $data['rejection_reason'] = $request->rejection_reason;
+        }
+
+        if ($request->cancelled_at) {
+            $data['cancelled_at'] = (new \DateTime($request->cancelled_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+            $data['cancellation_reason'] = $request->cancellation_reason;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Formatta una singola richiesta per la response API del dettaglio
+     * Secondo le specifiche per actionView con type_info e created_by
+     */
+    private function formatSingleRequestForApi($request)
+    {
+        // Formatta timestamp in UTC
+        $createdAt = (new \DateTime($request->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $updatedAt = (new \DateTime($request->updated_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $estimatedCompletion = (new \DateTime($request->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+
+        // Dati base della richiesta secondo il formato richiesto per il dettaglio
+        $data = [
+            'id' => $request->id,
+            'request_type' => $request->requestType->name,
+            'status' => $request->status,
+            'created_at' => $createdAt,
+            'updated_at' => $updatedAt,
+            'estimated_completion' => $estimatedCompletion,
+            'completed_at' => $request->completed_at ? 
+                (new \DateTime($request->completed_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z') : null,
+            'reason' => $request->reason,
+            'notes' => $request->notes,
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+        ];
+
+        // Aggiungi informazioni dettagliate sul tipo di richiesta
+        $data['type_info'] = [
+            'id' => $request->requestType->id,
+            'name' => $request->requestType->name,
+            'category' => $request->requestType->category,
+            'estimated_days' => $request->requestType->estimated_days
+        ];
+
+        // Aggiungi informazioni su chi ha creato la richiesta
         if ($request->requestedByAccountPatient && $request->requestedByAccountPatient->user) {
             $user = $request->requestedByAccountPatient->user;
             $profile = $user->profile;
