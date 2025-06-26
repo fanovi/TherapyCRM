@@ -177,6 +177,243 @@ class RequestsController extends Controller
     }
 
     /**
+     * @OA\Get(
+     *     path="/requests",
+     *     summary="Recupera richieste del paziente",
+     *     description="Restituisce l'elenco paginato delle richieste associate al paziente specificato con possibilità di filtrare per status",
+     *     operationId="getPatientRequests",
+     *     tags={"Richieste"},
+     *     security={{"BearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="patient_id",
+     *         in="query",
+     *         required=true,
+     *         description="ID del paziente di cui recuperare le richieste",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         required=false,
+     *         description="Numero di pagina (default: 1)",
+     *         @OA\Schema(type="integer", minimum=1, example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="limit",
+     *         in="query",
+     *         required=false,
+     *         description="Numero di elementi per pagina (default: 20, max: 100)",
+     *         @OA\Schema(type="integer", minimum=1, maximum=100, example=20)
+     *     ),
+     *     @OA\Parameter(
+     *         name="status",
+     *         in="query",
+     *         required=false,
+     *         description="Filtro per status della richiesta",
+     *         @OA\Schema(
+     *             type="string",
+     *             enum={"pending", "accepted", "processing", "ready", "delivered", "cancelled", "rejected"},
+     *             example="pending"
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Richieste recuperate con successo",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=123),
+     *                     @OA\Property(property="patient_id", type="integer", example=1),
+     *                     @OA\Property(property="request_type", type="object",
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="name", type="string", example="Certificato Medico"),
+     *                         @OA\Property(property="category", type="string", example="medical")
+     *                     ),
+     *                     @OA\Property(property="status", type="string", example="pending"),
+     *                     @OA\Property(property="status_label", type="string", example="In Attesa"),
+     *                     @OA\Property(property="reason", type="string", example="Certificato per assenza lavorativa"),
+     *                     @OA\Property(property="notes", type="string", example="Note aggiuntive"),
+     *                     @OA\Property(property="date_from", type="string", format="date", example="2025-01-15"),
+     *                     @OA\Property(property="date_to", type="string", format="date", example="2025-01-20"),
+     *                     @OA\Property(property="created_at", type="string", format="date-time", example="2025-01-25T10:30:00Z"),
+     *                     @OA\Property(property="estimated_completion", type="string", format="date-time", example="2025-01-28T18:00:00Z"),
+     *                     @OA\Property(property="created_by", type="object",
+     *                         @OA\Property(property="id", type="integer", example=789),
+     *                         @OA\Property(property="first_name", type="string", example="Mario"),
+     *                         @OA\Property(property="last_name", type="string", example="Rossi"),
+     *                         @OA\Property(property="relationship_type", type="string", example="parent")
+     *                     ),
+     *                     @OA\Property(property="can_be_cancelled", type="boolean", example=true)
+     *                 )
+     *             ),
+     *             @OA\Property(
+     *                 property="meta",
+     *                 type="object",
+     *                 @OA\Property(property="page", type="integer", example=1),
+     *                 @OA\Property(property="limit", type="integer", example=20),
+     *                 @OA\Property(property="total", type="integer", example=45),
+     *                 @OA\Property(property="total_pages", type="integer", example=3),
+     *                 @OA\Property(property="has_next_page", type="boolean", example=true),
+     *                 @OA\Property(property="has_prev_page", type="boolean", example=false)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Errore di validazione parametri",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Parametri di richiesta non validi"),
+     *             @OA\Property(property="code", type="string", example="MISSING_REQUIRED_FIELD"),
+     *             @OA\Property(property="details", type="object",
+     *                 @OA\Property(property="patient_id", type="string", example="Il parametro patient_id è obbligatorio")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Accesso negato al paziente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Non hai i permessi per accedere alle richieste di questo paziente"),
+     *             @OA\Property(property="code", type="string", example="ACCESS_DENIED")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Non autorizzato",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Token non valido"),
+     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
+     *         )
+     *     )
+     * )
+     *
+     * Recupera le richieste associate al paziente specificato
+     * GET /requests?patient_id=1&page=1&limit=20&status=pending
+     * 
+     * Questo endpoint restituisce l'elenco paginato delle richieste di documenti
+     * associate al paziente specificato. L'utente deve avere accesso al paziente
+     * tramite la relazione AccountPatient.
+     * 
+     * Parametri query:
+     * - patient_id (obbligatorio): ID del paziente
+     * - page (opzionale): Numero di pagina (default: 1)
+     * - limit (opzionale): Elementi per pagina (default: 20, max: 100)
+     * - status (opzionale): Filtro per status della richiesta
+     * 
+     * Headers richiesti:
+     * - Authorization: Bearer {jwt_token}
+     * 
+     * Risposta:
+     * - Lista paginata di richieste con dettagli completi
+     * - Metadati di paginazione
+     * - Informazioni su tipo di richiesta e chi l'ha creata
+     */
+    public function actionIndex()
+    {
+        try {
+            // Verifica autenticazione
+            $currentUser = Yii::$app->user->identity;
+            if (!$currentUser) {
+                throw new UnauthorizedHttpException('Utente non autenticato');
+            }
+
+            // Ottieni parametri query
+            $request = Yii::$app->request;
+            $patientId = $request->get('patient_id');
+            $page = max(1, (int) $request->get('page', 1));
+            $limit = max(1, min(100, (int) $request->get('limit', 20))); // Max 100 per performance
+            $status = $request->get('status');
+
+            // Validazione parametri
+            $validationErrors = $this->validateIndexParameters($patientId, $status);
+            if (!empty($validationErrors)) {
+                $details = $this->formatValidationErrors($validationErrors);
+                return $this->formatErrorResponse(
+                    'MISSING_REQUIRED_FIELD', 
+                    'Parametri di richiesta non validi', 
+                    $details, 
+                    400
+                );
+            }
+
+            // Verifica accesso al paziente
+            $accessCheck = $this->validatePatientAccess((int) $patientId, $currentUser);
+            if (!$accessCheck['hasAccess']) {
+                return $this->formatErrorResponse(
+                    'ACCESS_DENIED', 
+                    $accessCheck['message'], 
+                    [], 
+                    403
+                );
+            }
+
+            // Log per audit
+            Yii::info("Patient requests accessed by user {$currentUser->id} for patient {$patientId}, page {$page}, limit {$limit}, status: " . ($status ?: 'all'), __METHOD__);
+
+            // Costruisci query per le richieste
+            $query = DocumentRequest::find()
+                ->with(['requestType', 'requestedByAccountPatient.user.profile'])
+                ->where(['patient_id' => $patientId])
+                ->orderBy(['created_at' => SORT_DESC]); // Più recenti prima
+
+            // Applica filtro status se specificato
+            if ($status) {
+                $query->andWhere(['status' => $status]);
+            }
+
+            // Conta totale per paginazione
+            $total = $query->count();
+
+            // Applica paginazione
+            $offset = ($page - 1) * $limit;
+            $requests = $query->offset($offset)->limit($limit)->all();
+
+            // Formatta i dati per la response
+            $data = [];
+            foreach ($requests as $request) {
+                $data[] = $this->formatRequestForApi($request);
+            }
+
+            // Calcola metadati paginazione
+            $totalPages = ceil($total / $limit);
+            $hasNextPage = $page < $totalPages;
+            $hasPrevPage = $page > 1;
+
+            return [
+                'success' => true,
+                'data' => $data,
+                'meta' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'total_pages' => $totalPages,
+                    'has_next_page' => $hasNextPage,
+                    'has_prev_page' => $hasPrevPage,
+                    'status_filter' => $status,
+                    'patient_id' => (int) $patientId
+                ]
+            ];
+
+        } catch (UnauthorizedHttpException $e) {
+            return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
+
+        } catch (\Exception $e) {
+            // Log dell'errore per debugging
+            Yii::error("Error in RequestsController::actionIndex: " . $e->getMessage(), __METHOD__);
+            Yii::error("Stack trace: " . $e->getTraceAsString(), __METHOD__);
+
+            return $this->formatErrorResponse('INTERNAL_ERROR', 'Errore interno del server', [], 500);
+        }
+    }
+
+    /**
      * @OA\Post(
      *     path="/requests",
      *     summary="Crea una nuova richiesta documento",
@@ -940,5 +1177,148 @@ class RequestsController extends Controller
         }
         
         return $details;
+    }
+
+    /**
+     * Validazione parametri per actionIndex
+     */
+    private function validateIndexParameters($patientId, $status)
+    {
+        $errors = [];
+
+        // patient_id è obbligatorio
+        if (empty($patientId)) {
+            $errors['patient_id'][] = 'Il parametro patient_id è obbligatorio';
+        } elseif (!is_numeric($patientId) || (int)$patientId <= 0) {
+            $errors['patient_id'][] = 'Il parametro patient_id deve essere un numero intero positivo';
+        }
+
+        // Validazione status se fornito
+        if (!empty($status)) {
+            $validStatuses = [
+                DocumentRequest::STATUS_PENDING,
+                DocumentRequest::STATUS_ACCEPTED,
+                DocumentRequest::STATUS_PROCESSING,
+                DocumentRequest::STATUS_READY,
+                DocumentRequest::STATUS_DELIVERED,
+                DocumentRequest::STATUS_CANCELLED,
+                DocumentRequest::STATUS_REJECTED
+            ];
+
+            if (!in_array($status, $validStatuses)) {
+                $errors['status'][] = 'Status non valido. Valori ammessi: ' . implode(', ', $validStatuses);
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Verifica accesso dell'utente al paziente specificato
+     */
+    private function validatePatientAccess($patientId, $currentUser)
+    {
+        // Trova tutti gli AccountPatient per l'utente corrente
+        $accountPatients = AccountPatient::find()
+            ->with(['patient'])
+            ->where(['user_id' => $currentUser->id])
+            ->all();
+
+        if (empty($accountPatients)) {
+            return [
+                'hasAccess' => false,
+                'message' => 'Non hai accesso a nessun paziente. Contatta l\'amministratore.'
+            ];
+        }
+
+        // Verifica che l'utente abbia accesso al paziente specificato
+        $hasAccess = false;
+        $accessiblePatients = [];
+
+        foreach ($accountPatients as $accountPatient) {
+            if ($accountPatient->patient) {
+                $accessiblePatients[] = "ID {$accountPatient->patient->id}: {$accountPatient->patient->first_name} {$accountPatient->patient->last_name}";
+                
+                if ($accountPatient->patient->id === $patientId) {
+                    $hasAccess = true;
+                }
+            }
+        }
+
+        if (!$hasAccess) {
+            // Log di sicurezza per tentativo di accesso non autorizzato
+            Yii::warning("User {$currentUser->id} attempted to access requests for patient {$patientId} without permission. Accessible patients: " . implode(', ', $accessiblePatients), __METHOD__);
+            
+            return [
+                'hasAccess' => false,
+                'message' => "Non hai i permessi per accedere alle richieste del paziente ID: {$patientId}. Pazienti accessibili: " . implode(', ', $accessiblePatients)
+            ];
+        }
+
+        return [
+            'hasAccess' => true,
+            'message' => 'Accesso autorizzato'
+        ];
+    }
+
+    /**
+     * Formatta una richiesta per la response API secondo il formato specificato
+     */
+    private function formatRequestForApi($request)
+    {
+        // Formatta timestamp in UTC
+        $createdAt = (new \DateTime($request->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $updatedAt = (new \DateTime($request->updated_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $estimatedCompletion = (new \DateTime($request->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+
+        // Dati base della richiesta secondo il formato richiesto
+        $data = [
+            'id' => $request->id,
+            'request_type' => $request->requestType->name,
+            'status' => $request->status,
+            'created_at' => $createdAt,
+            'updated_at' => $updatedAt,
+            'estimated_completion' => $estimatedCompletion,
+            'completed_at' => $request->completed_at ? 
+                (new \DateTime($request->completed_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z') : null,
+            'reason' => $request->reason,
+            'notes' => $request->notes,
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'download_url' => null // TODO: implementare quando sarà disponibile il sistema di download
+        ];
+
+        // Aggiungi informazioni su chi ha creato la richiesta (come in actionCreate)
+        if ($request->requestedByAccountPatient && $request->requestedByAccountPatient->user) {
+            $user = $request->requestedByAccountPatient->user;
+            $profile = $user->profile;
+            
+            $data['created_by'] = [
+                'id' => $request->requestedByAccountPatient->id,
+                'user_id' => $user->id,
+                'first_name' => $profile ? $profile->first_name : 'N/A',
+                'last_name' => $profile ? $profile->last_name : 'N/A',
+                'relationship_type' => $request->requestedByAccountPatient->relationship_type
+            ];
+        } else {
+            $data['created_by'] = null;
+        }
+
+        // Aggiungi timestamp opzionali per workflow completo
+        if ($request->delivered_at) {
+            $data['delivered_at'] = (new \DateTime($request->delivered_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        }
+
+        if ($request->rejected_at) {
+            $data['rejected_at'] = (new \DateTime($request->rejected_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+            $data['rejection_reason'] = $request->rejection_reason;
+        }
+
+        if ($request->cancelled_at) {
+            $data['cancelled_at'] = (new \DateTime($request->cancelled_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+            $data['cancellation_reason'] = $request->cancellation_reason;
+        }
+
+        return $data;
     }
 } 

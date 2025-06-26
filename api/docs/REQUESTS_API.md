@@ -53,6 +53,167 @@ const utcDate = "2025-01-25T14:30:00Z";
 const localDate = format(new Date(utcDate), 'dd/MM/yyyy HH:mm');
 ```
 
+## Endpoint: GET /requests
+
+### Descrizione
+Recupera l'elenco delle richieste di un paziente specifico con paginazione e filtri opzionali.
+
+### URL
+```
+GET /api/requests
+```
+
+### Headers Richiesti
+```http
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+### Parametri Query
+
+| Parametro | Tipo | Richiesto | Default | Descrizione |
+|-----------|------|-----------|---------|-------------|
+| `patient_id` | integer | **Sì** | - | ID del paziente per cui recuperare le richieste |
+| `page` | integer | No | 1 | Numero pagina (minimo 1) |
+| `limit` | integer | No | 20 | Elementi per pagina (massimo 100) |
+| `status` | string | No | - | Filtro per status (pending, accepted, processing, ready, delivered, cancelled, rejected) |
+
+### Risposta di Successo (200)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "request_type": "Certificato Medico",
+      "status": "in_progress",
+      "created_at": "2025-01-20T10:30:00Z",
+      "updated_at": "2025-01-22T14:20:00Z",
+      "estimated_completion": "2025-01-25T18:00:00Z",
+      "completed_at": null,
+      "reason": "Certificato per assenza lavorativa",
+      "notes": "Richiesta urgente",
+      "date_from": "2025-01-15",
+      "date_to": "2025-01-20",
+      "download_url": null,
+      "created_by": {
+        "id": 1,
+        "user_id": 4,
+        "first_name": "Anna",
+        "last_name": "Bianchi",
+        "relationship_type": "parent"
+      }
+    },
+    {
+      "id": 124,
+      "request_type": "Relazione Terapeutica",
+      "status": "completed",
+      "created_at": "2025-01-15T14:20:00Z",
+      "updated_at": "2025-01-18T16:45:00Z",
+      "estimated_completion": "2025-01-20T18:00:00Z",
+      "completed_at": "2025-01-18T16:45:00Z",
+      "reason": "Relazione per visita specialistica",
+      "notes": null,
+      "date_from": null,
+      "date_to": null,
+      "download_url": "https://api.example.com/documents/124/download",
+      "created_by": {
+        "id": 1,
+        "user_id": 4,
+        "first_name": "Anna",
+        "last_name": "Bianchi",
+        "relationship_type": "parent"
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 15,
+    "total_pages": 1,
+    "has_next_page": false,
+    "has_prev_page": false,
+    "status_filter": null,
+    "patient_id": 1
+  }
+}
+```
+
+### Campi Risposta Richiesta
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID univoco della richiesta |
+| `request_type` | string | Nome della tipologia di richiesta |
+| `status` | string | Stato attuale (pending, accepted, processing, ready, delivered, cancelled, rejected) |
+| `created_at` | string | Data creazione in formato UTC ISO8601 |
+| `updated_at` | string | Data ultimo aggiornamento in formato UTC ISO8601 |
+| `estimated_completion` | string | Data stimata completamento in formato UTC ISO8601 |
+| `completed_at` | string\|null | Data completamento effettivo (null se non completata) |
+| `reason` | string\|null | Motivo della richiesta |
+| `notes` | string\|null | Note aggiuntive |
+| `date_from` | string\|null | Data inizio periodo (formato YYYY-MM-DD) |
+| `date_to` | string\|null | Data fine periodo (formato YYYY-MM-DD) |
+| `download_url` | string\|null | URL per download documento (null se non pronto) |
+| `created_by` | object\|null | Informazioni su chi ha creato la richiesta |
+
+### Campi created_by
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | integer | ID dell'AccountPatient |
+| `user_id` | integer | ID dell'utente che ha fatto la richiesta |
+| `first_name` | string | Nome del richiedente |
+| `last_name` | string | Cognome del richiedente |
+| `relationship_type` | string | Tipo di relazione (self, parent, guardian, caregiver) |
+
+### Metadati Paginazione
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `page` | integer | Pagina corrente |
+| `limit` | integer | Elementi per pagina |
+| `total` | integer | Numero totale di richieste |
+| `total_pages` | integer | Numero totale di pagine |
+| `has_next_page` | boolean | Se esiste una pagina successiva |
+| `has_prev_page` | boolean | Se esiste una pagina precedente |
+| `status_filter` | string\|null | Filtro status applicato |
+| `patient_id` | integer | ID del paziente |
+
+### Stati Richiesta
+
+- **pending**: Richiesta inviata, in attesa di presa in carico
+- **accepted**: Richiesta accettata, in lavorazione
+- **processing**: Documento in preparazione
+- **ready**: Documento pronto per il ritiro/download
+- **delivered**: Documento consegnato al paziente
+- **cancelled**: Richiesta annullata dal paziente
+- **rejected**: Richiesta rifiutata dall'amministrazione
+
+### Errori Specifici
+
+#### 400 Bad Request - Parametri non validi
+```json
+{
+  "success": false,
+  "error": "Parametri di richiesta non validi",
+  "code": "MISSING_REQUIRED_FIELD",
+  "details": {
+    "patient_id": "Il parametro patient_id è obbligatorio"
+  }
+}
+```
+
+#### 403 Forbidden - Accesso negato al paziente
+```json
+{
+  "success": false,
+  "error": "Non hai i permessi per accedere alle richieste del paziente ID: 999. Pazienti accessibili: ID 1: Giulia Bianchi",
+  "code": "ACCESS_DENIED"
+}
+```
+
 ## Endpoint: GET /requests/types
 
 ### Descrizione
@@ -452,17 +613,129 @@ L'endpoint è progettato per integrarsi perfettamente con l'app React Native esi
 3. **Tempi Stimati**: `estimated_days` può essere mostrato all'utente per gestire le aspettative
 4. **Filtraggio**: Solo le tipologie attive (`is_active: true`) vengono restituite
 
-### Test
-Per testare l'endpoint, utilizzare lo script fornito:
+### Esempi di Utilizzo per GET /requests
 
+#### cURL - Recupera tutte le richieste del paziente
 ```bash
-php api/test/test_requests_endpoint.php
+# 1. Login per ottenere token
+curl -X POST "http://localhost/TherapyCRM/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=paziente@test.it&password=12345678"
+
+# 2. Recupera richieste paziente ID 1
+curl -X GET "http://localhost/TherapyCRM/api/requests?patient_id=1" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json"
 ```
 
-Lo script effettua automaticamente:
+#### cURL - Con paginazione
+```bash
+curl -X GET "http://localhost/TherapyCRM/api/requests?patient_id=1&page=2&limit=10" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json"
+```
+
+#### cURL - Con filtro status
+```bash
+curl -X GET "http://localhost/TherapyCRM/api/requests?patient_id=1&status=pending" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json"
+```
+
+#### JavaScript/Fetch API
+```javascript
+const response = await fetch('/api/requests?patient_id=1&page=1&limit=20', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log('Richieste:', data.data);
+  console.log('Totale:', data.meta.total);
+  console.log('Pagine:', data.meta.total_pages);
+}
+```
+
+#### React Native
+```javascript
+import { API_BASE_URL } from '../config/api';
+
+const fetchPatientRequests = async (patientId, page = 1, status = null) => {
+  try {
+    let url = `${API_BASE_URL}/requests?patient_id=${patientId}&page=${page}`;
+    if (status) {
+      url += `&status=${status}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      return {
+        requests: data.data,
+        pagination: data.meta
+      };
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('Error fetching requests:', error);
+    throw error;
+  }
+};
+
+// Utilizzo nel componente
+const [requests, setRequests] = useState([]);
+const [loading, setLoading] = useState(false);
+
+useEffect(() => {
+  const loadRequests = async () => {
+    setLoading(true);
+    try {
+      const { requests, pagination } = await fetchPatientRequests(patientId);
+      setRequests(requests);
+      setPagination(pagination);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  loadRequests();
+}, [patientId]);
+```
+
+### Test
+Per testare gli endpoint, utilizzare gli script forniti:
+
+```bash
+# Test endpoint GET /requests/types
+php api/test/test_requests_endpoint.php
+
+# Test endpoint POST /requests
+php api/test/test_create_request_endpoint.php
+
+# Test endpoint GET /requests
+php api/test/test_get_patient_requests.php
+```
+
+Gli script effettuano automaticamente:
 1. Login con credenziali di test
-2. Chiamata all'endpoint con token valido
-3. Visualizzazione formattata dei risultati
+2. Chiamate agli endpoint con token valido
+3. Test di tutti i parametri e scenari di errore
+4. Visualizzazione formattata dei risultati
 
 ## Sicurezza
 
