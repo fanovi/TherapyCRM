@@ -11,12 +11,11 @@ use yii\behaviors\TimestampBehavior;
  *
  * @property int $id
  * @property string $name
- * @property string|null $description
- * @property string $category
- * @property int $estimated_days
- * @property bool $requires_reason
- * @property bool $requires_date_range
- * @property bool $is_active
+ * @property int $therapeutic_plan_rule
+ * @property int $allow_multiple_requests
+ * @property int $require_therapy_assignment
+ * @property int $require_notes
+ * @property int $is_active
  * @property string $created_at
  * @property string $updated_at
  *
@@ -24,10 +23,14 @@ use yii\behaviors\TimestampBehavior;
  */
 class RequestType extends ActiveRecord
 {
-    const CATEGORY_MEDICAL = 'medical';
-    const CATEGORY_THERAPY = 'therapy';
-    const CATEGORY_FITNESS = 'fitness';
-    const CATEGORY_APPOINTMENT = 'appointment';
+    // Costanti per therapeutic_plan_rule
+    const PLAN_OPTIONAL = 1;          // Si può associare, ma non è obbligatorio
+    const PLAN_NOT_ALLOWED = 2;       // Non si può associare
+    const PLAN_REQUIRED = 3;          // Si deve associare obbligatoriamente
+
+    // Costanti per campi boolean
+    const BOOLEAN_FALSE = 0;
+    const BOOLEAN_TRUE = 1;
 
     /**
      * {@inheritdoc}
@@ -58,13 +61,12 @@ class RequestType extends ActiveRecord
     public function rules()
     {
         return [
-            [['name', 'category'], 'required'],
-            [['description'], 'string'],
-            [['estimated_days'], 'integer', 'min' => 1, 'max' => 30],
-            [['requires_reason', 'requires_date_range', 'is_active'], 'boolean'],
+            [['name'], 'required'],
+            [['therapeutic_plan_rule'], 'integer', 'min' => 1, 'max' => 3],
+            [['allow_multiple_requests', 'require_therapy_assignment', 'require_notes', 'is_active'], 'integer', 'min' => 0, 'max' => 1],
             [['name'], 'string', 'max' => 255],
-            [['category'], 'string', 'max' => 50],
             [['created_at', 'updated_at'], 'safe'],
+            [['therapeutic_plan_rule'], 'in', 'range' => [self::PLAN_OPTIONAL, self::PLAN_NOT_ALLOWED, self::PLAN_REQUIRED]],
         ];
     }
 
@@ -76,11 +78,10 @@ class RequestType extends ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Nome',
-            'description' => 'Descrizione',
-            'category' => 'Categoria',
-            'estimated_days' => 'Giorni Stimati',
-            'requires_reason' => 'Richiede Motivo',
-            'requires_date_range' => 'Richiede Range Date',
+            'therapeutic_plan_rule' => 'Regola Piano Terapeutico',
+            'allow_multiple_requests' => 'Permette Richieste Multiple',
+            'require_therapy_assignment' => 'Richiede Assegnazione Terapia',
+            'require_notes' => 'Richiede Note',
             'is_active' => 'Attivo',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
@@ -98,45 +99,129 @@ class RequestType extends ActiveRecord
     }
 
     /**
-     * Gets available category options (dinamiche dal database)
+     * Get therapeutic plan rule options
      *
      * @return array
      */
-    public function getCategoryOptions()
-    {
-        // Restituisce le categorie attualmente in uso nel database
-        return static::find()
-            ->select('category')
-            ->distinct()
-            ->where(['is_active' => true])
-            ->orderBy('category')
-            ->column();
-    }
-
-    /**
-     * Gets category labels
-     *
-     * @return array
-     */
-    public static function getCategoryLabels()
+    public static function getTherapeuticPlanRuleOptions()
     {
         return [
-            self::CATEGORY_MEDICAL => 'Medico',
-            self::CATEGORY_THERAPY => 'Terapeutico',
-            self::CATEGORY_FITNESS => 'Fitness',
-            self::CATEGORY_APPOINTMENT => 'Appuntamenti',
+            self::PLAN_OPTIONAL => 'Opzionale',
+            self::PLAN_NOT_ALLOWED => 'Non Associabile',
+            self::PLAN_REQUIRED => 'Obbligatorio',
         ];
     }
 
     /**
-     * Gets category label
+     * Get therapeutic plan rule label
      *
      * @return string
      */
-    public function getCategoryLabel()
+    public function getTherapeuticPlanRuleLabel()
     {
-        $labels = static::getCategoryLabels();
-        return $labels[$this->category] ?? $this->category;
+        $options = self::getTherapeuticPlanRuleOptions();
+        return $options[$this->therapeutic_plan_rule] ?? 'Sconosciuto';
+    }
+
+    /**
+     * Check if therapeutic plan is required
+     *
+     * @return bool
+     */
+    public function isTherapeuticPlanRequired()
+    {
+        return $this->therapeutic_plan_rule === self::PLAN_REQUIRED;
+    }
+
+    /**
+     * Check if therapeutic plan is optional
+     *
+     * @return bool
+     */
+    public function isTherapeuticPlanOptional()
+    {
+        return $this->therapeutic_plan_rule === self::PLAN_OPTIONAL;
+    }
+
+    /**
+     * Check if therapeutic plan is not allowed
+     *
+     * @return bool
+     */
+    public function isTherapeuticPlanNotAllowed()
+    {
+        return $this->therapeutic_plan_rule === self::PLAN_NOT_ALLOWED;
+    }
+
+    /**
+     * Check if multiple requests are allowed
+     *
+     * @return bool
+     */
+    public function allowsMultipleRequests()
+    {
+        return $this->allow_multiple_requests === self::BOOLEAN_TRUE;
+    }
+
+    /**
+     * Check if therapy assignment is required
+     *
+     * @return bool
+     */
+    public function requiresTherapyAssignment()
+    {
+        return $this->require_therapy_assignment === self::BOOLEAN_TRUE;
+    }
+
+    /**
+     * Check if notes are required
+     *
+     * @return bool
+     */
+    public function requiresNotes()
+    {
+        return $this->require_notes === self::BOOLEAN_TRUE;
+    }
+
+    /**
+     * Check if request type is active
+     *
+     * @return bool
+     */
+    public function isActive()
+    {
+        return $this->is_active === self::BOOLEAN_TRUE;
+    }
+
+    /**
+     * Get all request types for API
+     *
+     * @return array
+     */
+    public static function getForApi()
+    {
+        $requestTypes = static::find()
+            ->orderBy(['id' => SORT_ASC])
+            ->all();
+
+        $result = [];
+        foreach ($requestTypes as $type) {
+            $result[] = [
+                'id' => $type->id,
+                'name' => $type->name,
+                'therapeutic_plan_rule' => $type->therapeutic_plan_rule,
+                'therapeutic_plan_rule_label' => $type->getTherapeuticPlanRuleLabel(),
+                'allow_multiple_requests' => (bool) $type->allow_multiple_requests,
+                'require_therapy_assignment' => (bool) $type->require_therapy_assignment,
+                'require_notes' => (bool) $type->require_notes,
+                'is_active' => (bool) $type->is_active,
+                'is_therapeutic_plan_required' => $type->isTherapeuticPlanRequired(),
+                'is_therapeutic_plan_optional' => $type->isTherapeuticPlanOptional(),
+                'is_therapeutic_plan_not_allowed' => $type->isTherapeuticPlanNotAllowed(),
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -146,60 +231,18 @@ class RequestType extends ActiveRecord
      */
     public static function findActive()
     {
-        return static::find()->where(['is_active' => true]);
+        return static::find()->where(['is_active' => self::BOOLEAN_TRUE]);
     }
 
     /**
-     * Scope: filter by category
+     * Find request type by ID
      *
-     * @param string $category
-     * @return \yii\db\ActiveQuery
+     * @param int $id
+     * @return static|null
      */
-    public static function findByCategory($category)
+    public static function findById($id)
     {
-        return static::find()->where(['category' => $category]);
-    }
-
-    /**
-     * Get all active request types for API
-     *
-     * @return array
-     */
-    public static function getForApi()
-    {
-        $requestTypes = static::findActive()
-            ->orderBy(['category' => SORT_ASC, 'name' => SORT_ASC])
-            ->all();
-
-        $result = [];
-        foreach ($requestTypes as $type) {
-            $result[] = [
-                'id' => $type->id,
-                'name' => $type->name,
-                'description' => $type->description,
-                'category' => $type->category,
-                'estimated_days' => $type->estimated_days,
-                'requires_reason' => (bool) $type->requires_reason,
-                'requires_date_range' => (bool) $type->requires_date_range,
-                'is_active' => (bool) $type->is_active,
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Get categories for API meta
-     *
-     * @return array
-     */
-    public static function getActiveCategories()
-    {
-        return static::findActive()
-            ->select('category')
-            ->distinct()
-            ->orderBy('category')
-            ->column();
+        return static::find()->where(['id' => $id])->one();
     }
 
     /**
@@ -214,23 +257,17 @@ class RequestType extends ActiveRecord
     }
 
     /**
-     * Check if request type requires reason
+     * Get all request types as options for dropdown
      *
-     * @return bool
+     * @return array
      */
-    public function requiresReason()
+    public static function getDropdownOptions()
     {
-        return (bool) $this->requires_reason;
-    }
-
-    /**
-     * Check if request type requires date range
-     *
-     * @return bool
-     */
-    public function requiresDateRange()
-    {
-        return (bool) $this->requires_date_range;
+        return static::find()
+            ->select(['name', 'id'])
+            ->orderBy(['name' => SORT_ASC])
+            ->indexBy('id')
+            ->column();
     }
 
     /**

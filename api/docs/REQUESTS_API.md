@@ -386,7 +386,7 @@ Content-Type: application/json
 ## Endpoint: GET /requests/types
 
 ### Descrizione
-Recupera l'elenco delle tipologie di richieste attive dal database per i pazienti autenticati.
+Recupera l'elenco delle tipologie di richieste dal database per i pazienti autenticati, ordinate per ID crescente. Include informazioni sulle regole di associazione piano terapeutico e requisiti specifici.
 
 ### URL
 ```
@@ -410,28 +410,83 @@ Nessun parametro richiesto.
   "data": [
     {
       "id": 1,
-      "name": "Certificato Medico",
-      "description": "Richiesta certificato medico per assenza lavorativa",
-      "category": "medical",
-      "estimated_days": 3,
-      "requires_reason": true,
-      "requires_date_range": true,
-      "is_active": true
+      "name": "Copia Piano Terapeutico",
+      "therapeutic_plan_rule": 3,
+      "therapeutic_plan_rule_label": "Obbligatorio",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": false,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": true,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": false
     },
     {
       "id": 2,
-      "name": "Relazione Terapeutica",
-      "description": "Richiesta relazione dettagliata sui progressi terapeutici",
-      "category": "therapy",
-      "estimated_days": 5,
-      "requires_reason": true,
-      "requires_date_range": false,
-      "is_active": true
+      "name": "Relazione terapista",
+      "therapeutic_plan_rule": 3,
+      "therapeutic_plan_rule_label": "Obbligatorio",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": true,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": true,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": false
+    },
+    {
+      "id": 3,
+      "name": "Relazione visita specialistica",
+      "therapeutic_plan_rule": 2,
+      "therapeutic_plan_rule_label": "Non Associabile",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": false,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": false,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": true
+    },
+    {
+      "id": 4,
+      "name": "Attestato frequenza",
+      "therapeutic_plan_rule": 1,
+      "therapeutic_plan_rule_label": "Opzionale",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": false,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": false,
+      "is_therapeutic_plan_optional": true,
+      "is_therapeutic_plan_not_allowed": false
+    },
+    {
+      "id": 5,
+      "name": "Altro",
+      "therapeutic_plan_rule": 2,
+      "therapeutic_plan_rule_label": "Non Associabile",
+      "allow_multiple_requests": true,
+      "require_therapy_assignment": false,
+      "require_notes": true,
+      "is_active": true,
+      "is_therapeutic_plan_required": false,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": true
     }
   ],
   "meta": {
-    "total": 8,
-    "categories": ["appointment", "fitness", "medical", "therapy"]
+    "total": 5,
+    "active_count": 5,
+    "rule_distribution": {
+      "3": 2,
+      "2": 2,
+      "1": 1
+    },
+    "rules": {
+      "1": "Opzionale",
+      "2": "Non Associabile",
+      "3": "Obbligatorio"
+    }
   }
 }
 ```
@@ -442,26 +497,44 @@ Nessun parametro richiesto.
 |-------|------|-------------|
 | `id` | integer | ID univoco della tipologia |
 | `name` | string | Nome della tipologia di richiesta |
-| `description` | string | Descrizione dettagliata |
-| `category` | string | Categoria per organizzazione UI (`medical`, `therapy`, `fitness`, `appointment`) |
-| `estimated_days` | integer | Giorni lavorativi stimati per completamento |
-| `requires_reason` | boolean | Se true, il motivo è obbligatorio nel form |
-| `requires_date_range` | boolean | Se true, date inizio/fine sono obbligatorie |
+| `therapeutic_plan_rule` | integer | Regola piano terapeutico (1=opzionale, 2=non associabile, 3=obbligatorio) |
+| `therapeutic_plan_rule_label` | string | Etichetta leggibile della regola piano terapeutico |
+| `allow_multiple_requests` | boolean | Se permette richieste multiple simultanee |
+| `require_therapy_assignment` | boolean | Se richiede assegnazione terapia specifica |
+| `require_notes` | boolean | Se richiede inserimento note obbligatorie |
 | `is_active` | boolean | Se la tipologia è attualmente disponibile |
+| `is_therapeutic_plan_required` | boolean | Helper: true se piano terapeutico è obbligatorio |
+| `is_therapeutic_plan_optional` | boolean | Helper: true se piano terapeutico è opzionale |
+| `is_therapeutic_plan_not_allowed` | boolean | Helper: true se piano terapeutico non è associabile |
 
 ### Metadati Risposta
 
 | Campo | Tipo | Descrizione |
 |-------|------|-------------|
-| `meta.total` | integer | Numero totale di tipologie attive |
-| `meta.categories` | array | Lista delle categorie disponibili |
+| `meta.total` | integer | Numero totale di tipologie |
+| `meta.active_count` | integer | Numero di tipologie attive |
+| `meta.rule_distribution` | object | Distribuzione tipologie per regola piano terapeutico |
+| `meta.rules` | object | Mapping ID regola -> etichetta leggibile |
 
-### Categorie Disponibili
+### Regole Piano Terapeutico
 
-- **medical**: Certificati medici, cartelle cliniche, valutazioni
-- **therapy**: Relazioni terapeutiche, programmi riabilitativi, esercizi
-- **fitness**: Certificati idoneità fisica, valutazioni sportive
-- **appointment**: Richieste appuntamenti urgenti, modifiche programmazione
+Le tipologie di richiesta hanno 3 possibili regole per l'associazione con il piano terapeutico:
+
+- **1 (Opzionale)**: L'utente può scegliere se associare un piano terapeutico
+- **2 (Non Associabile)**: Il tipo di richiesta non può essere associato ad alcun piano
+- **3 (Obbligatorio)**: L'utente deve obbligatoriamente selezionare un piano terapeutico
+
+### Tipologie Predefinite
+
+Le seguenti tipologie sono inserite automaticamente dalla migration:
+
+| Nome | Piano Terapeutico | Multiple | Terapia | Note |
+|------|------------------|----------|---------|------|
+| **Copia Piano Terapeutico** | Obbligatorio | No | No | No |
+| **Relazione terapista** | Obbligatorio | No | **Sì** | No |
+| **Relazione visita specialistica** | Non Associabile | No | No | No |
+| **Attestato frequenza** | Opzionale | No | No | No |
+| **Altro** | Non Associabile | **Sì** | No | **Sì** |
 
 ### Gestione Errori Standard
 
@@ -549,9 +622,18 @@ fetch('/api/requests/types', {
   if (data.success) {
     console.log('Tipologie disponibili:', data.data);
     console.log('Totale:', data.meta.total);
-    console.log('Categorie:', data.meta.categories);
+    console.log('Tipologie attive:', data.meta.active_count);
+    console.log('Regole piano terapeutico:', data.meta.rules);
+    
+    // Filtra tipologie che richiedono piano terapeutico obbligatorio
+    const requiresPlan = data.data.filter(type => type.is_therapeutic_plan_required);
+    console.log('Tipologie con piano obbligatorio:', requiresPlan);
+    
+    // Filtra tipologie che permettono richieste multiple
+    const allowsMultiple = data.data.filter(type => type.allow_multiple_requests);
+    console.log('Tipologie multiple:', allowsMultiple);
   } else {
-    console.error('Errore:', data.message);
+    console.error('Errore:', data.error);
   }
 });
 ```
@@ -570,14 +652,46 @@ const getRequestTypes = async (token) => {
     });
     
     if (response.data.success) {
-      return response.data.data; // Array delle tipologie
+      const types = response.data.data;
+      const meta = response.data.meta;
+      
+      // Organizza tipologie per regole piano terapeutico
+      const typesByRule = {
+        required: types.filter(t => t.is_therapeutic_plan_required),
+        optional: types.filter(t => t.is_therapeutic_plan_optional), 
+        notAllowed: types.filter(t => t.is_therapeutic_plan_not_allowed)
+      };
+      
+      return { types, meta, typesByRule };
     } else {
-      throw new Error(response.data.message);
+      throw new Error(response.data.error || 'Errore sconosciuto');
     }
   } catch (error) {
     console.error('Errore nel recupero tipologie:', error);
     throw error;
   }
+};
+
+// Esempio di utilizzo per form di creazione richiesta
+const validateRequestForm = (formData, requestType) => {
+  const errors = [];
+  
+  // Controlla se piano terapeutico è obbligatorio
+  if (requestType.is_therapeutic_plan_required && !formData.therapeutic_plan_id) {
+    errors.push('Piano terapeutico obbligatorio per questo tipo di richiesta');
+  }
+  
+  // Controlla se note sono obbligatorie
+  if (requestType.require_notes && !formData.notes?.trim()) {
+    errors.push('Le note sono obbligatorie per questo tipo di richiesta');
+  }
+  
+  // Controlla se terapia è richiesta
+  if (requestType.require_therapy_assignment && !formData.therapy_id) {
+    errors.push('Assegnazione terapia obbligatoria per questo tipo di richiesta');
+  }
+  
+  return errors;
 };
 ```
 

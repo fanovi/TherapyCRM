@@ -134,29 +134,59 @@ try {
         echo "📊 Dati ricevuti:\n";
         echo "   Success: " . ($data['success'] ? 'TRUE' : 'FALSE') . "\n";
         echo "   Total types: " . $data['meta']['total'] . "\n";
-        echo "   Categories: " . implode(', ', $data['meta']['categories']) . "\n\n";
+        echo "   Active count: " . $data['meta']['active_count'] . "\n";
+        echo "   Rules available: " . implode(', ', array_values($data['meta']['rules'])) . "\n\n";
         
         echo "📝 Tipologie di richieste disponibili:\n";
-        echo "   " . str_repeat('-', 50) . "\n";
+        echo "   " . str_repeat('-', 70) . "\n";
         
         foreach ($data['data'] as $index => $type) {
-            echo "   " . ($index + 1) . ". {$type['name']} [{$type['category']}]\n";
-            echo "      📄 {$type['description']}\n";
-            echo "      ⏱️  Tempo stimato: {$type['estimated_days']} giorni\n";
-            echo "      🔘 Motivo richiesto: " . ($type['requires_reason'] ? 'SÌ' : 'NO') . "\n";
-            echo "      📅 Date richieste: " . ($type['requires_date_range'] ? 'SÌ' : 'NO') . "\n";
-            echo "      ✅ Attivo: " . ($type['is_active'] ? 'SÌ' : 'NO') . "\n\n";
+            echo "   " . ($index + 1) . ". {$type['name']} [ID: {$type['id']}]\n";
+            echo "      🏥 Piano Terapeutico: {$type['therapeutic_plan_rule_label']}\n";
+            echo "      🔄 Richieste Multiple: " . ($type['allow_multiple_requests'] ? 'SÌ' : 'NO') . "\n";
+            echo "      🩺 Richiede Terapia: " . ($type['require_therapy_assignment'] ? 'SÌ' : 'NO') . "\n";
+            echo "      📝 Richiede Note: " . ($type['require_notes'] ? 'SÌ' : 'NO') . "\n";
+            echo "      ✅ Attivo: " . ($type['is_active'] ? 'SÌ' : 'NO') . "\n";
+            echo "      🔍 Helper flags:\n";
+            echo "         - Piano obbligatorio: " . ($type['is_therapeutic_plan_required'] ? 'SÌ' : 'NO') . "\n";
+            echo "         - Piano opzionale: " . ($type['is_therapeutic_plan_optional'] ? 'SÌ' : 'NO') . "\n";
+            echo "         - Piano non associabile: " . ($type['is_therapeutic_plan_not_allowed'] ? 'SÌ' : 'NO') . "\n\n";
         }
         
-        echo "🎉 Test completato con successo!\n";
+        // Verifica struttura response
+        echo "🔍 Verifica struttura response:\n";
+        echo "   " . str_repeat('-', 40) . "\n";
+        
+        $expectedFields = [
+            'id', 'name', 'therapeutic_plan_rule', 'therapeutic_plan_rule_label',
+            'allow_multiple_requests', 'require_therapy_assignment', 'require_notes',
+            'is_active', 'is_therapeutic_plan_required', 'is_therapeutic_plan_optional',
+            'is_therapeutic_plan_not_allowed'
+        ];
+        
+        if (!empty($data['data'])) {
+            $firstItem = $data['data'][0];
+            foreach ($expectedFields as $field) {
+                if (array_key_exists($field, $firstItem)) {
+                    echo "   ✅ Campo '$field' presente\n";
+                } else {
+                    echo "   ❌ Campo '$field' mancante!\n";
+                }
+            }
+        }
+        
+        echo "\n🎉 Test completato con successo!\n";
         
     } else {
         echo "❌ ERRORE nella chiamata API\n";
         echo "   Status Code: {$requestsResponse['status_code']}\n";
         echo "   Response: " . $requestsResponse['body'] . "\n";
         
-        if (isset($requestsResponse['data']['message'])) {
-            echo "   Message: " . $requestsResponse['data']['message'] . "\n";
+        if (isset($requestsResponse['data']['error'])) {
+            echo "   Error: " . $requestsResponse['data']['error'] . "\n";
+        }
+        if (isset($requestsResponse['data']['code'])) {
+            echo "   Code: " . $requestsResponse['data']['code'] . "\n";
         }
     }
     

@@ -972,3 +972,641 @@ php api/test/test_nuovo_endpoint.php
 - ✅ Descrizione parametri e response
 - ✅ Gestione errori documentata
 - ✅ Swagger UI testabile 
+
+## ⚠️ SCHEMA DATABASE AGGIORNATO - TABELLA REQUEST_TYPES
+
+### Nuova Struttura request_types (IMPLEMENTATA)
+```sql
+CREATE TABLE {{%request_types}} (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    therapeutic_plan_rule INT NOT NULL DEFAULT 1,    -- 1=Opzionale, 2=Non associabile, 3=Obbligatorio
+    allow_multiple_requests TINYINT(1) DEFAULT 0,    -- Permette richieste multiple simultanee
+    require_therapy_assignment TINYINT(1) DEFAULT 0, -- Richiede assegnazione terapia specifica
+    require_notes TINYINT(1) DEFAULT 0,              -- Richiede note obbligatorie
+    is_active TINYINT(1) DEFAULT 1,                  -- Tipo attivo/inattivo
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- Data creazione
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### Dati Iniziali Implementati
+```php
+// Migration: m250630_202122_modify_request_types_table.php
+$initialData = [
+    ['Copia Piano Terapeutico', 3, 0, 0, 0, 1],     // Plan obbligatorio
+    ['Relazione terapista', 3, 0, 1, 0, 1],         // Plan obbligatorio + terapia assegnata
+    ['Relazione visita specialistica', 2, 0, 0, 0, 1], // Plan non associabile
+    ['Attestato frequenza', 1, 0, 0, 0, 1],         // Plan opzionale
+    ['Altro', 2, 1, 0, 1, 1]                        // Plan non associabile + multiple + note
+];
+```
+
+### Pattern Modello RequestType Aggiornato
+```php
+class RequestType extends ActiveRecord
+{
+    // Costanti per therapeutic_plan_rule
+    const PLAN_OPTIONAL = 1;      // Piano terapeutico opzionale
+    const PLAN_NOT_ALLOWED = 2;   // Piano terapeutico non associabile
+    const PLAN_REQUIRED = 3;      // Piano terapeutico obbligatorio
+    
+    // Metodi helper per business logic
+    public function isTherapeuticPlanRequired() {
+        return $this->therapeutic_plan_rule === self::PLAN_REQUIRED;
+    }
+    
+    public function allowsMultipleRequests() {
+        return (bool) $this->allow_multiple_requests;
+    }
+    
+    public function requiresTherapyAssignment() {
+        return (bool) $this->require_therapy_assignment;
+    }
+    
+    public function requiresNotes() {
+        return (bool) $this->require_notes;
+    }
+    
+    public function isActive() {
+        return (bool) $this->is_active;
+    }
+    
+    // Scope per filtrare tipi attivi
+    public static function findActive() {
+        return static::find()->where(['is_active' => true]);
+    }
+    
+    // IMPORTANTE: Ordinamento per ID crescente (non alfabetico)
+    public static function getForApi() {
+        $requestTypes = static::findActive()
+            ->orderBy(['id' => SORT_ASC])  // ID crescente, NON alphabetic
+            ->all();
+            
+        $result = [];
+        foreach ($requestTypes as $type) {
+            $result[] = [
+                'id' => $type->id,
+                'name' => $type->name,
+                'therapeutic_plan_rule' => $type->therapeutic_plan_rule,
+                'therapeutic_plan_rule_label' => $type->getTherapeuticPlanRuleLabel(),
+                'allow_multiple_requests' => (bool) $type->allow_multiple_requests,
+                'require_therapy_assignment' => (bool) $type->require_therapy_assignment,
+                'require_notes' => (bool) $type->require_notes,
+                'is_active' => (bool) $type->is_active,
+                // Helper flags per frontend
+                'is_therapeutic_plan_required' => $type->isTherapeuticPlanRequired(),
+                'is_therapeutic_plan_optional' => $type->therapeutic_plan_rule === self::PLAN_OPTIONAL,
+                'is_therapeutic_plan_not_allowed' => $type->therapeutic_plan_rule === self::PLAN_NOT_ALLOWED,
+            ];
+        }
+        return $result;
+    }
+    
+    public function getTherapeuticPlanRuleLabel() {
+        switch ($this->therapeutic_plan_rule) {
+            case self::PLAN_OPTIONAL: return 'Opzionale';
+            case self::PLAN_NOT_ALLOWED: return 'Non associabile';
+            case self::PLAN_REQUIRED: return 'Obbligatorio';
+            default: return 'Sconosciuto';
+        }
+    }
+}
+```
+
+### Query Builder RequestTypeQuery Aggiornato
+```php
+class RequestTypeQuery extends ActiveQuery
+{
+    // Filtra solo tipi attivi
+    public function active($active = true) {
+        return $this->andWhere(['is_active' => $active ? 1 : 0]);
+    }
+    
+    // Filtra per regola piano terapeutico
+    public function requiresTherapeuticPlan() {
+        return $this->andWhere(['therapeutic_plan_rule' => RequestType::PLAN_REQUIRED]);
+    }
+    
+    // Filtra tipi che permettono richieste multiple
+    public function allowsMultiple() {
+        return $this->andWhere(['allow_multiple_requests' => 1]);
+    }
+    
+    // Filtra tipi che richiedono note
+    public function requiresNotes() {
+        return $this->andWhere(['require_notes' => 1]);
+    }
+    
+    // Filtra tipi che richiedono assegnazione terapia
+    public function requiresTherapyAssignment() {
+        return $this->andWhere(['require_therapy_assignment' => 1]);
+    }
+}
+```
+
+## ⚠️ PATTERN VALIDAZIONE DINAMICA AGGIORNATA
+
+### Validazione Basata su Nuovi Campi
+```php
+// In RequestsController o simile
+private function validateRequestTypeRequirements($data, $requestType) {
+    $errors = [];
+    
+    // Validazione piano terapeutico
+    if ($requestType['is_therapeutic_plan_required'] && empty($data['therapeutic_plan_id'])) {
+        $errors['therapeutic_plan_id'][] = "Piano terapeutico obbligatorio per '{$requestType['name']}'";
+    }
+    
+    if ($requestType['is_therapeutic_plan_not_allowed'] && !empty($data['therapeutic_plan_id'])) {
+        $errors['therapeutic_plan_id'][] = "Piano terapeutico non permesso per '{$requestType['name']}'";
+    }
+    
+    // Validazione assegnazione terapia
+    if ($requestType['require_therapy_assignment'] && empty($data['assigned_therapist_id'])) {
+        $errors['assigned_therapist_id'][] = "Assegnazione terapista obbligatoria per '{$requestType['name']}'";
+    }
+    
+    // Validazione note obbligatorie
+    if ($requestType['require_notes'] && empty($data['notes'])) {
+        $errors['notes'][] = "Note obbligatorie per '{$requestType['name']}'";
+    }
+    
+    // Controllo richieste multiple
+    if (!$requestType['allow_multiple_requests']) {
+        $existingRequests = DocumentRequest::find()
+            ->where(['user_id' => $data['user_id'], 'type_id' => $requestType['id']])
+            ->andWhere(['status' => ['pending', 'processing']])
+            ->count();
+            
+        if ($existingRequests > 0) {
+            $errors['type_id'][] = "Richiesta già presente per '{$requestType['name']}'. Multiple non consentite.";
+        }
+    }
+    
+    return $errors;
+}
+```
+
+## 📊 ENDPOINT AGGIORNATO GET /requests/types
+
+### Response Structure Aggiornata
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Copia Piano Terapeutico",
+      "therapeutic_plan_rule": 3,
+      "therapeutic_plan_rule_label": "Obbligatorio",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": false,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": true,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": false
+    },
+    {
+      "id": 2,
+      "name": "Relazione terapista",
+      "therapeutic_plan_rule": 3,
+      "therapeutic_plan_rule_label": "Obbligatorio",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": true,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": true,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": false
+    }
+  ],
+  "meta": {
+    "total": 5,
+    "active_count": 5,
+    "rule_distribution": {
+      "3": 2,
+      "2": 2,
+      "1": 1
+    },
+    "rules": {
+      "1": "Opzionale",
+      "2": "Non associabile",
+      "3": "Obbligatorio"
+    }
+  }
+}
+```
+
+### Controller Pattern Aggiornato
+```php
+public function actionTypes() {
+    try {
+        $currentUser = Yii::$app->user->identity;
+        if (!$currentUser) {
+            throw new UnauthorizedHttpException('Utente non autenticato');
+        }
+        
+        Yii::info("Request types accessed by user ID: {$currentUser->id}", __METHOD__);
+        
+        // Una sola query - ottimizzazione performance
+        $requestTypes = RequestType::getForApi();
+        
+        if (empty($requestTypes)) {
+            return [
+                'success' => true,
+                'data' => [],
+                'meta' => [
+                    'total' => 0,
+                    'active_count' => 0,
+                    'message' => 'Nessuna tipologia di richiesta configurata'
+                ]
+            ];
+        }
+        
+        // Calcola metadati dalle tipologie (evita query aggiuntive)
+        $activeCount = count($requestTypes);
+        $ruleDistribution = [];
+        foreach ($requestTypes as $type) {
+            $rule = (string)$type['therapeutic_plan_rule'];
+            $ruleDistribution[$rule] = ($ruleDistribution[$rule] ?? 0) + 1;
+        }
+        
+        return [
+            'success' => true,
+            'data' => $requestTypes,
+            'meta' => [
+                'total' => $activeCount,
+                'active_count' => $activeCount,
+                'rule_distribution' => $ruleDistribution,
+                'rules' => [
+                    '1' => 'Opzionale',
+                    '2' => 'Non associabile', 
+                    '3' => 'Obbligatorio'
+                ]
+            ]
+        ];
+        
+    } catch (UnauthorizedHttpException $e) {
+        return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
+        
+    } catch (\Exception $e) {
+        Yii::error("Error in RequestsController::actionTypes: " . $e->getMessage(), __METHOD__);
+        return $this->formatErrorResponse('INTERNAL_ERROR', 'Errore interno del server', [], 500);
+    }
+}
+```
+
+## 🧪 TESTING AGGIORNATO
+
+### Script Test Principale
+```php
+// api/test/test_requests_types_updated.php
+// Verifica:
+// ✅ Ordinamento per ID crescente (non alfabetico)
+// ✅ Nuovi campi: therapeutic_plan_rule, require_therapy_assignment, etc.
+// ✅ Helper flags: is_therapeutic_plan_required, etc.
+// ✅ Metadati: rule_distribution, rules mappings
+// ✅ Performance: una sola query database
+// ✅ Gestione errori standardizzata
+
+// Comando: php api/test/test_requests_types_updated.php
+```
+
+### Verifica Ordinamento
+```bash
+# I tipi DEVONO essere ordinati per ID crescente:
+# 1. Copia Piano Terapeutico
+# 2. Relazione terapista  
+# 3. Relazione visita specialistica
+# 4. Attestato frequenza
+# 5. Altro
+```
+
+## 📋 MIGRATION E DATI STRUTTURATI
+
+### File Migration Implementato
+```php
+// console/migrations/m250630_202122_modify_request_types_table.php
+class m250630_202122_modify_request_types_table extends Migration
+{
+    public function safeUp() {
+        // 1. Drop tabella esistente
+        $this->dropTable('{{%request_types}}');
+        
+        // 2. Crea nuova struttura
+        $this->createTable('{{%request_types}}', [
+            'id' => $this->primaryKey(),
+            'name' => $this->string()->notNull(),
+            'therapeutic_plan_rule' => $this->integer()->notNull()->defaultValue(1),
+            'allow_multiple_requests' => $this->tinyInteger(1)->defaultValue(0),
+            'require_therapy_assignment' => $this->tinyInteger(1)->defaultValue(0),
+            'require_notes' => $this->tinyInteger(1)->defaultValue(0),
+            'is_active' => $this->tinyInteger(1)->defaultValue(1),
+            'created_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ]);
+        
+        // 3. Inserisci dati iniziali
+        $this->batchInsert('{{%request_types}}', 
+            ['name', 'therapeutic_plan_rule', 'allow_multiple_requests', 'require_therapy_assignment', 'require_notes', 'is_active'],
+            [
+                ['Copia Piano Terapeutico', 3, 0, 0, 0, 1],
+                ['Relazione terapista', 3, 0, 1, 0, 1],
+                ['Relazione visita specialistica', 2, 0, 0, 0, 1],
+                ['Attestato frequenza', 1, 0, 0, 0, 1],
+                ['Altro', 2, 1, 0, 1, 1]
+            ]
+        );
+    }
+}
+```
+
+## ⚠️ REGOLA CRITICA: Gestione Timezone UTC per API
+
+**OBBLIGATORIO**: Tutti i timestamp negli endpoint API DEVONO essere gestiti in UTC per garantire consistenza globale.
+
+### Configurazione Base Timezone
+```php
+// In api/config/bootstrap.php - SEMPRE PRESENTE
+date_default_timezone_set('UTC');
+```
+
+### Pattern DateTime UTC Obbligatori
+```php
+// ❌ SBAGLIATO - Timezone server locale
+$now = new \DateTime();
+
+// ✅ CORRETTO - UTC esplicito
+$now = new \DateTime('now', new \DateTimeZone('UTC'));
+$timestamp = $now->format('Y-m-d\TH:i:s\Z'); // ISO8601 con Z
+
+// ✅ Validazione date UTC
+private function isValidDate($dateString) {
+    if (!$dateString) return false;
+    $date = \DateTime::createFromFormat('Y-m-d', $dateString, new \DateTimeZone('UTC'));
+    return $date && $date->format('Y-m-d') === $dateString;
+}
+
+// ✅ Confronto date timezone-safe
+private function compareDates($dateFrom, $dateTo) {
+    if (!$dateFrom || !$dateTo) return 0;
+    $from = \DateTime::createFromFormat('Y-m-d', $dateFrom, new \DateTimeZone('UTC'));
+    $to = \DateTime::createFromFormat('Y-m-d', $dateTo, new \DateTimeZone('UTC'));
+    if (!$from || !$to) return 0;
+    return $from <=> $to; // Spaceship operator
+}
+```
+
+## 🌐 SWAGGER UI - DOCUMENTAZIONE INTERATTIVA API
+
+### Configurazione Swagger UI Completa
+**URL PRINCIPALE**: `http://localhost/TherapyCRM/api/swagger`
+
+**CARATTERISTICHE IMPLEMENTATE**:
+- **Interfaccia interattiva** per testare tutti gli endpoint API in tempo reale
+- **Autenticazione JWT integrata** con pulsante "Authorize" persistente
+- **Documentazione OpenAPI completa** con esempi request/response
+- **Istruzioni step-by-step** per l'autenticazione integrate nell'UI
+- **Persistenza token** durante la sessione di test
+
+### Pattern Swagger Implementati
+
+**SWAGGERCONTROLLER CONFIGURATO**:
+```php
+// In api/controllers/SwaggerController.php
+public function actionJson()
+{
+    // Scansiona automaticamente tutti i controller con annotazioni OpenAPI
+    $swagger = \OpenApi\Generator::scan([
+        Yii::getAlias('@api/controllers/AuthController.php'),
+        Yii::getAlias('@api/controllers/RequestsController.php'),
+        // ⚠️ IMPORTANTE: Aggiungere qui ogni nuovo controller API
+    ], ['validate' => false]);
+    
+    return json_decode($swagger->toJson(), true);
+}
+```
+
+**ANNOTAZIONI OPENAPI STANDARD**:
+```php
+/**
+ * @OA\Info(
+ *     title="TherapyCRM API - Richieste Pazienti",
+ *     version="2.0.0",
+ *     description="API per la gestione delle richieste di documenti dei pazienti"
+ * )
+ * @OA\SecurityScheme(
+ *     securityScheme="BearerAuth",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT",
+ *     description="Inserire il token JWT ottenuto dal login preceduto da 'Bearer '"
+ * )
+ */
+
+/**
+ * @OA\Get(
+ *     path="/requests/types",
+ *     summary="Recupera tipologie di richieste attive",
+ *     tags={"Richieste"},
+ *     security={{"BearerAuth":{}}},
+ *     @OA\Response(
+ *         response=200,
+ *         description="Tipologie recuperate con successo",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="success", type="boolean", example=true),
+ *             @OA\Property(property="data", type="array"),
+ *             @OA\Property(property="meta", type="object")
+ *         )
+ *     ),
+ *     @OA\Response(response=401, description="Token JWT non valido o mancante")
+ * )
+ */
+```
+
+## 🚨 GESTIONE ERRORI STANDARDIZZATA - IMPLEMENTAZIONE COMPLETA
+
+### Formato Errore Standard (OBBLIGATORIO per tutti gli endpoint)
+
+**FORMATO JSON UNIFICATO**:
+```php
+// ✅ NUOVO FORMATO STANDARD - sempre usare questo
+return [
+    'success' => false,
+    'error' => 'Messaggio errore leggibile per l\'utente',
+    'code' => 'ERROR_CODE',
+    'details' => [  // Opzionale - solo per errori di validazione
+        'field_name' => 'Dettaglio specifico errore'
+    ]
+];
+```
+
+**CODICI ERRORE IMPLEMENTATI**:
+- `INVALID_REQUEST_TYPE` (404): Tipologia richiesta non valida o inesistente
+- `MISSING_REQUIRED_FIELD` (400): Campo obbligatorio mancante o validazione fallita
+- `UNAUTHORIZED` (401): Token mancante, non valido o scaduto
+- `ACCESS_DENIED` (403): Utente autenticato ma senza permessi
+- `NOT_FOUND` (404): Risorsa non trovata
+- `BAD_REQUEST` (400): Richiesta malformata
+- `INTERNAL_ERROR` (500): Errore interno del server
+
+### Metodi Helper Controller (Pattern Standard)
+
+**IMPLEMENTAZIONE OBBLIGATORIA** in ogni controller API:
+```php
+// Metodi helper per gestione errori standardizzata
+private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    return $response;
+}
+
+private function formatValidationErrors($validationErrors)
+{
+    $details = [];
+    foreach ($validationErrors as $field => $fieldErrors) {
+        $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+    }
+    return $details;
+}
+
+// Esempio utilizzo
+public function actionCreate()
+{
+    // Validazione...
+    if (!empty($validationErrors)) {
+        $details = $this->formatValidationErrors($validationErrors);
+        return $this->formatErrorResponse(
+            'MISSING_REQUIRED_FIELD', 
+            'Errori di validazione dei campi obbligatori', 
+            $details, 
+            400
+        );
+    }
+    
+    // Tipologia non trovata
+    if (!$requestType) {
+        return $this->formatErrorResponse(
+            'INVALID_REQUEST_TYPE', 
+            'Tipologia di richiesta non trovata o non attiva', 
+            [], 
+            404
+        );
+    }
+}
+```
+
+## Logica di Business Principale
+
+### Gestione Piani Terapeutici
+- I piani terapeutici sono creati dall'Amministrazione (solo terapie + ore, NESSUNA programmazione)
+- Il Manager (Sharon) assegna i terapisti e crea gli orari usando il calendario drag-drop
+- I piani hanno regimi sanitari: L11, L11DOM, L11PG, L11SEM, ABA, FKT, Private, PDOM, Other
+- Ogni piano ha una data di inizio, durata in giorni e data fine calcolata automaticamente
+
+### Sistema Assenze
+- Regola del 10%: pazienti che superano il 10% di assenze ingiustificate subiscono conseguenze
+- Le assenze giustificate possono essere recuperate con appuntamenti di recupero
+- Contatori automatici aggiornati via trigger per performance
+
+### Gestione Appuntamenti
+- Pattern ricorrenti per appuntamenti settimanali
+- Stati: scheduled, completed, absent_justified, absent_not_justified, cancelled
+- Sostituzioni terapisti tracciate separatamente
+- Slot occupati gestiti automaticamente via trigger
+
+### Sistema Gruppi Coordinatori
+- I coordinatori gestiscono gruppi di terapisti assegnati
+- Creazione atomica: coordinatore + terapisti selezionati insieme
+- Schema database: `coordinator_groups` (1:N) `group_therapists`
+- Terapisti attivi: `assigned_to IS NULL`, inattivi: `assigned_to` con data
+- Permessi RBAC: admin/manager (CRUD completo), coordinator (view-only proprio gruppo)
+- Vista coordinatore: `/therapist/my-group` mostra solo terapisti assegnati
+
+## Comandi Utili
+
+### Sviluppo
+
+```bash
+# Applicare migrations
+./yii migrate
+
+# Pulire cache
+./yii cache/flush-all
+
+# Generare modelli
+./yii gii/model
+
+# Monitorare logs
+tail -f frontend/runtime/logs/app.log
+```
+
+### Testing API
+
+```bash
+# Test endpoint types aggiornato
+php api/test/test_requests_types_updated.php
+
+# Test completo endpoint requests
+php api/test/test_requests_endpoint.php
+
+# Test Swagger UI completo
+php api/test/test_swagger_endpoints.php
+
+# Test gestione errori standardizzata
+php api/test/test_error_handling_standard.php
+```
+
+### Debugging
+
+```bash
+# Verificare permessi directory
+ls -la frontend/runtime/
+
+# Cercare errori nei log
+grep -i error frontend/runtime/logs/app.log
+
+# Verificare configurazione PHP
+php -m | grep -i pdf
+```
+
+## Naming Conventions
+
+- Controllers: `PascalCase` + `Controller.php`
+- Actions: `actionCamelCase`
+- Views: `kebab-case.php`
+- Models: `PascalCase.php`
+- JavaScript functions: `camelCase`
+
+## Sicurezza
+
+- Sempre usare CSRF token nelle richieste POST
+- Validare parametri input
+- Controllare permessi utente prima di ogni azione
+- Escapare output HTML con `Html::encode()`
+
+## Performance
+
+- Usare cache per query pesanti
+- Ottimizzare asset con compression
+- Lazy loading per dati non critici
+- Minimizzare chiamate database
+
+## Testing
+
+- Test funzionali in `tests/functional/`
+- Test unità in `tests/unit/`
+- Usare Codeception per test automatizzati 

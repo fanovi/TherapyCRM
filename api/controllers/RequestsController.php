@@ -165,30 +165,45 @@ class RequestsController extends Controller
             // Recupera le tipologie di richieste dal database (una sola query)
             $requestTypes = RequestType::getForApi();
             
-            // Se non ci sono tipologie attive, restituisci array vuoto
+            // Se non ci sono tipologie, restituisci array vuoto
             if (empty($requestTypes)) {
-                Yii::warning("No active request types found in database", __METHOD__);
+                Yii::warning("No request types found in database", __METHOD__);
                 return [
                     'success' => true,
                     'data' => [],
                     'meta' => [
                         'total' => 0,
-                        'categories' => []
+                        'active_count' => 0,
+                        'rules' => RequestType::getTherapeuticPlanRuleOptions()
                     ]
                 ];
             }
             
-            // Estrai le categorie dai dati già recuperati (evita seconda query)
-            $activeCategories = array_values(array_unique(array_column($requestTypes, 'category')));
-            sort($activeCategories); // Ordina alfabeticamente
+            // Calcola statistiche utili dai dati recuperati
+            $activeCount = 0;
+            $ruleDistribution = [];
             
-            // Risposta con dati dal database
+            foreach ($requestTypes as $type) {
+                if ($type['is_active']) {
+                    $activeCount++;
+                }
+                
+                $rule = $type['therapeutic_plan_rule'];
+                if (!isset($ruleDistribution[$rule])) {
+                    $ruleDistribution[$rule] = 0;
+                }
+                $ruleDistribution[$rule]++;
+            }
+            
+            // Risposta con dati dal database e meta informazioni utili
             return [
                 'success' => true,
                 'data' => $requestTypes,
                 'meta' => [
                     'total' => count($requestTypes),
-                    'categories' => $activeCategories
+                    'active_count' => $activeCount,
+                    'rule_distribution' => $ruleDistribution,
+                    'rules' => RequestType::getTherapeuticPlanRuleOptions()
                 ]
             ];
             
