@@ -33,12 +33,13 @@ class NotificationService extends Component
      *
      * @param int|array $userIds Singolo user_id o array di user_ids
      * @param string $title Titolo della notifica
-     * @param string $message Messaggio della notifica
+     * @param string $message Messaggio della notifica (può essere HTML)
      * @param string $type Tipo di notifica (opzionale)
      * @param int|null $senderId ID dell'utente mittente (opzionale)
      * @param bool $requiresReadConfirmation Se richiede conferma di lettura
      * @param string|null $scheduledFor Data/ora programmazione (formato Y-m-d H:i:s)
      * @param array $data Dati aggiuntivi per OneSignal
+     * @param bool $skipPush Se true, la notifica viene solo salvata nel DB e non inviata via OneSignal
      * @return array Risultato con informazioni sulle notifiche create e inviate
      * @throws \Exception
      */
@@ -50,7 +51,8 @@ class NotificationService extends Component
         $senderId = null,
         $requiresReadConfirmation = false,
         $scheduledFor = null,
-        $data = []
+        $data = [],
+        $skipPush = false
     ) {
         // Normalizza userIds in array
         if (!is_array($userIds)) {
@@ -89,6 +91,11 @@ class NotificationService extends Component
             } else {
                 $results['errors'][] = 'Errore creazione notifica per utente ' . $userId . ': ' . implode(', ', $notification->getFirstErrors());
             }
+        }
+
+        // Se skipPush è true, non inviare tramite OneSignal
+        if ($skipPush) {
+            return $results;
         }
 
         // Se non ci sono notifiche programmate, invia subito tramite OneSignal

@@ -19,12 +19,13 @@ class NotificationHelper
      * @param string $message Messaggio della notifica
      * @param string $type Tipo di notifica
      * @param array $data Dati aggiuntivi per OneSignal
+     * @param bool $skipPush Se true, non invia notifiche push
      * @return array Risultato dell'invio
      */
-    public static function sendToUsers($userIds, $title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToUsers($userIds, $title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
         try {
-            return Yii::$app->notificationService->sendNotification($userIds, $title, $message, $type, null, false, null, $data);
+            return Yii::$app->notificationService->sendNotification($userIds, $title, $message, $type, null, false, null, $data, $skipPush);
         } catch (\Exception $e) {
             Yii::error('NotificationHelper::sendToUsers error: ' . $e->getMessage(), __METHOD__);
             return [
@@ -42,9 +43,10 @@ class NotificationHelper
      * @param string $message Messaggio
      * @param string $type Tipo notifica
      * @param array $data Dati aggiuntivi
+     * @param bool $skipPush Se true, non invia notifiche push
      * @return array
      */
-    public static function sendToRole($roleName, $title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToRole($roleName, $title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
         $userIds = static::getUserIdsByRole($roleName);
         if (empty($userIds)) {
@@ -54,7 +56,7 @@ class NotificationHelper
             ];
         }
 
-        return static::sendToUsers($userIds, $title, $message, $type, $data);
+        return static::sendToUsers($userIds, $title, $message, $type, $data, $skipPush);
     }
 
     /**
@@ -64,11 +66,12 @@ class NotificationHelper
      * @param string $message
      * @param string $type
      * @param array $data
+     * @param bool $skipPush Se true, non invia notifiche push
      * @return array
      */
-    public static function sendToTherapists($title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToTherapists($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
-        return static::sendToRole('therapist', $title, $message, $type, $data);
+        return static::sendToRole('therapist', $title, $message, $type, $data, $skipPush);
     }
 
     /**
@@ -78,11 +81,12 @@ class NotificationHelper
      * @param string $message
      * @param string $type
      * @param array $data
+     * @param bool $skipPush Se true, non invia notifiche push
      * @return array
      */
-    public static function sendToCoordinators($title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToCoordinators($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
-        return static::sendToRole('coordinator', $title, $message, $type, $data);
+        return static::sendToRole('coordinator', $title, $message, $type, $data, $skipPush);
     }
 
     /**
@@ -92,11 +96,12 @@ class NotificationHelper
      * @param string $message
      * @param string $type
      * @param array $data
+     * @param bool $skipPush Se true, non invia notifiche push
      * @return array
      */
-    public static function sendToAdmins($title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToAdmins($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
-        return static::sendToRole('admin', $title, $message, $type, $data);
+        return static::sendToRole('admin', $title, $message, $type, $data, $skipPush);
     }
 
     /**
@@ -281,12 +286,12 @@ class NotificationHelper
 
         try {
             $userIds = [];
-            $assignments = Yii::$app->authManager->getAssignments($roleName);
+            $assignments = Yii::$app->authManager->getUserIdsByRole($roleName);
             
             foreach ($assignments as $userId => $assignment) {
-                $userIds[] = (int)$userId;
+                $userIds[] = (int)$assignment;
             }
-
+            
             return $userIds;
 
         } catch (\Exception $e) {

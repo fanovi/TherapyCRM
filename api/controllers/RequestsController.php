@@ -13,6 +13,7 @@ use common\models\DocumentRequestStatusHistory;
 use common\models\AccountPatient;
 use common\models\TherapeuticPlan;
 use common\models\PlanTherapy;
+use common\helpers\NotificationHelper;
 
 /**
  * @OA\Info(
@@ -868,6 +869,24 @@ class RequestsController extends Controller
 
             // Salva la richiesta nel database (o restituisce quella esistente)
             $requestResult = $this->saveDocumentRequest($data, $requestType, $currentUser);
+
+            // Notifica tutti gli admin (solo interna, HTML)
+            $patientId = $requestResult['patient_id'] ?? null;
+            $therapeuticPlanId = $requestResult['therapeutic_plan_id'] ?? null;
+            $patientLink = $patientId ? Yii::$app->urlManager->createAbsoluteUrl(['/backend/patient/view', 'id' => $patientId]) : '#';
+            $planLink = $therapeuticPlanId ? Yii::$app->urlManager->createAbsoluteUrl(['/backend/therapeutic-plan/view', 'id' => $therapeuticPlanId]) : null;
+            $htmlMessage = "<b>Nuova richiesta documento</b> per il paziente <a href='$patientLink'>#{$patientId}</a>";
+            if ($planLink) {
+                $htmlMessage .= " (Piano terapeutico: <a href='$planLink'>#{$therapeuticPlanId}</a>)";
+            }
+            $htmlMessage .= ".<br>Richiedente: <b>" . ($currentUser->profile ? $currentUser->profile->first_name . ' ' . $currentUser->profile->last_name : $currentUser->email) . "</b>";
+            NotificationHelper::sendToAdmins(
+                'Nuova richiesta documento',
+                $htmlMessage,
+                \common\models\Notification::TYPE_INFO,
+                [],
+                true // skipPush
+            );
 
             // Determina status code e messaggio in base al risultato
             if (isset($requestResult['is_duplicate']) && $requestResult['is_duplicate']) {

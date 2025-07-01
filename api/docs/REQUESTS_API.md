@@ -1174,4 +1174,61 @@ Gli script effettuano automaticamente:
 - ✅ Sanitizzazione delle risposte
 - ✅ Rate limiting (gestito a livello infrastruttura)
 
-L'endpoint è pronto per l'uso in produzione con dati dinamici dal database. Il modello `RequestType` è implementato e funzionante. 
+L'endpoint è pronto per l'uso in produzione con dati dinamici dal database. Il modello `RequestType` è implementato e funzionante.
+
+# Gestione Notifiche Interne (DB Only)
+
+## Pattern consigliato per notifiche solo interne (no push)
+
+- Usa i metodi di `common\helpers\NotificationHelper`:
+  - `sendToAdmins(titolo, messaggio HTML, tipo, dati, skipPush)`
+  - `sendToRole(roleName, titolo, messaggio HTML, tipo, dati, skipPush)`
+  - `sendToUsers(userIds, titolo, messaggio HTML, tipo, dati, skipPush)`
+- Passa sempre `true` come ultimo parametro (`$skipPush`) per notifiche solo DB (no OneSignal).
+- Il campo `message` supporta HTML (es. link a paziente, piano terapeutico, ecc.).
+- Esempio:
+
+```php
+use common\helpers\NotificationHelper;
+
+$htmlMessage = "Nuova richiesta per <a href='...'>paziente</a>";
+NotificationHelper::sendToAdmins(
+    "Nuova richiesta documento",
+    $htmlMessage,
+    \common\models\Notification::TYPE_INFO,
+    [],
+    true // skipPush: solo DB
+);
+```
+
+## Recupero utenti admin
+- Usa `Yii::$app->authManager->getUserIdsByRole('admin')` per ottenere tutti gli ID admin.
+- **Non usare** `getAssignments('admin')`: accetta solo user_id, non ruolo.
+
+## Best practice
+- Invia la notifica **solo dopo** che il salvataggio della richiesta  e8 andato a buon fine (dopo la chiamata a saveDocumentRequest o simili).
+- Propaga sempre il flag `$skipPush` nei metodi helper per massima flessibilit e0 futura.
+- Le notifiche interne sono visibili solo nel gestionale, non vengono inviate via OneSignal/app.
+
+## Esempio completo in controller
+
+```php
+// Dopo aver creato la richiesta con successo
+$patientLink = Yii::$app->urlManager->createAbsoluteUrl(['/backend/patient/view', 'id' => $patientId]);
+$htmlMessage = "<b>Nuova richiesta</b> per <a href='$patientLink'>paziente #$patientId</a>";
+NotificationHelper::sendToAdmins(
+    'Nuova richiesta documento',
+    $htmlMessage,
+    \common\models\Notification::TYPE_INFO,
+    [],
+    true // skipPush
+);
+```
+
+## Chiarimento metodi RBAC
+- `getAssignments($userId)`: restituisce i ruoli/permessi di uno specifico utente.
+- `getUserIdsByRole($roleName)`: restituisce tutti gli user_id che hanno un certo ruolo (es. admin).
+
+---
+
+**Seguire questi pattern garantisce notifiche interne consistenti, riutilizzabili e facilmente estendibili per futuri sviluppi.** 
