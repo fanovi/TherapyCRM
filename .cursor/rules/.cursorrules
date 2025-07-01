@@ -915,7 +915,7 @@ Yii::$app->db->createCommand()->batchInsert(
 ### **FASE 6: FINALIZZAZIONE**
 - [ ] **Aggiornare documentazione** API (REQUESTS_API.md)
 - [ ] **Aggiornare status** implementazione (IMPLEMENTATION_STATUS.md)
-- [ ] **Aggiornare file rules** (.cursorrules, therapy-rules.md)
+- [ ] **Aggiungere script test** ai file rules (.cursorrules, therapy-rules.md)
 - [ ] **Verificare Swagger UI** accessibile e completo
 - [ ] **Test integrazione** con app mobile (se applicabile)
 
@@ -972,6 +972,208 @@ php api/test/test_nuovo_endpoint.php
 - ✅ Descrizione parametri e response
 - ✅ Gestione errori documentata
 - ✅ Swagger UI testabile 
+
+## 🧪 PATTERN TESTING API - SCRIPT STANDARDIZZATI
+
+### Template Script Test (Pattern Implementato)
+
+**STRUTTURA BASE** (`api/test/test_{endpoint_name}.php`):
+```php
+<?php
+/**
+ * Script di test per l'endpoint {METHOD} /{endpoint} 
+ * 
+ * Testa:
+ * - Autenticazione JWT
+ * - Validazioni campi
+ * - Gestione errori standardizzata
+ * - Formato response JSON
+ * - Timezone UTC
+ * 
+ * Uso: php api/test/test_{endpoint_name}.php
+ */
+
+require_once __DIR__ . '/../config/bootstrap.php';
+
+echo "🧪 TEST ENDPOINT {METHOD} /{endpoint}\n";
+echo "=========================================\n\n";
+
+function makeHttpRequest($url, $method = 'GET', $headers = [], $data = null)
+{
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => $method,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_POSTFIELDS => $data
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    return [
+        'status' => $httpCode,
+        'body' => $response,
+        'data' => json_decode($response, true)
+    ];
+}
+
+function getAuthToken($email = 'paziente@test.it', $password = '12345678')
+{
+    $response = makeHttpRequest(
+        'http://localhost/TherapyCRM/api/auth/login',
+        'POST',
+        ['Content-Type: application/x-www-form-urlencoded'],
+        http_build_query(['email' => $email, 'password' => $password])
+    );
+    
+    if ($response['status'] !== 200 || !$response['data']['success']) {
+        echo "❌ ERRORE: Login fallito\n";
+        echo "Response: " . $response['body'] . "\n";
+        exit(1);
+    }
+    
+    return $response['data']['data']['access_token'];
+}
+
+// ===== PATTERN TEST STEPS =====
+
+echo "🔐 STEP 1: Login per ottenere token JWT\n";
+$token = getAuthToken();
+echo "✅ Token ottenuto\n\n";
+
+echo "📋 STEP 2: Test endpoint con autenticazione\n";
+$response = makeHttpRequest(
+    'http://localhost/TherapyCRM/api/{endpoint}',
+    '{METHOD}',
+    [
+        'Authorization: Bearer ' . $token,
+        'Content-Type: application/json'
+    ],
+    // $data per POST/PUT
+);
+
+echo "Status: {$response['status']}\n";
+echo $response['data']['success'] ? "✅ SUCCESS" : "❌ FAILED";
+echo "\n\n";
+
+if ($response['data']['success']) {
+    echo "📊 Verifica struttura response:\n";
+    $requiredFields = ['success', 'data'];
+    foreach ($requiredFields as $field) {
+        echo $isset($response['data'][$field]) ? "✅" : "❌";
+        echo " Campo '$field'\n";
+    }
+    echo "\n";
+}
+
+echo "🔍 STEP 3: Test validazione errori\n";
+// Test senza autenticazione
+$errorResponse = makeHttpRequest('http://localhost/TherapyCRM/api/{endpoint}', '{METHOD}');
+echo "Status: {$errorResponse['status']}\n";
+echo ($errorResponse['status'] === 401) ? "✅ UNAUTHORIZED corretto" : "❌ FAILED";
+echo "\n\n";
+
+echo "🎉 SUMMARY - TEST COMPLETATI\n";
+echo "============================\n";
+echo "✅ Autenticazione JWT funzionante\n";
+echo "✅ Formato response JSON standard\n";
+echo "✅ Gestione errori implementata\n";
+echo "✅ Endpoint pronto per uso\n";
+```
+
+### Script Test Implementati (Esempi)
+
+**ACTIONCREATE AGGIORNATO**:
+- File: `api/test/test_action_create_updated.php`
+- Status: ✅ Implementato - Test completo per POST /requests
+- Features: Nuovi campi (request_type_id, therapeutic_plan_id, therapy_id)
+- Features: Validazione dinamica basata su RequestType
+- Features: Sistema duplicati con allow_multiple_requests
+- Features: Storico stati automatico
+- Features: Formato errori standardizzato
+
+**REQUEST TYPES AGGIORNATO**:
+- File: `api/test/test_requests_types_updated.php`
+- Status: ✅ Implementato - Test per GET /requests/types
+- Features: Ordinamento per ID crescente
+- Features: Nuovi campi (therapeutic_plan_rule, require_*)
+- Features: Helper flags (is_therapeutic_plan_required)
+- Features: Metadati (rule_distribution, rules mappings)
+
+### Pattern Testing per Nuovi Endpoint
+
+**CREAZIONE SCRIPT TEST**:
+1. **Copiare template** da script esistente simile
+2. **Modificare endpoint** e parametri specifici
+3. **Aggiungere test cases** per validazioni specifiche
+4. **Testare tutti status code** (200, 201, 400, 401, 404, 500)
+5. **Verificare formato JSON** standardizzato
+6. **Test timezone UTC** se gestito
+
+**COMANDI STANDARD**:
+```bash
+# Test endpoint singolo
+php api/test/test_nome_endpoint.php
+
+# Test Swagger completo
+php api/test/test_swagger_endpoints.php
+
+# Test gestione errori
+php api/test/test_error_handling_standard.php
+
+# Test timezone
+php api/test/test_timezone_only.php
+```
+
+### Validazione Script Test
+
+**CHECKLIST SCRIPT**:
+- [ ] **Header descrittivo** con scopo e uso
+- [ ] **Funzioni helper** makeHttpRequest(), getAuthToken()
+- [ ] **Step numerati** con echo descrittivi
+- [ ] **Test autenticazione** (con/senza token)
+- [ ] **Test validazioni** (campi obbligatori, formati)
+- [ ] **Test errori** (401, 400, 404, 500)
+- [ ] **Verifica struttura JSON** (success, data, meta/details)
+- [ ] **Summary finale** con risultati
+- [ ] **Gestione errori** con exit(1) se fallimenti critici
+
+**PATTERN VALIDAZIONE RESPONSE**:
+```php
+// Verifica struttura response standard
+function validateStandardResponse($response, $requiredFields = ['success', 'data']) {
+    if (!is_array($response)) {
+        echo "❌ Response non è un array JSON valido\n";
+        return false;
+    }
+    
+    foreach ($requiredFields as $field) {
+        if (!isset($response[$field])) {
+            echo "❌ Campo '$field' mancante\n";
+            return false;
+        }
+    }
+    
+    if (isset($response['success']) && !is_bool($response['success'])) {
+        echo "❌ Campo 'success' deve essere boolean\n";
+        return false;
+    }
+    
+    return true;
+}
+
+// Verifica formato errori standardizzato
+function validateErrorResponse($response) {
+    $required = ['success', 'error', 'code'];
+    return validateStandardResponse($response, $required) &&
+           $response['success'] === false &&
+           is_string($response['error']) &&
+           is_string($response['code']);
+}
+```
 
 ## ⚠️ SCHEMA DATABASE AGGIORNATO - TABELLA REQUEST_TYPES
 

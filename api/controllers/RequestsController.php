@@ -9,7 +9,10 @@ use yii\web\BadRequestHttpException;
 use common\models\User;
 use common\models\RequestType;
 use common\models\DocumentRequest;
+use common\models\DocumentRequestStatusHistory;
 use common\models\AccountPatient;
+use common\models\TherapeuticPlan;
+use common\models\PlanTherapy;
 
 /**
  * @OA\Info(
@@ -645,9 +648,9 @@ class RequestsController extends Controller
      *         @OA\MediaType(
      *             mediaType="application/json",
      *             @OA\Schema(
-     *                 required={"type_id"},
+     *                 required={"request_type_id"},
      *                 @OA\Property(
-     *                     property="type_id",
+     *                     property="request_type_id",
      *                     type="integer",
      *                     description="ID della tipologia di richiesta",
      *                     example=1
@@ -746,7 +749,7 @@ class RequestsController extends Controller
      *             @OA\Property(
      *                 property="details",
      *                 type="object",
-     *                 @OA\Property(property="type_id", type="string", example="Tipologia con ID 999 non trovata")
+     *                 @OA\Property(property="request_type_id", type="string", example="Tipologia con ID 999 non trovata")
      *             )
      *         )
      *     ),
@@ -801,12 +804,12 @@ class RequestsController extends Controller
             }
 
             // Trova la tipologia di richiesta
-            $requestType = $this->findRequestTypeById($data['type_id']);
+            $requestType = $this->findRequestTypeById($data['request_type_id']);
             if (!$requestType) {
                 return $this->formatErrorResponse(
                     'INVALID_REQUEST_TYPE', 
                     'Tipologia di richiesta non valida o non attiva', 
-                    ['type_id' => "Tipologia con ID {$data['type_id']} non trovata"], 
+                    ['request_type_id' => "Tipologia con ID {$data['request_type_id']} non trovata"], 
                     404
                 );
             }
@@ -881,97 +884,6 @@ class RequestsController extends Controller
     }
 
     /**
-     * Restituisce i dati statici delle tipologie di richieste
-     * @deprecated Sostituito da RequestType::getForApi() - mantenuto per compatibilità test
-     * Utilizzato per sviluppo/testing quando non si ha accesso al database
-     */
-    private function getRequestTypesData()
-    {
-        return [
-            [
-                'id' => 1,
-                'name' => 'Certificato Medico',
-                'description' => 'Richiesta certificato medico per assenza lavorativa',
-                'category' => 'medical',
-                'estimated_days' => 3,
-                'requires_reason' => true,
-                'requires_date_range' => true,
-                'is_active' => true
-            ],
-            [
-                'id' => 2,
-                'name' => 'Relazione Terapeutica',
-                'description' => 'Richiesta relazione dettagliata sui progressi terapeutici',
-                'category' => 'therapy',
-                'estimated_days' => 5,
-                'requires_reason' => true,
-                'requires_date_range' => false,
-                'is_active' => true
-            ],
-            [
-                'id' => 3,
-                'name' => 'Programma Riabilitativo',
-                'description' => 'Richiesta piano riabilitativo personalizzato per il paziente',
-                'category' => 'therapy',
-                'estimated_days' => 7,
-                'requires_reason' => true,
-                'requires_date_range' => false,
-                'is_active' => true
-            ],
-            [
-                'id' => 4,
-                'name' => 'Certificato Idoneità Fisica',
-                'description' => 'Certificato per attività fisica e sportiva',
-                'category' => 'fitness',
-                'estimated_days' => 2,
-                'requires_reason' => false,
-                'requires_date_range' => false,
-                'is_active' => true
-            ],
-            [
-                'id' => 5,
-                'name' => 'Richiesta Appuntamento Urgente',
-                'description' => 'Richiesta di appuntamento con priorità alta',
-                'category' => 'appointment',
-                'estimated_days' => 1,
-                'requires_reason' => true,
-                'requires_date_range' => true,
-                'is_active' => true
-            ],
-            [
-                'id' => 6,
-                'name' => 'Copia Cartella Clinica',
-                'description' => 'Richiesta copia della cartella clinica del paziente',
-                'category' => 'medical',
-                'estimated_days' => 4,
-                'requires_reason' => true,
-                'requires_date_range' => false,
-                'is_active' => true
-            ],
-            [
-                'id' => 7,
-                'name' => 'Prescrizione Esercizi Domiciliari',
-                'description' => 'Richiesta programma di esercizi da svolgere a casa',
-                'category' => 'therapy',
-                'estimated_days' => 3,
-                'requires_reason' => false,
-                'requires_date_range' => false,
-                'is_active' => true
-            ],
-            [
-                'id' => 8,
-                'name' => 'Rivalutazione Funzionale',
-                'description' => 'Richiesta rivalutazione completa delle capacità funzionali',
-                'category' => 'medical',
-                'estimated_days' => 6,
-                'requires_reason' => true,
-                'requires_date_range' => false,
-                'is_active' => true
-            ]
-        ];
-    }
-
-    /**
      * Trova una tipologia di richiesta per ID dal database
      */
     private function findRequestTypeById($typeId)
@@ -982,31 +894,30 @@ class RequestsController extends Controller
             return null;
         }
         
-        // Converte il modello in array per mantenere compatibilità con il resto del codice
+        // Converte il modello in array con i nuovi campi
         return [
             'id' => $requestType->id,
             'name' => $requestType->name,
-            'description' => $requestType->description,
-            'category' => $requestType->category,
-            'estimated_days' => $requestType->estimated_days,
-            'requires_reason' => (bool) $requestType->requires_reason,
-            'requires_date_range' => (bool) $requestType->requires_date_range,
+            'therapeutic_plan_rule' => $requestType->therapeutic_plan_rule,
+            'allow_multiple_requests' => (bool) $requestType->allow_multiple_requests,
+            'require_therapy_assignment' => (bool) $requestType->require_therapy_assignment,
+            'require_notes' => (bool) $requestType->require_notes,
             'is_active' => (bool) $requestType->is_active,
         ];
     }
 
     /**
-     * Validazione input base
+     * Validazione input base per i nuovi campi
      */
     private function validateRequestData($data)
     {
         $errors = [];
 
-        // type_id è obbligatorio
-        if (empty($data['type_id'])) {
-            $errors['type_id'][] = 'Il campo type_id è obbligatorio';
-        } elseif (!is_numeric($data['type_id']) || (int)$data['type_id'] <= 0) {
-            $errors['type_id'][] = 'Il campo type_id deve essere un numero intero positivo';
+        // request_type_id è obbligatorio
+        if (empty($data['request_type_id'])) {
+            $errors['request_type_id'][] = 'Il campo request_type_id è obbligatorio';
+        } elseif (!is_numeric($data['request_type_id']) || (int)$data['request_type_id'] <= 0) {
+            $errors['request_type_id'][] = 'Il campo request_type_id deve essere un numero intero positivo';
         }
 
         // patient_id è obbligatorio
@@ -1016,27 +927,21 @@ class RequestsController extends Controller
             $errors['patient_id'][] = 'Il campo patient_id deve essere un numero intero positivo';
         }
 
-        // Validazione formato date se presenti
-        if (!empty($data['date_from']) && !$this->isValidDate($data['date_from'])) {
-            $errors['date_from'][] = 'Il formato della data di inizio non è valido (usa YYYY-MM-DD)';
-        }
-
-        if (!empty($data['date_to']) && !$this->isValidDate($data['date_to'])) {
-            $errors['date_to'][] = 'Il formato della data di fine non è valido (usa YYYY-MM-DD)';
-        }
-
-        // Se entrambe le date sono presenti, verifica che date_from <= date_to (timezone-safe)
-        if (!empty($data['date_from']) && !empty($data['date_to'])) {
-            if ($this->compareDates($data['date_from'], $data['date_to']) > 0) {
-                $errors['date_to'][] = 'La data di fine deve essere successiva o uguale alla data di inizio';
+        // Validazione therapeutic_plan_id se presente
+        if (!empty($data['therapeutic_plan_id'])) {
+            if (!is_numeric($data['therapeutic_plan_id']) || (int)$data['therapeutic_plan_id'] <= 0) {
+                $errors['therapeutic_plan_id'][] = 'Il campo therapeutic_plan_id deve essere un numero intero positivo';
             }
         }
 
-        // Validazione lunghezza campi di testo
-        if (!empty($data['reason']) && strlen($data['reason']) > 1000) {
-            $errors['reason'][] = 'Il motivo non può superare i 1000 caratteri';
+        // Validazione therapy_id se presente
+        if (!empty($data['therapy_id'])) {
+            if (!is_numeric($data['therapy_id']) || (int)$data['therapy_id'] <= 0) {
+                $errors['therapy_id'][] = 'Il campo therapy_id deve essere un numero intero positivo';
+            }
         }
 
+        // Validazione lunghezza note
         if (!empty($data['notes']) && strlen($data['notes']) > 2000) {
             $errors['notes'][] = 'Le note non possono superare i 2000 caratteri';
         }
@@ -1051,18 +956,60 @@ class RequestsController extends Controller
     {
         $errors = [];
 
-        // Verifica campo reason se richiesto
-        if ($requestType['requires_reason'] && empty($data['reason'])) {
-            $errors['reason'][] = "Il motivo è obbligatorio per la tipologia '{$requestType['name']}'";
+        // Verifica campo notes se richiesto
+        if ($requestType['require_notes'] && empty($data['notes'])) {
+            $errors['notes'][] = "Le note sono obbligatorie per la tipologia '{$requestType['name']}'";
         }
 
-        // Verifica campi date se richiesti
-        if ($requestType['requires_date_range']) {
-            if (empty($data['date_from'])) {
-                $errors['date_from'][] = "La data di inizio è obbligatoria per la tipologia '{$requestType['name']}'";
+        // Verifica therapeutic_plan_id secondo la regola del tipo
+        switch ($requestType['therapeutic_plan_rule']) {
+            case RequestType::PLAN_REQUIRED:
+                if (empty($data['therapeutic_plan_id'])) {
+                    $errors['therapeutic_plan_id'][] = "Il piano terapeutico è obbligatorio per la tipologia '{$requestType['name']}'";
+                }
+                break;
+                
+            case RequestType::PLAN_NOT_ALLOWED:
+                if (!empty($data['therapeutic_plan_id'])) {
+                    $errors['therapeutic_plan_id'][] = "Il piano terapeutico non può essere associato per la tipologia '{$requestType['name']}'";
+                }
+                break;
+                
+            case RequestType::PLAN_OPTIONAL:
+                // Nessuna validazione specifica - può essere presente o meno
+                break;
+        }
+
+        // Verifica therapy_id se richiesto
+        if ($requestType['require_therapy_assignment'] && empty($data['therapy_id'])) {
+            $errors['therapy_id'][] = "L'assegnazione terapia è obbligatoria per la tipologia '{$requestType['name']}'";
+        }
+
+        // Se therapeutic_plan_id è specificato, verifica che esista e appartenga al paziente
+        if (!empty($data['therapeutic_plan_id'])) {
+            $plan = TherapeuticPlan::find()
+                ->where(['id' => $data['therapeutic_plan_id'], 'patient_id' => $data['patient_id']])
+                ->one();
+                
+            if (!$plan) {
+                $errors['therapeutic_plan_id'][] = "Piano terapeutico non trovato o non appartiene al paziente specificato";
             }
-            if (empty($data['date_to'])) {
-                $errors['date_to'][] = "La data di fine è obbligatoria per la tipologia '{$requestType['name']}'";
+        }
+
+        // Se therapy_id è specificato, verifica che esista e sia del piano corretto
+        if (!empty($data['therapy_id'])) {
+            $therapyQuery = PlanTherapy::find()->where(['id' => $data['therapy_id']]);
+            
+            // Se abbiamo un therapeutic_plan_id, verifica che la terapia appartenga a quel piano
+            if (!empty($data['therapeutic_plan_id'])) {
+                $therapyQuery->andWhere(['therapeutic_plan_id' => $data['therapeutic_plan_id']]);
+            }
+            
+            $therapy = $therapyQuery->one();
+            
+            if (!$therapy) {
+                $errors['therapy_id'][] = "Terapia non trovata" . 
+                    (!empty($data['therapeutic_plan_id']) ? " o non appartiene al piano terapeutico specificato" : "");
             }
         }
 
@@ -1080,7 +1027,7 @@ class RequestsController extends Controller
         $patient = $patientSelection['patient'];
 
         // Controlla se esiste già una richiesta attiva per questo paziente e tipo
-        $existingRequest = $this->checkDuplicateRequest($patient->id, $data['type_id']);
+        $existingRequest = $this->checkDuplicateRequest($patient->id, $data['request_type_id'], $requestType);
         if ($existingRequest) {
             // Restituisce la richiesta esistente invece di crearne una nuova
             return $this->formatExistingRequestResponse($existingRequest, $requestType);
@@ -1089,16 +1036,12 @@ class RequestsController extends Controller
         // Crea il nuovo DocumentRequest
         $documentRequest = new DocumentRequest();
         $documentRequest->patient_id = $patient->id;
-        $documentRequest->request_type_id = $data['type_id'];
-        $documentRequest->requested_by_account_patient_id = $accountPatient->id;
-        $documentRequest->status = DocumentRequest::STATUS_PENDING;
-        $documentRequest->reason = $data['reason'] ?? null;
+        $documentRequest->request_type_id = $data['request_type_id'];
+        $documentRequest->account_patient_id = $accountPatient->id;
+        $documentRequest->therapeutic_plan_id = $data['therapeutic_plan_id'] ?? null;
+        $documentRequest->therapy_id = $data['therapy_id'] ?? null;
         $documentRequest->notes = $data['notes'] ?? null;
-        $documentRequest->date_from = $data['date_from'] ?? null;
-        $documentRequest->date_to = $data['date_to'] ?? null;
-        
-        // Calcola estimated_completion basato sui giorni stimati del tipo
-        $documentRequest->estimated_completion = $documentRequest->calculateEstimatedCompletion();
+        $documentRequest->status = DocumentRequest::STATUS_INVIATA;
 
         // Salva nel database
         if (!$documentRequest->save()) {
@@ -1106,6 +1049,13 @@ class RequestsController extends Controller
             Yii::error("Error saving DocumentRequest: " . json_encode($errors), __METHOD__);
             throw new \Exception("Errore nel salvataggio della richiesta: " . implode(', ', $errors));
         }
+
+        // Crea record iniziale nello storico stati
+        DocumentRequestStatusHistory::createInitialEntry(
+            $documentRequest->id,
+            DocumentRequest::STATUS_INVIATA,
+            $currentUser->id
+        );
 
         // Log per audit
         Yii::info("DocumentRequest created successfully with ID: {$documentRequest->id}", __METHOD__);
@@ -1117,16 +1067,14 @@ class RequestsController extends Controller
         return [
             'id' => $documentRequest->id,
             'patient_id' => $documentRequest->patient_id,
-            'type_id' => $documentRequest->request_type_id,
+            'request_type_id' => $documentRequest->request_type_id,
             'request_type' => $requestType['name'],
+            'therapeutic_plan_id' => $documentRequest->therapeutic_plan_id,
+            'therapy_id' => $documentRequest->therapy_id,
             'status' => $documentRequest->status,
             'status_label' => $documentRequest->getStatusLabel(),
-            'created_at' => (new \DateTime($documentRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
-            'estimated_completion' => (new \DateTime($documentRequest->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
-            'reason' => $documentRequest->reason,
             'notes' => $documentRequest->notes,
-            'date_from' => $documentRequest->date_from,
-            'date_to' => $documentRequest->date_to,
+            'created_at' => (new \DateTime($documentRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
             'created_by' => $createdByData,
             'can_be_cancelled' => $documentRequest->canBeCancelled(),
         ];
@@ -1190,25 +1138,31 @@ class RequestsController extends Controller
 
     /**
      * Controlla se esiste già una richiesta attiva per il paziente e tipo specificato
+     * Usa la logica allow_multiple_requests del RequestType
      *
      * @param int $patientId
      * @param int $requestTypeId
+     * @param array $requestType
      * @return DocumentRequest|null
      */
-    private function checkDuplicateRequest($patientId, $requestTypeId)
+    private function checkDuplicateRequest($patientId, $requestTypeId, $requestType)
     {
+        // Se il tipo permette richieste multiple, non c'è duplicato
+        if ($requestType['allow_multiple_requests']) {
+            return null;
+        }
+        
         return DocumentRequest::find()
-            ->with(['requestedByAccountPatient.user.profile']) // Carica relazioni per created_by
+            ->with(['accountPatient.user.profile']) // Carica relazioni per created_by
             ->where([
                 'patient_id' => $patientId,
                 'request_type_id' => $requestTypeId
             ])
             ->andWhere(['in', 'status', [
-                DocumentRequest::STATUS_PENDING,
-                DocumentRequest::STATUS_ACCEPTED,
-                DocumentRequest::STATUS_PROCESSING,
-                DocumentRequest::STATUS_READY
-            ]]) // Solo richieste attive (non consegnate, rifiutate o cancellate)
+                DocumentRequest::STATUS_INVIATA,
+                DocumentRequest::STATUS_PRESA_IN_CARICO,
+                DocumentRequest::STATUS_STAMPATO
+            ]]) // Solo richieste attive (non consegnate)
             ->orderBy(['created_at' => SORT_DESC]) // La più recente
             ->one();
     }
@@ -1224,13 +1178,13 @@ class RequestsController extends Controller
     {
         // Recupera i dati di chi ha fatto la richiesta originale
         $originalRequester = [
-            'id' => $existingRequest->requestedByAccountPatient->id,
-            'user_id' => $existingRequest->requestedByAccountPatient->user_id,
-            'first_name' => $existingRequest->requestedByAccountPatient->user->profile ? 
-                           $existingRequest->requestedByAccountPatient->user->profile->first_name : 'N/A',
-            'last_name' => $existingRequest->requestedByAccountPatient->user->profile ? 
-                          $existingRequest->requestedByAccountPatient->user->profile->last_name : 'N/A',
-            'relationship_type' => $existingRequest->requestedByAccountPatient->relationship_type
+            'id' => $existingRequest->accountPatient->id,
+            'user_id' => $existingRequest->accountPatient->user_id,
+            'first_name' => $existingRequest->accountPatient->user->profile ? 
+                           $existingRequest->accountPatient->user->profile->first_name : 'N/A',
+            'last_name' => $existingRequest->accountPatient->user->profile ? 
+                          $existingRequest->accountPatient->user->profile->last_name : 'N/A',
+            'relationship_type' => $existingRequest->accountPatient->relationship_type
         ];
 
         // Log per audit
@@ -1239,16 +1193,14 @@ class RequestsController extends Controller
         return [
             'id' => $existingRequest->id,
             'patient_id' => $existingRequest->patient_id,
-            'type_id' => $existingRequest->request_type_id,
+            'request_type_id' => $existingRequest->request_type_id,
             'request_type' => $requestType['name'],
+            'therapeutic_plan_id' => $existingRequest->therapeutic_plan_id,
+            'therapy_id' => $existingRequest->therapy_id,
             'status' => $existingRequest->status,
             'status_label' => $existingRequest->getStatusLabel(),
-            'created_at' => (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
-            'estimated_completion' => (new \DateTime($existingRequest->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
-            'reason' => $existingRequest->reason,
             'notes' => $existingRequest->notes,
-            'date_from' => $existingRequest->date_from,
-            'date_to' => $existingRequest->date_to,
+            'created_at' => (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'),
             'created_by' => $originalRequester,
             'can_be_cancelled' => $existingRequest->canBeCancelled(),
             'is_duplicate' => true, // Flag per indicare che è una richiesta esistente
@@ -1257,41 +1209,9 @@ class RequestsController extends Controller
         ];
     }
 
-    /**
-     * Calcola la data stimata di completamento aggiungendo giorni lavorativi (in UTC)
-     */
-    private function calculateEstimatedCompletion($estimatedDays)
-    {
-        // Inizia da ora in UTC
-        $date = new \DateTime('now', new \DateTimeZone('UTC'));
-        $addedDays = 0;
 
-        while ($addedDays < $estimatedDays) {
-            $date->add(new \DateInterval('P1D')); // Aggiungi un giorno
-            
-            // Se è un giorno lavorativo (lunedì-venerdì), conta
-            if ($date->format('N') <= 5) {
-                $addedDays++;
-            }
-        }
 
-        // Imposta l'ora a fine giornata lavorativa (18:00 UTC)
-        $date->setTime(18, 0, 0);
 
-        return $date->format('Y-m-d\TH:i:s\Z');
-    }
-
-    /**
-     * Verifica se una stringa è una data valida nel formato YYYY-MM-DD
-     */
-    private function isValidDate($dateString)
-    {
-        if (!$dateString) return false;
-        
-        // Crea DateTime in UTC per validazione consistente
-        $date = \DateTime::createFromFormat('Y-m-d', $dateString, new \DateTimeZone('UTC'));
-        return $date && $date->format('Y-m-d') === $dateString;
-    }
 
     /**
      * Recupera i dati dell'account che ha creato la richiesta
@@ -1302,7 +1222,7 @@ class RequestsController extends Controller
         try {
             // Recupera l'AccountPatient per l'utente corrente
             // Include le relazioni necessarie: user.profile per nome/cognome
-            $accountPatient = \common\models\AccountPatient::find()
+            $accountPatient = AccountPatient::find()
                 ->with(['user.profile'])
                 ->where(['user_id' => $currentUser->id])
                 ->one();
@@ -1346,21 +1266,7 @@ class RequestsController extends Controller
         }
     }
 
-    /**
-     * Confronta due date in formato YYYY-MM-DD in modo timezone-safe
-     */
-    private function compareDates($dateFrom, $dateTo)
-    {
-        if (!$dateFrom || !$dateTo) return 0;
-        
-        // Crea DateTime in UTC per confronto consistente
-        $from = \DateTime::createFromFormat('Y-m-d', $dateFrom, new \DateTimeZone('UTC'));
-        $to = \DateTime::createFromFormat('Y-m-d', $dateTo, new \DateTimeZone('UTC'));
-        
-        if (!$from || !$to) return 0;
-        
-        return $from <=> $to; // -1 se from < to, 0 se uguali, 1 se from > to
-    }
+
 
     /**
      * Formatta una risposta di errore secondo lo standard API
@@ -1414,13 +1320,10 @@ class RequestsController extends Controller
         // Validazione status se fornito
         if (!empty($status)) {
             $validStatuses = [
-                DocumentRequest::STATUS_PENDING,
-                DocumentRequest::STATUS_ACCEPTED,
-                DocumentRequest::STATUS_PROCESSING,
-                DocumentRequest::STATUS_READY,
-                DocumentRequest::STATUS_DELIVERED,
-                DocumentRequest::STATUS_CANCELLED,
-                DocumentRequest::STATUS_REJECTED
+                DocumentRequest::STATUS_INVIATA,
+                DocumentRequest::STATUS_PRESA_IN_CARICO,
+                DocumentRequest::STATUS_STAMPATO,
+                DocumentRequest::STATUS_CONSEGNATO
             ];
 
             if (!in_array($status, $validStatuses)) {
