@@ -411,7 +411,8 @@ class RequestsController extends Controller
 
             // Applica filtro status se specificato
             if ($status) {
-                $query->andWhere(['status' => $status]);
+                $convertedStatus = $this->convertStatusValue($status);
+                $query->andWhere(['status' => $convertedStatus]);
             }
 
             // Conta totale per paginazione
@@ -1209,10 +1210,6 @@ class RequestsController extends Controller
         ];
     }
 
-
-
-
-
     /**
      * Recupera i dati dell'account che ha creato la richiesta
      * Gli account che fanno richieste sono sempre utenti della tabella account_patients
@@ -1266,8 +1263,6 @@ class RequestsController extends Controller
         }
     }
 
-
-
     /**
      * Formatta una risposta di errore secondo lo standard API
      */
@@ -1320,14 +1315,17 @@ class RequestsController extends Controller
         // Validazione status se fornito
         if (!empty($status)) {
             $validStatuses = [
-                DocumentRequest::STATUS_INVIATA,
-                DocumentRequest::STATUS_PRESA_IN_CARICO,
-                DocumentRequest::STATUS_STAMPATO,
-                DocumentRequest::STATUS_CONSEGNATO
+                DocumentRequest::STATUS_INVIATA,         // 1
+                DocumentRequest::STATUS_PRESA_IN_CARICO, // 2
+                DocumentRequest::STATUS_STAMPATO,        // 3
+                DocumentRequest::STATUS_CONSEGNATO       // 4
             ];
 
-            if (!in_array($status, $validStatuses)) {
-                $errors['status'][] = 'Status non valido. Valori ammessi: ' . implode(', ', $validStatuses);
+            // Usa il metodo helper per la conversione
+            $statusValue = $this->convertStatusValue($status);
+
+            if (!in_array($statusValue, $validStatuses)) {
+                $errors['status'][] = 'Status non valido. Valori ammessi: ' . implode(', ', $validStatuses) . ' oppure: pending, in_progress, printed, completed';
             }
         }
 
@@ -1387,58 +1385,12 @@ class RequestsController extends Controller
      */
     private function formatRequestForApi($request)
     {
-        // Formatta timestamp in UTC
-        $createdAt = (new \DateTime($request->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        $updatedAt = (new \DateTime($request->updated_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        $estimatedCompletion = (new \DateTime($request->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-
-        // Dati base della richiesta secondo il formato richiesto
-        $data = [
-            'id' => $request->id,
-            'request_type' => $request->requestType->name,
-            'status' => $request->status,
-            'created_at' => $createdAt,
-            'updated_at' => $updatedAt,
-            'estimated_completion' => $estimatedCompletion,
-            'completed_at' => $request->completed_at ? 
-                (new \DateTime($request->completed_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z') : null,
-            'reason' => $request->reason,
-            'notes' => $request->notes,
-            'date_from' => $request->date_from,
-            'date_to' => $request->date_to,
-            'download_url' => null // TODO: implementare quando sarà disponibile il sistema di download
-        ];
-
-        // Aggiungi informazioni su chi ha creato la richiesta (come in actionCreate)
-        if ($request->requestedByAccountPatient && $request->requestedByAccountPatient->user) {
-            $user = $request->requestedByAccountPatient->user;
-            $profile = $user->profile;
-            
-            $data['created_by'] = [
-                'id' => $request->requestedByAccountPatient->id,
-                'user_id' => $user->id,
-                'first_name' => $profile ? $profile->first_name : 'N/A',
-                'last_name' => $profile ? $profile->last_name : 'N/A',
-                'relationship_type' => $request->requestedByAccountPatient->relationship_type
-            ];
-        } else {
-            $data['created_by'] = null;
-        }
-
-        // Aggiungi timestamp opzionali per workflow completo
-        if ($request->delivered_at) {
-            $data['delivered_at'] = (new \DateTime($request->delivered_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        }
-
-        if ($request->rejected_at) {
-            $data['rejected_at'] = (new \DateTime($request->rejected_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-            $data['rejection_reason'] = $request->rejection_reason;
-        }
-
-        if ($request->cancelled_at) {
-            $data['cancelled_at'] = (new \DateTime($request->cancelled_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-            $data['cancellation_reason'] = $request->cancellation_reason;
-        }
+        // Usa il metodo toApiArray del modello che gestisce solo campi esistenti
+        $data = $request->toApiArray();
+        
+        // Aggiungi solo i campi legacy necessari per compatibilità API esistente
+        $data['request_type'] = $request->requestType ? $request->requestType->name : 'N/A';
+        $data['updated_at'] = $data['created_at']; // Usa created_at come fallback
 
         return $data;
     }
@@ -1449,66 +1401,64 @@ class RequestsController extends Controller
      */
     private function formatSingleRequestForApi($request)
     {
-        // Formatta timestamp in UTC
-        $createdAt = (new \DateTime($request->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        $updatedAt = (new \DateTime($request->updated_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        $estimatedCompletion = (new \DateTime($request->estimated_completion, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        // Usa il metodo toApiArray del modello che gestisce solo campi esistenti
+        $data = $request->toApiArray();
+        
+        // Aggiungi solo i campi legacy necessari per compatibilità API esistente
+        $data['request_type'] = $request->requestType ? $request->requestType->name : 'N/A';
+        $data['updated_at'] = $data['created_at']; // Usa created_at come fallback
 
-        // Dati base della richiesta secondo il formato richiesto per il dettaglio
-        $data = [
-            'id' => $request->id,
-            'request_type' => $request->requestType->name,
-            'status' => $request->status,
-            'created_at' => $createdAt,
-            'updated_at' => $updatedAt,
-            'estimated_completion' => $estimatedCompletion,
-            'completed_at' => $request->completed_at ? 
-                (new \DateTime($request->completed_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z') : null,
-            'reason' => $request->reason,
-            'notes' => $request->notes,
-            'date_from' => $request->date_from,
-            'date_to' => $request->date_to,
-        ];
-
-        // Aggiungi informazioni dettagliate sul tipo di richiesta
-        $data['type_info'] = [
-            'id' => $request->requestType->id,
-            'name' => $request->requestType->name,
-            'category' => $request->requestType->category,
-            'estimated_days' => $request->requestType->estimated_days
-        ];
-
-        // Aggiungi informazioni su chi ha creato la richiesta
-        if ($request->requestedByAccountPatient && $request->requestedByAccountPatient->user) {
-            $user = $request->requestedByAccountPatient->user;
-            $profile = $user->profile;
-            
-            $data['created_by'] = [
-                'id' => $request->requestedByAccountPatient->id,
-                'user_id' => $user->id,
-                'first_name' => $profile ? $profile->first_name : 'N/A',
-                'last_name' => $profile ? $profile->last_name : 'N/A',
-                'relationship_type' => $request->requestedByAccountPatient->relationship_type
+        // Aggiungi informazioni dettagliate sul tipo di richiesta come oggetto (solo campi esistenti)
+        if ($request->requestType) {
+            $data['type_info'] = [
+                'id' => $request->requestType->id,
+                'name' => $request->requestType->name,
+                'therapeutic_plan_rule' => $request->requestType->therapeutic_plan_rule,
+                'allow_multiple_requests' => (bool) $request->requestType->allow_multiple_requests,
+                'require_therapy_assignment' => (bool) $request->requestType->require_therapy_assignment,
+                'require_notes' => (bool) $request->requestType->require_notes,
+                'is_active' => (bool) $request->requestType->is_active
             ];
         } else {
-            $data['created_by'] = null;
-        }
-
-        // Aggiungi timestamp opzionali per workflow completo
-        if ($request->delivered_at) {
-            $data['delivered_at'] = (new \DateTime($request->delivered_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-        }
-
-        if ($request->rejected_at) {
-            $data['rejected_at'] = (new \DateTime($request->rejected_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-            $data['rejection_reason'] = $request->rejection_reason;
-        }
-
-        if ($request->cancelled_at) {
-            $data['cancelled_at'] = (new \DateTime($request->cancelled_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
-            $data['cancellation_reason'] = $request->cancellation_reason;
+            $data['type_info'] = null;
         }
 
         return $data;
+    }
+
+    /**
+     * Converte il valore status da stringa a valore numerico
+     */
+    private function convertStatusValue($status)
+    {
+        if (empty($status)) {
+            return null;
+        }
+
+        // Mappa stringhe descrittive ai valori numerici
+        $statusMap = [
+            'pending' => DocumentRequest::STATUS_INVIATA,          // 1 - "Inviata" 
+            'inviata' => DocumentRequest::STATUS_INVIATA,          // 1
+            'in_progress' => DocumentRequest::STATUS_PRESA_IN_CARICO, // 2 - "Presa in carico"
+            'presa_in_carico' => DocumentRequest::STATUS_PRESA_IN_CARICO, // 2
+            'printed' => DocumentRequest::STATUS_STAMPATO,         // 3 - "Stampato"
+            'stampato' => DocumentRequest::STATUS_STAMPATO,        // 3
+            'completed' => DocumentRequest::STATUS_CONSEGNATO,     // 4 - "Consegnato"
+            'consegnato' => DocumentRequest::STATUS_CONSEGNATO,    // 4
+            'delivered' => DocumentRequest::STATUS_CONSEGNATO      // 4
+        ];
+
+        // Converti status
+        if (is_string($status)) {
+            if (is_numeric($status)) {
+                // Stringa numerica -> converti in intero
+                return (int) $status;
+            } elseif (isset($statusMap[strtolower($status)])) {
+                // Stringa descrittiva -> mappa al valore numerico
+                return $statusMap[strtolower($status)];
+            }
+        }
+
+        return $status; // Restituisci il valore originale se non è convertibile
     }
 } 

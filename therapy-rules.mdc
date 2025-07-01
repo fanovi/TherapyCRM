@@ -3,3 +3,579 @@ description:
 globs:
 alwaysApply: false
 ---
+# Therapy CRM System - Rules & Patterns
+
+Sistema di gestione terapeutica (TherapyCRM) costruito con Yii2 (backend) e React (frontend).
+
+## Struttura del Progetto
+
+- **Framework**: Yii2 Advanced Application Template
+- **Struttura**: Multi-applicazione (api/, backend/, frontend/, console/, common/)
+- **Database**: MySQL con migrations in console/migrations/
+- **Frontend**: Tailwind CSS + JavaScript
+- **PDF**: mPDF per generazione documenti
+
+## 🚨 GESTIONE ERRORI STANDARDIZZATA - IMPLEMENTAZIONE COMPLETA
+
+### Formato Errore Standard (OBBLIGATORIO per tutti gli endpoint)
+
+**FORMATO JSON UNIFICATO**:
+```json
+{
+  "success": false,
+  "error": "Messaggio errore leggibile per l'utente",
+  "code": "ERROR_CODE",
+  "details": {
+    "field_name": "Dettaglio specifico errore"
+  }
+}
+```
+
+**CODICI ERRORE IMPLEMENTATI**:
+- `INVALID_REQUEST_TYPE` (404): Tipologia richiesta non valida o inesistente
+- `MISSING_REQUIRED_FIELD` (400): Campo obbligatorio mancante o validazione fallita
+- `UNAUTHORIZED` (401): Token mancante, non valido o scaduto
+- `ACCESS_DENIED` (403): Utente autenticato ma senza permessi
+- `NOT_FOUND` (404): Risorsa non trovata
+- `BAD_REQUEST` (400): Richiesta malformata
+- `INTERNAL_ERROR` (500): Errore interno del server
+
+### Metodi Helper Controller (Pattern Standard)
+
+**IMPLEMENTAZIONE OBBLIGATORIA** in ogni controller API:
+```php
+// Metodi helper per gestione errori standardizzata
+private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
+{
+    Yii::$app->response->statusCode = $statusCode;
+    
+    $response = [
+        'success' => false,
+        'error' => $message,
+        'code' => $errorCode
+    ];
+    
+    if (!empty($details)) {
+        $response['details'] = $details;
+    }
+    
+    return $response;
+}
+
+private function formatValidationErrors($validationErrors)
+{
+    $details = [];
+    foreach ($validationErrors as $field => $fieldErrors) {
+        $details[$field] = is_array($fieldErrors) ? $fieldErrors[0] : $fieldErrors;
+    }
+    return $details;
+}
+```
+
+### Sistema Filtering Status con Conversione Automatica
+
+**FEATURE IMPLEMENTATA**: Supporto sia valori numerici che stringhe descrittive per il parametro status
+
+```php
+// Metodo helper per conversione status
+private function convertStatusValue($status)
+{
+    if (empty($status)) {
+        return null;
+    }
+
+    // Mappa stringhe descrittive ai valori numerici
+    $statusMap = [
+        'pending' => DocumentRequest::STATUS_INVIATA,          // 1 - "Inviata" 
+        'inviata' => DocumentRequest::STATUS_INVIATA,          // 1
+        'in_progress' => DocumentRequest::STATUS_PRESA_IN_CARICO, // 2 - "Presa in carico"
+        'presa_in_carico' => DocumentRequest::STATUS_PRESA_IN_CARICO, // 2
+        'printed' => DocumentRequest::STATUS_STAMPATO,         // 3 - "Stampato"
+        'stampato' => DocumentRequest::STATUS_STAMPATO,        // 3
+        'completed' => DocumentRequest::STATUS_CONSEGNATO,     // 4 - "Consegnato"
+        'consegnato' => DocumentRequest::STATUS_CONSEGNATO,    // 4
+    ];
+
+    // Se è stringa descrittiva, converte al valore numerico
+    if (isset($statusMap[strtolower($status)])) {
+        return $statusMap[strtolower($status)];
+    }
+
+    // Se è già numerico, converte a intero
+    if (is_numeric($status)) {
+        return (int)$status;
+    }
+
+    return null;
+}
+```
+
+**SUPPORTO URL PARAMETERS**:
+- `GET /requests?patient_id=1&status=pending` ✅ Funziona
+- `GET /requests?patient_id=1&status=1` ✅ Funziona
+- `GET /requests?patient_id=1&status=in_progress` ✅ Funziona
+- `GET /requests?patient_id=1&status=2` ✅ Funziona
+
+### Routing API Migliorato per Gestione ID Non Validi
+
+**PROBLEMA RISOLTO**: ID non numerici (`/requests/abc`, `/requests/-1`) causavano errori di routing invece di essere gestiti come errori di validazione
+
+**SOLUZIONE IMPLEMENTATA**:
+```php
+// In api/config/main.php
+'urlManager' => [
+    'rules' => [
+        'GET requests/<id:\\d+>' => 'requests/view',        // ID numerici positivi
+        'GET requests/<id>' => 'requests/view',             // Cattura ID non validi per gestione errori
+        'GET requests' => 'requests/index',
+        'POST requests' => 'requests/create',
+    ]
+]
+```
+
+**VALIDAZIONE CONTROLLER**:
+```php
+// In RequestsController::actionView()
+public function actionView($id)
+{
+    // Validazione ID richiesta
+    if (!is_numeric($id) || (int)$id <= 0) {
+        return $this->formatErrorResponse(
+            'MISSING_REQUIRED_FIELD',
+            'ID richiesta non valido',
+            ['id' => 'Deve essere un numero intero positivo'],
+            400
+        );
+    }
+    
+    $requestId = (int)$id;
+    // ... resto della logica
+}
+```
+
+## 🧪 TESTING API - PATTERN STANDARDIZZATI (IMPLEMENTATI)
+
+### Script Test Completi
+
+**ACTIONCREATE AGGIORNATO**:
+- File: `api/test/test_action_create_updated.php`
+- Test per: POST /requests con nuova struttura
+- Features: Campi aggiornati (request_type_id, therapeutic_plan_id, therapy_id)
+- Features: Validazione dinamica basata su RequestType
+- Features: Sistema duplicati con allow_multiple_requests
+- Features: Storico stati automatico con DocumentRequestStatusHistory
+- Features: Gestione errori standardizzata con formatErrorResponse()
+- Features: Timezone UTC per tutti i timestamp
+
+**REQUEST TYPES AGGIORNATO**:
+- File: `api/test/test_requests_types_updated.php` 
+- Test per: GET /requests/types con nuovi campi
+- Features: Ordinamento per ID crescente (non alfabetico)
+- Features: Nuovi campi RequestType (therapeutic_plan_rule, allow_multiple_requests)
+- Features: Helper flags (is_therapeutic_plan_required, is_therapeutic_plan_optional)
+- Features: Metadati completi (rule_distribution, rules mappings)
+
+**ENDPOINT LIST CON FILTRI** ✅:
+- File: `api/test/test_get_patient_requests.php`
+- Features: Filtro status con conversione automatica (pending → 1, in_progress → 2)
+- Features: Paginazione completa con limit/offset
+- Features: Validazione parametri migliorata
+- Features: Test filtri multipli
+- Status: ✅ Implementato e funzionante
+
+**ENDPOINT SINGLE CON GESTIONE ERRORI** ✅:
+- File: `api/test/test_get_single_request.php`
+- Features: Gestione ID non validi (abc, -1) senza errori di routing
+- Features: Routing migliorato con regole multiple
+- Features: Formato dettagliato con type_info (senza campi inesistenti)
+- Features: Validazione completa ID numerico positivo
+- Status: ✅ Implementato e funzionante
+
+### Template Script Test Standard
+
+**STRUTTURA OBBLIGATORIA per Nuovi Script**:
+1. **Header descrittivo** con scopo del test e usage
+2. **require_once bootstrap.php** per configurazione Yii2
+3. **Funzioni helper**: makeHttpRequest(), getAuthToken()
+4. **Step numerati** con echo descrittivi e emoji
+5. **Test autenticazione** (con/senza token JWT)
+6. **Test validazioni** (campi obbligatori, formati)
+7. **Test errori** (401, 400, 404, 500)
+8. **Verifica struttura JSON** (success, data, meta/details)
+9. **Summary finale** con risultati e status
+
+**PATTERN VALIDAZIONE RESPONSE**:
+- Verificare sempre struttura standard: {success, data, meta} o {success, error, code, details}
+- Testare tutti status code appropriati per endpoint
+- Verificare formato timestamp UTC (Y-m-d\TH:i:s\Z)
+- Controllare cast boolean per flags
+- Testare scenari edge case e validazioni
+
+**CREDENZIALI TEST STANDARD**:
+- Pazienti: `paziente@test.it` / `12345678`
+- Terapisti: `terapista1@example.com` / `password789`
+- Login endpoint: POST /auth/login (form-urlencoded)
+- Token format: `Bearer {jwt_token}` in Authorization header
+
+### Comandi Test
+
+```bash
+# Test endpoint specifico
+php api/test/test_action_create_updated.php
+
+# Test types aggiornato
+php api/test/test_requests_types_updated.php
+
+# Test Swagger completo
+php api/test/test_swagger_endpoints.php
+
+# Test gestione errori
+php api/test/test_error_handling_standard.php
+
+# Test timezone
+php api/test/test_timezone_only.php
+
+# Test filtri status con conversione
+php api/test/test_get_patient_requests.php
+
+# Test gestione ID non validi
+php api/test/test_get_single_request.php
+```
+
+## 🔄 MODELLI AGGIORNATI - NUOVE FEATURES
+
+### DocumentRequestStatusHistory (NUOVO)
+
+**SCOPO**: Tracciamento automatico cambi di stato richieste
+
+**FEATURES IMPLEMENTATE**:
+- Creazione automatica record iniziale in actionCreate
+- Metodo statico createInitialEntry() per stato INVIATA
+- Campi: document_request_id, from_status_id, to_status_id, changed_by_user_id
+- Relazioni: DocumentRequest, RequestStatus (from/to), User
+- Timestamp automatici (created_at)
+
+### DocumentRequest (AGGIORNATO)
+
+**NUOVE FEATURES**:
+- Metodo changeStatus() con storico automatico
+- Nuovi campi: therapeutic_plan_id, therapy_id
+- Campo rinominato: requested_by_account_patient_id → account_patient_id
+- Eliminazione campi inesistenti dalle response API
+
+**CAMPI RIMOSSI DALLE RESPONSE**:
+- reason, date_from, date_to (non esistenti)
+- estimated_completion, completed_at (non esistenti)
+- updated_at (sostituito con created_at per compatibilità)
+
+**STATUS SEMPLIFICATO**:
+- INVIATA (1) → PRESA_IN_CARICO (2) → STAMPATO (3) → CONSEGNATO (4)
+- Status workflow lineare senza ramificazioni
+
+### RequestType (MODIFICATO)
+
+**NUOVI CAMPI BUSINESS**:
+- `therapeutic_plan_rule` (INT): 1=Opzionale, 2=Non associabile, 3=Obbligatorio
+- `allow_multiple_requests` (BOOL): Permette richieste duplicate simultanee
+- `require_therapy_assignment` (BOOL): Richiede terapia specifica
+- `require_notes` (BOOL): Note obbligatorie
+
+**HELPER METHODS IMPLEMENTATI**:
+- isTherapeuticPlanRequired(): bool
+- allowsMultipleRequests(): bool
+- requiresTherapyAssignment(): bool
+- requiresNotes(): bool
+- getTherapeuticPlanRuleLabel(): string
+
+**DATI INIZIALI**:
+1. Copia Piano Terapeutico (plan obbligatorio)
+2. Relazione terapista (plan obbligatorio + terapia assegnata)
+3. Relazione visita specialistica (plan non associabile)
+4. Attestato frequenza (plan opzionale)
+5. Altro (plan non associabile + multiple + note)
+
+## 📋 ACTIONCREATE - FLUSSO AGGIORNATO
+
+### Validazione Multi-Livello
+
+**FASE 1 - Validazione Base**:
+- request_type_id obbligatorio (numerico positivo)
+- patient_id obbligatorio (numerico positivo)
+- therapeutic_plan_id opzionale (numerico positivo se presente)
+- therapy_id opzionale (numerico positivo se presente)
+- notes opzionale (max 2000 caratteri)
+
+**FASE 2 - Validazione Dinamica**:
+- Piano terapeutico obbligatorio se type.therapeutic_plan_rule === 3
+- Piano terapeutico vietato se type.therapeutic_plan_rule === 2
+- Terapia obbligatoria se type.require_therapy_assignment === true
+- Note obbligatorie se type.require_notes === true
+
+**FASE 3 - Business Rules**:
+- Controllo duplicati se type.allow_multiple_requests === false
+- Verifica permessi accesso paziente
+- Validazione esistenza piano/terapia se specificati
+
+### Flusso Salvataggio
+
+1. **Creazione DocumentRequest** con stato INVIATA
+2. **Creazione record storico** automatico via DocumentRequestStatusHistory::createInitialEntry()
+3. **Logging audit** con Yii::info() per tracciabilità
+4. **Response standardizzata** con formato JSON unificato
+5. **Gestione errori** con formatErrorResponse() e codici standard
+
+## ⚠️ PROBLEMI RISOLTI - CAMPI INESISTENTI
+
+### Eliminazione Campi Non Validi
+
+**PROBLEMA**: Il controller tentava di accedere a campi inesistenti nei modelli, causando errori "Getting unknown property"
+
+**CAMPI ELIMINATI** dalle response API:
+- `updated_at` (non esiste in DocumentRequest) → usa `created_at`
+- `estimated_completion` (non esiste)
+- `completed_at` (non esiste) 
+- `reason`, `date_from`, `date_to` (non esistono)
+- `category`, `estimated_days` (non esistono in RequestType)
+
+**SOLUZIONE IMPLEMENTATA**:
+```php
+// Metodi aggiornati per usare solo campi esistenti
+private function formatRequestForApi($request)
+{
+    // Usa il metodo toApiArray del modello che gestisce solo campi esistenti
+    $data = $request->toApiArray();
+    
+    // Aggiungi solo i campi legacy necessari per compatibilità
+    $data['request_type'] = $request->requestType ? $request->requestType->name : 'N/A';
+    $data['updated_at'] = $data['created_at']; // Fallback
+
+    return $data;
+}
+```
+
+**VALIDAZIONE**: Response pulita senza campi `null` non necessari
+
+## 📊 ENDPOINT AGGIORNATI
+
+### GET /requests - Lista con Filtri
+
+**NUOVE FEATURES**:
+- **Filtro status** con conversione automatica: `status=pending` → `status=1`
+- **Paginazione** completa con limit/offset
+- **Validazione parametri** migliorata
+- **Gestione errori** standardizzata
+
+**URL PATTERNS SUPPORTATI**:
+```bash
+GET /requests?patient_id=1                     # Lista base
+GET /requests?patient_id=1&status=pending      # Filtro status stringa
+GET /requests?patient_id=1&status=1            # Filtro status numerico
+GET /requests?patient_id=1&limit=10&offset=0   # Paginazione
+```
+
+### GET /requests/{id} - Dettaglio Singolo
+
+**NUOVE FEATURES**:
+- **Gestione ID non validi** senza errori di routing
+- **Validazione robusta** per ID (numerico positivo)
+- **Response pulita** senza campi inesistenti
+- **type_info** con solo campi esistenti del RequestType
+
+**ESEMPI GESTIONE ERRORI**:
+```bash
+GET /requests/abc   → 400 Bad Request (ID non valido)
+GET /requests/-1    → 400 Bad Request (ID negativo)
+GET /requests/999   → 404 Not Found (richiesta inesistente)
+GET /requests/1     → 200 OK (success)
+```
+
+### GET /requests/types - Tipologie Aggiornate
+
+**RESPONSE STRUCTURE**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Copia Piano Terapeutico",
+      "therapeutic_plan_rule": 3,
+      "therapeutic_plan_rule_label": "Obbligatorio",
+      "allow_multiple_requests": false,
+      "require_therapy_assignment": false,
+      "require_notes": false,
+      "is_active": true,
+      "is_therapeutic_plan_required": true,
+      "is_therapeutic_plan_optional": false,
+      "is_therapeutic_plan_not_allowed": false
+    }
+  ],
+  "meta": {
+    "total": 5,
+    "active_count": 5,
+    "rule_distribution": {"3": 2, "2": 2, "1": 1},
+    "rules": {"1": "Opzionale", "2": "Non associabile", "3": "Obbligatorio"}
+  }
+}
+```
+
+**ORDINAMENTO**: ID crescente (NON alfabetico)
+
+## 🌐 SWAGGER UI - DOCUMENTAZIONE INTERATTIVA COMPLETA
+
+### Configurazione Swagger UI Implementata
+**URL PRINCIPALE**: `http://localhost/TherapyCRM/api/swagger`
+
+**CARATTERISTICHE IMPLEMENTATE**:
+- **Interfaccia interattiva** per testare tutti gli endpoint API in tempo reale
+- **Autenticazione JWT integrata** con pulsante "Authorize" persistente
+- **Documentazione OpenAPI completa** con esempi request/response
+- **Istruzioni step-by-step** per l'autenticazione integrate nell'UI
+- **Persistenza token** durante la sessione di test
+
+### Workflow Sviluppo con Swagger
+
+**AGGIUNTA NUOVI ENDPOINT - PROCEDURA OBBLIGATORIA**:
+1. **Implementare controller** con annotazioni OpenAPI complete
+2. **Aggiungere controller** in SwaggerController::actionJson() array
+3. **Testare endpoint** direttamente da Swagger UI
+4. **Documentare esempi** request/response realistici
+5. **Verificare autenticazione** JWT funzionante nell'interfaccia
+
+## ⚠️ REGOLA CRITICA: Gestione Timezone UTC per API
+
+**OBBLIGATORIO**: Tutti i timestamp negli endpoint API DEVONO essere gestiti in UTC per garantire consistenza globale.
+
+### Configurazione Base Timezone
+```php
+// In api/config/bootstrap.php - SEMPRE PRESENTE
+date_default_timezone_set('UTC');
+```
+
+### Pattern DateTime UTC Obbligatori
+```php
+// ❌ SBAGLIATO - Timezone server locale
+$now = new DateTime();
+
+// ✅ CORRETTO - UTC esplicito
+$now = new DateTime('now', new DateTimeZone('UTC'));
+$timestamp = $now->format('Y-m-d\TH:i:s\Z'); // ISO8601 con Z
+
+// ✅ Validazione date UTC
+private function isValidDate($dateString) {
+    if (!$dateString) return false;
+    $date = DateTime::createFromFormat('Y-m-d', $dateString, new DateTimeZone('UTC'));
+    return $date && $date->format('Y-m-d') === $dateString;
+}
+
+// ✅ Confronto date timezone-safe
+private function compareDates($dateFrom, $dateTo) {
+    if (!$dateFrom || !$dateTo) return 0;
+    $from = DateTime::createFromFormat('Y-m-d', $dateFrom, new DateTimeZone('UTC'));
+    $to = DateTime::createFromFormat('Y-m-d', $dateTo, new DateTimeZone('UTC'));
+    if (!$from || !$to) return 0;
+    return $from <=> $to; // Spaceship operator
+}
+```
+
+## 📋 CHECKLIST COMPLETA SVILUPPO API (AGGIORNATA)
+
+### **FASE 1: ANALISI E PROGETTAZIONE**
+- [ ] Definire struttura response JSON standard
+- [ ] Identificare validazioni necessarie (base + dinamiche + business rules)
+- [ ] Pianificare ottimizzazioni database (evitare query multiple)
+- [ ] Definire permessi RBAC necessari
+- [ ] **Progettare annotazioni OpenAPI** per documentazione Swagger
+- [ ] Configurare timezone UTC
+
+### **FASE 2: IMPLEMENTAZIONE CORE**
+- [ ] Aggiungere import modelli necessari
+- [ ] Configurare JwtAuthBehavior con excludeActions appropriato
+- [ ] Implementare gestione timezone UTC per tutti i timestamp
+- [ ] **Implementare metodi helper**: formatErrorResponse(), formatValidationErrors()
+- [ ] **Implementare conversione status** automatica (convertStatusValue())
+- [ ] Implementare validazione in 2+ fasi (base, dinamica, business)
+- [ ] Evitare query duplicate nello stesso metodo
+- [ ] **Configurare routing** per gestione ID non validi
+- [ ] **Eliminare campi inesistenti** dalle response API
+- [ ] Implementare logging audit con Yii::info() e Yii::error()
+
+### **FASE 3: DOCUMENTAZIONE SWAGGER** ⭐
+- [ ] **Aggiungere annotazioni OpenAPI complete** nel controller
+- [ ] **Aggiungere controller** in SwaggerController::actionJson() array
+- [ ] **Documentare tutti response codes** (200, 201, 400, 401, 403, 404, 500)
+- [ ] **Includere esempi** request/response realistici nelle annotazioni
+- [ ] **Testare endpoint** direttamente da Swagger UI
+- [ ] **Verificare autenticazione JWT** funzionante in Swagger
+
+### **FASE 4: TESTING COMPLETO**
+- [ ] **Creare script di test** completo in api/test/
+- [ ] **Test Swagger**: Verificare che endpoint sia visibile e testabile nell'UI
+- [ ] **Test autenticazione**: Login + token + chiamate protette
+- [ ] **Test tutti status code** e scenari edge case
+- [ ] **Test filtri**: Status con conversione automatica
+- [ ] **Test ID non validi**: Gestione routing e validazione
+- [ ] **Test timezone** con script dedicato (test_timezone_only.php)
+- [ ] **Test performance** con dati reali
+- [ ] **Test validazioni** dinamiche e business rules
+
+### **FASE 5: SICUREZZA E MONITORING**
+- [ ] Gestire tutti i casi d'errore con formato standardizzato
+- [ ] Implementare rate limiting appropriato
+- [ ] Implementare audit trail per azioni sensibili
+- [ ] Configurare alerting per eventi di sicurezza
+- [ ] Verificare controlli RBAC
+
+### **FASE 6: FINALIZZAZIONE**
+- [ ] **Aggiornare documentazione** API (REQUESTS_API.md)
+- [ ] **Aggiornare status** implementazione (IMPLEMENTATION_STATUS.md)
+- [ ] **Aggiornare file rules** (.cursorrules, therapy-rules.mdc)
+- [ ] **Verificare Swagger UI** accessibile e completo
+- [ ] **Test integrazione** con app mobile (se applicabile)
+
+## Logica di Business Principale
+
+### Gestione Piani Terapeutici
+- I piani terapeutici sono creati dall'Amministrazione (solo terapie + ore, NESSUNA programmazione)
+- Il Manager (Sharon) assegna i terapisti e crea gli orari usando il calendario drag-drop
+- I piani hanno regimi sanitari: L11, L11DOM, L11PG, L11SEM, ABA, FKT, Private, PDOM, Other
+- Ogni piano ha una data di inizio, durata in giorni e data fine calcolata automaticamente
+
+### Sistema Assenze
+- Regola del 10%: pazienti che superano il 10% di assenze ingiustificate subiscono conseguenze
+- Le assenze giustificate possono essere recuperate con appuntamenti di recupero
+- Contatori automatici aggiornati via trigger per performance
+
+### Gestione Appuntamenti
+- Pattern ricorrenti per appuntamenti settimanali
+- Stati: scheduled, completed, absent_justified, absent_not_justified, cancelled
+- Sostituzioni terapisti tracciate separatamente
+- Slot occupati gestiti automaticamente via trigger
+
+### Sistema Gruppi Coordinatori
+- I coordinatori gestiscono gruppi di terapisti assegnati
+- Creazione atomica: coordinatore + terapisti selezionati insieme
+- Schema database: `coordinator_groups` (1:N) `group_therapists`
+- Terapisti attivi: `assigned_to IS NULL`, inattivi: `assigned_to` con data
+- Permessi RBAC: admin/manager (CRUD completo), coordinator (view-only proprio gruppo)
+- Vista coordinatore: `/therapist/my-group` mostra solo terapisti assegnati
+
+## Schema Database
+
+### Convenzioni Tabelle
+- Usa snake_case per tabelle (plurale): `users`, `patients`, `therapeutic_plans`, `appointments`
+- Sempre includere: `id` (AUTO_INCREMENT), `created_at`, `updated_at` timestamps
+- Campi status usano ENUM con valori predefiniti
+- Indici su tutte le foreign key e campi frequentemente interrogati
+- Colonne GENERATED per campi calcolati (es. `end_date` da `start_date + duration_days`)
+
+### Struttura Principale
+```sql
+-- Esempio di relazioni chiave
+users -> user_profiles (1:1)
+users -> therapists (1:1)
+patients -> therapeutic_plans (1:N)
+therapeutic_plans -> plan_therapies (1:N)
+plan_therapies -> appointments (1:N)
+appointments -> absences (1:1)
+```

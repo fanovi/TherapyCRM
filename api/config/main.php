@@ -76,6 +76,7 @@ return [
                 'GET requests/types' => 'requests/types',
                 'GET requests' => 'requests/index',
                 'GET requests/<id:\d+>' => 'requests/view',
+                'GET requests/<id>' => 'requests/view', // Cattura ID non numerici per gestione errori
                 'POST requests' => 'requests/create',
                 
                 // Swagger routes
