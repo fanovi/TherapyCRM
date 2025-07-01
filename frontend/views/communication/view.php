@@ -137,7 +137,7 @@ document.getElementById('mark-read-btn')?.addEventListener('click', function() {
         <div class="p-6">
             <?php if ($model->message): ?>
                 <div class="prose prose-gray dark:prose-invert max-w-none">
-                    <?= nl2br(Html::encode($model->message)) ?>
+                    <?= $model->message ?>
                 </div>
             <?php else: ?>
                 <div class="text-gray-500 dark:text-gray-400 italic">

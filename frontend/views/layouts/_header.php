@@ -950,6 +950,4 @@ document.addEventListener('DOMContentLoaded', function() {
         window.notificationSystem = new NotificationSystem();
     }
 });
-
-});
 </script>
