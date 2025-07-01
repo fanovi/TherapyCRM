@@ -74,7 +74,7 @@ class m250701_182305_add_display_order_and_attestato_types_to_request_types exte
         $this->dropColumn('{{%request_types}}', 'display_order');
         
         echo "✅ Migration reverted: campo display_order rimosso e tipi ripristinati\n";
-        
+
         return true;
     }
 

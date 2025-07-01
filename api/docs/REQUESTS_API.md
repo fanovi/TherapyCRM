@@ -725,7 +725,8 @@ Content-Type: application/json
 ### Request Body
 ```json
 {
-  "type_id": 1,
+  "request_type_id": 1,
+  "patient_id": 1,
   "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
   "notes": "Note aggiuntive opzionali",
   "date_from": "2025-01-15",
@@ -737,7 +738,8 @@ Content-Type: application/json
 
 | Campo | Tipo | Obbligatorio | Descrizione |
 |-------|------|-------------|-------------|
-| `type_id` | integer | ✅ Sempre | ID della tipologia di richiesta |
+| `request_type_id` | integer | ✅ Sempre | ID della tipologia di richiesta |
+| `patient_id` | integer | ✅ Sempre | ID del paziente per cui fare la richiesta |
 | `reason` | string (max 1000) | ⚠️ Condizionale | Motivo della richiesta (obbligatorio se `requires_reason = true`) |
 | `notes` | string (max 2000) | ❌ Opzionale | Note aggiuntive |
 | `date_from` | string (YYYY-MM-DD) | ⚠️ Condizionale | Data di inizio (obbligatoria se `requires_date_range = true`) |
@@ -814,7 +816,7 @@ Content-Type: application/json
   "error": "Tipologia di richiesta non valida o non attiva",
   "code": "INVALID_REQUEST_TYPE",
   "details": {
-    "type_id": "Tipologia con ID 999 non trovata"
+    "request_type_id": "Tipologia con ID 999 non trovata"
   }
 }
 ```
@@ -836,7 +838,8 @@ curl -X POST "http://localhost/TherapyCRM/api/requests" \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -d '{
-    "type_id": 1,
+    "request_type_id": 1,
+    "patient_id": 1,
     "reason": "Certificato per assenza lavorativa",
     "date_from": "2025-01-15",
     "date_to": "2025-01-20",
@@ -850,7 +853,7 @@ curl -X POST "http://localhost/TherapyCRM/api/requests" \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -d '{
-    "type_id": 4,
+    "request_type_id": 4,
     "notes": "Per iscrizione palestra"
   }'
 ```

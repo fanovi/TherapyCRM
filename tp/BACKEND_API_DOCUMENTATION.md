@@ -90,7 +90,8 @@ Content-Type: application/json
 
 ```json
 {
-  "type_id": 1,
+  "request_type_id": 1,
+  "patient_id": 1,
   "reason": "Certificato per assenza lavorativa dal 15/01 al 20/01",
   "notes": "Note aggiuntive opzionali",
   "date_from": "2025-01-15",
@@ -98,8 +99,11 @@ Content-Type: application/json
 }
 ```
 
-**Campi Opzionali:**
+**Campi Obbligatori:**
+- `request_type_id`: ID della tipologia di richiesta
+- `patient_id`: ID del paziente per cui fare la richiesta
 
+**Campi Opzionali:**
 - `notes`: Sempre opzionale
 - `date_from`, `date_to`: Obbligatori solo se `requires_date_range = true`
 - `reason`: Obbligatorio solo se `requires_reason = true`
@@ -374,7 +378,8 @@ CREATE TABLE patient_requests (
 1. **Autenticazione:** Verificare JWT token valido
 2. **Autorizzazione:** Utente può accedere solo alle proprie richieste
 3. **Validazione Dati:**
-   - `type_id` deve esistere e essere attivo
+   - `request_type_id` deve esistere e essere attivo
+   - `patient_id` deve esistere
    - `reason` obbligatorio se `requires_reason = true`
    - `date_from/date_to` obbligatori se `requires_date_range = true`
    - `date_to` deve essere >= `date_from`

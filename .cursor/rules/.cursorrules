@@ -20,7 +20,7 @@
   "code": "ERROR_CODE",
   "details": {
     "field_name": "Dettaglio specifico errore"
-  }
+    }
 }
 ```
 
@@ -392,7 +392,7 @@ GET /requests/1     → 200 OK (success)
     "active_count": 5,
     "rule_distribution": {"3": 2, "2": 2, "1": 1},
     "rules": {"1": "Opzionale", "2": "Non associabile", "3": "Obbligatorio"}
-  }
+    }
 }
 ```
 
@@ -506,8 +506,8 @@ public function actionCreate() {
         
         if (Yii::$app->request->isAjax) {
             Yii::$app->response->format = \\yii\\web\\Response::FORMAT_JSON;
-            return [
-                'success' => true,
+        return [
+            'success' => true,
                 'message' => 'Credenziali create con successo!',
                 'downloadUrl' => \\yii\\helpers\\Url::to(['download-credentials-pdf']),
                 'redirectUrl' => \\yii\\helpers\\Url::to(['view', 'id' => $model->id])
@@ -636,4 +636,4 @@ php -m | grep -i pdf
 
 - Test funzionali in `tests/functional/`
 - Test unità in `tests/unit/`
-- Usare Codeception per test automatizzati
+- Usare Codeception per test automatizzati 
