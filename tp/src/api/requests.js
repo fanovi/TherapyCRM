@@ -6,14 +6,18 @@ import apiClient from '../services/axiosConfig';
  */
 export const getRequestTypes = async () => {
   try {
-    console.log('📋 Recuperando tipologie di richieste disponibili...');
+    console.log('\n=== RICHIESTA TIPI ===');
+    console.log('📤 Recupero tipologie di richieste...');
 
     const response = await apiClient.get('/requests/types');
 
-    console.log('✅ Tipologie richieste recuperate:', response.data);
+    console.log('\n=== RISPOSTA TIPI ===');
+    console.log('📥 Struttura completa:');
+    console.log(JSON.stringify(response.data, null, 2));
+
     return response.data;
   } catch (error) {
-    console.error('❌ Errore recuperando tipologie richieste:', error);
+    console.error('\n❌ Errore recuperando tipologie richieste:', error);
     throw error;
   }
 };

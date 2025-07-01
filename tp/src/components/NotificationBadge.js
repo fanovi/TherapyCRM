@@ -30,7 +30,6 @@ const NotificationBadge = ({style}) => {
   }, [isAuthenticated, user]);
 
   // Aggiorna il conteggio quando la schermata torna in focus
-  // (per esempio quando l'utente torna dalla pagina delle notifiche)
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated && user) {
@@ -44,31 +43,15 @@ const NotificationBadge = ({style}) => {
 
     try {
       setLoading(true);
-      console.log('🔔 NotificationBadge: Recupero conteggio notifiche...');
-
       const response = await getUnreadNotifications(1);
-      console.log('🔔 NotificationBadge: Risposta ricevuta:', response);
 
       if (response.success && response.data) {
         const count = response.data.unread_count || 0;
-        console.log('🔔 NotificationBadge: Impostando conteggio a:', count);
         setUnreadCount(count);
       } else {
-        console.warn('🔔 NotificationBadge: Risposta non valida:', response);
         setUnreadCount(0);
       }
     } catch (error) {
-      console.error(
-        '❌ NotificationBadge: Errore recupero conteggio notifiche:',
-        error,
-      );
-      console.error('❌ NotificationBadge: Tipo errore:', error.type);
-      console.error('❌ NotificationBadge: Messaggio errore:', error.message);
-      console.error(
-        '❌ NotificationBadge: Errore completo:',
-        JSON.stringify(error, null, 2),
-      );
-
       // In caso di errore, mantieni il conteggio precedente
       // setUnreadCount(0);
     } finally {

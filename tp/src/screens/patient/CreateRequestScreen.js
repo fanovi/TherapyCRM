@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from 'react';
+import {useSelector} from 'react-redux';
 import {
   View,
   StyleSheet,
@@ -6,6 +7,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import {
   Text,
@@ -17,156 +20,230 @@ import {
   ActivityIndicator,
   RadioButton,
   Divider,
+  TouchableRipple,
+  useTheme,
 } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import ScreenTemplate from '../../components/ScreenTemplate';
-import {useCurrentPatient} from '../../hooks/useCurrentPatient';
 import {getRequestTypes, createRequest} from '../../api/requests';
 
+// Configurazione icone e colori per ogni tipo di richiesta
+const REQUEST_TYPE_CONFIG = {
+  'Copia Piano Terapeutico': {
+    icon: 'content-copy',
+    color: '#E3F2FD', // Azzurro pastello
+    backgroundColor: '#BBDEFB',
+    iconColor: '#1976D2',
+  },
+  'Relazione terapista': {
+    icon: 'assignment',
+    color: '#F3E5F5', // Viola pastello
+    backgroundColor: '#E1BEE7',
+    iconColor: '#7B1FA2',
+  },
+  'Relazione visita specialistica': {
+    icon: 'medical-services',
+    color: '#E8F5E9', // Verde pastello
+    backgroundColor: '#C8E6C9',
+    iconColor: '#388E3C',
+  },
+  'Attestato frequenza': {
+    icon: 'verified',
+    color: '#FFF3E0', // Arancione pastello
+    backgroundColor: '#FFE0B2',
+    iconColor: '#F57C00',
+  },
+  Altro: {
+    icon: 'more-horiz',
+    color: '#FAFAFA', // Grigio pastello
+    backgroundColor: '#F5F5F5',
+    iconColor: '#616161',
+  },
+};
+
 const CreateRequestScreen = ({navigation}) => {
-  const {currentPatient, patientId} = useCurrentPatient();
-  const hasSelectedPatient = !!currentPatient; // Valore primitivo invece di funzione
+  // Ottieni il patient_id da Redux usando il selector corretto
+  const {patients, currentPatient} = useSelector(state => state.patient);
 
-  // Stati per tipologie richieste
+  const patient_id = currentPatient?.patient_id;
+
   const [requestTypes, setRequestTypes] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState(null);
-
-  // Stati per form
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    notes: '',
+    request_type_id: '',
     therapeutic_plan_id: '',
     therapy_id: '',
+    notes: '',
   });
 
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-
   useEffect(() => {
-    if (hasSelectedPatient && patientId) {
-      loadRequestTypes();
-    } else {
-      setLoading(false);
+    // Verifica che ci sia un paziente selezionato
+    if (!patient_id) {
+      Alert.alert(
+        'Errore',
+        'Nessun paziente selezionato. Impossibile procedere.',
+        [{text: 'OK', onPress: () => navigation.goBack()}],
+      );
+      return;
     }
-  }, [hasSelectedPatient, patientId]);
+
+    loadRequestTypes();
+  }, [patient_id]);
 
   const loadRequestTypes = async () => {
     try {
-      setLoading(true);
       const response = await getRequestTypes();
+
+      console.log('🔍 ANALISI DETTAGLIATA TIPI DI RICHIESTA:');
+      console.log(JSON.stringify(response, null, 2));
 
       if (response.success) {
         setRequestTypes(response.data);
       }
     } catch (error) {
-      console.error('Errore caricamento tipologie:', error);
+      console.error('❌ Errore caricamento tipologie:', error);
       Alert.alert('Errore', 'Impossibile caricare le tipologie di richieste');
-    } finally {
-      setLoading(false);
     }
   };
 
   const validateForm = () => {
-    const newErrors = {};
-
     if (!selectedType) {
-      newErrors.type = 'Seleziona una tipologia di richiesta';
+      Alert.alert('Errore', 'Seleziona una tipologia di richiesta');
+      return false;
     }
 
-    if (!patientId) {
-      newErrors.patient = 'Nessun paziente selezionato';
+    const errors = [];
+
+    // Controllo piano terapeutico
+    if (
+      selectedType.is_therapeutic_plan_required &&
+      !formData.therapeutic_plan_id
+    ) {
+      errors.push('Piano terapeutico obbligatorio per questa tipologia');
     }
 
-    // Validazione dinamica basata sui requisiti del tipo
-    if (selectedType) {
-      if (selectedType.require_notes && !formData.notes.trim()) {
-        newErrors.notes = 'Le note sono obbligatorie per questa tipologia';
-      }
-
-      if (
-        selectedType.therapeutic_plan_rule === 'required' &&
-        !formData.therapeutic_plan_id
-      ) {
-        newErrors.therapeutic_plan_id =
-          'Il piano terapeutico è obbligatorio per questa tipologia';
-      }
-
-      if (selectedType.require_therapy_assignment && !formData.therapy_id) {
-        newErrors.therapy_id =
-          "L'assegnazione terapia è obbligatoria per questa tipologia";
-      }
+    // Controllo assegnazione terapia
+    if (selectedType.require_therapy_assignment && !formData.therapy_id) {
+      errors.push('Selezione terapia obbligatoria per questa tipologia');
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Controllo note
+    if (selectedType.require_notes && !formData.notes.trim()) {
+      errors.push('Note obbligatorie per questa tipologia');
+    }
+
+    if (errors.length > 0) {
+      Alert.alert('Errore', errors.join('\n'));
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
     try {
-      setSubmitting(true);
-
-      const requestData = {
-        request_type_id: selectedType.id,
-        patient_id: patientId,
-        notes: formData.notes.trim() || null,
-      };
-
-      // Aggiungi campi opzionali solo se specificati
-      if (formData.therapeutic_plan_id) {
-        requestData.therapeutic_plan_id = parseInt(
-          formData.therapeutic_plan_id,
-        );
-      }
-
-      if (formData.therapy_id) {
-        requestData.therapy_id = parseInt(formData.therapy_id);
-      }
-
-      console.log('Invio richiesta:', requestData);
-
-      const response = await createRequest(requestData);
-
-      if (response.success) {
+      // Verifica che ci sia un paziente selezionato
+      if (!patient_id) {
         Alert.alert(
-          'Richiesta Creata',
-          response.message || 'La tua richiesta è stata inviata con successo!',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ],
+          'Errore',
+          'Nessun paziente selezionato. Impossibile procedere.',
         );
+        return;
       }
-    } catch (error) {
-      console.error('Errore creazione richiesta:', error);
 
-      // Gestisci errori specifici del backend
-      if (error.response?.data?.code === 'MISSING_REQUIRED_FIELD') {
-        const details = error.response.data.details;
-        if (details) {
-          setErrors(details);
-          Alert.alert('Errore di Validazione', 'Controlla i campi evidenziati');
+      // Validazione specifica per Copia Piano Terapeutico
+      if (selectedType.name === 'Copia Piano Terapeutico') {
+        if (!formData.therapeutic_plan_id) {
+          Alert.alert(
+            'Campo Obbligatorio',
+            'Per richiedere una copia del piano terapeutico, devi selezionare il piano terapeutico.',
+          );
           return;
         }
       }
 
-      if (error.response?.data?.code === 'ACCESS_DENIED') {
-        Alert.alert('Accesso Negato', error.response.data.error);
-        return;
-      }
+      setSubmitting(true);
 
-      if (error.response?.data?.code === 'INVALID_REQUEST_TYPE') {
-        Alert.alert('Errore', 'Tipologia di richiesta non valida');
+      // Debug dei valori prima della preparazione della richiesta
+      console.log('\n=== VALORI FORM ===');
+      console.log('🔍 Selected Type:', selectedType);
+      console.log('👤 Current Patient:', currentPatient);
+      console.log('📝 Form Data:', formData);
+
+      // Prepara i dati da inviare - converti undefined in null
+      const requestData = {
+        request_type_id: selectedType.id,
+        patient_id: patient_id,
+        therapeutic_plan_id: formData.therapeutic_plan_id || null,
+        therapy_id: formData.therapy_id || null,
+        notes: formData.notes.trim() || null,
+      };
+
+      // Log dettagliato dei dati che verranno inviati
+      console.log('\n=== DATI DA INVIARE AL BACKEND ===');
+      console.log('📤 Request Data:', {
+        ...requestData,
+        request_type_id: `${
+          requestData.request_type_id
+        } (${typeof requestData.request_type_id})`,
+        patient_id: `${
+          requestData.patient_id
+        } (${typeof requestData.patient_id})`,
+        therapeutic_plan_id: `${
+          requestData.therapeutic_plan_id
+        } (${typeof requestData.therapeutic_plan_id})`,
+        therapy_id: `${
+          requestData.therapy_id
+        } (${typeof requestData.therapy_id})`,
+        notes: `${requestData.notes} (${typeof requestData.notes})`,
+      });
+
+      // Effettua la richiesta
+      const response = await createRequest(requestData);
+
+      // Log della risposta
+      console.log('\n=== RISPOSTA DAL BACKEND ===');
+      console.log('✅ Response:', response);
+      console.log('📊 Response Data:', response.data);
+      console.log('🔑 Response Status:', response.status);
+
+      Alert.alert(
+        'Successo',
+        'Richiesta inviata con successo!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+        {cancelable: false},
+      );
+    } catch (error) {
+      console.log('\n=== ERRORE DETTAGLIATO ===');
+      console.log('❌ Errore completo:', error);
+      console.log('📄 Response data:', error.response?.data);
+      console.log('🔢 Status code:', error.response?.status);
+      console.log('📋 Headers:', error.response?.headers);
+      console.log('💭 Message:', error.message);
+      console.log('🔍 Stack:', error.stack);
+
+      // Gestione errori specifica per requisiti mancanti
+      if (error.message?.includes('Requisiti obbligatori')) {
+        Alert.alert(
+          'Campi Obbligatori',
+          'Per questa tipologia di richiesta, assicurati di aver compilato tutti i campi obbligatori:\n\n' +
+            '- Piano Terapeutico\n' +
+            (selectedType?.require_notes ? '- Note\n' : '') +
+            (selectedType?.require_therapy_assignment ? '- Terapia\n' : ''),
+        );
         return;
       }
 
       Alert.alert(
         'Errore',
-        'Impossibile creare la richiesta. Riprova più tardi.',
+        error.message ||
+          "Si è verificato un errore durante l'invio della richiesta",
       );
     } finally {
       setSubmitting(false);
@@ -193,88 +270,51 @@ const CreateRequestScreen = ({navigation}) => {
     return colors[category] || '#9C27B0';
   };
 
-  const renderRequestTypeCard = type => (
-    <Card
-      key={type.id}
-      style={[
-        styles.typeCard,
-        selectedType?.id === type.id && styles.selectedTypeCard,
-      ]}
-      onPress={() => setSelectedType(type)}>
-      <Card.Content style={styles.typeContent}>
-        <RadioButton
-          value={type.id.toString()}
-          status={selectedType?.id === type.id ? 'checked' : 'unchecked'}
-          onPress={() => setSelectedType(type)}
-        />
-
-        <Avatar.Icon
-          size={40}
-          icon={getCategoryIcon(type.category)}
-          style={[
-            styles.typeIcon,
-            {backgroundColor: getCategoryColor(type.category) + '20'},
-          ]}
-        />
-
-        <View style={styles.typeInfo}>
-          <Text style={styles.typeName}>{type.name}</Text>
-          <Text style={styles.typeDescription} numberOfLines={2}>
-            {type.description}
-          </Text>
-
-          <View style={styles.typeMetadata}>
-            <Text style={styles.categoryChip}>{type.category}</Text>
-            {type.estimated_days && (
-              <Text style={styles.estimatedDays}>
-                ~{type.estimated_days} giorni
-              </Text>
-            )}
-          </View>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  const renderRequirements = () => {
-    if (!selectedType) return null;
-
-    const requirements = [];
-
-    if (selectedType.require_notes) {
-      requirements.push('Note obbligatorie');
-    }
-
-    if (selectedType.therapeutic_plan_rule === 'required') {
-      requirements.push('Piano terapeutico richiesto');
-    }
-
-    if (selectedType.require_therapy_assignment) {
-      requirements.push('Assegnazione terapia richiesta');
-    }
-
-    if (requirements.length === 0) {
-      return null;
-    }
+  // Renderizza una singola opzione di tipo richiesta
+  const renderRequestTypeOption = type => {
+    const config =
+      REQUEST_TYPE_CONFIG[type.name] || REQUEST_TYPE_CONFIG['Altro'];
+    const isSelected = selectedType?.id === type.id;
 
     return (
-      <Card style={styles.requirementsCard}>
-        <Card.Content>
-          <Text style={styles.requirementsTitle}>
-            Requisiti per questa tipologia:
-          </Text>
-          {requirements.map((req, index) => (
-            <Text key={index} style={styles.requirementItem}>
-              • {req}
+      <TouchableRipple
+        key={type.id}
+        onPress={() => setSelectedType(type)}
+        style={[
+          styles.requestTypeOption,
+          {backgroundColor: config.color},
+          isSelected && {backgroundColor: config.backgroundColor},
+        ]}>
+        <View style={styles.requestTypeContent}>
+          <View
+            style={[
+              styles.iconContainer,
+              {backgroundColor: config.backgroundColor},
+            ]}>
+            <Icon name={config.icon} size={24} color={config.iconColor} />
+          </View>
+          <View style={styles.requestTypeInfo}>
+            <Text style={styles.requestTypeName}>{type.name}</Text>
+            <Text style={styles.requestTypeRule}>
+              {type.therapeutic_plan_rule_label}
+              {type.require_notes && ' • Note richieste'}
+              {type.require_therapy_assignment && ' • Terapia richiesta'}
             </Text>
-          ))}
-        </Card.Content>
-      </Card>
+          </View>
+          <Icon
+            name={
+              isSelected ? 'radio-button-checked' : 'radio-button-unchecked'
+            }
+            size={24}
+            color={config.iconColor}
+          />
+        </View>
+      </TouchableRipple>
     );
   };
 
   // Mostra messaggio se nessun paziente è selezionato
-  if (!hasSelectedPatient) {
+  if (!currentPatient) {
     return (
       <ScreenTemplate title="Nuova Richiesta">
         <View style={styles.noPatientContainer}>
@@ -306,145 +346,143 @@ const CreateRequestScreen = ({navigation}) => {
           ? `${currentPatient.first_name} ${currentPatient.last_name}`
           : ''
       }>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView style={styles.scrollContainer}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" />
-              <Text style={styles.loadingText}>Caricamento tipologie...</Text>
-            </View>
-          ) : (
-            <>
-              {/* Selezione Tipologia */}
-              <Card style={styles.sectionCard}>
-                <Card.Content>
-                  <Text style={styles.sectionTitle}>
-                    Seleziona Tipologia Richiesta
-                  </Text>
-                  <HelperText type="info" style={styles.sectionHelper}>
-                    Scegli il tipo di documento o certificato che desideri
-                    richiedere
-                  </HelperText>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+          style={styles.container}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
+            {/* Tipi di richiesta */}
+            <Card style={styles.card}>
+              <Card.Title
+                title="Seleziona tipo di richiesta"
+                left={props => <Icon name="category" size={24} color="#666" />}
+              />
+              <Card.Content>
+                <View style={styles.requestTypesList}>
+                  {requestTypes.map(type => renderRequestTypeOption(type))}
+                </View>
+              </Card.Content>
+            </Card>
 
-                  {requestTypes.map(renderRequestTypeCard)}
-
-                  {errors.type && (
-                    <HelperText type="error">{errors.type}</HelperText>
+            {/* Piano terapeutico */}
+            {selectedType && !selectedType.is_therapeutic_plan_not_allowed && (
+              <Card style={styles.card}>
+                <Card.Title
+                  title="Piano terapeutico"
+                  subtitle={
+                    selectedType.is_therapeutic_plan_required
+                      ? '(Obbligatorio)'
+                      : '(Opzionale)'
+                  }
+                  left={props => (
+                    <Icon
+                      name="description"
+                      size={24}
+                      color={
+                        selectedType.is_therapeutic_plan_required
+                          ? '#F44336'
+                          : '#666'
+                      }
+                    />
                   )}
+                />
+                <Card.Content>
+                  <TextInput
+                    mode="outlined"
+                    label="Seleziona piano terapeutico"
+                    value={formData.therapeutic_plan_id}
+                    onChangeText={value =>
+                      setFormData({...formData, therapeutic_plan_id: value})
+                    }
+                    error={
+                      selectedType.is_therapeutic_plan_required &&
+                      !formData.therapeutic_plan_id
+                    }
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                  />
                 </Card.Content>
               </Card>
+            )}
 
-              {/* Requisiti */}
-              {renderRequirements()}
+            {/* Terapia */}
+            {selectedType && selectedType.require_therapy_assignment && (
+              <Card style={styles.card}>
+                <Card.Title
+                  title="Terapia"
+                  subtitle="(Obbligatorio)"
+                  left={props => (
+                    <Icon name="medical-services" size={24} color="#F44336" />
+                  )}
+                />
+                <Card.Content>
+                  <TextInput
+                    mode="outlined"
+                    label="Seleziona terapia"
+                    value={formData.therapy_id}
+                    onChangeText={value =>
+                      setFormData({...formData, therapy_id: value})
+                    }
+                    error={!formData.therapy_id}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                  />
+                </Card.Content>
+              </Card>
+            )}
 
-              {/* Form Dettagli */}
-              {selectedType && (
-                <Card style={styles.sectionCard}>
-                  <Card.Content>
-                    <Text style={styles.sectionTitle}>Dettagli Richiesta</Text>
-
-                    {/* Note */}
-                    <TextInput
-                      label={
-                        selectedType.require_notes
-                          ? 'Note (Obbligatorie)'
-                          : 'Note (Opzionali)'
-                      }
-                      value={formData.notes}
-                      onChangeText={text =>
-                        setFormData(prev => ({...prev, notes: text}))
-                      }
-                      multiline
-                      numberOfLines={4}
-                      style={styles.textInput}
-                      error={!!errors.notes}
-                      placeholder="Inserisci eventuali note o dettagli aggiuntivi..."
-                    />
-                    {errors.notes && (
-                      <HelperText type="error">{errors.notes}</HelperText>
-                    )}
-
-                    {/* Piano Terapeutico */}
-                    {selectedType.therapeutic_plan_rule !== 'not_allowed' && (
-                      <>
-                        <TextInput
-                          label={
-                            selectedType.therapeutic_plan_rule === 'required'
-                              ? 'ID Piano Terapeutico (Obbligatorio)'
-                              : 'ID Piano Terapeutico (Opzionale)'
-                          }
-                          value={formData.therapeutic_plan_id}
-                          onChangeText={text =>
-                            setFormData(prev => ({
-                              ...prev,
-                              therapeutic_plan_id: text,
-                            }))
-                          }
-                          keyboardType="numeric"
-                          style={styles.textInput}
-                          error={!!errors.therapeutic_plan_id}
-                          placeholder="Inserisci l'ID del piano terapeutico"
-                        />
-                        {errors.therapeutic_plan_id && (
-                          <HelperText type="error">
-                            {errors.therapeutic_plan_id}
-                          </HelperText>
-                        )}
-                      </>
-                    )}
-
-                    {/* Terapia */}
-                    {selectedType.require_therapy_assignment && (
-                      <>
-                        <TextInput
-                          label="ID Terapia (Obbligatorio)"
-                          value={formData.therapy_id}
-                          onChangeText={text =>
-                            setFormData(prev => ({...prev, therapy_id: text}))
-                          }
-                          keyboardType="numeric"
-                          style={styles.textInput}
-                          error={!!errors.therapy_id}
-                          placeholder="Inserisci l'ID della terapia"
-                        />
-                        {errors.therapy_id && (
-                          <HelperText type="error">
-                            {errors.therapy_id}
-                          </HelperText>
-                        )}
-                      </>
-                    )}
-                  </Card.Content>
-                </Card>
-              )}
-
-              {/* Pulsanti Azione */}
-              <View style={styles.actionsContainer}>
-                <Button
+            {/* Note */}
+            <Card style={styles.card}>
+              <Card.Title
+                title="Note"
+                subtitle={
+                  selectedType?.require_notes ? '(Obbligatorio)' : '(Opzionale)'
+                }
+                left={props => (
+                  <Icon
+                    name="note"
+                    size={24}
+                    color={selectedType?.require_notes ? '#F44336' : '#666'}
+                  />
+                )}
+              />
+              <Card.Content>
+                <TextInput
                   mode="outlined"
-                  onPress={() => navigation.goBack()}
-                  style={styles.cancelButton}
-                  disabled={submitting}>
-                  Annulla
-                </Button>
+                  label="Note aggiuntive"
+                  value={formData.notes}
+                  onChangeText={value =>
+                    setFormData({...formData, notes: value})
+                  }
+                  multiline
+                  numberOfLines={3}
+                  error={selectedType?.require_notes && !formData.notes.trim()}
+                  blurOnSubmit={true}
+                  returnKeyType="done"
+                />
+              </Card.Content>
+            </Card>
 
-                <Button
-                  mode="contained"
-                  onPress={handleSubmit}
-                  loading={submitting}
-                  disabled={!selectedType || submitting}
-                  style={styles.submitButton}>
-                  {submitting ? 'Invio...' : 'Invia Richiesta'}
-                </Button>
-              </View>
-
-              <View style={styles.bottomSpacing} />
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Button
+              mode="contained"
+              onPress={handleSubmit}
+              loading={submitting}
+              disabled={submitting || !selectedType}
+              style={styles.submitButton}
+              icon={({size, color}) => (
+                <Icon name="send" size={size} color={color} />
+              )}>
+              Invia richiesta
+            </Button>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </ScreenTemplate>
   );
 };
@@ -452,9 +490,10 @@ const CreateRequestScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     padding: 16,
   },
   noPatientContainer: {
@@ -482,109 +521,45 @@ const styles = StyleSheet.create({
   selectPatientButton: {
     paddingHorizontal: 24,
   },
-  loadingContainer: {
-    flex: 1,
+  card: {
+    marginBottom: 16,
+    elevation: 2,
+  },
+  requestTypesList: {
+    marginTop: 8,
+  },
+  requestTypeOption: {
+    borderRadius: 12,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  requestTypeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  sectionCard: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  sectionHelper: {
-    marginBottom: 16,
-  },
-  typeCard: {
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  selectedTypeCard: {
-    borderColor: '#2196F3',
-    borderWidth: 2,
-  },
-  typeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  typeIcon: {
-    marginLeft: 8,
     marginRight: 16,
   },
-  typeInfo: {
+  requestTypeInfo: {
     flex: 1,
   },
-  typeName: {
+  requestTypeName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 4,
   },
-  typeDescription: {
-    fontSize: 14,
+  requestTypeRule: {
+    fontSize: 12,
     color: '#666',
-    marginBottom: 8,
-  },
-  typeMetadata: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  categoryChip: {
-    fontSize: 12,
-    color: '#2196F3',
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    textTransform: 'capitalize',
-  },
-  estimatedDays: {
-    fontSize: 12,
-    color: '#FF9800',
-    fontWeight: '500',
-  },
-  requirementsCard: {
-    marginBottom: 16,
-    backgroundColor: '#FFF3E0',
-  },
-  requirementsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#F57C00',
-  },
-  requirementItem: {
-    fontSize: 14,
-    color: '#E65100',
-    marginBottom: 4,
-  },
-  textInput: {
-    marginBottom: 8,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  cancelButton: {
-    flex: 1,
   },
   submitButton: {
-    flex: 2,
-  },
-  bottomSpacing: {
-    height: 32,
+    marginTop: 24,
   },
 });
 

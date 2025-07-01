@@ -42,37 +42,45 @@ const shouldIncludeToken = url => {
 // REQUEST INTERCEPTOR - Aggiunge automaticamente il token
 apiClient.interceptors.request.use(
   async config => {
-    // Debug della richiesta
-    console.log('📤 === REQUEST INTERCEPTOR DEBUG ===');
-    console.log('🔗 URL finale richiesta:', `${config.baseURL}${config.url}`);
-    console.log('📋 Metodo:', config.method?.toUpperCase());
+    // Debug solo se non è una chiamata alle notifiche
+    const isNotificationCall = config.url.includes('/notifications');
+    if (!isNotificationCall) {
+      console.log('📤 === REQUEST INTERCEPTOR DEBUG ===');
+      console.log('🔗 URL finale richiesta:', `${config.baseURL}${config.url}`);
+      console.log('📋 Metodo:', config.method?.toUpperCase());
+    }
 
     // Verifica se l'endpoint richiede il token
     if (shouldIncludeToken(config.url)) {
       try {
         const token = await AsyncStorage.getItem('authToken');
-        console.log(
-          '🎫 Token raw dal storage:',
-          typeof token,
-          token ? `${token.substring(0, 20)}...` : 'NULL',
-        );
+        if (!isNotificationCall) {
+          console.log(
+            '🎫 Token raw dal storage:',
+            typeof token,
+            token ? `${token.substring(0, 20)}...` : 'NULL',
+          );
+        }
 
         if (token) {
           // Assicurati che il token sia una stringa
           const tokenString = typeof token === 'string' ? token : String(token);
 
-          console.log(
-            '🎫 Token convertito:',
-            typeof tokenString,
-            tokenString.substring(0, 20) + '...',
-          );
+          if (!isNotificationCall) {
+            console.log(
+              '🎫 Token convertito:',
+              typeof tokenString,
+              tokenString.substring(0, 20) + '...',
+            );
+          }
 
           const {isValidToken} = await import('../utils/authUtils');
-
           const tokenIsValid = await isValidToken(tokenString);
 
           if (!tokenIsValid) {
-            console.log("❌ Token non valido nell'interceptor");
+            if (!isNotificationCall) {
+              console.log("❌ Token non valido nell'interceptor");
+            }
             const {performAutoLogout} = await import('../utils/authUtils');
             await performAutoLogout('Token scaduto durante richiesta');
 
@@ -84,25 +92,35 @@ apiClient.interceptors.request.use(
           }
 
           config.headers.Authorization = `Bearer ${tokenString}`;
-          console.log(
-            '✅ Authorization header impostato:',
-            `Bearer ${tokenString.substring(0, 20)}...`,
-          );
+          if (!isNotificationCall) {
+            console.log(
+              '✅ Authorization header impostato:',
+              `Bearer ${tokenString.substring(0, 20)}...`,
+            );
+          }
         } else {
-          console.log('⚠️ Nessun token trovato per endpoint protetto');
+          if (!isNotificationCall) {
+            console.log('⚠️ Nessun token trovato per endpoint protetto');
+          }
         }
       } catch (error) {
-        console.error('❌ Errore nel recupero/verifica del token:', error);
+        if (!isNotificationCall) {
+          console.error('❌ Errore nel recupero/verifica del token:', error);
+        }
 
         // In caso di errore nella decodifica del token, fai logout
         const {performAutoLogout} = await import('../utils/authUtils');
         await performAutoLogout('Errore nella verifica del token');
       }
     } else {
-      console.log('ℹ️ Endpoint non richiede token:', config.url);
+      if (!isNotificationCall) {
+        console.log('ℹ️ Endpoint non richiede token:', config.url);
+      }
     }
 
-    console.log('🎯 Headers finali:', config.headers);
+    if (!isNotificationCall) {
+      console.log('🎯 Headers finali:', config.headers);
+    }
     return config;
   },
   error => {
