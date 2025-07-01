@@ -639,7 +639,7 @@ class RequestsController extends Controller
      * @OA\Post(
      *     path="/requests",
      *     summary="Crea una nuova richiesta documento",
-     *     description="Crea una nuova richiesta di documento per il paziente autenticato con validazione dinamica basata sui requisiti del tipo di richiesta",
+     *     description="Crea una nuova richiesta di documento per il paziente specificato. La validazione è dinamica basata sui requisiti del tipo di richiesta selezionato.",
      *     operationId="createRequest",
      *     tags={"Richieste"},
      *     security={{"BearerAuth":{}}},
@@ -649,7 +649,7 @@ class RequestsController extends Controller
      *         @OA\MediaType(
      *             mediaType="application/json",
      *             @OA\Schema(
-     *                 required={"request_type_id"},
+     *                 required={"request_type_id", "patient_id"},
      *                 @OA\Property(
      *                     property="request_type_id",
      *                     type="integer",
@@ -657,21 +657,46 @@ class RequestsController extends Controller
      *                     example=1
      *                 ),
      *                 @OA\Property(
+     *                     property="patient_id",
+     *                     type="integer",
+     *                     description="ID del paziente per cui fare la richiesta",
+     *                     example=1
+     *                 ),
+     *                 @OA\Property(
+     *                     property="therapeutic_plan_id",
+     *                     type="integer",
+     *                     nullable=true,
+     *                     description="ID del piano terapeutico associato (obbligatorio se therapeutic_plan_rule = PLAN_REQUIRED, non ammesso se PLAN_NOT_ALLOWED)",
+     *                     example=null
+     *                 ),
+     *                 @OA\Property(
+     *                     property="therapy_id",
+     *                     type="integer",
+     *                     nullable=true,
+     *                     description="ID della terapia associata (obbligatorio se require_therapy_assignment = true)",
+     *                     example=null
+     *                 ),
+     *                 @OA\Property(
      *                     property="reason",
      *                     type="string",
+     *                     maxLength=1000,
+     *                     nullable=true,
      *                     description="Motivo della richiesta (obbligatorio se requires_reason = true)",
      *                     example="Certificato per assenza lavorativa dal 15/01 al 20/01"
      *                 ),
      *                 @OA\Property(
      *                     property="notes",
      *                     type="string",
-     *                     description="Note aggiuntive opzionali",
+     *                     maxLength=2000,
+     *                     nullable=true,
+     *                     description="Note aggiuntive (obbligatorie se require_notes = true)",
      *                     example="Note aggiuntive opzionali"
      *                 ),
      *                 @OA\Property(
      *                     property="date_from",
      *                     type="string",
      *                     format="date",
+     *                     nullable=true,
      *                     description="Data di inizio (obbligatoria se requires_date_range = true)",
      *                     example="2025-01-15"
      *                 ),
@@ -679,6 +704,7 @@ class RequestsController extends Controller
      *                     property="date_to",
      *                     type="string",
      *                     format="date",
+     *                     nullable=true,
      *                     description="Data di fine (obbligatoria se requires_date_range = true)",
      *                     example="2025-01-20"
      *                 )
@@ -694,14 +720,19 @@ class RequestsController extends Controller
      *                 property="data",
      *                 type="object",
      *                 @OA\Property(property="id", type="integer", example=123),
+     *                 @OA\Property(property="patient_id", type="integer", example=1),
+     *                 @OA\Property(property="request_type_id", type="integer", example=1),
      *                 @OA\Property(property="request_type", type="string", example="Certificato Medico"),
+     *                 @OA\Property(property="therapeutic_plan_id", type="integer", nullable=true, example=null),
+     *                 @OA\Property(property="therapy_id", type="integer", nullable=true, example=null),
      *                 @OA\Property(property="status", type="string", example="pending"),
+     *                 @OA\Property(property="status_label", type="string", example="In Attesa"),
      *                 @OA\Property(property="created_at", type="string", format="date-time", example="2025-01-25T10:30:00Z"),
      *                 @OA\Property(property="estimated_completion", type="string", format="date-time", example="2025-01-28T18:00:00Z"),
-     *                 @OA\Property(property="reason", type="string", example="Certificato per assenza lavorativa dal 15/01 al 20/01"),
-     *                 @OA\Property(property="notes", type="string", example="Note aggiuntive opzionali"),
-     *                 @OA\Property(property="date_from", type="string", format="date", example="2025-01-15"),
-     *                 @OA\Property(property="date_to", type="string", format="date", example="2025-01-20"),
+     *                 @OA\Property(property="reason", type="string", nullable=true, example="Certificato per assenza lavorativa dal 15/01 al 20/01"),
+     *                 @OA\Property(property="notes", type="string", nullable=true, example="Note aggiuntive opzionali"),
+     *                 @OA\Property(property="date_from", type="string", format="date", nullable=true, example="2025-01-15"),
+     *                 @OA\Property(property="date_to", type="string", format="date", nullable=true, example="2025-01-20"),
      *                 @OA\Property(
      *                     property="created_by",
      *                     type="object",
@@ -711,7 +742,8 @@ class RequestsController extends Controller
      *                     @OA\Property(property="first_name", type="string", example="Mario", description="Nome dell'utente"),
      *                     @OA\Property(property="last_name", type="string", example="Rossi", description="Cognome dell'utente"),
      *                     @OA\Property(property="relationship_type", type="string", enum={"self", "parent", "tutor", "other"}, example="parent", description="Tipo di relazione con il paziente")
-     *                 )
+     *                 ),
+     *                 @OA\Property(property="can_be_cancelled", type="boolean", example=true)
      *             ),
      *             @OA\Property(property="message", type="string", example="Richiesta creata con successo! Riceverai una notifica quando sarà pronta.")
      *         )
@@ -726,18 +758,23 @@ class RequestsController extends Controller
      *             @OA\Property(
      *                 property="details",
      *                 type="object",
+     *                 @OA\Property(property="patient_id", type="string", example="Il campo patient_id è obbligatorio"),
+     *                 @OA\Property(property="request_type_id", type="string", example="Il campo request_type_id è obbligatorio"),
+     *                 @OA\Property(property="therapeutic_plan_id", type="string", example="Il piano terapeutico è obbligatorio per questa tipologia"),
+     *                 @OA\Property(property="therapy_id", type="string", example="L'assegnazione terapia è obbligatoria per questa tipologia"),
      *                 @OA\Property(property="reason", type="string", example="Il motivo è obbligatorio per questa tipologia"),
+     *                 @OA\Property(property="notes", type="string", example="Le note sono obbligatorie per questa tipologia"),
      *                 @OA\Property(property="date_from", type="string", example="La data di inizio è obbligatoria")
      *             )
      *         )
      *     ),
      *     @OA\Response(
-     *         response=401,
-     *         description="Non autorizzato",
+     *         response=403,
+     *         description="Accesso negato al paziente",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="error", type="string", example="Token non valido"),
-     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
+     *             @OA\Property(property="error", type="string", example="Non hai i permessi per fare richieste per questo paziente"),
+     *             @OA\Property(property="code", type="string", example="ACCESS_DENIED")
      *         )
      *     ),
      *     @OA\Response(
@@ -755,12 +792,12 @@ class RequestsController extends Controller
      *         )
      *     ),
      *     @OA\Response(
-     *         response=500,
-     *         description="Errore interno del server",
+     *         response=401,
+     *         description="Non autorizzato",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="error", type="string", example="Errore interno del server"),
-     *             @OA\Property(property="code", type="string", example="INTERNAL_ERROR")
+     *             @OA\Property(property="error", type="string", example="Token non valido"),
+     *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
      *         )
      *     )
      * )
@@ -776,9 +813,11 @@ class RequestsController extends Controller
      * - Content-Type: application/json
      * 
      * Validazione dinamica:
+     * - therapeutic_plan_id: obbligatorio se therapeutic_plan_rule = PLAN_REQUIRED
+     * - therapy_id: obbligatorio se require_therapy_assignment = true
      * - reason: obbligatorio solo se requires_reason = true
+     * - notes: obbligatorio solo se require_notes = true
      * - date_from/date_to: obbligatorie solo se requires_date_range = true
-     * - notes: sempre opzionale
      */
     public function actionCreate()
     {
@@ -1410,9 +1449,9 @@ class RequestsController extends Controller
 
         // Aggiungi informazioni dettagliate sul tipo di richiesta come oggetto (solo campi esistenti)
         if ($request->requestType) {
-            $data['type_info'] = [
-                'id' => $request->requestType->id,
-                'name' => $request->requestType->name,
+        $data['type_info'] = [
+            'id' => $request->requestType->id,
+            'name' => $request->requestType->name,
                 'therapeutic_plan_rule' => $request->requestType->therapeutic_plan_rule,
                 'allow_multiple_requests' => (bool) $request->requestType->allow_multiple_requests,
                 'require_therapy_assignment' => (bool) $request->requestType->require_therapy_assignment,
