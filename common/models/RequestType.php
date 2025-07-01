@@ -201,7 +201,7 @@ class RequestType extends ActiveRecord
     public static function getForApi()
     {
         $requestTypes = static::find()
-            ->orderBy(['id' => SORT_ASC])
+            ->orderBy(['display_order' => SORT_ASC])
             ->all();
 
         $result = [];
@@ -218,6 +218,7 @@ class RequestType extends ActiveRecord
                 'is_therapeutic_plan_required' => $type->isTherapeuticPlanRequired(),
                 'is_therapeutic_plan_optional' => $type->isTherapeuticPlanOptional(),
                 'is_therapeutic_plan_not_allowed' => $type->isTherapeuticPlanNotAllowed(),
+                'display_order' => $type->display_order,
             ];
         }
 
