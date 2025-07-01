@@ -18,14 +18,13 @@ import {
   RadioButton,
   Divider,
 } from 'react-native-paper';
-import {useSelector} from 'react-redux';
-// DatePicker sostituito con Modal e DatePickerIOS/DatePickerAndroid
-
 import ScreenTemplate from '../../components/ScreenTemplate';
+import {useCurrentPatient} from '../../hooks/useCurrentPatient';
 import {getRequestTypes, createRequest} from '../../api/requests';
 
 const CreateRequestScreen = ({navigation}) => {
-  const {currentPatient} = useSelector(state => state.patient);
+  const {currentPatient, patientId} = useCurrentPatient();
+  const hasSelectedPatient = !!currentPatient; // Valore primitivo invece di funzione
 
   // Stati per tipologie richieste
   const [requestTypes, setRequestTypes] = useState([]);
@@ -34,20 +33,21 @@ const CreateRequestScreen = ({navigation}) => {
 
   // Stati per form
   const [formData, setFormData] = useState({
-    reason: '',
     notes: '',
-    date_from: new Date(),
-    date_to: new Date(),
+    therapeutic_plan_id: '',
+    therapy_id: '',
   });
 
-  const [showDateFromPicker, setShowDateFromPicker] = useState(false);
-  const [showDateToPicker, setShowDateToPicker] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadRequestTypes();
-  }, []);
+    if (hasSelectedPatient && patientId) {
+      loadRequestTypes();
+    } else {
+      setLoading(false);
+    }
+  }, [hasSelectedPatient, patientId]);
 
   const loadRequestTypes = async () => {
     try {
@@ -72,14 +72,27 @@ const CreateRequestScreen = ({navigation}) => {
       newErrors.type = 'Seleziona una tipologia di richiesta';
     }
 
-    if (selectedType?.requires_reason && !formData.reason.trim()) {
-      newErrors.reason = 'Il motivo è obbligatorio per questa tipologia';
+    if (!patientId) {
+      newErrors.patient = 'Nessun paziente selezionato';
     }
 
-    if (selectedType?.requires_date_range) {
-      if (formData.date_from >= formData.date_to) {
-        newErrors.date_range =
-          'La data di fine deve essere successiva alla data di inizio';
+    // Validazione dinamica basata sui requisiti del tipo
+    if (selectedType) {
+      if (selectedType.require_notes && !formData.notes.trim()) {
+        newErrors.notes = 'Le note sono obbligatorie per questa tipologia';
+      }
+
+      if (
+        selectedType.therapeutic_plan_rule === 'required' &&
+        !formData.therapeutic_plan_id
+      ) {
+        newErrors.therapeutic_plan_id =
+          'Il piano terapeutico è obbligatorio per questa tipologia';
+      }
+
+      if (selectedType.require_therapy_assignment && !formData.therapy_id) {
+        newErrors.therapy_id =
+          "L'assegnazione terapia è obbligatoria per questa tipologia";
       }
     }
 
@@ -96,15 +109,23 @@ const CreateRequestScreen = ({navigation}) => {
       setSubmitting(true);
 
       const requestData = {
-        type_id: selectedType.id,
-        reason: formData.reason.trim(),
-        notes: formData.notes.trim(),
+        request_type_id: selectedType.id,
+        patient_id: patientId,
+        notes: formData.notes.trim() || null,
       };
 
-      if (selectedType.requires_date_range) {
-        requestData.date_from = formData.date_from.toISOString().split('T')[0];
-        requestData.date_to = formData.date_to.toISOString().split('T')[0];
+      // Aggiungi campi opzionali solo se specificati
+      if (formData.therapeutic_plan_id) {
+        requestData.therapeutic_plan_id = parseInt(
+          formData.therapeutic_plan_id,
+        );
       }
+
+      if (formData.therapy_id) {
+        requestData.therapy_id = parseInt(formData.therapy_id);
+      }
+
+      console.log('Invio richiesta:', requestData);
 
       const response = await createRequest(requestData);
 
@@ -122,6 +143,27 @@ const CreateRequestScreen = ({navigation}) => {
       }
     } catch (error) {
       console.error('Errore creazione richiesta:', error);
+
+      // Gestisci errori specifici del backend
+      if (error.response?.data?.code === 'MISSING_REQUIRED_FIELD') {
+        const details = error.response.data.details;
+        if (details) {
+          setErrors(details);
+          Alert.alert('Errore di Validazione', 'Controlla i campi evidenziati');
+          return;
+        }
+      }
+
+      if (error.response?.data?.code === 'ACCESS_DENIED') {
+        Alert.alert('Accesso Negato', error.response.data.error);
+        return;
+      }
+
+      if (error.response?.data?.code === 'INVALID_REQUEST_TYPE') {
+        Alert.alert('Errore', 'Tipologia di richiesta non valida');
+        return;
+      }
+
       Alert.alert(
         'Errore',
         'Impossibile creare la richiesta. Riprova più tardi.',
@@ -129,6 +171,26 @@ const CreateRequestScreen = ({navigation}) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getCategoryIcon = category => {
+    const icons = {
+      medical: 'medical-bag',
+      therapy: 'account-heart',
+      fitness: 'dumbbell',
+      appointment: 'calendar-clock',
+    };
+    return icons[category] || 'file-document';
+  };
+
+  const getCategoryColor = category => {
+    const colors = {
+      medical: '#F44336',
+      therapy: '#2196F3',
+      fitness: '#FF9800',
+      appointment: '#4CAF50',
+    };
+    return colors[category] || '#9C27B0';
   };
 
   const renderRequestTypeCard = type => (
@@ -148,7 +210,7 @@ const CreateRequestScreen = ({navigation}) => {
 
         <Avatar.Icon
           size={40}
-          icon={type.icon}
+          icon={getCategoryIcon(type.category)}
           style={[
             styles.typeIcon,
             {backgroundColor: getCategoryColor(type.category) + '20'},
@@ -162,14 +224,11 @@ const CreateRequestScreen = ({navigation}) => {
           </Text>
 
           <View style={styles.typeMetadata}>
-            <Text style={styles.estimatedDays}>
-              📅 {type.estimated_days} giorni
-            </Text>
-            {type.requires_reason && (
-              <Text style={styles.requiresReason}>📝 Motivo richiesto</Text>
-            )}
-            {type.requires_date_range && (
-              <Text style={styles.requiresDateRange}>📆 Date richieste</Text>
+            <Text style={styles.categoryChip}>{type.category}</Text>
+            {type.estimated_days && (
+              <Text style={styles.estimatedDays}>
+                ~{type.estimated_days} giorni
+              </Text>
             )}
           </View>
         </View>
@@ -177,28 +236,63 @@ const CreateRequestScreen = ({navigation}) => {
     </Card>
   );
 
-  const getCategoryColor = category => {
-    const colors = {
-      medical: '#4CAF50',
-      therapy: '#2196F3',
-      fitness: '#FF9800',
-      appointment: '#9C27B0',
-    };
-    return colors[category] || '#9E9E9E';
+  const renderRequirements = () => {
+    if (!selectedType) return null;
+
+    const requirements = [];
+
+    if (selectedType.require_notes) {
+      requirements.push('Note obbligatorie');
+    }
+
+    if (selectedType.therapeutic_plan_rule === 'required') {
+      requirements.push('Piano terapeutico richiesto');
+    }
+
+    if (selectedType.require_therapy_assignment) {
+      requirements.push('Assegnazione terapia richiesta');
+    }
+
+    if (requirements.length === 0) {
+      return null;
+    }
+
+    return (
+      <Card style={styles.requirementsCard}>
+        <Card.Content>
+          <Text style={styles.requirementsTitle}>
+            Requisiti per questa tipologia:
+          </Text>
+          {requirements.map((req, index) => (
+            <Text key={index} style={styles.requirementItem}>
+              • {req}
+            </Text>
+          ))}
+        </Card.Content>
+      </Card>
+    );
   };
 
-  const formatDate = date => {
-    return date.toLocaleDateString('it-IT');
-  };
-
-  if (loading) {
+  // Mostra messaggio se nessun paziente è selezionato
+  if (!hasSelectedPatient) {
     return (
       <ScreenTemplate title="Nuova Richiesta">
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.loadingText}>
-            Caricamento tipologie richieste...
+        <View style={styles.noPatientContainer}>
+          <Avatar.Icon
+            size={80}
+            icon="account-alert"
+            style={styles.noPatientIcon}
+          />
+          <Text style={styles.noPatientTitle}>Nessun Paziente Selezionato</Text>
+          <Text style={styles.noPatientSubtitle}>
+            Seleziona un paziente per creare una richiesta
           </Text>
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('PatientSelection')}
+            style={styles.selectPatientButton}>
+            Seleziona Paziente
+          </Button>
         </View>
       </ScreenTemplate>
     );
@@ -207,175 +301,149 @@ const CreateRequestScreen = ({navigation}) => {
   return (
     <ScreenTemplate
       title="Nuova Richiesta"
-      subtitle="Seleziona il tipo di documento o certificato">
+      subtitle={
+        currentPatient
+          ? `${currentPatient.first_name} ${currentPatient.last_name}`
+          : ''
+      }>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView style={styles.scrollView}>
-          {/* Selezione Tipologia */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tipologia Richiesta</Text>
-            <Text style={styles.sectionSubtitle}>
-              Scegli il tipo di documento o certificato di cui hai bisogno
-            </Text>
-
-            {errors.type && (
-              <HelperText type="error" visible={true}>
-                {errors.type}
-              </HelperText>
-            )}
-
-            <View style={styles.typesList}>
-              {requestTypes.map(renderRequestTypeCard)}
+        <ScrollView style={styles.scrollContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" />
+              <Text style={styles.loadingText}>Caricamento tipologie...</Text>
             </View>
-          </View>
+          ) : (
+            <>
+              {/* Selezione Tipologia */}
+              <Card style={styles.sectionCard}>
+                <Card.Content>
+                  <Text style={styles.sectionTitle}>
+                    Seleziona Tipologia Richiesta
+                  </Text>
+                  <HelperText type="info" style={styles.sectionHelper}>
+                    Scegli il tipo di documento o certificato che desideri
+                    richiedere
+                  </HelperText>
 
-          {/* Form Dinamico */}
-          {selectedType && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Dettagli Richiesta</Text>
+                  {requestTypes.map(renderRequestTypeCard)}
 
-              {/* Motivo (se richiesto) */}
-              {selectedType.requires_reason && (
-                <View style={styles.formField}>
-                  <TextInput
-                    label="Motivo della richiesta *"
-                    value={formData.reason}
-                    onChangeText={text =>
-                      setFormData(prev => ({...prev, reason: text}))
-                    }
-                    multiline
-                    numberOfLines={3}
-                    style={styles.textInput}
-                    error={!!errors.reason}
-                  />
-                  {errors.reason && (
-                    <HelperText type="error" visible={true}>
-                      {errors.reason}
-                    </HelperText>
+                  {errors.type && (
+                    <HelperText type="error">{errors.type}</HelperText>
                   )}
-                </View>
+                </Card.Content>
+              </Card>
+
+              {/* Requisiti */}
+              {renderRequirements()}
+
+              {/* Form Dettagli */}
+              {selectedType && (
+                <Card style={styles.sectionCard}>
+                  <Card.Content>
+                    <Text style={styles.sectionTitle}>Dettagli Richiesta</Text>
+
+                    {/* Note */}
+                    <TextInput
+                      label={
+                        selectedType.require_notes
+                          ? 'Note (Obbligatorie)'
+                          : 'Note (Opzionali)'
+                      }
+                      value={formData.notes}
+                      onChangeText={text =>
+                        setFormData(prev => ({...prev, notes: text}))
+                      }
+                      multiline
+                      numberOfLines={4}
+                      style={styles.textInput}
+                      error={!!errors.notes}
+                      placeholder="Inserisci eventuali note o dettagli aggiuntivi..."
+                    />
+                    {errors.notes && (
+                      <HelperText type="error">{errors.notes}</HelperText>
+                    )}
+
+                    {/* Piano Terapeutico */}
+                    {selectedType.therapeutic_plan_rule !== 'not_allowed' && (
+                      <>
+                        <TextInput
+                          label={
+                            selectedType.therapeutic_plan_rule === 'required'
+                              ? 'ID Piano Terapeutico (Obbligatorio)'
+                              : 'ID Piano Terapeutico (Opzionale)'
+                          }
+                          value={formData.therapeutic_plan_id}
+                          onChangeText={text =>
+                            setFormData(prev => ({
+                              ...prev,
+                              therapeutic_plan_id: text,
+                            }))
+                          }
+                          keyboardType="numeric"
+                          style={styles.textInput}
+                          error={!!errors.therapeutic_plan_id}
+                          placeholder="Inserisci l'ID del piano terapeutico"
+                        />
+                        {errors.therapeutic_plan_id && (
+                          <HelperText type="error">
+                            {errors.therapeutic_plan_id}
+                          </HelperText>
+                        )}
+                      </>
+                    )}
+
+                    {/* Terapia */}
+                    {selectedType.require_therapy_assignment && (
+                      <>
+                        <TextInput
+                          label="ID Terapia (Obbligatorio)"
+                          value={formData.therapy_id}
+                          onChangeText={text =>
+                            setFormData(prev => ({...prev, therapy_id: text}))
+                          }
+                          keyboardType="numeric"
+                          style={styles.textInput}
+                          error={!!errors.therapy_id}
+                          placeholder="Inserisci l'ID della terapia"
+                        />
+                        {errors.therapy_id && (
+                          <HelperText type="error">
+                            {errors.therapy_id}
+                          </HelperText>
+                        )}
+                      </>
+                    )}
+                  </Card.Content>
+                </Card>
               )}
 
-              {/* Range Date (se richiesto) */}
-              {selectedType.requires_date_range && (
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>
-                    Periodo di riferimento *
-                  </Text>
+              {/* Pulsanti Azione */}
+              <View style={styles.actionsContainer}>
+                <Button
+                  mode="outlined"
+                  onPress={() => navigation.goBack()}
+                  style={styles.cancelButton}
+                  disabled={submitting}>
+                  Annulla
+                </Button>
 
-                  <View style={styles.dateRow}>
-                    <Button
-                      mode="outlined"
-                      icon="calendar"
-                      onPress={() =>
-                        Alert.alert(
-                          'Date Picker',
-                          'Funzionalità in sviluppo. Per ora vengono usate le date predefinite.',
-                        )
-                      }
-                      style={styles.dateButton}>
-                      Da: {formatDate(formData.date_from)}
-                    </Button>
-
-                    <Button
-                      mode="outlined"
-                      icon="calendar"
-                      onPress={() =>
-                        Alert.alert(
-                          'Date Picker',
-                          'Funzionalità in sviluppo. Per ora vengono usate le date predefinite.',
-                        )
-                      }
-                      style={styles.dateButton}>
-                      A: {formatDate(formData.date_to)}
-                    </Button>
-                  </View>
-
-                  {errors.date_range && (
-                    <HelperText type="error" visible={true}>
-                      {errors.date_range}
-                    </HelperText>
-                  )}
-                </View>
-              )}
-
-              {/* Note Aggiuntive */}
-              <View style={styles.formField}>
-                <TextInput
-                  label="Note aggiuntive (opzionale)"
-                  value={formData.notes}
-                  onChangeText={text =>
-                    setFormData(prev => ({...prev, notes: text}))
-                  }
-                  multiline
-                  numberOfLines={2}
-                  style={styles.textInput}
-                />
-                <HelperText type="info">
-                  Aggiungi informazioni specifiche se necessario
-                </HelperText>
+                <Button
+                  mode="contained"
+                  onPress={handleSubmit}
+                  loading={submitting}
+                  disabled={!selectedType || submitting}
+                  style={styles.submitButton}>
+                  {submitting ? 'Invio...' : 'Invia Richiesta'}
+                </Button>
               </View>
 
-              <Divider style={styles.divider} />
-
-              {/* Riepilogo */}
-              <View style={styles.summarySection}>
-                <Text style={styles.summaryTitle}>Riepilogo</Text>
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Documento:</Text>
-                  <Text style={styles.summaryValue}>{selectedType.name}</Text>
-                </View>
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Tempi stimati:</Text>
-                  <Text style={styles.summaryValue}>
-                    {selectedType.estimated_days} giorni lavorativi
-                  </Text>
-                </View>
-
-                {formData.reason.trim() && (
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Motivo:</Text>
-                    <Text style={styles.summaryValue} numberOfLines={2}>
-                      {formData.reason}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
+              <View style={styles.bottomSpacing} />
+            </>
           )}
         </ScrollView>
-
-        {/* Pulsanti Azione */}
-        {selectedType && (
-          <View style={styles.actionsContainer}>
-            <Button
-              mode="outlined"
-              onPress={() => navigation.goBack()}
-              style={styles.cancelButton}
-              disabled={submitting}>
-              Annulla
-            </Button>
-
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.submitButton}
-              loading={submitting}
-              disabled={submitting}>
-              {submitting ? 'Invio...' : 'Invia Richiesta'}
-            </Button>
-          </View>
-        )}
-
-        {/* Date Pickers - Versione semplificata con Alert */}
-        {/* Per una implementazione completa, installare react-native-date-picker */}
-        {/* 
-        Per ora le date vengono gestite tramite i pulsanti che mostrano la data corrente
-        In una implementazione completa, sostituire con un DatePicker nativo
-        */}
       </KeyboardAvoidingView>
     </ScreenTemplate>
   );
@@ -384,45 +452,62 @@ const CreateRequestScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
-  scrollView: {
+  scrollContainer: {
     flex: 1,
+    padding: 16,
+  },
+  noPatientContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  noPatientIcon: {
+    backgroundColor: '#FF9800',
+    marginBottom: 24,
+  },
+  noPatientTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  noPatientSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  selectPatientButton: {
+    paddingHorizontal: 24,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: '#666',
   },
-  section: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  sectionCard: {
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#666',
+  sectionHelper: {
     marginBottom: 16,
   },
-  typesList: {
-    gap: 12,
-  },
   typeCard: {
-    borderRadius: 12,
-    elevation: 2,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#E0E0E0',
   },
   selectedTypeCard: {
     borderColor: '#2196F3',
@@ -430,112 +515,76 @@ const styles = StyleSheet.create({
   },
   typeContent: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: 8,
   },
   typeIcon: {
-    marginHorizontal: 12,
+    marginLeft: 8,
+    marginRight: 16,
   },
   typeInfo: {
     flex: 1,
   },
   typeName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   typeDescription: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
     marginBottom: 8,
   },
   typeMetadata: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 12,
   },
-  estimatedDays: {
+  categoryChip: {
     fontSize: 12,
     color: '#2196F3',
-    fontWeight: '500',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    textTransform: 'capitalize',
   },
-  requiresReason: {
+  estimatedDays: {
     fontSize: 12,
     color: '#FF9800',
     fontWeight: '500',
   },
-  requiresDateRange: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '500',
-  },
-  formField: {
+  requirementsCard: {
     marginBottom: 16,
+    backgroundColor: '#FFF3E0',
   },
-  fieldLabel: {
+  requirementsTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 8,
+    color: '#F57C00',
+  },
+  requirementItem: {
+    fontSize: 14,
+    color: '#E65100',
+    marginBottom: 4,
   },
   textInput: {
-    backgroundColor: '#FFFFFF',
-  },
-  dateRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dateButton: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  divider: {
-    marginVertical: 16,
-  },
-  summarySection: {
-    backgroundColor: '#F5F5F5',
-    padding: 16,
-    borderRadius: 8,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 8,
-    alignItems: 'flex-start',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-    flex: 0.4,
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-    flex: 0.6,
-    textAlign: 'right',
   },
   actionsContainer: {
     flexDirection: 'row',
-    padding: 20,
     gap: 12,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    marginTop: 24,
   },
   cancelButton: {
     flex: 1,
   },
   submitButton: {
     flex: 2,
+  },
+  bottomSpacing: {
+    height: 32,
   },
 });
 

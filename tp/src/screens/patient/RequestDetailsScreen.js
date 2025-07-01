@@ -18,6 +18,8 @@ import {
   getStatusColor,
   getStatusIcon,
   getStatusLabel,
+  canCancelRequest,
+  hasDownloadableDocument,
 } from '../../api/requests';
 
 const RequestDetailsScreen = ({navigation, route}) => {
@@ -51,7 +53,7 @@ const RequestDetailsScreen = ({navigation, route}) => {
   const handleCancel = () => {
     Alert.alert(
       'Annulla Richiesta',
-      "Sei sicuro di voler annullare questa richiesta? L'azione non può essere annullata.",
+      'Sei sicuro di voler annullare questa richiesta? Questa azione non può essere annullata.',
       [
         {text: 'No', style: 'cancel'},
         {
@@ -60,24 +62,20 @@ const RequestDetailsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setActionLoading(true);
-              const response = await cancelRequest(
-                requestId,
-                "Annullata dall'utente",
-              );
+              await cancelRequest(requestId, "Annullata dall'utente");
 
-              if (response.success) {
-                Alert.alert(
-                  'Richiesta Annullata',
-                  'La richiesta è stata annullata con successo',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => navigation.goBack(),
-                    },
-                  ],
-                );
-              }
+              Alert.alert(
+                'Richiesta Annullata',
+                'La richiesta è stata annullata con successo',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.goBack(),
+                  },
+                ],
+              );
             } catch (error) {
+              console.error('Errore annullamento:', error);
               Alert.alert('Errore', 'Impossibile annullare la richiesta');
             } finally {
               setActionLoading(false);
@@ -91,19 +89,12 @@ const RequestDetailsScreen = ({navigation, route}) => {
   const handleDownload = async () => {
     try {
       setActionLoading(true);
+      await downloadRequestDocument(requestId);
 
       // TODO: Implementare download reale
-      Alert.alert(
-        'Download',
-        'Funzionalità in via di implementazione. Il documento sarà disponibile per il download a breve.',
-      );
-
-      // In una implementazione reale:
-      // const response = await downloadRequestDocument(requestId);
-      // if (response.success) {
-      //   // Aprire il file o salvarlo
-      // }
+      Alert.alert('Download', 'Funzionalità in via di implementazione');
     } catch (error) {
+      console.error('Errore download:', error);
       Alert.alert('Errore', 'Impossibile scaricare il documento');
     } finally {
       setActionLoading(false);
@@ -111,6 +102,17 @@ const RequestDetailsScreen = ({navigation, route}) => {
   };
 
   const formatDate = dateString => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateTime = dateString => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('it-IT', {
       day: '2-digit',
@@ -121,23 +123,138 @@ const RequestDetailsScreen = ({navigation, route}) => {
     });
   };
 
-  const formatDateOnly = dateString => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT');
-  };
-
   const getStatusMessage = status => {
     const messages = {
-      pending: 'La tua richiesta è stata ricevuta e sarà elaborata a breve.',
-      in_progress:
+      inviata: 'La tua richiesta è stata ricevuta e sarà elaborata a breve.',
+      presa_in_carico:
         'La richiesta è attualmente in elaborazione da parte del nostro staff.',
-      completed:
-        'La richiesta è stata completata. Il documento è disponibile per il download.',
-      rejected:
+      stampato:
+        'Il documento è stato stampato e sarà presto disponibile per il ritiro.',
+      consegnato:
+        'La richiesta è stata completata. Il documento è disponibile.',
+      rifiutata:
         'La richiesta è stata rifiutata. Contatta il nostro staff per maggiori informazioni.',
-      cancelled: 'La richiesta è stata annullata.',
+      annullata: 'La richiesta è stata annullata.',
     };
     return messages[status] || 'Stato della richiesta non disponibile.';
+  };
+
+  const getRelationshipLabel = relationshipType => {
+    const labels = {
+      self: 'Se stesso',
+      parent: 'Genitore',
+      tutor: 'Tutore',
+      other: 'Altro',
+    };
+    return labels[relationshipType] || relationshipType;
+  };
+
+  const renderTimeline = () => {
+    const timelineItems = [];
+
+    // Richiesta creata
+    timelineItems.push({
+      status: 'inviata',
+      label: 'Richiesta Inviata',
+      date: request.created_at,
+      description: 'La richiesta è stata inviata con successo',
+      completed: true,
+    });
+
+    // Presa in carico
+    if (
+      request.status === 'presa_in_carico' ||
+      request.status === 'stampato' ||
+      request.status === 'consegnato'
+    ) {
+      timelineItems.push({
+        status: 'presa_in_carico',
+        label: 'Presa in Carico',
+        date: request.updated_at, // Approssimazione
+        description: 'La richiesta è stata presa in carico dal nostro staff',
+        completed: true,
+      });
+    }
+
+    // Stampato
+    if (request.status === 'stampato' || request.status === 'consegnato') {
+      timelineItems.push({
+        status: 'stampato',
+        label: 'Documento Stampato',
+        date: request.updated_at, // Approssimazione
+        description: 'Il documento è stato stampato e preparato',
+        completed: true,
+      });
+    }
+
+    // Consegnato
+    if (request.status === 'consegnato') {
+      timelineItems.push({
+        status: 'consegnato',
+        label: 'Documento Consegnato',
+        date: request.completed_at || request.updated_at,
+        description: 'Il documento è stato consegnato',
+        completed: true,
+      });
+    }
+
+    // Rifiutata
+    if (request.status === 'rifiutata') {
+      timelineItems.push({
+        status: 'rifiutata',
+        label: 'Richiesta Rifiutata',
+        date: request.rejected_at || request.updated_at,
+        description:
+          request.rejection_reason || 'La richiesta è stata rifiutata',
+        completed: true,
+      });
+    }
+
+    // Annullata
+    if (request.status === 'annullata') {
+      timelineItems.push({
+        status: 'annullata',
+        label: 'Richiesta Annullata',
+        date: request.cancelled_at || request.updated_at,
+        description:
+          request.cancellation_reason || 'La richiesta è stata annullata',
+        completed: true,
+      });
+    }
+
+    return (
+      <Card style={styles.timelineCard}>
+        <Card.Content>
+          <Text style={styles.sectionTitle}>Cronologia</Text>
+          {timelineItems.map((item, index) => (
+            <View key={index} style={styles.timelineItem}>
+              <View style={styles.timelineIndicator}>
+                <Avatar.Icon
+                  size={32}
+                  icon={getStatusIcon(item.status)}
+                  style={[
+                    styles.timelineIcon,
+                    {backgroundColor: getStatusColor(item.status) + '20'},
+                  ]}
+                />
+                {index < timelineItems.length - 1 && (
+                  <View style={styles.timelineLine} />
+                )}
+              </View>
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineLabel}>{item.label}</Text>
+                <Text style={styles.timelineDate}>
+                  {formatDateTime(item.date)}
+                </Text>
+                <Text style={styles.timelineDescription}>
+                  {item.description}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </Card.Content>
+      </Card>
+    );
   };
 
   if (loading) {
@@ -199,7 +316,6 @@ const RequestDetailsScreen = ({navigation, route}) => {
                   textStyle={{color: getStatusColor(request.status)}}>
                   {getStatusLabel(request.status)}
                 </Chip>
-
                 <Text style={styles.statusMessage}>
                   {getStatusMessage(request.status)}
                 </Text>
@@ -208,28 +324,48 @@ const RequestDetailsScreen = ({navigation, route}) => {
           </Card.Content>
         </Card>
 
-        {/* Informazioni Principali */}
+        {/* Informazioni Richiesta */}
         <Card style={styles.infoCard}>
           <Card.Content>
-            <Text style={styles.cardTitle}>Informazioni Richiesta</Text>
+            <Text style={styles.sectionTitle}>Informazioni Richiesta</Text>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Documento richiesto:</Text>
+              <Text style={styles.infoLabel}>Tipologia:</Text>
               <Text style={styles.infoValue}>{request.request_type}</Text>
             </View>
+
+            {request.type_info && (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Categoria:</Text>
+                  <Text style={styles.infoValue}>
+                    {request.type_info.category}
+                  </Text>
+                </View>
+
+                {request.type_info.estimated_days && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Tempo stimato:</Text>
+                    <Text style={styles.infoValue}>
+                      ~{request.type_info.estimated_days} giorni
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Data richiesta:</Text>
               <Text style={styles.infoValue}>
-                {formatDate(request.created_at)}
+                {formatDateTime(request.created_at)}
               </Text>
             </View>
 
-            {request.estimated_completion && request.status !== 'completed' && (
+            {request.estimated_completion && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Consegna prevista:</Text>
-                <Text style={[styles.infoValue, styles.estimatedText]}>
-                  {formatDate(request.estimated_completion)}
+                <Text style={styles.infoValue}>
+                  {formatDateTime(request.estimated_completion)}
                 </Text>
               </View>
             )}
@@ -237,167 +373,87 @@ const RequestDetailsScreen = ({navigation, route}) => {
             {request.completed_at && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Completata il:</Text>
-                <Text style={[styles.infoValue, styles.completedText]}>
-                  {formatDate(request.completed_at)}
+                <Text style={styles.infoValue}>
+                  {formatDateTime(request.completed_at)}
                 </Text>
               </View>
             )}
           </Card.Content>
         </Card>
 
-        {/* Dettagli della Richiesta */}
-        {(request.reason ||
-          request.date_from ||
-          request.date_to ||
-          request.notes) && (
-          <Card style={styles.detailsCard}>
+        {/* Note */}
+        {request.notes && (
+          <Card style={styles.notesCard}>
             <Card.Content>
-              <Text style={styles.cardTitle}>Dettagli</Text>
-
-              {request.reason && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Motivo:</Text>
-                  <Surface style={styles.detailContent}>
-                    <Text style={styles.detailText}>{request.reason}</Text>
-                  </Surface>
-                </View>
-              )}
-
-              {(request.date_from || request.date_to) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>
-                    Periodo di riferimento:
-                  </Text>
-                  <Surface style={styles.detailContent}>
-                    <Text style={styles.detailText}>
-                      {request.date_from &&
-                        `Dal ${formatDateOnly(request.date_from)}`}
-                      {request.date_to &&
-                        ` al ${formatDateOnly(request.date_to)}`}
-                    </Text>
-                  </Surface>
-                </View>
-              )}
-
-              {request.notes && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Note aggiuntive:</Text>
-                  <Surface style={styles.detailContent}>
-                    <Text style={styles.detailText}>{request.notes}</Text>
-                  </Surface>
-                </View>
-              )}
+              <Text style={styles.sectionTitle}>Note</Text>
+              <Text style={styles.notesText}>{request.notes}</Text>
             </Card.Content>
           </Card>
         )}
 
-        {/* Timeline/Progress */}
-        <Card style={styles.timelineCard}>
+        {/* Creata da */}
+        {request.created_by && (
+          <Card style={styles.createdByCard}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Richiesta creata da</Text>
+              <View style={styles.createdByInfo}>
+                <Avatar.Icon
+                  size={40}
+                  icon="account"
+                  style={styles.createdByAvatar}
+                />
+                <View style={styles.createdByDetails}>
+                  <Text style={styles.createdByName}>
+                    {request.created_by.first_name}{' '}
+                    {request.created_by.last_name}
+                  </Text>
+                  <Text style={styles.createdByRelation}>
+                    {getRelationshipLabel(request.created_by.relationship_type)}
+                  </Text>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Timeline */}
+        {renderTimeline()}
+
+        {/* Azioni */}
+        <Card style={styles.actionsCard}>
           <Card.Content>
-            <Text style={styles.cardTitle}>Stato di Avanzamento</Text>
+            <Text style={styles.sectionTitle}>Azioni</Text>
+            <View style={styles.actionsContainer}>
+              {hasDownloadableDocument(request.status) && (
+                <Button
+                  mode="contained"
+                  icon="download"
+                  onPress={handleDownload}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                  style={styles.downloadButton}>
+                  Scarica Documento
+                </Button>
+              )}
 
-            <View style={styles.timeline}>
-              <View style={styles.timelineItem}>
-                <View
-                  style={[styles.timelineIcon, styles.timelineIconCompleted]}>
-                  <Avatar.Icon size={24} icon="plus" />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>Richiesta Creata</Text>
-                  <Text style={styles.timelineDate}>
-                    {formatDate(request.created_at)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.timelineItem}>
-                <View
-                  style={[
-                    styles.timelineIcon,
-                    ['in_progress', 'completed', 'rejected'].includes(
-                      request.status,
-                    )
-                      ? styles.timelineIconCompleted
-                      : styles.timelineIconPending,
-                  ]}>
-                  <Avatar.Icon size={24} icon="progress-clock" />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>In Elaborazione</Text>
-                  <Text style={styles.timelineDate}>
-                    {['in_progress', 'completed', 'rejected'].includes(
-                      request.status,
-                    )
-                      ? 'In corso...'
-                      : 'In attesa di elaborazione'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.timelineItem}>
-                <View
-                  style={[
-                    styles.timelineIcon,
-                    request.status === 'completed'
-                      ? styles.timelineIconCompleted
-                      : styles.timelineIconPending,
-                  ]}>
-                  <Avatar.Icon size={24} icon="check" />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>Completata</Text>
-                  <Text style={styles.timelineDate}>
-                    {request.completed_at
-                      ? formatDate(request.completed_at)
-                      : request.estimated_completion
-                      ? `Prevista per il ${formatDate(
-                          request.estimated_completion,
-                        )}`
-                      : 'In attesa...'}
-                  </Text>
-                </View>
-              </View>
+              {canCancelRequest(request.status) && (
+                <Button
+                  mode="outlined"
+                  icon="cancel"
+                  onPress={handleCancel}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                  style={styles.cancelButton}
+                  textColor="#F44336">
+                  Annulla Richiesta
+                </Button>
+              )}
             </View>
           </Card.Content>
         </Card>
+
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-
-      {/* Azioni */}
-      <View style={styles.actionsContainer}>
-        {request.status === 'pending' && (
-          <Button
-            mode="outlined"
-            icon="cancel"
-            onPress={handleCancel}
-            style={styles.cancelButton}
-            textColor="#F44336"
-            loading={actionLoading}
-            disabled={actionLoading}>
-            Annulla Richiesta
-          </Button>
-        )}
-
-        {request.status === 'completed' && request.download_url && (
-          <Button
-            mode="contained"
-            icon="download"
-            onPress={handleDownload}
-            style={styles.downloadButton}
-            loading={actionLoading}
-            disabled={actionLoading}>
-            Scarica Documento
-          </Button>
-        )}
-
-        <Button
-          mode="outlined"
-          icon="arrow-left"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          disabled={actionLoading}>
-          Torna Indietro
-        </Button>
-      </View>
     </ScreenTemplate>
   );
 };
@@ -405,13 +461,13 @@ const RequestDetailsScreen = ({navigation, route}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   loadingText: {
     marginTop: 16,
@@ -422,29 +478,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   errorIcon: {
-    backgroundColor: '#FFEBEE',
-    marginBottom: 16,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  errorSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    backgroundColor: '#F44336',
     marginBottom: 24,
   },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  backButton: {
+    paddingHorizontal: 24,
+  },
   statusCard: {
-    margin: 20,
     marginBottom: 16,
-    borderRadius: 12,
-    elevation: 2,
   },
   statusHeader: {
     flexDirection: 'row',
@@ -466,118 +522,111 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoCard: {
-    marginHorizontal: 20,
     marginBottom: 16,
-    borderRadius: 12,
-    elevation: 2,
   },
-  detailsCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  timelineCard: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   infoLabel: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#666',
-    flex: 0.4,
+    width: 120,
   },
   infoValue: {
     fontSize: 14,
+    flex: 1,
     color: '#333',
-    fontWeight: '500',
-    flex: 0.6,
-    textAlign: 'right',
   },
-  estimatedText: {
-    color: '#FF9800',
-  },
-  completedText: {
-    color: '#4CAF50',
-  },
-  detailSection: {
+  notesCard: {
     marginBottom: 16,
   },
-  detailLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
-  },
-  detailContent: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-  },
-  detailText: {
+  notesText: {
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+    fontStyle: 'italic',
   },
-  timeline: {
-    paddingLeft: 8,
+  createdByCard: {
+    marginBottom: 16,
+  },
+  createdByInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createdByAvatar: {
+    backgroundColor: '#E3F2FD',
+    marginRight: 12,
+  },
+  createdByDetails: {
+    flex: 1,
+  },
+  createdByName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  createdByRelation: {
+    fontSize: 14,
+    color: '#666',
+  },
+  timelineCard: {
+    marginBottom: 16,
   },
   timelineItem: {
     flexDirection: 'row',
     marginBottom: 16,
+  },
+  timelineIndicator: {
     alignItems: 'center',
+    marginRight: 16,
   },
   timelineIcon: {
-    marginRight: 16,
-    borderRadius: 20,
+    marginBottom: 8,
   },
-  timelineIconCompleted: {
-    backgroundColor: '#E8F5E8',
-  },
-  timelineIconPending: {
-    backgroundColor: '#F5F5F5',
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#E0E0E0',
   },
   timelineContent: {
     flex: 1,
   },
-  timelineTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+  timelineLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   timelineDate: {
     fontSize: 12,
     color: '#666',
-    marginTop: 2,
+    marginBottom: 4,
+  },
+  timelineDescription: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 18,
+  },
+  actionsCard: {
+    marginBottom: 16,
   },
   actionsContainer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
     gap: 12,
-  },
-  cancelButton: {
-    borderColor: '#F44336',
   },
   downloadButton: {
     backgroundColor: '#4CAF50',
   },
-  backButton: {
-    // Stile di default
+  cancelButton: {
+    borderColor: '#F44336',
+  },
+  bottomSpacing: {
+    height: 32,
   },
 });
 

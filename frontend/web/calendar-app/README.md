@@ -1,276 +1,73 @@
-# Therapy CRM - Calendar App
+# Welcome to your Lovable project
 
-Sistema di gestione calendario per il Therapy CRM costruito con React e FullCalendar.
+## Project info
 
-## 🚀 Caratteristiche
+**URL**: https://lovable.dev/projects/3653c1fa-1473-4379-bd5c-29435e5559dd
 
-### Per Manager (Sharon)
+## How can I edit this code?
 
-- **Vista Calendario Generale**: Vista resource timeline con tutti i terapisti
-- **Drag & Drop**: Sposta appuntamenti tra terapisti e orari
-- **Gestione Appuntamenti**: Modifica, cancella e riprogramma appuntamenti
-- **Vista Multi-Terapista**: Visualizza tutti i terapisti contemporaneamente
+There are several ways of editing your application.
 
-### Per Terapisti
+**Use Lovable**
 
-- **Vista Giornaliera Personale**: Calendario focalizzato sui propri appuntamenti
-- **Marcatura Presenza Rapida**: Bottoni veloci per segnare presenza/assenza
-- **Dettagli Pazienti**: Informazioni complete su ogni appuntamento
-- **Vista Mobile Ottimizzata**: Interfaccia touch-friendly
+Simply visit the [Lovable Project](https://lovable.dev/projects/3653c1fa-1473-4379-bd5c-29435e5559dd) and start prompting.
 
-### Per Amministratori
+Changes made via Lovable will be committed automatically to this repo.
 
-- **Vista Completa**: Accesso a tutti i dati del calendario
-- **Gestione Avanzata**: Controllo completo su appuntamenti e terapisti
+**Use your preferred IDE**
 
-## 🛠️ Tecnologie
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-- **React 18** - Framework frontend
-- **FullCalendar 6** - Libreria calendario con resource timeline
-- **Vite** - Build tool e dev server
-- **Axios** - Client HTTP per API
-- **React Router** - Routing client-side
-- **Date-fns** - Manipolazione date
-- **CSS3** - Styling moderno e responsive
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-## 📦 Installazione
+Follow these steps:
 
-```bash
-# Installa dipendenze
-npm install
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-# Avvia server di sviluppo
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
-
-# Build per produzione
-npm run build
-
-# Preview build di produzione
-npm run preview
 ```
 
-## 🔧 Configurazione
+**Edit a file directly in GitHub**
 
-### Proxy API
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-Il progetto è configurato per fare proxy delle chiamate API al backend Yii2:
+**Use GitHub Codespaces**
 
-```javascript
-// vite.config.js
-server: {
-  proxy: {
-    '/api': 'http://localhost:8080'
-  }
-}
-```
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-### Variabili d'Ambiente
+## What technologies are used for this project?
 
-Crea un file `.env.local` per configurazioni locali:
+This project is built with:
 
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-VITE_APP_TITLE=Therapy CRM Calendar
-```
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
-## 📱 Utilizzo
+## How can I deploy this project?
 
-### Accesso Rapido (Sviluppo)
+Simply open [Lovable](https://lovable.dev/projects/3653c1fa-1473-4379-bd5c-29435e5559dd) and click on Share -> Publish.
 
-L'app include un sistema di switch utente per test:
+## Can I connect a custom domain to my Lovable project?
 
-1. **Manager**: Vista completa con drag&drop
-2. **Terapista**: Vista personale giornaliera
-3. **Admin**: Vista amministratore
+Yes, you can!
 
-### Funzionalità Principali
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-#### Vista Manager
-
-- Calendario resource timeline settimanale
-- Drag & drop per spostare appuntamenti
-- Click su evento per dettagli completi
-- Toolbar con cambio vista (settimana/mese/lista)
-
-#### Vista Terapista
-
-- Calendario giornaliero personale
-- Bottoni rapidi per presenza/assenza
-- Swipe gestures su mobile
-- Notifiche toast per feedback
-
-#### Gestione Appuntamenti
-
-- Modal dettagliato per ogni appuntamento
-- Selezione stato (presente/assente/giustificato)
-- Campo motivo per assenze
-- Salvataggio automatico
-
-## 🎨 Personalizzazione
-
-### Colori Status Appuntamenti
-
-```css
-.fc-event.event-completed {
-  background: #22c55e;
-} /* Verde */
-.fc-event.event-absent-justified {
-  background: #f59e0b;
-} /* Arancione */
-.fc-event.event-absent-not-justified {
-  background: #ef4444;
-} /* Rosso */
-.fc-event.event-cancelled {
-  background: #6b7280;
-} /* Grigio */
-.fc-event.event-scheduled {
-  background: #3b82f6;
-} /* Blu */
-```
-
-### Responsive Design
-
-- Desktop: Vista completa con sidebar terapisti
-- Tablet: Vista adattiva con toolbar compatto
-- Mobile: Vista giornaliera ottimizzata
-
-## 🔌 API Integration
-
-### Endpoint Utilizzati
-
-```javascript
-GET /api/calendar/appointments?start=DATE&end=DATE
-GET /api/calendar/therapists
-PUT /api/calendar/appointment/{id}
-POST /api/calendar/appointment/{id}/attendance
-GET /api/calendar/available-slots
-```
-
-### Formato Dati
-
-```javascript
-// Evento FullCalendar
-{
-  id: '1',
-  resourceId: '1', // ID terapista
-  title: 'Mario Rossi',
-  start: '2024-01-15T09:00:00',
-  end: '2024-01-15T10:00:00',
-  backgroundColor: '#22c55e',
-  extendedProps: {
-    patientId: 1,
-    therapistId: 1,
-    treatmentName: 'Logopedia',
-    status: 'completed',
-    duration: 60
-  }
-}
-```
-
-## 🧪 Testing
-
-### Test Manuali
-
-1. Avvia il server React: `npm run dev`
-2. Avvia il backend Yii2 su porta 8080
-3. Testa le diverse viste utente
-4. Verifica drag&drop e modal
-
-### Dati Mock
-
-L'app include dati mock per sviluppo quando le API non sono disponibili.
-
-## 📁 Struttura Progetto
-
-```
-src/
-├── components/
-│   ├── CalendarView.jsx      # Vista principale manager
-│   ├── TherapistDayView.jsx  # Vista terapista
-│   └── AppointmentModal.jsx  # Modal dettagli
-├── services/
-│   └── calendarService.js    # Client API
-├── styles/
-│   └── calendar.css          # Stili FullCalendar
-├── App.jsx                   # Router e layout
-├── App.css                   # Stili globali
-└── main.jsx                  # Entry point
-```
-
-## 🚀 Deploy
-
-### Build Produzione
-
-```bash
-npm run build
-```
-
-### Deploy su Server Web
-
-1. Copia il contenuto di `dist/` nella document root
-2. Configura il server per servire `index.html` per tutte le route
-3. Assicurati che le API siano accessibili
-
-### Nginx Configuration
-
-```nginx
-location / {
-  try_files $uri $uri/ /index.html;
-}
-
-location /api {
-  proxy_pass http://backend:8080;
-  proxy_set_header Host $host;
-}
-```
-
-## 🐛 Troubleshooting
-
-### Problemi Comuni
-
-**API non raggiungibili**
-
-- Verifica che il backend Yii2 sia in esecuzione su porta 8080
-- Controlla la configurazione proxy in `vite.config.js`
-
-**Eventi non visualizzati**
-
-- Verifica il formato delle date nelle API
-- Controlla la console per errori JavaScript
-
-**Drag&drop non funziona**
-
-- Assicurati che l'utente abbia ruolo 'manager'
-- Verifica che `editable={true}` sia impostato
-
-**Stili non applicati**
-
-- Verifica che `calendar.css` sia importato in `main.jsx`
-- Controlla che non ci siano conflitti CSS
-
-## 📞 Supporto
-
-Per problemi o domande:
-
-1. Controlla la console browser per errori
-2. Verifica i log del server di sviluppo
-3. Consulta la documentazione FullCalendar
-4. Controlla le API con strumenti come Postman
-
-## 🔄 Aggiornamenti
-
-### Prossime Funzionalità
-
-- [ ] Notifiche push per nuovi appuntamenti
-- [ ] Esportazione calendario PDF
-- [ ] Integrazione calendario Google/Outlook
-- [ ] Chat terapista-paziente
-- [ ] Dashboard analytics
-
-### Changelog
-
-- **v1.0.0**: Release iniziale con funzionalità base
-- Vista manager con resource timeline
-- Vista terapista giornaliera
-- Modal gestione appuntamenti
-- Sistema autenticazione mock
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)

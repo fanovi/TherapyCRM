@@ -1,117 +1,17 @@
 import apiClient from '../services/axiosConfig';
 
 /**
- * SIMULAZIONE DATI - Tipologie di richieste disponibili
- * Questi dati verranno sostituiti dalla chiamata reale all'endpoint backend
- */
-const MOCK_REQUEST_TYPES = [
-  {
-    id: 1,
-    name: 'Certificato Medico',
-    description: 'Richiesta certificato medico per assenza lavorativa',
-    icon: 'file-document-outline',
-    category: 'medical',
-    estimated_days: 3,
-    requires_reason: true,
-    requires_date_range: true,
-  },
-  {
-    id: 2,
-    name: 'Relazione Terapeutica',
-    description: 'Richiesta relazione dettagliata sui progressi terapeutici',
-    icon: 'chart-line',
-    category: 'therapy',
-    estimated_days: 5,
-    requires_reason: true,
-    requires_date_range: false,
-  },
-  {
-    id: 3,
-    name: 'Copia Cartella Clinica',
-    description: 'Richiesta copia della cartella clinica completa',
-    icon: 'folder-account',
-    category: 'medical',
-    estimated_days: 7,
-    requires_reason: true,
-    requires_date_range: false,
-  },
-  {
-    id: 4,
-    name: 'Certificato di Idoneità',
-    description: 'Certificato di idoneità per attività sportiva/lavorativa',
-    icon: 'medal',
-    category: 'fitness',
-    estimated_days: 2,
-    requires_reason: true,
-    requires_date_range: false,
-  },
-  {
-    id: 5,
-    name: 'Referto Esami',
-    description: 'Richiesta copia referto di esami specifici',
-    icon: 'test-tube',
-    category: 'medical',
-    estimated_days: 1,
-    requires_reason: false,
-    requires_date_range: true,
-  },
-  {
-    id: 6,
-    name: 'Cambio Appuntamento',
-    description: 'Richiesta modifica o spostamento appuntamento esistente',
-    icon: 'calendar-edit',
-    category: 'appointment',
-    estimated_days: 1,
-    requires_reason: true,
-    requires_date_range: false,
-  },
-];
-
-/**
- * Simula stati delle richieste esistenti per test
- */
-const MOCK_USER_REQUESTS = [
-  {
-    id: 101,
-    request_type: 'Certificato Medico',
-    status: 'in_progress',
-    created_at: '2025-01-20T10:30:00Z',
-    estimated_completion: '2025-01-23T18:00:00Z',
-    reason: 'Certificato per assenza lavorativa dal 15/01 al 20/01',
-    notes: 'Richiesta in elaborazione da parte del medico responsabile',
-  },
-  {
-    id: 102,
-    request_type: 'Relazione Terapeutica',
-    status: 'completed',
-    created_at: '2025-01-15T14:20:00Z',
-    completed_at: '2025-01-18T16:45:00Z',
-    reason: 'Relazione per visita specialistica',
-    download_url: '#',
-  },
-];
-
-/**
- * Ottiene le tipologie di richieste disponibili
+ * Ottiene le tipologie di richieste disponibili dal backend
  * @returns {Promise<Array>}
  */
 export const getRequestTypes = async () => {
   try {
     console.log('📋 Recuperando tipologie di richieste disponibili...');
 
-    // TODO: Sostituire con chiamata reale quando l'endpoint sarà disponibile
-    // const response = await apiClient.get('/requests/types');
+    const response = await apiClient.get('/requests/types');
 
-    // Simulazione con delay per realismo
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const mockResponse = {
-      success: true,
-      data: MOCK_REQUEST_TYPES,
-    };
-
-    console.log('✅ Tipologie richieste recuperate:', mockResponse.data);
-    return mockResponse;
+    console.log('✅ Tipologie richieste recuperate:', response.data);
+    return response.data;
   } catch (error) {
     console.error('❌ Errore recuperando tipologie richieste:', error);
     throw error;
@@ -121,49 +21,21 @@ export const getRequestTypes = async () => {
 /**
  * Crea una nuova richiesta
  * @param {Object} requestData
- * @param {number} requestData.type_id - ID tipologia richiesta
- * @param {string} requestData.reason - Motivo della richiesta
- * @param {string} requestData.date_from - Data inizio (opzionale)
- * @param {string} requestData.date_to - Data fine (opzionale)
+ * @param {number} requestData.request_type_id - ID tipologia richiesta (CAMBIATO da type_id)
+ * @param {number} requestData.patient_id - ID paziente per cui fare la richiesta
  * @param {string} requestData.notes - Note aggiuntive (opzionale)
+ * @param {number} requestData.therapeutic_plan_id - ID piano terapeutico (opzionale)
+ * @param {number} requestData.therapy_id - ID terapia (opzionale)
  * @returns {Promise}
  */
 export const createRequest = async requestData => {
   try {
     console.log('📝 Creando nuova richiesta...', requestData);
 
-    // TODO: Sostituire con chiamata reale
-    // const response = await apiClient.post('/requests', requestData);
+    const response = await apiClient.post('/requests', requestData);
 
-    // Simulazione creazione
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    const requestType = MOCK_REQUEST_TYPES.find(
-      type => type.id === requestData.type_id,
-    );
-    const newRequest = {
-      id: Date.now(), // ID temporaneo
-      request_type: requestType?.name || 'Richiesta Generica',
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      estimated_completion: new Date(
-        Date.now() + (requestType?.estimated_days || 3) * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-      reason: requestData.reason,
-      date_from: requestData.date_from,
-      date_to: requestData.date_to,
-      notes: requestData.notes,
-    };
-
-    const mockResponse = {
-      success: true,
-      data: newRequest,
-      message:
-        'Richiesta creata con successo! Riceverai una notifica quando sarà pronta.',
-    };
-
-    console.log('✅ Richiesta creata:', mockResponse.data);
-    return mockResponse;
+    console.log('✅ Richiesta creata:', response.data);
+    return response.data;
   } catch (error) {
     console.error('❌ Errore creando richiesta:', error);
     throw error;
@@ -171,38 +43,42 @@ export const createRequest = async requestData => {
 };
 
 /**
- * Ottiene le richieste dell'utente corrente
- * @param {string} status - Filtro per stato (opzionale): 'pending', 'in_progress', 'completed', 'rejected'
+ * Ottiene le richieste per un paziente specifico
+ * @param {number} patientId - ID del paziente
+ * @param {string} status - Filtro per stato (opzionale)
+ * @param {number} page - Numero di pagina (default: 1)
+ * @param {number} limit - Elementi per pagina (default: 20)
  * @returns {Promise}
  */
-export const getUserRequests = async (status = null) => {
+export const getPatientRequests = async (
+  patientId,
+  status = null,
+  page = 1,
+  limit = 20,
+) => {
   try {
     console.log(
-      `📋 Recuperando richieste utente${
+      `📋 Recuperando richieste per paziente ${patientId}${
         status ? ` con stato: ${status}` : ''
       }...`,
     );
 
-    // TODO: Sostituire con chiamata reale
-    // const response = await apiClient.get('/requests', { params: { status } });
-
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    let filteredRequests = [...MOCK_USER_REQUESTS];
-    if (status) {
-      filteredRequests = filteredRequests.filter(req => req.status === status);
-    }
-
-    const mockResponse = {
-      success: true,
-      data: filteredRequests,
-      total: filteredRequests.length,
+    const params = {
+      patient_id: patientId,
+      page,
+      limit,
     };
 
-    console.log('✅ Richieste utente recuperate:', mockResponse.data);
-    return mockResponse;
+    if (status) {
+      params.status = status;
+    }
+
+    const response = await apiClient.get('/requests', {params});
+
+    console.log('✅ Richieste paziente recuperate:', response.data);
+    return response.data;
   } catch (error) {
-    console.error('❌ Errore recuperando richieste utente:', error);
+    console.error('❌ Errore recuperando richieste paziente:', error);
     throw error;
   }
 };
@@ -216,23 +92,10 @@ export const getRequestDetails = async requestId => {
   try {
     console.log(`📋 Recuperando dettagli richiesta ${requestId}...`);
 
-    // TODO: Sostituire con chiamata reale
-    // const response = await apiClient.get(`/requests/${requestId}`);
+    const response = await apiClient.get(`/requests/${requestId}`);
 
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    const request = MOCK_USER_REQUESTS.find(req => req.id === requestId);
-    if (!request) {
-      throw new Error('Richiesta non trovata');
-    }
-
-    const mockResponse = {
-      success: true,
-      data: request,
-    };
-
-    console.log('✅ Dettagli richiesta recuperati:', mockResponse.data);
-    return mockResponse;
+    console.log('✅ Dettagli richiesta recuperati:', response.data);
+    return response.data;
   } catch (error) {
     console.error('❌ Errore recuperando dettagli richiesta:', error);
     throw error;
@@ -249,9 +112,10 @@ export const cancelRequest = async (requestId, reason = '') => {
   try {
     console.log(`🚫 Annullando richiesta ${requestId}...`);
 
-    // TODO: Sostituire con chiamata reale
+    // TODO: Implementare endpoint di cancellazione quando sarà disponibile
     // const response = await apiClient.post(`/requests/${requestId}/cancel`, { reason });
 
+    // Per ora simulazione
     await new Promise(resolve => setTimeout(resolve, 800));
 
     const mockResponse = {
@@ -276,7 +140,7 @@ export const downloadRequestDocument = async requestId => {
   try {
     console.log(`📥 Scaricando documento richiesta ${requestId}...`);
 
-    // TODO: Implementare download reale
+    // TODO: Implementare download reale quando sarà disponibile
     // const response = await apiClient.get(`/requests/${requestId}/download`, {
     //   responseType: 'blob'
     // });
@@ -300,48 +164,104 @@ export const downloadRequestDocument = async requestId => {
 
 /**
  * Utility per ottenere il colore associato allo stato
+ * Aggiornato per gli stati del backend
  * @param {string} status
  * @returns {string}
  */
 export const getStatusColor = status => {
   const colors = {
-    pending: '#FFA726', // Arancione
-    in_progress: '#42A5F5', // Blu
-    completed: '#66BB6A', // Verde
-    rejected: '#EF5350', // Rosso
-    cancelled: '#BDBDBD', // Grigio
+    inviata: '#FFA726', // Arancione - corrisponde a "pending"
+    presa_in_carico: '#42A5F5', // Blu - corrisponde a "in_progress"
+    stampato: '#7986CB', // Indaco - documento stampato
+    consegnato: '#66BB6A', // Verde - corrisponde a "completed"
+    rifiutata: '#EF5350', // Rosso - corrisponde a "rejected"
+    annullata: '#BDBDBD', // Grigio - corrisponde a "cancelled"
   };
   return colors[status] || '#9E9E9E';
 };
 
 /**
  * Utility per ottenere l'icona associata allo stato
+ * Aggiornata per gli stati del backend
  * @param {string} status
  * @returns {string}
  */
 export const getStatusIcon = status => {
   const icons = {
-    pending: 'clock-outline',
-    in_progress: 'progress-clock',
-    completed: 'check-circle',
-    rejected: 'close-circle',
-    cancelled: 'cancel',
+    inviata: 'clock-outline',
+    presa_in_carico: 'progress-clock',
+    stampato: 'printer',
+    consegnato: 'check-circle',
+    rifiutata: 'close-circle',
+    annullata: 'cancel',
   };
   return icons[status] || 'help-circle';
 };
 
 /**
  * Utility per ottenere il label italiano dello stato
+ * Aggiornata per gli stati del backend
  * @param {string} status
  * @returns {string}
  */
 export const getStatusLabel = status => {
   const labels = {
-    pending: 'In Attesa',
-    in_progress: 'In Elaborazione',
-    completed: 'Completata',
-    rejected: 'Rifiutata',
-    cancelled: 'Annullata',
+    inviata: 'Inviata',
+    presa_in_carico: 'In Lavorazione',
+    stampato: 'Stampato',
+    consegnato: 'Consegnato',
+    rifiutata: 'Rifiutata',
+    annullata: 'Annullata',
   };
   return labels[status] || status;
+};
+
+/**
+ * Mappa gli stati del backend agli stati del frontend per compatibilità
+ * @param {string} backendStatus
+ * @returns {string}
+ */
+export const mapBackendStatusToFrontend = backendStatus => {
+  const statusMap = {
+    inviata: 'pending',
+    presa_in_carico: 'in_progress',
+    stampato: 'in_progress',
+    consegnato: 'completed',
+    rifiutata: 'rejected',
+    annullata: 'cancelled',
+  };
+  return statusMap[backendStatus] || backendStatus;
+};
+
+/**
+ * Mappa i filtri del frontend agli stati del backend
+ * @param {string} frontendFilter
+ * @returns {string|null}
+ */
+export const mapFrontendFilterToBackend = frontendFilter => {
+  const filterMap = {
+    all: null,
+    pending: 'inviata',
+    in_progress: 'presa_in_carico',
+    completed: 'consegnato',
+  };
+  return filterMap[frontendFilter];
+};
+
+/**
+ * Utility per determinare se una richiesta può essere annullata
+ * @param {string} status
+ * @returns {boolean}
+ */
+export const canCancelRequest = status => {
+  return status === 'inviata'; // Solo le richieste appena inviate possono essere annullate
+};
+
+/**
+ * Utility per determinare se una richiesta ha un documento scaricabile
+ * @param {string} status
+ * @returns {boolean}
+ */
+export const hasDownloadableDocument = status => {
+  return status === 'consegnato'; // Solo le richieste consegnate hanno documenti scaricabili
 };

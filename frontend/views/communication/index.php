@@ -54,51 +54,51 @@ $this->registerJsVar('markAllReadUrl', Url::to(['communication/mark-all-read']))
     </div>
 
     <!-- Statistiche -->
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
+                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
+                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
                         </svg>
                     </div>
                 </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><?= $totalCount ?></h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Totali</p>
+                <div class="sm:ml-3">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $totalCount ?></h3>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Totali</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
+                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
+                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"></path>
                         </svg>
                     </div>
                 </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><?= $unreadCount ?></h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Non lette</p>
+                <div class="sm:ml-3">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $unreadCount ?></h3>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Non lette</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
+                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
+                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m4 0V9a2 2 0 011-1h4a2 2 0 011 1v12m-6 0h6"></path>
                         </svg>
                     </div>
                 </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><?= $internalCount ?></h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Comunicazioni Sistema</p>
+                <div class="sm:ml-3">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $internalCount ?></h3>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Comunicazioni Sistema</p>
                 </div>
             </div>
         </div>

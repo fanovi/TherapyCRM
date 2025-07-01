@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -16,17 +16,22 @@ import {
   Divider,
   ActivityIndicator,
 } from 'react-native-paper';
-import {useSelector} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
+import {useCurrentPatient} from '../../hooks/useCurrentPatient';
 import {
-  getUserRequests,
+  getPatientRequests,
   getStatusColor,
   getStatusIcon,
   getStatusLabel,
+  mapBackendStatusToFrontend,
+  mapFrontendFilterToBackend,
+  canCancelRequest,
+  hasDownloadableDocument,
 } from '../../api/requests';
 
 const PatientRequestsScreen = ({navigation}) => {
-  const {currentPatient} = useSelector(state => state.patient);
+  const {currentPatient, patientId} = useCurrentPatient();
+  const hasSelectedPatient = !!currentPatient;
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,16 +45,19 @@ const PatientRequestsScreen = ({navigation}) => {
     completed: 0,
   });
 
-  useEffect(() => {
-    loadRequests();
-  }, [selectedFilter]);
+  const loadRequests = useCallback(async () => {
+    if (!patientId) {
+      console.warn('Nessun paziente selezionato');
+      return;
+    }
 
-  const loadRequests = async () => {
     try {
       setLoading(true);
 
-      const filterParam = selectedFilter === 'all' ? null : selectedFilter;
-      const response = await getUserRequests(filterParam);
+      // Mappa il filtro frontend agli stati backend
+      const statusFilter = mapFrontendFilterToBackend(selectedFilter);
+
+      const response = await getPatientRequests(patientId, statusFilter);
 
       if (response.success) {
         setRequests(response.data);
@@ -61,7 +69,15 @@ const PatientRequestsScreen = ({navigation}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, selectedFilter, calculateStats]); // Dipendenze specifiche
+
+  useEffect(() => {
+    if (hasSelectedPatient && patientId) {
+      loadRequests();
+    } else {
+      setLoading(false);
+    }
+  }, [hasSelectedPatient, patientId, loadRequests]); // Ora loadRequests è memoizzato
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -69,17 +85,38 @@ const PatientRequestsScreen = ({navigation}) => {
     setRefreshing(false);
   };
 
-  const calculateStats = requestsData => {
-    const newStats = {
-      total: requestsData.length,
-      pending: requestsData.filter(r => r.status === 'pending').length,
-      in_progress: requestsData.filter(r => r.status === 'in_progress').length,
-      completed: requestsData.filter(r => r.status === 'completed').length,
+  const calculateStats = useCallback(requests => {
+    const stats = {
+      total: requests.length,
+      pending: 0,
+      in_progress: 0,
+      completed: 0,
     };
-    setStats(newStats);
-  };
+
+    requests.forEach(request => {
+      const frontendStatus = mapBackendStatusToFrontend(request.status);
+      if (frontendStatus === 'pending') {
+        stats.pending++;
+      } else if (frontendStatus === 'in_progress') {
+        stats.in_progress++;
+      } else if (frontendStatus === 'completed') {
+        stats.completed++;
+      }
+    });
+
+    setStats(stats);
+  }, []); // Nessuna dipendenza esterna
 
   const formatDate = dateString => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateTime = dateString => {
     const date = new Date(dateString);
     return date.toLocaleDateString('it-IT', {
       day: '2-digit',
@@ -91,22 +128,39 @@ const PatientRequestsScreen = ({navigation}) => {
   };
 
   const getFilterColor = filter => {
-    if (filter === selectedFilter) {
-      switch (filter) {
-        case 'all':
-          return '#2196F3';
-        case 'pending':
-          return '#FF9800';
-        case 'in_progress':
-          return '#2196F3';
-        case 'completed':
-          return '#4CAF50';
-        default:
-          return '#9E9E9E';
-      }
-    }
-    return '#E0E0E0';
+    const colors = {
+      all: '#2196F3',
+      pending: '#FF9800',
+      in_progress: '#2196F3',
+      completed: '#4CAF50',
+    };
+    return colors[filter] || '#2196F3';
   };
+
+  // Mostra messaggio se nessun paziente è selezionato
+  if (!hasSelectedPatient) {
+    return (
+      <ScreenTemplate title="Le Mie Richieste">
+        <View style={styles.noPatientContainer}>
+          <Avatar.Icon
+            size={80}
+            icon="account-alert"
+            style={styles.noPatientIcon}
+          />
+          <Text style={styles.noPatientTitle}>Nessun Paziente Selezionato</Text>
+          <Text style={styles.noPatientSubtitle}>
+            Seleziona un paziente per visualizzare le richieste
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('PatientSelection')}
+            style={styles.selectPatientButton}>
+            Seleziona Paziente
+          </Button>
+        </View>
+      </ScreenTemplate>
+    );
+  }
 
   const renderRequestCard = request => (
     <Card key={request.id} style={styles.requestCard}>
@@ -130,13 +184,13 @@ const PatientRequestsScreen = ({navigation}) => {
           </Chip>
         </View>
 
-        {request.reason && (
+        {request.notes && (
           <Text style={styles.requestReason} numberOfLines={2}>
-            {request.reason}
+            {request.notes}
           </Text>
         )}
 
-        {request.estimated_completion && request.status !== 'completed' && (
+        {request.estimated_completion && request.status !== 'consegnato' && (
           <View style={styles.estimatedContainer}>
             <Avatar.Icon
               size={20}
@@ -144,12 +198,12 @@ const PatientRequestsScreen = ({navigation}) => {
               style={styles.estimatedIcon}
             />
             <Text style={styles.estimatedText}>
-              Consegna prevista: {formatDate(request.estimated_completion)}
+              Consegna prevista: {formatDateTime(request.estimated_completion)}
             </Text>
           </View>
         )}
 
-        {request.status === 'completed' && request.completed_at && (
+        {request.status === 'consegnato' && request.completed_at && (
           <View style={styles.completedContainer}>
             <Avatar.Icon
               size={20}
@@ -157,7 +211,7 @@ const PatientRequestsScreen = ({navigation}) => {
               style={styles.completedIcon}
             />
             <Text style={styles.completedText}>
-              Completata il: {formatDate(request.completed_at)}
+              Completata il: {formatDateTime(request.completed_at)}
             </Text>
           </View>
         )}
@@ -165,7 +219,6 @@ const PatientRequestsScreen = ({navigation}) => {
         <View style={styles.requestActions}>
           <Button
             mode="outlined"
-            icon="eye"
             onPress={() =>
               navigation.navigate('RequestDetails', {requestId: request.id})
             }
@@ -173,23 +226,19 @@ const PatientRequestsScreen = ({navigation}) => {
             Dettagli
           </Button>
 
-          {request.status === 'completed' && request.download_url && (
+          {hasDownloadableDocument(request.status) && (
             <Button
               mode="contained"
               icon="download"
-              onPress={() => handleDownload(request.id)}
-              style={styles.downloadButton}>
+              onPress={() => {
+                // TODO: Implementare download
+                Alert.alert(
+                  'Download',
+                  'Funzionalità in via di implementazione',
+                );
+              }}
+              style={[styles.actionButton, styles.downloadButton]}>
               Scarica
-            </Button>
-          )}
-
-          {request.status === 'pending' && (
-            <Button
-              mode="text"
-              icon="cancel"
-              textColor="#F44336"
-              onPress={() => handleCancelRequest(request.id)}>
-              Annulla
             </Button>
           )}
         </View>
@@ -197,60 +246,13 @@ const PatientRequestsScreen = ({navigation}) => {
     </Card>
   );
 
-  const handleDownload = async requestId => {
-    try {
-      // TODO: Implementare download reale
-      Alert.alert('Download', 'Funzionalità in via di implementazione');
-    } catch (error) {
-      Alert.alert('Errore', 'Impossibile scaricare il documento');
-    }
-  };
-
-  const handleCancelRequest = requestId => {
-    Alert.alert(
-      'Annulla Richiesta',
-      'Sei sicuro di voler annullare questa richiesta?',
-      [
-        {text: 'No', style: 'cancel'},
-        {
-          text: 'Sì, Annulla',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // TODO: Implementare annullamento
-              Alert.alert('Successo', 'Richiesta annullata');
-              loadRequests();
-            } catch (error) {
-              Alert.alert('Errore', 'Impossibile annullare la richiesta');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  if (loading && !refreshing) {
-    return (
-      <ScreenTemplate title="Le Mie Richieste">
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.loadingText}>Caricamento richieste...</Text>
-        </View>
-      </ScreenTemplate>
-    );
-  }
-
   return (
     <ScreenTemplate
       title="Le Mie Richieste"
-      subtitle="Gestisci documenti e certificati"
-      headerRight={
-        <IconButton
-          icon="plus"
-          iconColor="#2196F3"
-          size={24}
-          onPress={() => navigation.navigate('CreateRequest')}
-        />
+      subtitle={
+        currentPatient
+          ? `${currentPatient.first_name} ${currentPatient.last_name}`
+          : ''
       }>
       <ScrollView
         style={styles.container}
@@ -258,106 +260,123 @@ const PatientRequestsScreen = ({navigation}) => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }>
         {/* Statistiche */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.total}</Text>
-              <Text style={styles.statLabel}>Totali</Text>
+        <Card style={styles.statsCard}>
+          <Card.Content>
+            <Text style={styles.statsTitle}>Riepilogo Richieste</Text>
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{stats.total}</Text>
+                <Text style={styles.statLabel}>Totale</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, {color: '#FF9800'}]}>
+                  {stats.pending}
+                </Text>
+                <Text style={styles.statLabel}>In Attesa</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, {color: '#2196F3'}]}>
+                  {stats.in_progress}
+                </Text>
+                <Text style={styles.statLabel}>In Corso</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, {color: '#4CAF50'}]}>
+                  {stats.completed}
+                </Text>
+                <Text style={styles.statLabel}>Completate</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, {color: '#FF9800'}]}>
-                {stats.pending}
-              </Text>
-              <Text style={styles.statLabel}>In Attesa</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, {color: '#2196F3'}]}>
-                {stats.in_progress}
-              </Text>
-              <Text style={styles.statLabel}>In Corso</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, {color: '#4CAF50'}]}>
-                {stats.completed}
-              </Text>
-              <Text style={styles.statLabel}>Completate</Text>
-            </View>
-          </View>
-        </View>
+          </Card.Content>
+        </Card>
 
         {/* Filtri */}
-        <View style={styles.filtersContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {[
-              {key: 'all', label: 'Tutte'},
-              {key: 'pending', label: 'In Attesa'},
-              {key: 'in_progress', label: 'In Corso'},
-              {key: 'completed', label: 'Completate'},
-            ].map(filter => (
-              <Chip
-                key={filter.key}
-                selected={selectedFilter === filter.key}
-                onPress={() => setSelectedFilter(filter.key)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor:
-                      selectedFilter === filter.key
-                        ? getFilterColor(filter.key)
-                        : '#F5F5F5',
-                  },
-                ]}
-                textStyle={{
-                  color: selectedFilter === filter.key ? '#FFFFFF' : '#666666',
-                }}>
-                {filter.label}
-              </Chip>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Pulsante Crea Nuova Richiesta */}
-        <Card style={styles.createCard}>
-          <Card.Content style={styles.createContent}>
-            <Avatar.Icon
-              size={48}
-              icon="plus-circle"
-              style={styles.createIcon}
-            />
-            <View style={styles.createTextContainer}>
-              <Text style={styles.createTitle}>Nuova Richiesta</Text>
-              <Text style={styles.createSubtitle}>
-                Richiedi certificati, referti e documenti
-              </Text>
-            </View>
-            <IconButton
-              icon="chevron-right"
-              iconColor="#2196F3"
-              onPress={() => navigation.navigate('CreateRequest')}
-            />
+        <Card style={styles.filtersCard}>
+          <Card.Content>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtersContainer}>
+              {[
+                {key: 'all', label: 'Tutte'},
+                {key: 'pending', label: 'In Attesa'},
+                {key: 'in_progress', label: 'In Corso'},
+                {key: 'completed', label: 'Completate'},
+              ].map(filter => (
+                <Chip
+                  key={filter.key}
+                  selected={selectedFilter === filter.key}
+                  onPress={() => setSelectedFilter(filter.key)}
+                  style={[
+                    styles.filterChip,
+                    selectedFilter === filter.key && {
+                      backgroundColor: getFilterColor(filter.key) + '20',
+                    },
+                  ]}
+                  textStyle={
+                    selectedFilter === filter.key && {
+                      color: getFilterColor(filter.key),
+                    }
+                  }>
+                  {filter.label}
+                </Chip>
+              ))}
+            </ScrollView>
           </Card.Content>
         </Card>
 
         {/* Lista Richieste */}
-        {requests.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Avatar.Icon
-              size={80}
-              icon="file-document-outline"
-              style={styles.emptyIcon}
-            />
-            <Text style={styles.emptyTitle}>Nessuna richiesta</Text>
-            <Text style={styles.emptySubtitle}>
-              Non hai ancora effettuato richieste.{'\n'}
-              Tocca il pulsante + per iniziare.
-            </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" />
+            <Text style={styles.loadingText}>Caricamento richieste...</Text>
           </View>
+        ) : requests.length === 0 ? (
+          <Card style={styles.emptyCard}>
+            <Card.Content style={styles.emptyContent}>
+              <Avatar.Icon
+                size={80}
+                icon="file-document-outline"
+                style={styles.emptyIcon}
+              />
+              <Text style={styles.emptyTitle}>Nessuna Richiesta</Text>
+              <Text style={styles.emptySubtitle}>
+                {selectedFilter === 'all'
+                  ? 'Non hai ancora fatto richieste'
+                  : `Nessuna richiesta con filtro "${
+                      selectedFilter === 'pending'
+                        ? 'In Attesa'
+                        : selectedFilter === 'in_progress'
+                        ? 'In Corso'
+                        : 'Completate'
+                    }"`}
+              </Text>
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('CreateRequest')}
+                style={styles.createButton}>
+                Crea Nuova Richiesta
+              </Button>
+            </Card.Content>
+          </Card>
         ) : (
-          <View style={styles.requestsList}>
+          <>
             {requests.map(renderRequestCard)}
-          </View>
+            <View style={styles.bottomSpacing} />
+          </>
         )}
       </ScrollView>
+
+      {/* FAB per creare nuova richiesta */}
+      {!loading && (
+        <Button
+          mode="contained"
+          icon="plus"
+          onPress={() => navigation.navigate('CreateRequest')}
+          style={styles.fab}>
+          Nuova Richiesta
+        </Button>
+      )}
     </ScreenTemplate>
   );
 };
@@ -365,84 +384,69 @@ const PatientRequestsScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    padding: 16,
   },
-  loadingContainer: {
+  noPatientContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
-  loadingText: {
-    marginTop: 16,
+  noPatientIcon: {
+    backgroundColor: '#FF9800',
+    marginBottom: 24,
+  },
+  noPatientTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  noPatientSubtitle: {
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  selectPatientButton: {
+    paddingHorizontal: 24,
+  },
+  statsCard: {
+    marginBottom: 16,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   statsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
   },
-  statCard: {
+  statItem: {
     alignItems: 'center',
-    flex: 1,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2196F3',
   },
   statLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
   },
+  filtersCard: {
+    marginBottom: 16,
+  },
   filtersContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    flexDirection: 'row',
   },
   filterChip: {
     marginRight: 8,
   },
-  createCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  createContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  createIcon: {
-    backgroundColor: '#E3F2FD',
-  },
-  createTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  createTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  createSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  requestsList: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
   requestCard: {
     marginBottom: 12,
-    borderRadius: 12,
-    elevation: 2,
   },
   requestHeader: {
     flexDirection: 'row',
@@ -456,22 +460,21 @@ const styles = StyleSheet.create({
   },
   requestTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   requestDate: {
     fontSize: 12,
     color: '#666',
-    marginTop: 2,
   },
   statusChip: {
-    height: 28,
+    alignSelf: 'flex-start',
   },
   requestReason: {
     fontSize: 14,
     color: '#666',
     marginBottom: 12,
-    lineHeight: 20,
+    fontStyle: 'italic',
   },
   estimatedContainer: {
     flexDirection: 'row',
@@ -479,7 +482,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   estimatedIcon: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FF9800',
     marginRight: 8,
   },
   estimatedText: {
@@ -493,7 +496,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   completedIcon: {
-    backgroundColor: '#E8F5E8',
+    backgroundColor: '#4CAF50',
     marginRight: 8,
   },
   completedText: {
@@ -504,35 +507,58 @@ const styles = StyleSheet.create({
   requestActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 8,
+    gap: 8,
   },
   actionButton: {
-    marginRight: 8,
+    minWidth: 80,
   },
   downloadButton: {
-    marginRight: 8,
+    backgroundColor: '#4CAF50',
   },
-  emptyContainer: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyCard: {
+    marginTop: 32,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    padding: 32,
   },
   emptyIcon: {
-    backgroundColor: '#F5F5F5',
-    marginBottom: 16,
+    backgroundColor: '#E0E0E0',
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
   },
   emptySubtitle: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: 24,
+  },
+  createButton: {
+    paddingHorizontal: 24,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    paddingHorizontal: 16,
+  },
+  bottomSpacing: {
+    height: 80,
   },
 });
 
