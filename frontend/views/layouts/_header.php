@@ -264,7 +264,7 @@ use yii\helpers\Html;
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Caricamento...</span>
               </div>
               
-              <ul id="notifications-list" class="custom-scrollbar flex h-auto flex-col overflow-y-auto hidden">
+              <ul id="notifications-list" class="custom-scrollbar flex h-[350px] flex-col overflow-y-auto hidden">
                 <!-- Le comunicazioni verranno caricate qui via AJAX -->
               </ul>
               

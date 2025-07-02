@@ -397,28 +397,26 @@ class CommunicationController extends BaseController
     }
 
     /**
-     * Helper per calcolare il tempo trascorso
+     * Helper per formattare data e ora di invio
      *
      * @param string $datetime
      * @return string
      */
     private function timeAgo($datetime)
     {
-        $time = time() - strtotime($datetime);
+        $timestamp = strtotime($datetime);
+        $today = date('Y-m-d');
+        $notificationDate = date('Y-m-d', $timestamp);
         
-        if ($time < 60) {
-            return 'Ora';
-        } elseif ($time < 3600) {
-            $minutes = floor($time / 60);
-            return $minutes . ' min fa';
-        } elseif ($time < 86400) {
-            $hours = floor($time / 3600);
-            return $hours . ' ore fa';
-        } elseif ($time < 2592000) {
-            $days = floor($time / 86400);
-            return $days . ' giorni fa';
+        if ($notificationDate === $today) {
+            // Oggi: mostra solo l'ora
+            return date('H:i', $timestamp);
+        } elseif ($notificationDate === date('Y-m-d', strtotime('-1 day'))) {
+            // Ieri: mostra "Ieri alle H:i"
+            return 'Ieri alle ' . date('H:i', $timestamp);
         } else {
-            return date('d/m/Y', strtotime($datetime));
+            // Altre date: mostra "gg/mm/yyyy alle H:i"
+            return date('d/m/Y \a\l\l\e H:i', $timestamp);
         }
     }
 } 
