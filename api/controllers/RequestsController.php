@@ -871,15 +871,7 @@ class RequestsController extends Controller
             $requestResult = $this->saveDocumentRequest($data, $requestType, $currentUser);
 
             // Notifica tutti gli admin (solo interna, HTML)
-            $patientId = $requestResult['patient_id'] ?? null;
-            $therapeuticPlanId = $requestResult['therapeutic_plan_id'] ?? null;
-            $patientLink = $patientId ? Yii::$app->urlManager->createAbsoluteUrl(['/backend/patient/view', 'id' => $patientId]) : '#';
-            $planLink = $therapeuticPlanId ? Yii::$app->urlManager->createAbsoluteUrl(['/backend/therapeutic-plan/view', 'id' => $therapeuticPlanId]) : null;
-            $htmlMessage = "<b>Nuova richiesta documento</b> per il paziente <a href='$patientLink'>#{$patientId}</a>";
-            if ($planLink) {
-                $htmlMessage .= " (Piano terapeutico: <a href='$planLink'>#{$therapeuticPlanId}</a>)";
-            }
-            $htmlMessage .= ".<br>Richiedente: <b>" . ($currentUser->profile ? $currentUser->profile->first_name . ' ' . $currentUser->profile->last_name : $currentUser->email) . "</b>";
+            $htmlMessage = NotificationHelper::buildDocumentRequestNotificationHtml($data, $requestType, $currentUser);
             NotificationHelper::sendToAdmins(
                 'Nuova richiesta documento',
                 $htmlMessage,

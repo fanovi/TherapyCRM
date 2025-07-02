@@ -246,6 +246,165 @@ class NotificationHelper
     }
 
     /**
+     * Genera il contenuto HTML per notifiche di richieste documenti
+     * Il contenuto varia in base alla tipologia di richiesta
+     *
+     * @param array $requestData Dati della richiesta (patient_id, therapeutic_plan_id, etc.)
+     * @param array $requestType Dati della tipologia di richiesta
+     * @param User $currentUser Utente che ha fatto la richiesta
+     * @return string HTML formattato per la notifica
+     */
+    public static function buildDocumentRequestNotificationHtml($requestData, $requestType, $currentUser)
+    {
+        $patientId = $requestData['patient_id'] ?? null;
+        $therapeuticPlanId = $requestData['therapeutic_plan_id'] ?? null;
+        $therapyId = $requestData['therapy_id'] ?? null;
+
+        // Recupera informazioni del paziente
+        $patientInfo = self::getPatientInfo($patientId);
+        
+        // Link al paziente (sempre presente) - usa URL assoluto al frontend
+        $patientLink = $patientId ? 
+            self::createFrontendUrl('patient/view', ['id' => $patientId]) : 
+            '#';
+
+        // Costruisci il messaggio base
+        $htmlMessage = "<b>Nuova richiesta: {$requestType['name']}</b><br>";
+        $htmlMessage .= "Paziente: <a href='$patientLink'>{$patientInfo['display_name']}</a><br>";
+
+        // Aggiungi informazioni specifiche per tipologia
+        switch ($requestType['therapeutic_plan_rule'] ?? 'PLAN_OPTIONAL') {
+            case 'PLAN_REQUIRED':
+                // Tipologie che richiedono piano terapeutico
+                if ($therapeuticPlanId) {
+                    $planLink = self::createFrontendUrl('therapeutic-plan/view', ['id' => $therapeuticPlanId]);
+                    $htmlMessage .= "Piano terapeutico: <a href='$planLink'>#{$therapeuticPlanId}</a><br>";
+                }
+                
+                if ($therapyId) {
+                    $htmlMessage .= "Terapia specifica: #{$therapyId}<br>";
+                }
+                break;
+
+            case 'PLAN_NOT_ALLOWED':
+                // Tipologie generali (certificati, documenti amministrativi)
+                $htmlMessage .= "<em>Richiesta generale (non legata a piano terapeutico)</em><br>";
+                break;
+
+            case 'PLAN_OPTIONAL':
+                // Tipologie flessibili
+                if ($therapeuticPlanId) {
+                    $planLink = self::createFrontendUrl('therapeutic-plan/view', ['id' => $therapeuticPlanId]);
+                    $htmlMessage .= "Piano terapeutico: <a href='$planLink'>#{$therapeuticPlanId}</a><br>";
+                } else {
+                    $htmlMessage .= "<em>Richiesta generale</em><br>";
+                }
+                break;
+        }
+
+        // Aggiungi note se presenti e richieste dal tipo
+        if (!empty($requestData['notes']) && ($requestType['require_notes'] ?? false)) {
+            $notes = strlen($requestData['notes']) > 100 ? 
+                     substr($requestData['notes'], 0, 100) . '...' : 
+                     $requestData['notes'];
+            $htmlMessage .= "Note: <em>" . htmlspecialchars($notes) . "</em><br>";
+        }
+
+        // Aggiungi periodo se presente (per certificati medici, etc.)
+        if (!empty($requestData['date_from']) && !empty($requestData['date_to'])) {
+            $dateFrom = date('d/m/Y', strtotime($requestData['date_from']));
+            $dateTo = date('d/m/Y', strtotime($requestData['date_to']));
+            $htmlMessage .= "Periodo: <b>{$dateFrom} - {$dateTo}</b><br>";
+        }
+
+        // Informazioni sul richiedente
+        $requesterName = $currentUser->profile ? 
+                        $currentUser->profile->first_name . ' ' . $currentUser->profile->last_name : 
+                        $currentUser->email;
+        $htmlMessage .= "Richiedente: <b>{$requesterName}</b>";
+
+        // Aggiungi priorità basata sulla tipologia
+        if (strpos(strtolower($requestType['name']), 'urgente') !== false || 
+            strpos(strtolower($requestType['name']), 'emergency') !== false) {
+            $htmlMessage = "🚨 " . $htmlMessage;
+        }
+
+        return $htmlMessage;
+    }
+
+    /**
+     * Crea URL assoluto per l'applicazione frontend
+     *
+     * @param string $route Route del frontend (es: 'patient/view')
+     * @param array $params Parametri della route
+     * @return string URL assoluto al frontend
+     */
+    private static function createFrontendUrl($route, $params = [])
+    {
+        // Ottieni il base URL del progetto
+        $baseUrl = 'http://localhost/TherapyCRM';
+        
+        // Costruisci la query string se ci sono parametri
+        $queryString = '';
+        if (!empty($params)) {
+            $queryString = '?' . http_build_query($params);
+        }
+        
+        return "{$baseUrl}/{$route}{$queryString}";
+    }
+
+    /**
+     * Recupera informazioni del paziente per le notifiche
+     *
+     * @param int|null $patientId ID del paziente
+     * @return array Array con display_name e altre info del paziente
+     */
+    private static function getPatientInfo($patientId)
+    {
+        if (!$patientId) {
+            return [
+                'display_name' => 'Paziente sconosciuto',
+                'full_name' => 'N/A',
+                'id' => null
+            ];
+        }
+
+        try {
+            // Importa il modello Patient
+            $patient = \common\models\Patient::findOne($patientId);
+            
+            if (!$patient) {
+                return [
+                    'display_name' => "Paziente #{$patientId} (non trovato)",
+                    'full_name' => 'N/A',
+                    'id' => $patientId
+                ];
+            }
+
+            $fullName = trim($patient->first_name . ' ' . $patient->last_name);
+            $displayName = !empty($fullName) ? "{$fullName} (#{$patientId})" : "Paziente #{$patientId}";
+
+            return [
+                'display_name' => $displayName,
+                'full_name' => $fullName,
+                'first_name' => $patient->first_name,
+                'last_name' => $patient->last_name,
+                'id' => $patientId
+            ];
+
+        } catch (\Exception $e) {
+            // Log dell'errore ma non interrompere la notifica
+            Yii::error("Error retrieving patient info for ID {$patientId}: " . $e->getMessage(), __METHOD__);
+            
+            return [
+                'display_name' => "Paziente #{$patientId} (errore caricamento)",
+                'full_name' => 'N/A',
+                'id' => $patientId
+            ];
+        }
+    }
+
+    /**
      * Invia broadcast di emergenza a tutti gli utenti attivi
      *
      * @param string $title
