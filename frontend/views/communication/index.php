@@ -18,8 +18,10 @@ $this->params['breadcrumbs'][] = $this->title;
 
 // Asset per JavaScript delle comunicazioni
 $this->registerJsFile('@web/js/communications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
-$this->registerJsVar('markReadUrl', Url::to(['communication/mark-read']));
-$this->registerJsVar('markAllReadUrl', Url::to(['communication/mark-all-read']));
+
+// Registra gli URL per i nuovi endpoint API
+$this->registerJsVar('apiMarkReadUrl', Url::to(['communication/mark-read-api']));
+$this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
 ?>
 
 <div class="mx-auto max-w-7xl p-4 md:p-6">
@@ -53,82 +55,91 @@ $this->registerJsVar('markAllReadUrl', Url::to(['communication/mark-all-read']))
         </div>
     </div>
 
-    <!-- Statistiche -->
-    <div class="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
-            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
-                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
-                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
-                        </svg>
+    <!-- Filtri/Tab - Layout orizzontale fisso -->
+    <div class="mb-6">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <!-- Mobile: Stack verticale -->
+            <!-- <div class="block sm:hidden">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">Filtra per:</label>
+                <div class="space-y-2">
+                    <?= Html::a('Tutte (' . $totalCount . ')', ['communication/index', 'type' => 'all'], [
+                        'class' => 'w-full justify-center inline-flex items-center px-4 py-3 text-sm font-medium rounded-lg border ' . 
+                                   ($currentType === 'all' ? 
+                                    'bg-brand-500 text-white border-brand-500' : 
+                                    'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
+                    ]) ?>
+                    
+                    <?= Html::a('Non lette (' . $unreadCount . ')', ['communication/index', 'type' => 'unread'], [
+                        'class' => 'w-full justify-center inline-flex items-center px-4 py-3 text-sm font-medium rounded-lg border ' . 
+                                   ($currentType === 'unread' ? 
+                                    'bg-orange-500 text-white border-orange-500' : 
+                                    'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
+                    ]) ?>
+                    
+                    <?= Html::a('Sistema (' . $internalCount . ')', ['communication/index', 'type' => 'internal_communication'], [
+                        'class' => 'w-full justify-center inline-flex items-center px-4 py-3 text-sm font-medium rounded-lg border ' . 
+                                   ($currentType === 'internal_communication' ? 
+                                    'bg-green-500 text-white border-green-500' : 
+                                    'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
+                    ]) ?>
+                </div>
+            </div> -->
+
+            <!-- Desktop: Tab orizzontali -->
+            <div class="hidden sm:block">
+                <div class="flex items-center space-x-1">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mr-4">Filtra per:</span>
+                    
+                    <div class="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                        <?= Html::a('Tutte', ['communication/index', 'type' => 'all'], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
+                                       ($currentType === 'all' ? 
+                                        'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 
+                                        'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
+                        
+                        <?= Html::a('Non lette', ['communication/index', 'type' => 'unread'], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
+                                       ($currentType === 'unread' ? 
+                                        'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm' : 
+                                        'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
+                        
+                        <?= Html::a('Sistema', ['communication/index', 'type' => 'internal_communication'], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
+                                       ($currentType === 'internal_communication' ? 
+                                        'bg-white dark:bg-gray-700 text-green-600 dark:text-green-400 shadow-sm' : 
+                                        'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
+                    </div>
+                    
+                    <!-- Contatori -->
+                    <div class="flex items-center space-x-3 ml-6">
+                        <div class="flex items-center space-x-1">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Totali:</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                <?= $totalCount ?>
+                            </span>
+                        </div>
+                        <?php if ($unreadCount > 0): ?>
+                            <div class="flex items-center space-x-1">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Non lette:</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+                                    <?= $unreadCount ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($internalCount > 0): ?>
+                            <div class="flex items-center space-x-1">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Sistema:</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                                    <?= $internalCount ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <div class="sm:ml-3">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $totalCount ?></h3>
-                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Totali</p>
-                </div>
             </div>
-        </div>
-
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
-            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
-                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
-                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"></path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="sm:ml-3">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $unreadCount ?></h3>
-                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Non lette</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
-            <div class="flex flex-col sm:flex-row sm:items-center text-center sm:text-left">
-                <div class="flex-shrink-0 mx-auto sm:mx-0 mb-2 sm:mb-0">
-                    <div class="w-6 h-6 sm:w-8 sm:h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                        <svg class="w-3 h-3 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m4 0V9a2 2 0 011-1h4a2 2 0 011 1v12m-6 0h6"></path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="sm:ml-3">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"><?= $internalCount ?></h3>
-                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Comunicazioni Sistema</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filtri -->
-    <div class="mb-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filtra per:</span>
-            
-            <?= Html::a('Tutte', ['communication/index', 'type' => 'all'], [
-                'class' => 'px-3 py-1.5 text-sm rounded-lg border ' . 
-                           ($currentType === 'all' ? 
-                            'bg-brand-500 text-white border-brand-500' : 
-                            'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
-            ]) ?>
-            
-            <?= Html::a('Non lette', ['communication/index', 'type' => 'unread'], [
-                'class' => 'px-3 py-1.5 text-sm rounded-lg border ' . 
-                           ($currentType === 'unread' ? 
-                            'bg-orange-500 text-white border-orange-500' : 
-                            'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
-            ]) ?>
-            
-            <?= Html::a('Sistema', ['communication/index', 'type' => 'internal_communication'], [
-                'class' => 'px-3 py-1.5 text-sm rounded-lg border ' . 
-                           ($currentType === 'internal_communication' ? 
-                            'bg-green-500 text-white border-green-500' : 
-                            'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700')
-            ]) ?>
         </div>
     </div>
 

@@ -38,6 +38,8 @@ class CommunicationController extends BaseController
                 'actions' => [
                     'mark-read' => ['POST'],
                     'mark-all-read' => ['POST'],
+                    'mark-read-api' => ['POST'],
+                    'stats-api' => ['GET'],
                 ],
             ],
         ]);
@@ -246,6 +248,128 @@ class CommunicationController extends BaseController
                 'total_count' => Notification::findByUser($userId)->count()
             ]
         ];
+    }
+
+    /**
+     * API ottimizzata per segnare comunicazioni come lette
+     * Supporta sia singole comunicazioni che operazioni batch
+     *
+     * @return Response
+     */
+    public function actionMarkReadApi()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        if (!Yii::$app->request->isPost) {
+            return [
+                'success' => false,
+                'message' => 'Metodo non consentito'
+            ];
+        }
+        
+        $userId = Yii::$app->user->id;
+        $ids = Yii::$app->request->post('ids', []); // Array di ID o singolo ID
+        $markAll = Yii::$app->request->post('mark_all', false);
+        
+        try {
+            if ($markAll) {
+                // Segna tutte le comunicazioni non lette dell'utente
+                $updated = Notification::updateAll(
+                    ['read_at' => date('Y-m-d H:i:s')],
+                    [
+                        'and',
+                        ['recipient_user_id' => $userId],
+                        ['read_at' => null]
+                    ]
+                );
+                
+                return [
+                    'success' => true,
+                    'message' => "Segnate come lette $updated comunicazioni",
+                    'updated_count' => $updated,
+                    'action' => 'mark_all'
+                ];
+                
+            } elseif (!empty($ids)) {
+                // Assicurati che $ids sia un array
+                if (!is_array($ids)) {
+                    $ids = [$ids];
+                }
+                
+                // Filtra solo le comunicazioni dell'utente corrente
+                $updated = Notification::updateAll(
+                    ['read_at' => date('Y-m-d H:i:s')],
+                    [
+                        'and',
+                        ['recipient_user_id' => $userId],
+                        ['id' => $ids],
+                        ['read_at' => null] // Solo quelle non ancora lette
+                    ]
+                );
+                
+                return [
+                    'success' => true,
+                    'message' => $updated === 1 ? 
+                        'Comunicazione segnata come letta' : 
+                        "Segnate come lette $updated comunicazioni",
+                    'updated_count' => $updated,
+                    'processed_ids' => $ids,
+                    'action' => 'mark_selected'
+                ];
+                
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Nessuna comunicazione specificata'
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            Yii::error("Errore in actionMarkReadApi: " . $e->getMessage(), __METHOD__);
+            
+            return [
+                'success' => false,
+                'message' => 'Errore interno del server'
+            ];
+        }
+    }
+
+    /**
+     * API per ottenere statistiche aggiornate delle comunicazioni
+     *
+     * @return Response
+     */
+    public function actionStatsApi()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        $userId = Yii::$app->user->id;
+        
+        try {
+            $totalCount = Notification::findByUser($userId)->count();
+            $unreadCount = Notification::findByUser($userId)->andWhere(['read_at' => null])->count();
+            $internalCount = Notification::findByUser($userId)
+                ->andWhere(['notification_type' => Notification::TYPE_INTERNAL_COMMUNICATION])
+                ->count();
+                
+            return [
+                'success' => true,
+                'data' => [
+                    'total_count' => $totalCount,
+                    'unread_count' => $unreadCount,
+                    'internal_count' => $internalCount,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            Yii::error("Errore in actionStatsApi: " . $e->getMessage(), __METHOD__);
+            
+            return [
+                'success' => false,
+                'message' => 'Errore nel recupero delle statistiche'
+            ];
+        }
     }
 
     /**
