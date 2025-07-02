@@ -34,14 +34,32 @@ export const getRequestTypes = async () => {
  */
 export const createRequest = async requestData => {
   try {
-    console.log('📝 Creando nuova richiesta...', requestData);
+    console.log('\n=== CREAZIONE NUOVA RICHIESTA ===');
+    console.log('📋 Dati ricevuti:', JSON.stringify(requestData, null, 2));
 
-    const response = await apiClient.post('/requests', requestData);
+    // Pulisci i dati rimuovendo campi undefined o vuoti
+    const cleanedData = Object.entries(requestData).reduce(
+      (acc, [key, value]) => {
+        // Includi il campo solo se ha un valore valido
+        if (value !== undefined && value !== null && value !== '') {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {},
+    );
 
-    console.log('✅ Richiesta creata:', response.data);
+    console.log('\n📤 Dati puliti da inviare al backend:');
+    console.log(JSON.stringify(cleanedData, null, 2));
+
+    const response = await apiClient.post('/requests', cleanedData);
+
+    console.log('\n=== RISPOSTA BACKEND ===');
+    console.log('📥 Struttura completa:');
+    console.log(JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (error) {
-    console.error('❌ Errore creando richiesta:', error);
+    console.error('\n❌ Errore creando richiesta:', error);
     throw error;
   }
 };

@@ -3,7 +3,6 @@ import {useSelector} from 'react-redux';
 import {
   View,
   StyleSheet,
-  ScrollView,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,12 +13,7 @@ import {
   Text,
   Card,
   Button,
-  Avatar,
   TextInput,
-  HelperText,
-  ActivityIndicator,
-  RadioButton,
-  Divider,
   TouchableRipple,
   useTheme,
 } from 'react-native-paper';
@@ -30,41 +24,49 @@ import {getRequestTypes, createRequest} from '../../api/requests';
 // Configurazione icone e colori per ogni tipo di richiesta
 const REQUEST_TYPE_CONFIG = {
   'Copia Piano Terapeutico': {
-    icon: 'content-copy',
+    icon: 'description',
     color: '#E3F2FD', // Azzurro pastello
-    backgroundColor: '#BBDEFB',
-    iconColor: '#1976D2',
+    textColor: '#1976D2',
   },
   'Relazione terapista': {
-    icon: 'assignment',
+    icon: 'psychology',
     color: '#F3E5F5', // Viola pastello
-    backgroundColor: '#E1BEE7',
-    iconColor: '#7B1FA2',
+    textColor: '#9C27B0',
   },
   'Relazione visita specialistica': {
     icon: 'medical-services',
     color: '#E8F5E9', // Verde pastello
-    backgroundColor: '#C8E6C9',
-    iconColor: '#388E3C',
+    textColor: '#43A047',
   },
-  'Attestato frequenza': {
-    icon: 'verified',
+  'Attestato frequenza semplice': {
+    icon: 'calendar-today',
     color: '#FFF3E0', // Arancione pastello
-    backgroundColor: '#FFE0B2',
-    iconColor: '#F57C00',
+    textColor: '#EF6C00',
   },
   Altro: {
     icon: 'more-horiz',
-    color: '#FAFAFA', // Grigio pastello
-    backgroundColor: '#F5F5F5',
-    iconColor: '#616161',
+    color: '#ECEFF1', // Grigio pastello
+    textColor: '#546E7A',
+  },
+  'Attestato frequenza con orario': {
+    icon: 'schedule',
+    color: '#E1F5FE', // Celeste pastello
+    textColor: '#0288D1',
+  },
+  'Attestato frequenza con date': {
+    icon: 'event',
+    color: '#F1F8E9', // Verde chiaro pastello
+    textColor: '#7CB342',
+  },
+  'Attestato frequenza certificato lavoro': {
+    icon: 'work',
+    color: '#FBE9E7', // Rosso pastello
+    textColor: '#D84315',
   },
 };
 
 const CreateRequestScreen = ({navigation}) => {
-  // Ottieni il patient_id da Redux usando il selector corretto
   const {patients, currentPatient} = useSelector(state => state.patient);
-
   const patient_id = currentPatient?.patient_id;
 
   const [requestTypes, setRequestTypes] = useState([]);
@@ -270,47 +272,12 @@ const CreateRequestScreen = ({navigation}) => {
     return colors[category] || '#9C27B0';
   };
 
-  // Renderizza una singola opzione di tipo richiesta
-  const renderRequestTypeOption = type => {
-    const config =
-      REQUEST_TYPE_CONFIG[type.name] || REQUEST_TYPE_CONFIG['Altro'];
-    const isSelected = selectedType?.id === type.id;
+  const handleTypeSelect = type => {
+    setSelectedType(type);
+  };
 
-    return (
-      <TouchableRipple
-        key={type.id}
-        onPress={() => setSelectedType(type)}
-        style={[
-          styles.requestTypeOption,
-          {backgroundColor: config.color},
-          isSelected && {backgroundColor: config.backgroundColor},
-        ]}>
-        <View style={styles.requestTypeContent}>
-          <View
-            style={[
-              styles.iconContainer,
-              {backgroundColor: config.backgroundColor},
-            ]}>
-            <Icon name={config.icon} size={24} color={config.iconColor} />
-          </View>
-          <View style={styles.requestTypeInfo}>
-            <Text style={styles.requestTypeName}>{type.name}</Text>
-            <Text style={styles.requestTypeRule}>
-              {type.therapeutic_plan_rule_label}
-              {type.require_notes && ' • Note richieste'}
-              {type.require_therapy_assignment && ' • Terapia richiesta'}
-            </Text>
-          </View>
-          <Icon
-            name={
-              isSelected ? 'radio-button-checked' : 'radio-button-unchecked'
-            }
-            size={24}
-            color={config.iconColor}
-          />
-        </View>
-      </TouchableRipple>
-    );
+  const handleInputChange = (field, value) => {
+    setFormData({...formData, [field]: value});
   };
 
   // Mostra messaggio se nessun paziente è selezionato
@@ -346,143 +313,136 @@ const CreateRequestScreen = ({navigation}) => {
           ? `${currentPatient.first_name} ${currentPatient.last_name}`
           : ''
       }>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-          style={styles.container}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag">
-            {/* Tipi di richiesta */}
-            <Card style={styles.card}>
-              <Card.Title
-                title="Seleziona tipo di richiesta"
-                left={props => <Icon name="category" size={24} color="#666" />}
-              />
-              <Card.Content>
-                <View style={styles.requestTypesList}>
-                  {requestTypes.map(type => renderRequestTypeOption(type))}
-                </View>
-              </Card.Content>
-            </Card>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.innerContainer}>
+            {/* Lista dei tipi di richiesta */}
+            <View style={styles.requestTypesContainer}>
+              <Text style={styles.sectionTitle}>
+                Seleziona il tipo di richiesta:
+              </Text>
+              {requestTypes.map(type => {
+                const config = REQUEST_TYPE_CONFIG[type.name] || {
+                  icon: 'description',
+                  color: '#ECEFF1',
+                  textColor: '#546E7A',
+                };
 
-            {/* Piano terapeutico */}
-            {selectedType && !selectedType.is_therapeutic_plan_not_allowed && (
-              <Card style={styles.card}>
-                <Card.Title
-                  title="Piano terapeutico"
-                  subtitle={
-                    selectedType.is_therapeutic_plan_required
-                      ? '(Obbligatorio)'
-                      : '(Opzionale)'
-                  }
-                  left={props => (
-                    <Icon
-                      name="description"
-                      size={24}
-                      color={
-                        selectedType.is_therapeutic_plan_required
-                          ? '#F44336'
-                          : '#666'
-                      }
-                    />
-                  )}
-                />
-                <Card.Content>
+                return (
+                  <TouchableRipple
+                    key={type.id}
+                    onPress={() => handleTypeSelect(type)}
+                    style={[
+                      styles.requestTypeCard,
+                      {
+                        backgroundColor: config.color,
+                        borderColor:
+                          selectedType?.id === type.id
+                            ? config.textColor
+                            : 'transparent',
+                      },
+                    ]}>
+                    <View style={styles.requestTypeContent}>
+                      <View
+                        style={[
+                          styles.iconContainer,
+                          {backgroundColor: config.color},
+                        ]}>
+                        <Icon
+                          name={config.icon}
+                          size={24}
+                          color={config.textColor}
+                        />
+                      </View>
+                      <View style={styles.requestTypeInfo}>
+                        <Text
+                          style={[
+                            styles.requestTypeName,
+                            {color: config.textColor},
+                          ]}>
+                          {type.name}
+                        </Text>
+                        <Text style={styles.requestTypeDescription}>
+                          {type.therapeutic_plan_rule_label}
+                        </Text>
+                      </View>
+                      <Icon
+                        name={
+                          selectedType?.id === type.id
+                            ? 'check-circle'
+                            : 'radio-button-unchecked'
+                        }
+                        size={24}
+                        color={config.textColor}
+                      />
+                    </View>
+                  </TouchableRipple>
+                );
+              })}
+            </View>
+
+            {/* Form dei dettagli */}
+            {selectedType && (
+              <View style={styles.formContainer}>
+                <Text style={styles.sectionTitle}>Dettagli richiesta:</Text>
+
+                {/* Piano Terapeutico */}
+                {!selectedType.is_therapeutic_plan_not_allowed && (
                   <TextInput
-                    mode="outlined"
-                    label="Seleziona piano terapeutico"
+                    label="Piano Terapeutico"
                     value={formData.therapeutic_plan_id}
                     onChangeText={value =>
-                      setFormData({...formData, therapeutic_plan_id: value})
+                      handleInputChange('therapeutic_plan_id', value)
                     }
-                    error={
-                      selectedType.is_therapeutic_plan_required &&
-                      !formData.therapeutic_plan_id
-                    }
-                    keyboardType="numeric"
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                  />
-                </Card.Content>
-              </Card>
-            )}
-
-            {/* Terapia */}
-            {selectedType && selectedType.require_therapy_assignment && (
-              <Card style={styles.card}>
-                <Card.Title
-                  title="Terapia"
-                  subtitle="(Obbligatorio)"
-                  left={props => (
-                    <Icon name="medical-services" size={24} color="#F44336" />
-                  )}
-                />
-                <Card.Content>
-                  <TextInput
-                    mode="outlined"
-                    label="Seleziona terapia"
-                    value={formData.therapy_id}
-                    onChangeText={value =>
-                      setFormData({...formData, therapy_id: value})
-                    }
-                    error={!formData.therapy_id}
-                    keyboardType="numeric"
-                    returnKeyType="next"
-                    blurOnSubmit={false}
-                  />
-                </Card.Content>
-              </Card>
-            )}
-
-            {/* Note */}
-            <Card style={styles.card}>
-              <Card.Title
-                title="Note"
-                subtitle={
-                  selectedType?.require_notes ? '(Obbligatorio)' : '(Opzionale)'
-                }
-                left={props => (
-                  <Icon
-                    name="note"
-                    size={24}
-                    color={selectedType?.require_notes ? '#F44336' : '#666'}
+                    style={styles.input}
+                    disabled={submitting}
+                    required={selectedType.is_therapeutic_plan_required}
                   />
                 )}
-              />
-              <Card.Content>
-                <TextInput
-                  mode="outlined"
-                  label="Note aggiuntive"
-                  value={formData.notes}
-                  onChangeText={value =>
-                    setFormData({...formData, notes: value})
-                  }
-                  multiline
-                  numberOfLines={3}
-                  error={selectedType?.require_notes && !formData.notes.trim()}
-                  blurOnSubmit={true}
-                  returnKeyType="done"
-                />
-              </Card.Content>
-            </Card>
 
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              loading={submitting}
-              disabled={submitting || !selectedType}
-              style={styles.submitButton}
-              icon={({size, color}) => (
-                <Icon name="send" size={size} color={color} />
-              )}>
-              Invia richiesta
-            </Button>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+                {/* Terapia */}
+                {selectedType.require_therapy_assignment && (
+                  <TextInput
+                    label="Terapia"
+                    value={formData.therapy_id}
+                    onChangeText={value =>
+                      handleInputChange('therapy_id', value)
+                    }
+                    style={styles.input}
+                    disabled={submitting}
+                    required={true}
+                  />
+                )}
+
+                {/* Note */}
+                {selectedType.require_notes && (
+                  <TextInput
+                    label="Note"
+                    value={formData.notes}
+                    onChangeText={value => handleInputChange('notes', value)}
+                    style={styles.input}
+                    multiline
+                    numberOfLines={3}
+                    disabled={submitting}
+                    required={true}
+                  />
+                )}
+
+                <Button
+                  mode="contained"
+                  onPress={handleSubmit}
+                  loading={submitting}
+                  disabled={submitting}
+                  style={styles.submitButton}>
+                  Invia Richiesta
+                </Button>
+              </View>
+            )}
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </ScreenTemplate>
   );
 };
@@ -490,11 +450,60 @@ const CreateRequestScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  scrollContent: {
-    flexGrow: 1,
+  innerContainer: {
+    flex: 1,
     padding: 16,
+  },
+  requestTypesContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
+  },
+  requestTypeCard: {
+    marginBottom: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    elevation: 2,
+  },
+  requestTypeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  requestTypeInfo: {
+    flex: 1,
+  },
+  requestTypeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  requestTypeDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  formContainer: {
+    flex: 1,
+  },
+  input: {
+    marginBottom: 16,
+    backgroundColor: 'white',
+  },
+  submitButton: {
+    marginTop: 24,
   },
   noPatientContainer: {
     flex: 1,
@@ -520,46 +529,6 @@ const styles = StyleSheet.create({
   },
   selectPatientButton: {
     paddingHorizontal: 24,
-  },
-  card: {
-    marginBottom: 16,
-    elevation: 2,
-  },
-  requestTypesList: {
-    marginTop: 8,
-  },
-  requestTypeOption: {
-    borderRadius: 12,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  requestTypeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  requestTypeInfo: {
-    flex: 1,
-  },
-  requestTypeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  requestTypeRule: {
-    fontSize: 12,
-    color: '#666',
-  },
-  submitButton: {
-    marginTop: 24,
   },
 });
 

@@ -173,13 +173,10 @@ export const markMultipleNotificationsAsRead = async notificationIds => {
  */
 export const getUnreadNotifications = async (limit = 50) => {
   try {
-    console.log(`🔔 Recuperando notifiche non lette (limit: ${limit})...`);
-
     const response = await apiClient.get('/notifications/unread', {
       params: {limit},
     });
 
-    console.log('✅ Notifiche non lette recuperate:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Errore recuperando notifiche non lette:', error);
