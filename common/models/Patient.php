@@ -47,6 +47,18 @@ class Patient extends ActiveRecord
                     return date('Y-m-d H:i:s');
                 },
             ],
+            
+            // Activity Logging
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => [
+                    'created_at',
+                    'updated_at',
+                ],
+                'entityNameCallback' => function($model) {
+                    return 'Paziente';
+                },
+            ],
         ];
     }
 
