@@ -76,8 +76,18 @@ $this->params['breadcrumbs'][] = $this->title;
                             }
                         ],
 
-                        'created_at:datetime:Creato il',
-                        'updated_at:datetime:Aggiornato il',
+                        [
+                            'label' => 'Creato il',
+                            'value' => function($model) {
+                                return $model->created_at ? date('d/m/Y \a\l\l\e H:i', strtotime($model->created_at)) : 'N/D';
+                            }
+                        ],
+                        [
+                            'label' => 'Aggiornato il',
+                            'value' => function($model) {
+                                return $model->updated_at ? date('d/m/Y \a\l\l\e H:i', strtotime($model->updated_at)) : 'N/D';
+                            }
+                        ],
                     ],
                 ]) ?>
             </div>
@@ -132,6 +142,18 @@ $this->params['breadcrumbs'][] = $this->title;
                                             <?= Html::encode($therapist->user->email) ?>
                                         </p>
                                         
+                                        <!-- Data di assegnazione -->
+                                        <?php 
+                                        $groupTherapist = $therapist->getGroupTherapists()
+                                            ->where(['group_id' => $model->id])
+                                            ->andWhere(['IS', 'assigned_to', null])
+                                            ->one();
+                                        ?>
+                                        <?php if ($groupTherapist): ?>
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                            Assegnato il: <?= date('d/m/Y', strtotime($groupTherapist->assigned_from)) ?>
+                                        </p>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>

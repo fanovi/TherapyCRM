@@ -4,6 +4,7 @@ namespace common\models;
 
 use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
 /**
  * This is the model class for table "specialization_treatments".
@@ -133,5 +134,24 @@ class SpecializationTreatment extends ActiveRecord
     public function getDefaultDuration()
     {
         return $this->duration_minutes ?: 45; // Default 45 minutes
+    }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Associazione Specializzazione-Trattamento';
+                },
+            ],
+        ];
     }
 } 

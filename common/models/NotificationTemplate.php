@@ -112,4 +112,20 @@ class NotificationTemplate extends ActiveRecord
             self::TYPE_MANDATORY_READ => 'Lettura Obbligatoria',
         ];
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => [],
+                'entityNameCallback' => function($model) {
+                    return 'Template Notifica';
+                },
+            ],
+        ];
+    }
 } 

@@ -5,6 +5,7 @@ namespace common\models;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
+use yii\behaviors\TimestampBehavior;
 
 /**
  * This is the model class for table "treatment_types".
@@ -141,5 +142,24 @@ class TreatmentType extends ActiveRecord
         }
 
         return $result;
+    }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Tipo Trattamento';
+                },
+            ],
+        ];
     }
 } 

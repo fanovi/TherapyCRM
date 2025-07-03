@@ -148,13 +148,32 @@ class TherapistController extends Controller
                     try {
                         // Encrypt sensitive data before saving
                         $this->encryptSensitiveData($profile);
+
+                        // Rimuovi temporaneamente il behavior di logging dall'utente
+                        $userLogBehavior = null;
+                        foreach ($user->getBehaviors() as $name => $behavior) {
+                            if ($behavior instanceof \common\behaviors\ActivityLogBehavior) {
+                                $userLogBehavior = $behavior;
+                                $user->detachBehavior($name);
+                                break;
+                            }
+                        }
                         
                         // Save profile
                         if (!$profile->save(false)) {
                             throw new \Exception('Errore nel salvare il profilo.');
                         }
 
-                        // Save therapist
+                        // Save therapist senza logging
+                        $therapistLogBehavior = null;
+                        foreach ($therapist->getBehaviors() as $name => $behavior) {
+                            if ($behavior instanceof \common\behaviors\ActivityLogBehavior) {
+                                $therapistLogBehavior = $behavior;
+                                $therapist->detachBehavior($name);
+                                break;
+                            }
+                        }
+                        
                         if (!$therapist->save(false)) {
                             throw new \Exception('Errore nel salvare il terapista.');
                         }
@@ -164,6 +183,54 @@ class TherapistController extends Controller
                         $therapistRole = $auth->getRole('therapist');
                         if ($therapistRole) {
                             $auth->assign($therapistRole, $user->id);
+                        }
+
+                        // Ora creiamo manualmente i log nell'ordine corretto
+                        if ($userLogBehavior) {
+                            // Filtra gli attributi dell'utente escludendo quelli sensibili
+                            $userAttributes = $user->getAttributes();
+                            $userExcludedAttributes = ['password_hash', 'auth_key', 'created_at', 'updated_at'];
+                            $filteredUserAttributes = array_diff_key(
+                                $userAttributes, 
+                                array_flip($userExcludedAttributes)
+                            );
+
+                            // Crea il log dell'utente
+                            $userLog = new \common\models\ActivityLog([
+                                'user_id' => Yii::$app->user->id,
+                                'action' => \common\models\ActivityLog::ACTION_CREATE,
+                                'entity_name' => 'User',
+                                'entity_id' => $user->id,
+                                'new_values' => json_encode($filteredUserAttributes),
+                                'ip_address' => Yii::$app->request->userIP,
+                                'user_agent' => Yii::$app->request->userAgent,
+                            ]);
+                            if (!$userLog->save()) {
+                                throw new \Exception('Errore nel salvare il log utente.');
+                            }
+
+                            // Filtra gli attributi del terapista
+                            $therapistAttributes = $therapist->getAttributes();
+                            $therapistExcludedAttributes = ['created_at', 'updated_at'];
+                            $filteredTherapistAttributes = array_diff_key(
+                                $therapistAttributes, 
+                                array_flip($therapistExcludedAttributes)
+                            );
+
+                            // Crea il log del terapista con riferimento al log utente
+                            $therapistLog = new \common\models\ActivityLog([
+                                'user_id' => Yii::$app->user->id,
+                                'action' => \common\models\ActivityLog::ACTION_CREATE,
+                                'entity_name' => 'Terapista',
+                                'entity_id' => $therapist->id,
+                                'new_values' => json_encode($filteredTherapistAttributes),
+                                'ip_address' => Yii::$app->request->userIP,
+                                'user_agent' => Yii::$app->request->userAgent,
+                                'parent_log_id' => $userLog->id,
+                            ]);
+                            if (!$therapistLog->save()) {
+                                throw new \Exception('Errore nel salvare il log terapista.');
+                            }
                         }
 
                         $transaction->commit();

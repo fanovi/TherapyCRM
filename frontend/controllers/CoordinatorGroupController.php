@@ -73,7 +73,7 @@ class CoordinatorGroupController extends Controller
 
         // Carica i terapisti del gruppo
         $therapists = $model->getTherapists()
-            ->with(['user.profile', 'specialization'])
+            ->with(['user.profile', 'specialization', 'groupTherapists'])
             ->all();
 
         return $this->render('view', [

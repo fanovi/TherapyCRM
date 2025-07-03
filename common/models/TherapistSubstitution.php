@@ -51,7 +51,19 @@ class TherapistSubstitution extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Sostituzione Terapista';
+                },
+            ],
         ];
     }
 

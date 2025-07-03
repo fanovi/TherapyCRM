@@ -114,6 +114,27 @@ class Therapist extends ActiveRecord
     }
 
     /**
+     * Relazione con le assegnazioni ai gruppi
+     * @return \yii\db\ActiveQuery
+     */
+    public function getGroupTherapists()
+    {
+        return $this->hasMany(GroupTherapist::class, ['therapist_id' => 'id']);
+    }
+
+    /**
+     * Relazione con i gruppi attivi
+     * @return \yii\db\ActiveQuery
+     */
+    public function getActiveGroups()
+    {
+        return $this->hasMany(CoordinatorGroup::class, ['id' => 'group_id'])
+            ->viaTable('group_therapists', ['therapist_id' => 'id'], function($query) {
+                $query->andWhere(['IS', 'assigned_to', null]);
+            });
+    }
+
+    /**
      * Scope per terapisti attivi
      * @return \yii\db\ActiveQuery
      */

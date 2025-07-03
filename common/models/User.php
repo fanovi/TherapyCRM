@@ -47,7 +47,7 @@ class User extends ActiveRecord implements IdentityInterface
     public function scenarios()
     {
         $scenarios = parent::scenarios();
-        $scenarios['create'] = ['email', 'password', 'password_repeat', 'status'];
+        $scenarios['create'] = ['email', 'username', 'password', 'password_repeat', 'status'];
         return $scenarios;
     }
 
@@ -98,6 +98,11 @@ class User extends ActiveRecord implements IdentityInterface
             [['email'], 'required', 'message' => 'L\'email è obbligatoria.'],
             [['email'], 'email', 'message' => 'Inserisci un indirizzo email valido.'],
             [['email'], 'unique', 'targetClass' => '\common\models\User', 'message' => 'Questa email è già stata registrata.'],
+            [['username'], 'string', 'max' => 255],
+            [['username'], 'unique', 'targetClass' => '\common\models\User', 'message' => 'Questo username è già stato registrato.'],
+            [['username'], 'default', 'value' => function($model, $attribute) {
+                return $model->email;
+            }],
             [['password'], 'required', 'on' => 'create', 'message' => 'La password è obbligatoria.'],
             [['password'], 'string', 'min' => 6, 'message' => 'La password deve contenere almeno 6 caratteri.'],
             [['password_repeat'], 'required', 'on' => 'create', 'message' => 'La conferma password è obbligatoria.'],
@@ -112,6 +117,7 @@ class User extends ActiveRecord implements IdentityInterface
     {
         return [
             'id' => 'ID',
+            'username' => 'Username',
             'email' => 'Email',
             'password' => 'Password',
             'password_repeat' => 'Conferma Password',
@@ -322,5 +328,25 @@ class User extends ActiveRecord implements IdentityInterface
     public function removePasswordResetToken()
     {
         $this->password_reset_token = null;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function beforeSave($insert)
+    {
+        if ($insert) {
+            // Genera auth_key se non presente
+            if (empty($this->auth_key)) {
+                $this->generateAuthKey();
+            }
+            
+            // Genera password hash se è stata impostata una password
+            if (!empty($this->password)) {
+                $this->setPassword($this->password);
+            }
+        }
+        
+        return parent::beforeSave($insert);
     }
 }

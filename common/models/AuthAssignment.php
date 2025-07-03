@@ -109,4 +109,20 @@ class AuthAssignment extends ActiveRecord
             ->andWhere(['{{%auth_item}}.type' => AuthItem::TYPE_ROLE])
             ->all();
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Assegnazione Ruolo';
+                },
+            ],
+        ];
+    }
 } 

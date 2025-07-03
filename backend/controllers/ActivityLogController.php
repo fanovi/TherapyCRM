@@ -30,7 +30,10 @@ class ActivityLogController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['admin'], // Solo admin possono vedere i log
+                        'roles' => ['@'],
+                        'matchCallback' => function ($rule, $action) {
+                            return Yii::$app->user->can('admin');
+                        }
                     ],
                 ],
             ],
@@ -45,20 +48,79 @@ class ActivityLogController extends Controller
     }
 
     /**
-     * Lista i log delle attività con filtri
-     * @return mixed
+     * Lista dei log con filtri
+     * @return string
      */
     public function actionIndex()
     {
-        $searchModel = new ActivityLogSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $query = ActivityLog::find()
+            ->with(['user', 'parentLog'])
+            ->orderBy(['created_at' => SORT_DESC]);
 
-        // Dati per i filtri dropdown
-        $users = ArrayHelper::map(
-            User::find()->orderBy('username')->all(),
-            'id',
-            'username'
-        );
+        // Filtri
+        $userId = Yii::$app->request->get('user_id');
+        $action = Yii::$app->request->get('action');
+        $entityName = Yii::$app->request->get('entity_name');
+        $dateFrom = Yii::$app->request->get('date_from');
+        $dateTo = Yii::$app->request->get('date_to');
+        $parentOnly = Yii::$app->request->get('parent_only');
+        $searchTerm = Yii::$app->request->get('search');
+
+        if ($userId) {
+            $query->andWhere(['user_id' => $userId]);
+        }
+
+        if ($action) {
+            $query->andWhere(['action' => $action]);
+        }
+
+        if ($entityName) {
+            $query->andWhere(['entity_name' => $entityName]);
+        }
+
+        if ($dateFrom) {
+            $query->andWhere(['>=', 'created_at', $dateFrom . ' 00:00:00']);
+        }
+
+        if ($dateTo) {
+            $query->andWhere(['<=', 'created_at', $dateTo . ' 23:59:59']);
+        }
+
+        if ($parentOnly) {
+            $query->andWhere(['parent_log_id' => null]);
+        }
+
+        if ($searchTerm) {
+            $query->andWhere([
+                'or',
+                ['like', 'entity_name', $searchTerm],
+                ['like', 'old_values', $searchTerm],
+                ['like', 'new_values', $searchTerm],
+                ['like', 'ip_address', $searchTerm]
+            ]);
+        }
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query,
+            'pagination' => [
+                'pageSize' => 50,
+            ],
+            'sort' => [
+                'defaultOrder' => ['created_at' => SORT_DESC]
+            ],
+        ]);
+
+        // Dati per i filtri
+        $users = User::find()
+            ->select(['id', 'username'])
+            ->asArray()
+            ->all();
+
+        $actions = [
+            ActivityLog::ACTION_CREATE => 'Creazione',
+            ActivityLog::ACTION_UPDATE => 'Modifica',
+            ActivityLog::ACTION_DELETE => 'Eliminazione'
+        ];
 
         $entities = ActivityLog::find()
             ->select('entity_name')
@@ -66,31 +128,36 @@ class ActivityLogController extends Controller
             ->orderBy('entity_name')
             ->column();
 
-        $actions = [
-            ActivityLog::ACTION_CREATE => 'Creato',
-            ActivityLog::ACTION_UPDATE => 'Modificato',
-            ActivityLog::ACTION_DELETE => 'Eliminato',
-        ];
-
         return $this->render('index', [
-            'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'users' => $users,
-            'entities' => $entities,
+            'users' => ArrayHelper::map($users, 'id', 'username'),
             'actions' => $actions,
+            'entities' => array_combine($entities, $entities),
+            'filters' => [
+                'user_id' => $userId,
+                'action' => $action,
+                'entity_name' => $entityName,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'parent_only' => $parentOnly,
+                'search' => $searchTerm,
+            ],
         ]);
     }
 
     /**
-     * Visualizza i dettagli di un singolo log
-     * @param integer $id
-     * @return mixed
-     * @throws NotFoundHttpException
+     * Visualizza dettaglio di un log
+     * @param int $id
+     * @return string
      */
     public function actionView($id)
     {
-        $model = $this->findModel($id);
-        
+        $model = ActivityLog::findOne($id);
+
+        if (!$model) {
+            throw new NotFoundHttpException('Log non trovato.');
+        }
+
         return $this->render('view', [
             'model' => $model,
         ]);

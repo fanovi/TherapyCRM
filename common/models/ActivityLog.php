@@ -256,4 +256,40 @@ class ActivityLog extends ActiveRecord
             ->asArray()
             ->all();
     }
+
+    /**
+     * Relazione con il log parent
+     * @return \yii\db\ActiveQuery
+     */
+    public function getParentLog()
+    {
+        return $this->hasOne(ActivityLog::class, ['id' => 'parent_log_id']);
+    }
+
+    /**
+     * Relazione con i log child
+     * @return \yii\db\ActiveQuery
+     */
+    public function getChildLogs()
+    {
+        return $this->hasMany(ActivityLog::class, ['parent_log_id' => 'id']);
+    }
+
+    /**
+     * Restituisce una descrizione completa del log, inclusi i log correlati
+     * @return string
+     */
+    public function getFullDescription()
+    {
+        $description = $this->getActionDescription();
+        
+        if ($this->childLogs) {
+            $description .= "\nOperazioni correlate:";
+            foreach ($this->childLogs as $childLog) {
+                $description .= "\n- " . $childLog->getActionDescription();
+            }
+        }
+        
+        return $description;
+    }
 } 

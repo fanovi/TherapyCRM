@@ -147,4 +147,20 @@ class AuthItem extends ActiveRecord
             ->where(['type' => self::TYPE_PERMISSION])
             ->all();
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return $this->type == self::TYPE_ROLE ? 'Ruolo' : 'Permesso';
+                },
+            ],
+        ];
+    }
 } 

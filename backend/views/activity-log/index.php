@@ -6,6 +6,8 @@ use yii\widgets\Pjax;
 use yii\helpers\Url;
 use common\models\ActivityLog;
 use common\helpers\ActivityLogHelper;
+use yii\widgets\ActiveForm;
+use kartik\date\DatePicker;
 
 /* @var $this yii\web\View */
 /* @var $searchModel backend\controllers\ActivityLogSearch */
@@ -13,8 +15,9 @@ use common\helpers\ActivityLogHelper;
 /* @var $users array */
 /* @var $entities array */
 /* @var $actions array */
+/* @var $filters array */
 
-$this->title = 'Log delle Attività';
+$this->title = 'Log Attività';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="activity-log-index">
@@ -51,143 +54,119 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-body">
+            <?php $form = ActiveForm::begin(['method' => 'get']); ?>
+            <div class="row">
+                <div class="col-md-3">
+                    <?= Html::dropDownList('user_id', $filters['user_id'], $users, [
+                        'class' => 'form-control',
+                        'prompt' => 'Tutti gli utenti'
+                    ]) ?>
+                </div>
+                <div class="col-md-3">
+                    <?= Html::dropDownList('action', $filters['action'], $actions, [
+                        'class' => 'form-control',
+                        'prompt' => 'Tutte le azioni'
+                    ]) ?>
+                </div>
+                <div class="col-md-3">
+                    <?= Html::dropDownList('entity_name', $filters['entity_name'], $entities, [
+                        'class' => 'form-control',
+                        'prompt' => 'Tutte le entità'
+                    ]) ?>
+                </div>
+                <div class="col-md-3">
+                    <?= Html::textInput('search', $filters['search'], [
+                        'class' => 'form-control',
+                        'placeholder' => 'Cerca...'
+                    ]) ?>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <?= DatePicker::widget([
+                        'name' => 'date_from',
+                        'value' => $filters['date_from'],
+                        'options' => ['placeholder' => 'Data da'],
+                        'pluginOptions' => [
+                            'autoclose' => true,
+                            'format' => 'yyyy-mm-dd'
+                        ]
+                    ]); ?>
+                </div>
+                <div class="col-md-3">
+                    <?= DatePicker::widget([
+                        'name' => 'date_to',
+                        'value' => $filters['date_to'],
+                        'options' => ['placeholder' => 'Data a'],
+                        'pluginOptions' => [
+                            'autoclose' => true,
+                            'format' => 'yyyy-mm-dd'
+                        ]
+                    ]); ?>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check">
+                        <?= Html::checkbox('parent_only', $filters['parent_only'], [
+                            'class' => 'form-check-input',
+                            'id' => 'parent-only'
+                        ]) ?>
+                        <?= Html::label('Solo log principali', 'parent-only', ['class' => 'form-check-label']) ?>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <?= Html::submitButton('Filtra', ['class' => 'btn btn-primary']) ?>
+                    <?= Html::a('Reset', ['index'], ['class' => 'btn btn-outline-secondary']) ?>
+                </div>
+            </div>
+            <?php ActiveForm::end(); ?>
+        </div>
+    </div>
+
     <?php Pjax::begin(); ?>
 
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'filterModel' => $searchModel,
         'columns' => [
             [
-                'attribute' => 'id',
-                'options' => ['width' => '80'],
-            ],
-            [
                 'attribute' => 'created_at',
-                'label' => 'Data/Ora',
-                'format' => 'datetime',
-                'options' => ['width' => '160'],
-                'filter' => false,
+                'format' => ['datetime', 'php:d/m/Y H:i:s'],
+                'headerOptions' => ['style' => 'width: 150px;'],
             ],
             [
                 'attribute' => 'user_id',
+                'value' => 'user.username',
                 'label' => 'Utente',
-                'value' => function ($model) {
-                    return $model->getUserName();
-                },
-                'filter' => Html::activeDropDownList($searchModel, 'user_id', ['' => 'Tutti'] + $users, ['class' => 'form-control']),
-                'options' => ['width' => '150'],
+                'headerOptions' => ['style' => 'width: 150px;'],
             ],
             [
                 'attribute' => 'action',
-                'label' => 'Azione',
-                'value' => function ($model) {
-                    $class = '';
-                    switch ($model->action) {
-                        case ActivityLog::ACTION_CREATE:
-                            $class = 'badge badge-success';
-                            break;
-                        case ActivityLog::ACTION_UPDATE:
-                            $class = 'badge badge-warning';
-                            break;
-                        case ActivityLog::ACTION_DELETE:
-                            $class = 'badge badge-danger';
-                            break;
-                    }
-                    return Html::tag('span', $model->getActionDescription(), ['class' => $class]);
+                'value' => function ($model) use ($actions) {
+                    return $actions[$model->action] ?? $model->action;
                 },
-                'format' => 'raw',
-                'filter' => Html::activeDropDownList($searchModel, 'action', ['' => 'Tutte'] + $actions, ['class' => 'form-control']),
-                'options' => ['width' => '100'],
+                'headerOptions' => ['style' => 'width: 100px;'],
             ],
-            [
-                'attribute' => 'entity_name',
-                'label' => 'Entità',
-                'value' => function ($model) {
-                    return ActivityLogHelper::getEntityLabel($model->entity_name);
-                },
-                'filter' => Html::activeDropDownList($searchModel, 'entity_name', ['' => 'Tutte'] + array_combine($entities, $entities), ['class' => 'form-control']),
-                'options' => ['width' => '120'],
-            ],
+            'entity_name',
             [
                 'attribute' => 'entity_id',
-                'label' => 'ID',
-                'options' => ['width' => '80'],
+                'headerOptions' => ['style' => 'width: 80px;'],
             ],
             [
-                'label' => 'Modifiche',
+                'attribute' => 'parent_log_id',
                 'value' => function ($model) {
-                    if ($model->action === ActivityLog::ACTION_UPDATE) {
-                        $changes = ActivityLogHelper::formatChanges(
-                            $model->getOldValuesArray(),
-                            $model->getNewValuesArray()
-                        );
-                        return $changes ? Html::tag('small', implode('<br>', array_slice($changes, 0, 3)), ['class' => 'text-muted']) : '-';
-                    } elseif ($model->action === ActivityLog::ACTION_CREATE) {
-                        $newValues = $model->getNewValuesArray();
-                        if (empty($newValues)) {
-                            return '-';
-                        }
-                        $summary = [];
-                        foreach (array_slice($newValues, 0, 2) as $key => $value) {
-                            $summary[] = "<strong>{$key}:</strong> " . Html::encode(is_array($value) ? json_encode($value) : $value);
-                        }
-                        return Html::tag('small', implode('<br>', $summary), ['class' => 'text-muted']);
-                    } else {
-                        return '-';
-                    }
+                    return $model->parent_log_id ? 
+                        Html::a('Log Padre #' . $model->parent_log_id, ['view', 'id' => $model->parent_log_id]) : 
+                        null;
                 },
                 'format' => 'raw',
-                'options' => ['width' => '300'],
-            ],
-            [
-                'attribute' => 'ip_address',
-                'label' => 'IP',
-                'options' => ['width' => '120'],
-            ],
-            [
-                'attribute' => 'date_from',
-                'label' => 'Da',
-                'filter' => Html::activeInput('date', $searchModel, 'date_from', ['class' => 'form-control']),
-                'format' => 'raw',
-                'value' => '',
-                'visible' => false,
-            ],
-            [
-                'attribute' => 'date_to',
-                'label' => 'A',
-                'filter' => Html::activeInput('date', $searchModel, 'date_to', ['class' => 'form-control']),
-                'format' => 'raw',
-                'value' => '',
-                'visible' => false,
+                'headerOptions' => ['style' => 'width: 120px;'],
             ],
             [
                 'class' => 'yii\grid\ActionColumn',
-                'template' => '{view} {entity} {delete}',
-                'buttons' => [
-                    'view' => function ($url, $model, $key) {
-                        return Html::a('<i class="fas fa-eye"></i>', $url, [
-                            'title' => 'Visualizza',
-                            'class' => 'btn btn-sm btn-outline-primary',
-                        ]);
-                    },
-                    'entity' => function ($url, $model, $key) {
-                        return Html::a('<i class="fas fa-list"></i>', ['entity', 'entity' => $model->entity_name, 'id' => $model->entity_id], [
-                            'title' => 'Vedi tutti i log per questa entità',
-                            'class' => 'btn btn-sm btn-outline-info',
-                        ]);
-                    },
-                    'delete' => function ($url, $model, $key) {
-                        return Html::a('<i class="fas fa-trash"></i>', $url, [
-                            'title' => 'Elimina',
-                            'class' => 'btn btn-sm btn-outline-danger',
-                            'data' => [
-                                'confirm' => 'Eliminare questo log?',
-                                'method' => 'post',
-                            ],
-                        ]);
-                    },
-                ],
-                'options' => ['width' => '120'],
+                'template' => '{view}',
+                'headerOptions' => ['style' => 'width: 50px;'],
             ],
         ],
     ]); ?>
@@ -264,4 +243,8 @@ $(document).ready(function() {
 .btn-group .btn {
     margin-right: 5px;
 }
+
+.activity-log-index .card { background-color: #f8f9fa; }
+.activity-log-index .form-control { margin-bottom: 10px; }
+.activity-log-index .btn { margin-right: 5px; }
 </style> 

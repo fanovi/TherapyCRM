@@ -60,6 +60,13 @@ class Notification extends ActiveRecord
                     return date('Y-m-d H:i:s');
                 }
             ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'read_at', 'viewed_at', 'sent_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Notifica';
+                },
+            ],
         ];
     }
 

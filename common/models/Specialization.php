@@ -4,6 +4,7 @@ namespace common\models;
 
 use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
 /**
  * Specialization model
@@ -70,5 +71,24 @@ class Specialization extends ActiveRecord
             ->select(['name', 'id'])
             ->indexBy('id')
             ->column();
+    }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Specializzazione';
+                },
+            ],
+        ];
     }
 } 

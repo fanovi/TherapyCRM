@@ -21,6 +21,9 @@ use common\models\ActivityLog;
  *         [
  *             'class' => ActivityLogBehavior::class,
  *             'excludedAttributes' => ['updated_at', 'password_hash'],
+ *             'parentLogId' => function($model) {
+ *                 return $model->parent_log_id;
+ *             },
  *         ],
  *     ];
  * }
@@ -42,6 +45,11 @@ class ActivityLogBehavior extends Behavior
      * @var callable|null Callback per personalizzare il nome dell'entità
      */
     public $entityNameCallback;
+
+    /**
+     * @var callable|null Callback per ottenere l'ID del log parent
+     */
+    public $parentLogId;
 
     /**
      * @var array Valori precedenti del record per il confronto
@@ -151,6 +159,7 @@ class ActivityLogBehavior extends Behavior
      * @param string $action
      * @param array|null $oldValues
      * @param array|null $newValues
+     * @return ActivityLog|null Il log creato o null in caso di errore
      */
     protected function saveLog($action, $oldValues = null, $newValues = null)
     {
@@ -159,7 +168,7 @@ class ActivityLogBehavior extends Behavior
             $userId = $this->getCurrentUserId();
             if (!$userId) {
                 Yii::info('ActivityLog: Impossibile determinare user_id per il logging', __METHOD__);
-                return;
+                return null;
             }
 
             // Determina il nome dell'entità
@@ -169,6 +178,12 @@ class ActivityLogBehavior extends Behavior
             $entityId = $this->owner->getPrimaryKey();
             if (is_array($entityId)) {
                 $entityId = implode('-', $entityId);
+            }
+
+            // Ottieni l'ID del log parent se configurato
+            $parentId = null;
+            if ($this->parentLogId instanceof \Closure) {
+                $parentId = call_user_func($this->parentLogId, $this->owner);
             }
 
             // Crea il record di log
@@ -181,17 +196,22 @@ class ActivityLogBehavior extends Behavior
                 'new_values' => $newValues ? Json::encode($newValues) : null,
                 'ip_address' => $this->getClientIpAddress(),
                 'user_agent' => $this->getUserAgent(),
+                'parent_log_id' => $parentId,
             ]);
 
             if (!$log->save()) {
                 Yii::error('ActivityLog: Errore nel salvataggio del log: ' . Json::encode($log->getErrors()), __METHOD__);
-            } else {
-                // Invia notifiche per azioni critiche
-                $this->sendCriticalActionNotification($log);
+                return null;
             }
+
+            // Invia notifiche per azioni critiche
+            $this->sendCriticalActionNotification($log);
+
+            return $log;
 
         } catch (\Exception $e) {
             Yii::error('ActivityLog: Eccezione durante il salvataggio: ' . $e->getMessage(), __METHOD__);
+            return null;
         }
     }
 
@@ -339,8 +359,8 @@ class ActivityLogBehavior extends Behavior
             $criticalEntities = Yii::$app->params['activityLog']['criticalEntities'] ?? [];
             $criticalActions = Yii::$app->params['activityLog']['criticalActions'] ?? [];
             $notificationEmails = Yii::$app->params['activityLog']['notificationEmails'] ?? [];
-
-            if (empty($notificationEmails)) {
+            //TODO: rimuovere true
+            if (true ||empty($notificationEmails)) {
                 return;
             }
 

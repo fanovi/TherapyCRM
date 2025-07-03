@@ -39,7 +39,16 @@ class CoordinatorGroup extends ActiveRecord
         return [
             [
                 'class' => TimestampBehavior::class,
-                'value' => new \yii\db\Expression('NOW()'),
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
+            ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at', 'updated_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Gruppo Coordinatori';
+                },
             ],
         ];
     }

@@ -37,18 +37,12 @@ class GroupTherapist extends ActiveRecord
     public function behaviors()
     {
         return [
-            [
-                'class' => TimestampBehavior::class,
-                'value' => function() {
-                    return date('Y-m-d H:i:s');
-                },
-            ],
              // Activity Logging
              [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => [
-                    'created_at',
-                    'updated_at',
+                    'assigned_from',  // Data gestita manualmente
+                    'assigned_to',    // Data gestita manualmente
                 ],
                 'entityNameCallback' => function($model) {
                     return 'Gruppo Terapista';

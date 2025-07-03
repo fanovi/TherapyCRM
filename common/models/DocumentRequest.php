@@ -56,6 +56,13 @@ class DocumentRequest extends ActiveRecord
                     return (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
                 },
             ],
+            [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => ['created_at'],
+                'entityNameCallback' => function($model) {
+                    return 'Richiesta Documento';
+                },
+            ],
         ];
     }
 

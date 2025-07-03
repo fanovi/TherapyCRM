@@ -8,6 +8,7 @@ use yii\console\ExitCode;
 use yii\helpers\Console;
 use common\models\ActivityLog;
 use common\helpers\ActivityLogHelper;
+use common\models\User;
 
 /**
  * Controller console per la gestione dei log delle attività
@@ -150,12 +151,14 @@ class ActivityLogController extends Controller
             ->groupBy('user_id')
             ->orderBy('count DESC')
             ->limit(10)
+            ->asArray()
             ->all();
 
-        foreach ($userStats as $log) {
-            $username = $log->user ? $log->user->username : 'Utente #' . $log->user_id;
-            $percentage = round(($log->count / $total) * 100, 1);
-            $this->stdout("  {$username}: {$log->count} ({$percentage}%)\n", Console::FG_GREY);
+        foreach ($userStats as $stat) {
+            $user = User::findOne($stat['user_id']);
+            $username = $user ? $user->username : 'Utente #' . $stat['user_id'];
+            $percentage = round(($stat['count'] / $total) * 100, 1);
+            $this->stdout("  {$username}: {$stat['count']} ({$percentage}%)\n", Console::FG_GREY);
         }
 
         return ExitCode::OK;
@@ -288,8 +291,8 @@ class ActivityLogController extends Controller
 
         // Verifica utenti inesistenti
         $logsWithMissingUsers = ActivityLog::find()
-            ->leftJoin('{{%user}}', '{{%activity_log}}.user_id = {{%user}}.id')
-            ->where(['IS', '{{%user}}.id', null])
+            ->leftJoin('{{%users}}', '{{%activity_log}}.user_id = {{%users}}.id')
+            ->where(['IS', '{{%users}}.id', null])
             ->all();
 
         foreach ($logsWithMissingUsers as $log) {
