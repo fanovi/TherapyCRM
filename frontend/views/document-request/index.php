@@ -303,20 +303,25 @@ $this->params['breadcrumbs'][] = $this->title;
                                 );
                             },
                             'update-status' => function ($url, $model, $key) {
-                                // Se la richiesta è già stata consegnata, nessuno può più modificarla
-                                if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                                    return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Consegnato - Non modificabile">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </span>';
-                                }
+                                // LOGICA SEMPLIFICATA:
+                                // Ottieni il ruolo specifico dell'utente
+                                $auth = Yii::$app->authManager;
+                                $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
+                                $isAdmin = in_array('admin', $userRoles);
+                                $isManager = in_array('manager', $userRoles);
                                 
-                                // Determina quali stati sono disponibili per l'utente corrente
-                                $availableStatuses = [];
-                                
-                                // Admin può impostare stati 1, 2, 3 (Inviata, Presa in carico, Stampato)
-                                if (Yii::$app->user->can('manage_documents')) {
+                                if ($isAdmin) {
+                                    // === ADMIN ===
+                                    if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
+                                        return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Consegnato - Non modificabile">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                        </span>';
+                                    }
+                                    
+                                    // Stati disponibili per admin (escluso quello corrente)
+                                    $availableStatuses = [];
                                     if ($model->status != RequestStatus::STATUS_INVIATA) {
                                         $availableStatuses[RequestStatus::STATUS_INVIATA] = 'Inviata';
                                     }
@@ -326,32 +331,69 @@ $this->params['breadcrumbs'][] = $this->title;
                                     if ($model->status != RequestStatus::STATUS_STAMPATO) {
                                         $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
                                     }
-                                }
-                                // Manager può impostare solo stato 4 (Consegnato) - solo se NON è admin
-                                elseif (Yii::$app->user->can('view_documents')) {
-                                    if ($model->status != RequestStatus::STATUS_CONSEGNATO) {
-                                        $availableStatuses[RequestStatus::STATUS_CONSEGNATO] = 'Consegnato';
+                                    
+                                    return Html::button(
+                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>',
+                                        [
+                                            'title' => 'Cambia Stato',
+                                            'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors',
+                                            'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
+                                        ]
+                                    );
+                                    
+                                } elseif ($isManager) {
+                                    // === MANAGER ===
+                                    if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
+                                        // Trova stato precedente
+                                        $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
+                                            ->where(['document_request_id' => $model->id])
+                                            ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
+                                            ->orderBy(['created_at' => SORT_DESC])
+                                            ->one();
+                                            
+                                        $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id ? 
+                                            $previousStatusHistory->from_status_id : RequestStatus::STATUS_STAMPATO;
+                                            
+                                        $previousStatusLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
+                                        
+                                        // Mostra opzione per tornare allo stato precedente
+                                        $availableStatuses = [$previousStatus => 'Torna a: ' . $previousStatusLabel];
+                                        
+                                        return Html::button(
+                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                                            </svg>',
+                                            [
+                                                'title' => 'Torna a: ' . $previousStatusLabel,
+                                                'class' => 'inline-flex items-center p-1.5 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors',
+                                                'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
+                                            ]
+                                        );
+                                    } else {
+                                        // Mostra opzione per consegnare
+                                        $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Consegnato'];
+                                        
+                                        return Html::button(
+                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>',
+                                            [
+                                                'title' => 'Segna come Consegnato',
+                                                'class' => 'inline-flex items-center p-1.5 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors',
+                                                'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
+                                            ]
+                                        );
                                     }
                                 }
                                 
-                                if (empty($availableStatuses)) {
-                                    return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                        </svg>
-                                    </span>';
-                                }
-                                
-                                return Html::button(
-                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                    </svg>',
-                                    [
-                                        'title' => 'Cambia Stato',
-                                        'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20',
-                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
-                                    ]
-                                );
+                                // Nessun permesso
+                                return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                </span>';
                             },
                         ],
                     ],
@@ -649,5 +691,6 @@ $this->registerJs("
             }
         }));
     };
+
 ", \yii\web\View::POS_END, 'document-request-status-modal');
 ?> 

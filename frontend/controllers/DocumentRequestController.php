@@ -177,13 +177,19 @@ class DocumentRequestController extends BaseController
      */
     protected function canUpdateStatus($model, $newStatus)
     {
-        // Se la richiesta è già stata consegnata, nessuno può più modificarla
-        if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-            return false;
-        }
+        // Ottieni il ruolo specifico dell'utente
+        $auth = Yii::$app->authManager;
+        $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
+        $isAdmin = in_array('admin', $userRoles);
+        $isManager = in_array('manager', $userRoles);
         
-        // Admin può impostare stati 1, 2, 3 (Inviata, Presa in carico, Stampato)
-        if (Yii::$app->user->can('manage_documents')) {
+        if ($isAdmin) {
+            // === ADMIN ===
+            // Admin non può modificare documenti già consegnati
+            if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
+                return false;
+            }
+            
             return in_array($newStatus, [
                 RequestStatus::STATUS_INVIATA,
                 RequestStatus::STATUS_PRESA_IN_CARICO,
@@ -191,12 +197,41 @@ class DocumentRequestController extends BaseController
             ]);
         }
 
-        // Manager può impostare solo stato 4 (Consegnato)
-        if (Yii::$app->user->can('view_documents')) {
-            return $newStatus == RequestStatus::STATUS_CONSEGNATO;
+        if ($isManager) {
+            // === MANAGER ===
+            if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
+                // Se è già consegnato, il manager può solo tornare allo stato precedente
+                $previousStatus = $this->getPreviousStatus($model);
+                return $newStatus == $previousStatus;
+            } else {
+                // Se non è ancora consegnato, il manager può solo impostare come consegnato
+                return $newStatus == RequestStatus::STATUS_CONSEGNATO;
+            }
         }
 
         return false;
+    }
+    
+    /**
+     * Ottiene lo stato precedente di una richiesta dalla history
+     * @param DocumentRequest $model
+     * @return int|null
+     */
+    protected function getPreviousStatus($model)
+    {
+        // Cerca l'ultimo cambio di stato prima di "Consegnato" dalla history
+        $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
+            ->where(['document_request_id' => $model->id])
+            ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->one();
+            
+        if ($previousStatusHistory && $previousStatusHistory->from_status_id) {
+            return $previousStatusHistory->from_status_id;
+        }
+        
+        // Fallback: se non troviamo history, torniamo a "Stampato" come default
+        return RequestStatus::STATUS_STAMPATO;
     }
 
     /**

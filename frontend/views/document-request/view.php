@@ -54,13 +54,27 @@ $this->params['breadcrumbs'][] = $this->title;
         ) ?>
         
         <?php
-        // Determina quali stati sono disponibili per l'utente corrente
-        $availableStatuses = [];
+        // LOGICA SEMPLIFICATA:
+        // Ottieni il ruolo specifico dell'utente
+        $auth = Yii::$app->authManager;
+        $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
+        $isAdmin = in_array('admin', $userRoles);
+        $isManager = in_array('manager', $userRoles);
         
-        // Se la richiesta è già stata consegnata, nessuno può più modificarla
-        if ($model->status != RequestStatus::STATUS_CONSEGNATO) {
-            // Admin può impostare stati 1, 2, 3 (Inviata, Presa in carico, Stampato)
-            if (Yii::$app->user->can('manage_documents')) {
+        if ($isAdmin):
+            // === ADMIN ===
+            if ($model->status == RequestStatus::STATUS_CONSEGNATO):
+        ?>
+                <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-lg">
+                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Richiesta Consegnata - Non Modificabile
+                </div>
+        <?php
+            else:
+                // Stati disponibili per admin (escluso quello corrente)
+                $availableStatuses = [];
                 if ($model->status != RequestStatus::STATUS_INVIATA) {
                     $availableStatuses[RequestStatus::STATUS_INVIATA] = 'Inviata';
                 }
@@ -70,32 +84,57 @@ $this->params['breadcrumbs'][] = $this->title;
                 if ($model->status != RequestStatus::STATUS_STAMPATO) {
                     $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
                 }
-            }
-            // Manager può impostare solo stato 4 (Consegnato) - solo se NON è admin
-            elseif (Yii::$app->user->can('view_documents')) {
-                if ($model->status != RequestStatus::STATUS_CONSEGNATO) {
-                    $availableStatuses[RequestStatus::STATUS_CONSEGNATO] = 'Consegnato';
-                }
-            }
-        }
-        
-        if (!empty($availableStatuses)):
         ?>
-            <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
-                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                Cambia Stato
-            </button>
-        <?php elseif ($model->status == RequestStatus::STATUS_CONSEGNATO): ?>
-            <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-lg">
-                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Richiesta Consegnata - Non Modificabile
-            </div>
-        <?php endif; ?>
+                <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Cambia Stato
+                </button>
+        <?php
+            endif;
+        elseif ($isManager):
+            // === MANAGER ===
+            if ($model->status == RequestStatus::STATUS_CONSEGNATO):
+                // Trova stato precedente
+                $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
+                    ->where(['document_request_id' => $model->id])
+                    ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
+                    ->orderBy(['created_at' => SORT_DESC])
+                    ->one();
+                    
+                $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id ? 
+                    $previousStatusHistory->from_status_id : RequestStatus::STATUS_STAMPATO;
+                    
+                $previousStatusLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
+                
+                // Mostra opzione per tornare allo stato precedente
+                $availableStatuses = [$previousStatus => 'Torna a: ' . $previousStatusLabel];
+        ?>
+                <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 border border-transparent rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                    Torna a: <?= $previousStatusLabel ?>
+                </button>
+        <?php
+            else:
+                // Mostra opzione per consegnare
+                $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Consegnato'];
+        ?>
+                <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-500 border border-transparent rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Segna come Consegnato
+                </button>
+        <?php
+            endif;
+        endif;
+        ?>
     </div>
 
     <!-- Status Badge -->
@@ -595,5 +634,6 @@ $this->registerJs("
             }
         }));
     };
+
 ", \yii\web\View::POS_END, 'document-request-status-modal');
 ?> 
