@@ -155,7 +155,33 @@ $this->params['breadcrumbs'][] = $this->title;
                     'class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400',
                 ],
                 'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
-                'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
+                'rowOptions' => function ($model, $key, $index, $grid) {
+                    $statusRowColors = [
+                        RequestStatus::STATUS_INVIATA => [
+                            'class' => 'border-b dark:border-gray-700',
+                            'style' => 'background-color: #fef2f2; transition: background-color 0.2s;'
+                        ],
+                        RequestStatus::STATUS_PRESA_IN_CARICO => [
+                            'class' => 'border-b dark:border-gray-700',
+                            'style' => 'background-color: #fefce8; transition: background-color 0.2s;'
+                        ],
+                        RequestStatus::STATUS_STAMPATO => [
+                            'class' => 'border-b dark:border-gray-700',
+                            'style' => 'background-color: #eff6ff; transition: background-color 0.2s;'
+                        ],
+                        RequestStatus::STATUS_CONSEGNATO => [
+                            'class' => 'border-b dark:border-gray-700',
+                            'style' => 'background-color: #f0fdf4; transition: background-color 0.2s;'
+                        ],
+                    ];
+                    
+                    $defaultOptions = [
+                        'class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600',
+                        'style' => ''
+                    ];
+                    
+                    return $statusRowColors[$model->status] ?? $defaultOptions;
+                },
                 'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                 'summary' => '<div class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">Visualizzando <b>{begin}-{end}</b> di <b>{totalCount}</b> richieste.</div>',
                 'summaryOptions' => [
@@ -334,6 +360,52 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 </div>
+
+<!-- Status Row Colors CSS -->
+<style>
+/* Hover effects for status rows */
+tr[style*="background-color: #fef2f2"]:hover {
+    background-color: #fee2e2 !important;
+}
+tr[style*="background-color: #fefce8"]:hover {
+    background-color: #fef3c7 !important;
+}
+tr[style*="background-color: #eff6ff"]:hover {
+    background-color: #dbeafe !important;
+}
+tr[style*="background-color: #f0fdf4"]:hover {
+    background-color: #dcfce7 !important;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    tr[style*="background-color: #fef2f2"] {
+        background-color: rgba(127, 29, 29, 0.1) !important;
+    }
+    tr[style*="background-color: #fefce8"] {
+        background-color: rgba(133, 77, 14, 0.1) !important;
+    }
+    tr[style*="background-color: #eff6ff"] {
+        background-color: rgba(30, 58, 138, 0.1) !important;
+    }
+    tr[style*="background-color: #f0fdf4"] {
+        background-color: rgba(20, 83, 45, 0.1) !important;
+    }
+    
+    tr[style*="background-color: #fef2f2"]:hover {
+        background-color: rgba(127, 29, 29, 0.2) !important;
+    }
+    tr[style*="background-color: #fefce8"]:hover {
+        background-color: rgba(133, 77, 14, 0.2) !important;
+    }
+    tr[style*="background-color: #eff6ff"]:hover {
+        background-color: rgba(30, 58, 138, 0.2) !important;
+    }
+    tr[style*="background-color: #f0fdf4"]:hover {
+        background-color: rgba(20, 83, 45, 0.2) !important;
+    }
+}
+</style>
 
 <!-- BEGIN STATUS UPDATE MODAL -->
 <div
