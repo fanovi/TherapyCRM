@@ -568,6 +568,56 @@ use yii\helpers\Url;
                     <?php endif; ?>
                     <!-- Menu Item Patients -->
 
+                    <!-- Menu Item Document Requests -->
+                    <?php if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/document-request/index']) ?>"
+                            @click="selected = (selected === 'DocumentRequests' ? '':'DocumentRequests')"
+                            class="menu-item group"
+                            :class="(selected === 'DocumentRequests') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'DocumentRequests') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
+                                    fill="" />
+                                <path
+                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
+                                    fill="" />
+                                <path
+                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Richieste Documenti
+                                <?php
+                                // Mostra badge con richieste non lette solo se l'utente può gestirle
+                                if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')) {
+                                    $unreadCount = \common\models\DocumentRequest::find()
+                                        ->where(['status' => \common\models\RequestStatus::STATUS_INVIATA])
+                                        ->count();
+                                    
+                                    if ($unreadCount > 0) {
+                                        echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">' . $unreadCount . '</span>';
+                                    }
+                                }
+                                ?>
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Document Requests -->
+
                     
                 </ul>
             </div>
