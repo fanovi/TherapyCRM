@@ -7,7 +7,6 @@ use yii\helpers\Url;
 use common\models\ActivityLog;
 use common\helpers\ActivityLogHelper;
 use yii\widgets\ActiveForm;
-use kartik\date\DatePicker;
 
 /* @var $this yii\web\View */
 /* @var $searchModel backend\controllers\ActivityLogSearch */
@@ -22,188 +21,169 @@ $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="activity-log-index">
 
-    <h1><?= Html::encode($this->title) ?></h1>
+    <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6"><?= Html::encode($this->title) ?></h1>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <p>
-                <?= Html::a('Pulizia Log', ['cleanup'], [
-                    'class' => 'btn btn-warning',
-                    'data' => [
-                        'confirm' => 'Eliminare i log più vecchi di 90 giorni?',
-                        'method' => 'post',
-                    ],
-                ]) ?>
-                
-                <?= Html::a('Esporta Excel', ['export', 'ActivityLogSearch' => Yii::$app->request->queryParams['ActivityLogSearch'] ?? []], [
-                    'class' => 'btn btn-success',
-                    'target' => '_blank',
-                ]) ?>
-                
-                <?= Html::a('Statistiche', ['stats'], [
-                    'class' => 'btn btn-info',
-                ]) ?>
-            </p>
+    <div class="flex flex-wrap gap-4 mb-6">
+        <div class="flex-1">
+            <?= Html::a('Pulizia Log', ['cleanup'], [
+                'class' => 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500',
+                'data' => [
+                    'confirm' => 'Eliminare i log più vecchi di 90 giorni?',
+                    'method' => 'post',
+                ],
+            ]) ?>
+            
+            <?= Html::a('Esporta Excel', ['export', 'ActivityLogSearch' => Yii::$app->request->queryParams['ActivityLogSearch'] ?? []], [
+                'class' => 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ml-2',
+                'target' => '_blank',
+            ]) ?>
+            
+            <?= Html::a('Statistiche', ['stats'], [
+                'class' => 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ml-2',
+            ]) ?>
         </div>
-        <div class="col-md-6 text-right">
-            <div class="btn-group">
-                <?= Html::a('Oggi', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-d'), 'ActivityLogSearch[date_to]' => date('Y-m-d')], ['class' => 'btn btn-outline-primary btn-sm']) ?>
-                <?= Html::a('Questa Settimana', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-d', strtotime('-7 days')), 'ActivityLogSearch[date_to]' => date('Y-m-d')], ['class' => 'btn btn-outline-primary btn-sm']) ?>
-                <?= Html::a('Questo Mese', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-01'), 'ActivityLogSearch[date_to]' => date('Y-m-d')], ['class' => 'btn btn-outline-primary btn-sm']) ?>
-            </div>
+        <div class="flex gap-2">
+            <?= Html::a('Oggi', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-d'), 'ActivityLogSearch[date_to]' => date('Y-m-d')], [
+                'class' => 'inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+            ]) ?>
+            <?= Html::a('Questa Settimana', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-d', strtotime('-7 days')), 'ActivityLogSearch[date_to]' => date('Y-m-d')], [
+                'class' => 'inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+            ]) ?>
+            <?= Html::a('Questo Mese', ['index', 'ActivityLogSearch[date_from]' => date('Y-m-01'), 'ActivityLogSearch[date_to]' => date('Y-m-d')], [
+                'class' => 'inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+            ]) ?>
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <?php $form = ActiveForm::begin(['method' => 'get']); ?>
-            <div class="row">
-                <div class="col-md-3">
-                    <?= Html::dropDownList('user_id', $filters['user_id'], $users, [
-                        'class' => 'form-control',
-                        'prompt' => 'Tutti gli utenti'
-                    ]) ?>
-                </div>
-                <div class="col-md-3">
-                    <?= Html::dropDownList('action', $filters['action'], $actions, [
-                        'class' => 'form-control',
-                        'prompt' => 'Tutte le azioni'
-                    ]) ?>
-                </div>
-                <div class="col-md-3">
-                    <?= Html::dropDownList('entity_name', $filters['entity_name'], $entities, [
-                        'class' => 'form-control',
-                        'prompt' => 'Tutte le entità'
-                    ]) ?>
-                </div>
-                <div class="col-md-3">
-                    <?= Html::textInput('search', $filters['search'], [
-                        'class' => 'form-control',
-                        'placeholder' => 'Cerca...'
-                    ]) ?>
-                </div>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <?php $form = ActiveForm::begin(['method' => 'get']); ?>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <?= Html::dropDownList('user_id', $filters['user_id'], $users, [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'prompt' => 'Tutti gli utenti'
+                ]) ?>
             </div>
-
-            <div class="row mt-3">
-                <div class="col-md-3">
-                    <?= DatePicker::widget([
-                        'name' => 'date_from',
-                        'value' => $filters['date_from'],
-                        'options' => ['placeholder' => 'Data da'],
-                        'pluginOptions' => [
-                            'autoclose' => true,
-                            'format' => 'yyyy-mm-dd'
-                        ]
-                    ]); ?>
-                </div>
-                <div class="col-md-3">
-                    <?= DatePicker::widget([
-                        'name' => 'date_to',
-                        'value' => $filters['date_to'],
-                        'options' => ['placeholder' => 'Data a'],
-                        'pluginOptions' => [
-                            'autoclose' => true,
-                            'format' => 'yyyy-mm-dd'
-                        ]
-                    ]); ?>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-check">
-                        <?= Html::checkbox('parent_only', $filters['parent_only'], [
-                            'class' => 'form-check-input',
-                            'id' => 'parent-only'
-                        ]) ?>
-                        <?= Html::label('Solo log principali', 'parent-only', ['class' => 'form-check-label']) ?>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <?= Html::submitButton('Filtra', ['class' => 'btn btn-primary']) ?>
-                    <?= Html::a('Reset', ['index'], ['class' => 'btn btn-outline-secondary']) ?>
-                </div>
+            <div>
+                <?= Html::dropDownList('action', $filters['action'], $actions, [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'prompt' => 'Tutte le azioni'
+                ]) ?>
             </div>
-            <?php ActiveForm::end(); ?>
+            <div>
+                <?= Html::dropDownList('entity_name', $filters['entity_name'], $entities, [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'prompt' => 'Tutte le entità'
+                ]) ?>
+            </div>
+            <div>
+                <?= Html::textInput('search', $filters['search'], [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'placeholder' => 'Cerca...'
+                ]) ?>
+            </div>
         </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+            <div>
+                <?= Html::input('date', 'date_from', $filters['date_from'], [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'placeholder' => 'Data da'
+                ]) ?>
+            </div>
+            <div>
+                <?= Html::input('date', 'date_to', $filters['date_to'], [
+                    'class' => 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300',
+                    'placeholder' => 'Data a'
+                ]) ?>
+            </div>
+            <div class="flex items-center">
+                <label class="inline-flex items-center">
+                    <?= Html::checkbox('parent_only', $filters['parent_only'], [
+                        'class' => 'rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                        'id' => 'parent-only'
+                    ]) ?>
+                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Solo log principali</span>
+                </label>
+            </div>
+            <div class="flex items-center gap-2">
+                <?= Html::submitButton('Filtra', ['class' => 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500']) ?>
+                <?= Html::a('Reset', ['index'], ['class' => 'inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500']) ?>
+            </div>
+        </div>
+        <?php ActiveForm::end(); ?>
     </div>
 
     <?php Pjax::begin(); ?>
 
-    <?= GridView::widget([
-        'dataProvider' => $dataProvider,
-        'columns' => [
-            [
-                'attribute' => 'created_at',
-                'format' => ['datetime', 'php:d/m/Y H:i:s'],
-                'headerOptions' => ['style' => 'width: 150px;'],
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <?= GridView::widget([
+            'dataProvider' => $dataProvider,
+            'tableOptions' => ['class' => 'min-w-full divide-y divide-gray-200 dark:divide-gray-700'],
+            'headerRowOptions' => ['class' => 'bg-gray-50 dark:bg-gray-700'],
+            'rowOptions' => ['class' => 'hover:bg-gray-50 dark:hover:bg-gray-600'],
+            'columns' => [
+                [
+                    'attribute' => 'created_at',
+                    'format' => ['datetime', 'php:d/m/Y H:i:s'],
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'attribute' => 'user_id',
+                    'value' => 'user.username',
+                    'label' => 'Utente',
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'attribute' => 'action',
+                    'value' => function ($model) use ($actions) {
+                        return $actions[$model->action] ?? $model->action;
+                    },
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'attribute' => 'entity_name',
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'attribute' => 'entity_id',
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'attribute' => 'parent_log_id',
+                    'value' => function ($model) {
+                        return $model->parent_log_id ? 
+                            Html::a('Log Padre #' . $model->parent_log_id, ['view', 'id' => $model->parent_log_id], ['class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300']) : 
+                            null;
+                    },
+                    'format' => 'raw',
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
+                [
+                    'class' => 'yii\grid\ActionColumn',
+                    'template' => '{view}',
+                    'buttons' => [
+                        'view' => function ($url, $model) {
+                            return Html::a('<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', $url, [
+                                'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300',
+                                'title' => 'Visualizza',
+                            ]);
+                        },
+                    ],
+                    'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider'],
+                    'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100'],
+                ],
             ],
-            [
-                'attribute' => 'user_id',
-                'value' => 'user.username',
-                'label' => 'Utente',
-                'headerOptions' => ['style' => 'width: 150px;'],
-            ],
-            [
-                'attribute' => 'action',
-                'value' => function ($model) use ($actions) {
-                    return $actions[$model->action] ?? $model->action;
-                },
-                'headerOptions' => ['style' => 'width: 100px;'],
-            ],
-            'entity_name',
-            [
-                'attribute' => 'entity_id',
-                'headerOptions' => ['style' => 'width: 80px;'],
-            ],
-            [
-                'attribute' => 'parent_log_id',
-                'value' => function ($model) {
-                    return $model->parent_log_id ? 
-                        Html::a('Log Padre #' . $model->parent_log_id, ['view', 'id' => $model->parent_log_id]) : 
-                        null;
-                },
-                'format' => 'raw',
-                'headerOptions' => ['style' => 'width: 120px;'],
-            ],
-            [
-                'class' => 'yii\grid\ActionColumn',
-                'template' => '{view}',
-                'headerOptions' => ['style' => 'width: 50px;'],
-            ],
-        ],
-    ]); ?>
+        ]); ?>
+    </div>
 
     <?php Pjax::end(); ?>
-
-    <!-- Filtri date in modal -->
-    <div class="modal fade" id="dateFilterModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Filtro Date</h5>
-                    <button type="button" class="close" data-dismiss="modal">
-                        <span>&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <?= Html::beginForm(['index'], 'get', ['id' => 'date-filter-form']) ?>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label>Data Inizio</label>
-                            <?= Html::input('date', 'ActivityLogSearch[date_from]', $searchModel->date_from, ['class' => 'form-control']) ?>
-                        </div>
-                        <div class="col-md-6">
-                            <label>Data Fine</label>
-                            <?= Html::input('date', 'ActivityLogSearch[date_to]', $searchModel->date_to, ['class' => 'form-control']) ?>
-                        </div>
-                    </div>
-                    <?= Html::endForm() ?>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Chiudi</button>
-                    <button type="button" class="btn btn-primary" onclick="$('#date-filter-form').submit()">Applica Filtro</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
 </div>
 
@@ -213,38 +193,5 @@ $(document).ready(function() {
     setInterval(function() {
         $.pjax.reload({container: '#pjax-grid-activity-log'});
     }, 30000);
-    
-    // Tooltip per i campi troncati
-    $('[data-toggle="tooltip"]').tooltip();
 });
-</script>
-
-<style>
-.badge {
-    font-size: 0.8em;
-}
-
-.activity-log-index .grid-view {
-    overflow-x: auto;
-}
-
-.activity-log-index .grid-view th,
-.activity-log-index .grid-view td {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.activity-log-index .grid-view td:nth-child(7) {
-    white-space: normal;
-    word-wrap: break-word;
-}
-
-.btn-group .btn {
-    margin-right: 5px;
-}
-
-.activity-log-index .card { background-color: #f8f9fa; }
-.activity-log-index .form-control { margin-bottom: 10px; }
-.activity-log-index .btn { margin-right: 5px; }
-</style> 
+</script> 
