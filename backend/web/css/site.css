@@ -14,7 +14,7 @@ main > .container {
 }
 
 .not-set {
-    color: #c55;
+    color: #dc2626;
     font-style: italic;
 }
 
@@ -51,17 +51,11 @@ a.desc:after {
 }
 
 .hint-block {
-    display: block;
-    margin-top: 5px;
-    color: #999;
+    @apply text-sm text-gray-500 mt-1;
 }
 
 .error-summary {
-    color: #a94442;
-    background: #fdf7f7;
-    border-left: 3px solid #eed3d7;
-    padding: 10px 20px;
-    margin: 0 0 15px 0;
+    @apply text-red-700 bg-red-50 border-l-4 border-red-400 p-4 mb-4;
 }
 
 /* align the logout "link" (button in form) of the navbar */
