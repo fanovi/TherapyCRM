@@ -34,6 +34,8 @@ class Therapist extends ActiveRecord
     /**
      * {@inheritdoc}
      */
+    
+    
     public function behaviors()
     {
         return [
@@ -43,7 +45,18 @@ class Therapist extends ActiveRecord
                     return date('Y-m-d H:i:s');
                 },
             ],
-        ];
+             // Activity Logging
+             [
+                'class' => \common\behaviors\ActivityLogBehavior::class,
+                'excludedAttributes' => [
+                    'created_at',
+                    'updated_at',
+                ],
+                'entityNameCallback' => function($model) {
+                    return 'Terapista';
+                },
+            ],
+        ];  
     }
 
     /**
