@@ -381,7 +381,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                             </svg>',
                                             [
                                                 'title' => 'Segna come Consegnato',
-                                                'class' => 'inline-flex items-center p-1.5 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors',
+                                                'class' => 'inline-flex items-center p-1.5 text-brand-600 hover:text-brand-900 hover:bg-brand-50 rounded-lg transition-colors',
                                                 'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
                                             ]
                                         );
