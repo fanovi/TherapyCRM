@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use common\models\LoginForm;
+use common\models\ActivityLog;
 use Yii;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
@@ -62,7 +63,16 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
-        return $this->render('index');
+        // Statistiche per tipo di azione
+        $actionStats = ActivityLog::find()
+            ->select(['action', 'COUNT(*) as count'])
+            ->groupBy('action')
+            ->asArray()
+            ->all();
+
+        return $this->render('index', [
+            'actionStats' => $actionStats
+        ]);
     }
 
     /**
