@@ -15,9 +15,7 @@ use yii\helpers\ArrayHelper;
  * @property string $start_date
  * @property int $duration_days
  * @property string $end_date (generated column)
- * @property string $status
- * @property string|null $diagnosis
- * @property string|null $objectives
+ * @property int $regime_id
  * @property string|null $notes
  * @property int $created_by
  * @property string $created_at
@@ -25,14 +23,11 @@ use yii\helpers\ArrayHelper;
  *
  * @property Patient $patient
  * @property User $createdBy
+ * @property Regime $regime
  * @property PlanTherapy[] $planTherapies
  */
 class TherapeuticPlan extends ActiveRecord
 {
-    const STATUS_DRAFT = 'draft';
-    const STATUS_ACTIVE = 'active';
-    const STATUS_EXPIRED = 'expired';
-    const STATUS_RENEWED = 'renewed';
 
     /**
      * {@inheritdoc}
@@ -70,14 +65,13 @@ class TherapeuticPlan extends ActiveRecord
     public function rules()
     {
         return [
-            [['patient_id', 'start_date', 'duration_days', 'created_by'], 'required'],
-            [['patient_id', 'duration_days', 'created_by'], 'integer'],
+            [['patient_id', 'start_date', 'duration_days', 'regime_id', 'created_by'], 'required'],
+            [['patient_id', 'duration_days', 'regime_id', 'created_by'], 'integer'],
             [['duration_days'], 'integer', 'min' => 1, 'max' => 1095], // Max 3 years
             [['start_date'], 'date', 'format' => 'php:Y-m-d'],
-            [['diagnosis', 'objectives', 'notes'], 'string'],
-            [['status'], 'string', 'max' => 20],
-            [['status'], 'in', 'range' => [self::STATUS_DRAFT, self::STATUS_ACTIVE, self::STATUS_EXPIRED, self::STATUS_RENEWED]],
+            [['notes'], 'string'],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
+            [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
         ];
     }
@@ -93,9 +87,7 @@ class TherapeuticPlan extends ActiveRecord
             'start_date' => 'Data Inizio',
             'duration_days' => 'Durata (giorni)',
             'end_date' => 'Data Fine',
-            'status' => 'Stato',
-            'diagnosis' => 'Diagnosi',
-            'objectives' => 'Obiettivi',
+            'regime_id' => 'Regime',
             'notes' => 'Note',
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
@@ -124,6 +116,16 @@ class TherapeuticPlan extends ActiveRecord
     }
 
     /**
+     * Gets query for [[Regime]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getRegime()
+    {
+        return $this->hasOne(Regime::class, ['id' => 'regime_id']);
+    }
+
+    /**
      * Gets query for [[PlanTherapies]].
      *
      * @return \yii\db\ActiveQuery
@@ -134,50 +136,13 @@ class TherapeuticPlan extends ActiveRecord
     }
 
     /**
-     * Gets status labels
-     *
-     * @return array
-     */
-    public static function getStatusLabels()
-    {
-        return [
-            self::STATUS_DRAFT => 'Bozza',
-            self::STATUS_ACTIVE => 'Attivo',
-            self::STATUS_EXPIRED => 'Scaduto',
-            self::STATUS_RENEWED => 'Rinnovato',
-        ];
-    }
-
-    /**
-     * Gets status label
-     *
-     * @return string
-     */
-    public function getStatusLabel()
-    {
-        $labels = static::getStatusLabels();
-        return $labels[$this->status] ?? $this->status;
-    }
-
-    /**
-     * Checks if plan is active
-     *
-     * @return bool
-     */
-    public function isActive()
-    {
-        return $this->status === self::STATUS_ACTIVE;
-    }
-
-    /**
-     * Checks if plan is expired
+     * Checks if plan is expired based on end date
      *
      * @return bool
      */
     public function isExpired()
     {
-        return $this->status === self::STATUS_EXPIRED || 
-               ($this->end_date && $this->end_date < date('Y-m-d'));
+        return $this->end_date && $this->end_date < date('Y-m-d');
     }
 
     /**
@@ -259,16 +224,13 @@ class TherapeuticPlan extends ActiveRecord
     }
 
     /**
-     * Gets unique health regimes used in this plan
+     * Gets the regime name for this plan
      *
-     * @return array
+     * @return string|null
      */
-    public function getHealthRegimes()
+    public function getRegimeName()
     {
-        return $this->getPlanTherapies()
-            ->select('health_regime')
-            ->distinct()
-            ->column();
+        return $this->regime ? $this->regime->nome : null;
     }
 
     /**
@@ -307,11 +269,10 @@ class TherapeuticPlan extends ActiveRecord
         
         $newPlan = new static();
         $newPlan->patient_id = $this->patient_id;
+        $newPlan->regime_id = $this->regime_id;
         $newPlan->start_date = date('Y-m-d');
         $newPlan->duration_days = $newDurationDays;
-        $newPlan->diagnosis = $this->diagnosis;
-        $newPlan->objectives = $this->objectives;
-        $newPlan->status = self::STATUS_ACTIVE;
+        $newPlan->notes = $this->notes;
         $newPlan->created_by = Yii::$app->user->id;
         
         if ($newPlan->save()) {
@@ -322,48 +283,14 @@ class TherapeuticPlan extends ActiveRecord
                 $newTherapy->treatment_type_id = $oldTherapy->treatment_type_id;
                 $newTherapy->weekly_hours = $oldTherapy->weekly_hours;
                 $newTherapy->is_group = $oldTherapy->is_group;
-                $newTherapy->health_regime = $oldTherapy->health_regime;
+                $newTherapy->setting_id = $oldTherapy->setting_id;
                 $newTherapy->save();
             }
-            
-            // Update old plan status
-            $this->status = self::STATUS_RENEWED;
-            $this->save();
             
             return $newPlan;
         }
         
         return null;
-    }
-
-    /**
-     * Activates the plan
-     *
-     * @return bool
-     */
-    public function activate()
-    {
-        if ($this->status === self::STATUS_DRAFT) {
-            $this->status = self::STATUS_ACTIVE;
-            return $this->save();
-        }
-        
-        return false;
-    }
-
-    /**
-     * Expires the plan
-     *
-     * @return bool
-     */
-    public function expire()
-    {
-        if ($this->status === self::STATUS_ACTIVE) {
-            $this->status = self::STATUS_EXPIRED;
-            return $this->save();
-        }
-        
-        return false;
     }
 
     /**

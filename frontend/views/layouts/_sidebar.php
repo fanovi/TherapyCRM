@@ -568,6 +568,90 @@ use yii\helpers\Url;
                     <?php endif; ?>
                     <!-- Menu Item Patients -->
 
+                    <!-- Menu Item Therapeutic Plans -->
+                    <?php if (Yii::$app->user->can('view_therapeutic_plan')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'TherapeuticPlans' ? '':'TherapeuticPlans')"
+                            class="menu-item group"
+                            :class="(selected === 'TherapeuticPlans') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'TherapeuticPlans') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
+                                    fill="" />
+                                <path
+                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
+                                    fill="" />
+                                <path
+                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
+                                    fill="" />
+                                <path
+                                    d="M9 7C8.44772 7 8 7.44772 8 8C8 8.55228 8.44772 9 9 9H11C11.5523 9 12 8.55228 12 8C12 7.44772 11.5523 7 11 7H9Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Piani Terapeutici
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'TherapeuticPlans') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'TherapeuticPlans') ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/index']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Visualizza Piani
+                                    </a>
+                                </li>
+                                <?php if (Yii::$app->user->can('create_therapeutic_plan')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/create']) ?>"
+                                        class="menu-dropdown-item group">
+                                        Nuovo Piano
+                                    </a>
+                                </li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Therapeutic Plans -->
+
                     <!-- Menu Item Document Requests -->
                     <?php if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')): ?>
                     <li>
