@@ -244,15 +244,7 @@ class TherapeuticPlan extends ActiveRecord
             return '';
         }
         
-        if ($this->duration_days < 30) {
-            return $this->duration_days . ' giorni';
-        } elseif ($this->duration_days < 365) {
-            $months = round($this->duration_days / 30.44, 1);
-            return $months . ' mesi';
-        } else {
-            $years = round($this->duration_days / 365.25, 1);
-            return $years . ' anni';
-        }
+        return $this->duration_days . ' giorni';
     }
 
     /**
