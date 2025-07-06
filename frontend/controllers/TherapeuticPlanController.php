@@ -2,6 +2,7 @@
 
 namespace frontend\controllers;
 
+use common\models\Notification;
 use Yii;
 use common\models\TherapeuticPlan;
 use common\models\Patient;
@@ -136,6 +137,33 @@ class TherapeuticPlanController extends BaseController
 
         if ($this->request->isPost) {
             if ($model->load($this->request->post()) && $model->save()) {
+                // Crea notifica per i manager
+                try {
+                    $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
+                    $patient = $model->patient;
+                    $patientName = $patient->first_name . ' ' . $patient->last_name;
+                    
+                    $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
+                    $htmlMessage .= "Paziente: {$patientName}<br>";
+                    $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
+                    $htmlMessage .= "Regime: {$model->regime->nome}<br>";
+                    $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
+                    $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
+                    
+                    \common\helpers\NotificationHelper::sendToRole(
+                        'manager', // Ruolo come stringa
+                        'Nuovo piano terapeutico',
+                        $htmlMessage,
+                        Yii::$app->user->id,
+                        Notification::TYPE_INTERNAL_COMMUNICATION
+                    );
+                    
+                    Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
+                } catch (\Exception $e) {
+                    // Log dell'errore ma non bloccare il flusso
+                    Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
+                }
+
                 Yii::$app->session->setFlash('success', 'Piano terapeutico creato con successo.');
                 return $this->redirect(['view', 'id' => $model->id]);
             } else {
