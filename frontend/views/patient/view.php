@@ -326,7 +326,7 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
 
     <!-- Debug PDF Download (solo per test) -->
-    <?php if (Yii::$app->user->can('update_patient') && !empty($accountPatients)): ?>
+    <!-- <?php if (Yii::$app->user->can('update_patient') && !empty($accountPatients)): ?>
         <div class="rounded-2xl border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 mt-6">
             <div class="px-5 py-4 sm:px-6 sm:py-5">
                 <h3 class="text-base font-medium text-yellow-800 dark:text-yellow-200">
@@ -344,5 +344,5 @@ $this->params['breadcrumbs'][] = $this->title;
                 </div>
             </div>
         </div>
-    <?php endif; ?>
+    <?php endif; ?> -->
 </div> 

@@ -154,8 +154,8 @@ class TherapeuticPlanController extends BaseController
                         'manager', // Ruolo come stringa
                         'Nuovo piano terapeutico',
                         $htmlMessage,
-                        Yii::$app->user->id,
-                        Notification::TYPE_INTERNAL_COMMUNICATION
+                        Notification::TYPE_INTERNAL_COMMUNICATION, // $type
+                        ['sender_id' => Yii::$app->user->id] // $data come array
                     );
                     
                     Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);

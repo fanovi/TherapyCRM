@@ -101,6 +101,11 @@ class NotificationService extends Component
         // Se non ci sono notifiche programmate, invia subito tramite OneSignal
         if (empty($scheduledFor)) {
             try {
+                // Assicurati che $data sia sempre un array
+                if (!is_array($data)) {
+                    $data = [];
+                }
+                
                 // Aggiungi dati aggiuntivi per identificare le notifiche nel database
                 $pushData = array_merge($data, [
                     'notification_ids' => array_map(function($n) { return $n->id; }, $notifications)
