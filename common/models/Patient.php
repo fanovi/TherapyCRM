@@ -283,8 +283,9 @@ class Patient extends ActiveRecord
      */
     public function getActiveTherapeuticPlan()
     {
-        return $this->hasOne(TherapeuticPlan::class, ['patient_id' => 'id'])
-            ->where(['status' => 'active'])
+        return $this->getTherapeuticPlans()
+            ->where(['>=', 'end_date', date('Y-m-d')])
+            ->orderBy(['created_at' => SORT_DESC])
             ->one();
     }
 

@@ -42,6 +42,9 @@ window.resetPasswordManual = function(userId) {
 $this->title = $model->fullName;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
+
+// Get active therapeutic plan for this patient
+$activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
 ?>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6">
@@ -80,7 +83,14 @@ $this->params['breadcrumbs'][] = $this->title;
         <?php if (Yii::$app->user->can('update_patient')): ?>
             <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>Modifica', 
                 ['update', 'id' => $model->id], [
-                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+            ]) ?>
+        <?php endif; ?>
+        
+        <?php if ($activeTherapeuticPlan && Yii::$app->user->can('view_therapeutic_plan')): ?>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>Piano Terapeutico', 
+                ['/therapeutic-plan/view', 'id' => $activeTherapeuticPlan->id], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
             ]) ?>
         <?php endif; ?>
         
