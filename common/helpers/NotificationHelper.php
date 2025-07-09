@@ -104,6 +104,21 @@ class NotificationHelper
         return static::sendToRole('admin', $title, $message, $type, $data, $skipPush);
     }
 
+     /**
+     * Invia una notifica a tutti gli amministratori
+     *
+     * @param string $title
+     * @param string $message
+     * @param string $type
+     * @param array $data
+     * @param bool $skipPush Se true, non invia notifiche push
+     * @return array
+     */
+    public static function sendToManagers($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
+    {
+        return static::sendToRole('manager', $title, $message, $type, $data, $skipPush);
+    }
+
     /**
      * Invia una notifica programmata utilizzando un template
      *

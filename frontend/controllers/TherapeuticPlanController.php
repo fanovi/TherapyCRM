@@ -13,6 +13,7 @@ use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
+use common\helpers\NotificationHelper;
 
 /**
  * TherapeuticPlanController implements the CRUD actions for TherapeuticPlan model.
@@ -263,14 +264,17 @@ class TherapeuticPlanController extends BaseController
                                     $htmlMessage .= "<br>";
                                 }
                             }
-                            
-                            \common\helpers\NotificationHelper::sendToRole(
-                                'manager',
+
+                           
+                            NotificationHelper::sendToManagers(
                                 'Nuovo piano terapeutico',
                                 $htmlMessage,
-                                Notification::TYPE_INTERNAL_COMMUNICATION,
-                                ['sender_id' => Yii::$app->user->id]
+                                Notification::TYPE_INFO,
+                                [],
+                                true // skipPush
                             );
+                            
+                            
                             
                             Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
                         } catch (\Exception $e) {
