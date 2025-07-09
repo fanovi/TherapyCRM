@@ -3,7 +3,7 @@ import {authService} from '../services/authService';
 // Test data based on your API mock data
 const TEST_CREDENTIALS = {
   PATIENT: {
-    email: 'paziente1@example.com',
+    email: 'paziente@test.it',
     password: 'password123',
   },
   THERAPIST: {

@@ -75,8 +75,8 @@ const LoginScreen = () => {
 
   const fillDemoCredentials = role => {
     if (role === 'patient') {
-      setEmail('paziente1@example.com');
-      setPassword('password123');
+      setEmail('paziente@test.it');
+      setPassword('WRXJK5ruMLXL');
     } else {
       setEmail('terapista1@example.com');
       setPassword('password789');

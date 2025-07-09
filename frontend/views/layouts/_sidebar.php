@@ -85,39 +85,14 @@ use yii\helpers\Url;
                                 Dashboard
                             </span>
 
-                            <svg
-                                class="menu-item-arrow"
-                                :class="[(selected === 'Dashboard') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
+                            
                         </a>
 
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
                             :class="(selected === 'Dashboard') ? 'block' :'hidden'">
-                            <ul
-                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-                                <li>
-                                    <a
-                                        href="<?= Url::home(true) ?>"
-                                        class="menu-dropdown-item group"
-                                        :class="page === 'ecommerce' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
-                                        eCommerce
-                                    </a>
-                                </li>
-                            </ul>
+                           
                         </div>
                         <!-- Dropdown Menu End -->
                     </li>
