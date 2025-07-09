@@ -150,7 +150,7 @@ class SiteController extends BaseController
 
         // Piani terapeutici attivi
         $activeTherapeuticPlans = TherapeuticPlan::find()
-            ->where(['status' => 'active'])
+            //->where(['status' => 'active'])
             ->count();
 
         // Notifiche non lette dell'utente

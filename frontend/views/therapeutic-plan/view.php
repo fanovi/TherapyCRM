@@ -187,6 +187,61 @@ $this->params['breadcrumbs'][] = $this->title;
     <!-- Related Information -->
     <div class="mt-6 bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Terapie Assegnate</h3>
+        </div>
+        <div class="p-6">
+            <?php if ($model->planTherapies): ?>
+                <div class="grid grid-cols-1 gap-4">
+                    <?php foreach ($model->planTherapies as $therapy): ?>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-base font-medium text-gray-900 dark:text-white">
+                                        <?= Html::encode($therapy->treatmentType->name) ?>
+                                        <?php if ($therapy->is_group): ?>
+                                            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                                                Gruppo
+                                            </span>
+                                        <?php endif; ?>
+                                    </h4>
+                                    <div class="mt-2 space-y-1">
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                                            <span class="font-medium">Ore settimanali:</span> <?= Html::encode($therapy->weekly_hours) ?>
+                                        </p>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                                            <span class="font-medium">Setting:</span> <?= Html::encode($therapy->setting->nome) ?>
+                                        </p>
+                                        <?php if ($therapy->notes): ?>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                                                <span class="font-medium">Note:</span><br>
+                                                <?= nl2br(Html::encode($therapy->notes)) ?>
+                                            </p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                        <?php
+                                            $totalHours = $therapy->weekly_hours * ($model->duration_days / 7);
+                                            echo sprintf("%.1f ore totali", $totalHours);
+                                        ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center py-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Nessuna terapia assegnata a questo piano.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Patient Info Section -->
+    <div class="mt-6 bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Informazioni Aggiuntive</h3>
         </div>
         <div class="p-6">

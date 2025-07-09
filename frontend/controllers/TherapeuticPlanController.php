@@ -109,6 +109,38 @@ class TherapeuticPlanController extends BaseController
     }
 
     /**
+     * Get treatment types list for dropdown
+     *
+     * @return array
+     */
+    protected function getTreatmentTypesList()
+    {
+        return \yii\helpers\ArrayHelper::map(
+            \common\models\TreatmentType::find()
+                ->orderBy(['name' => SORT_ASC])
+                ->all(),
+            'id',
+            'name'
+        );
+    }
+
+    /**
+     * Get settings list for dropdown
+     *
+     * @return array
+     */
+    protected function getSettingsList()
+    {
+        return \yii\helpers\ArrayHelper::map(
+            \common\models\Setting::find()
+                ->orderBy(['nome' => SORT_ASC])
+                ->all(),
+            'id',
+            'nome'
+        );
+    }
+
+    /**
      * Displays a single TherapeuticPlan model.
      *
      * @param int $id ID
@@ -134,40 +166,156 @@ class TherapeuticPlanController extends BaseController
     {
         $model = new TherapeuticPlan();
         $model->created_by = Yii::$app->user->id;
+        $therapyModel = new \common\models\PlanTherapy();
 
         if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->save()) {
-                // Crea notifica per i manager
-                try {
-                    $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
-                    $patient = $model->patient;
-                    $patientName = $patient->first_name . ' ' . $patient->last_name;
-                    
-                    $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
-                    $htmlMessage .= "Paziente: {$patientName}<br>";
-                    $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
-                    $htmlMessage .= "Regime: {$model->regime->nome}<br>";
-                    $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
-                    $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
-                    
-                    \common\helpers\NotificationHelper::sendToRole(
-                        'manager', // Ruolo come stringa
-                        'Nuovo piano terapeutico',
-                        $htmlMessage,
-                        Notification::TYPE_INTERNAL_COMMUNICATION, // $type
-                        ['sender_id' => Yii::$app->user->id] // $data come array
-                    );
-                    
-                    Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
-                } catch (\Exception $e) {
-                    // Log dell'errore ma non bloccare il flusso
-                    Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
+            Yii::info('Inizio processo di creazione piano terapeutico', __METHOD__);
+            
+            // Carica i dati del form
+            if ($model->load($this->request->post())) {
+                Yii::info('Dati del modello caricati: ' . json_encode($model->attributes), __METHOD__);
+            } else {
+                Yii::error('Errore nel caricamento dei dati del modello', __METHOD__);
+            }
+            
+            // Valida le terapie
+            $therapies = Yii::$app->request->post('PlanTherapy', []);
+            Yii::info('Terapie ricevute: ' . json_encode($therapies), __METHOD__);
+            
+            $isValid = true;
+            $error = null;
+            
+            try {
+                if (empty($therapies)) {
+                    Yii::error('Nessuna terapia ricevuta', __METHOD__);
+                    throw new \Exception('È necessario inserire almeno una terapia.');
                 }
 
-                Yii::$app->session->setFlash('success', 'Piano terapeutico creato con successo.');
-                return $this->redirect(['view', 'id' => $model->id]);
-            } else {
-                Yii::$app->session->setFlash('error', 'Errore durante la creazione del piano terapeutico.');
+                // Verifica duplicati
+                $treatmentTypes = [];
+                foreach ($therapies as $therapy) {
+                    if (!empty($therapy['treatment_type_id'])) {
+                        if (in_array($therapy['treatment_type_id'], $treatmentTypes)) {
+                            Yii::error('Trovato tipo di trattamento duplicato: ' . $therapy['treatment_type_id'], __METHOD__);
+                            throw new \Exception('Non è possibile assegnare lo stesso tipo di trattamento più volte.');
+                        }
+                        $treatmentTypes[] = $therapy['treatment_type_id'];
+                    }
+                }
+
+                // Se il modello principale è valido, procedi con il salvataggio
+                if ($model->validate()) {
+                    Yii::info('Validazione modello principale superata', __METHOD__);
+                    
+                    $transaction = Yii::$app->db->beginTransaction();
+                    try {
+                        if (!$model->save()) {
+                            Yii::error('Errore nel salvataggio del modello principale: ' . json_encode($model->errors), __METHOD__);
+                            throw new \Exception('Errore nel salvataggio del piano terapeutico: ' . json_encode($model->errors));
+                        }
+                        
+                        Yii::info('Modello principale salvato con ID: ' . $model->id, __METHOD__);
+
+                        // Salva le terapie
+                        foreach ($therapies as $therapy) {
+                            if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
+                                $newTherapy = new \common\models\PlanTherapy();
+                                $newTherapy->therapeutic_plan_id = $model->id;
+                                $newTherapy->treatment_type_id = $therapy['treatment_type_id'];
+                                $newTherapy->weekly_hours = $therapy['weekly_hours'];
+                                $newTherapy->is_group = !empty($therapy['is_group']);
+                                $newTherapy->setting_id = $therapy['setting_id'];
+                                $newTherapy->notes = $therapy['notes'] ?? null;
+                                
+                                if (!$newTherapy->save()) {
+                                    Yii::error('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors), __METHOD__);
+                                    throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
+                                }
+                                
+                                Yii::info('Terapia salvata con successo: ' . json_encode($newTherapy->attributes), __METHOD__);
+                            }
+                        }
+
+                        // Crea notifica per i manager
+                        try {
+                            $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
+                            $patient = $model->patient;
+                            $patientName = $patient->first_name . ' ' . $patient->last_name;
+                            
+                            $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
+                            $htmlMessage .= "Paziente: {$patientName}<br>";
+                            $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
+                            $htmlMessage .= "Regime: {$model->regime->nome}<br>";
+                            $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
+                            $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
+                            
+                            // Aggiungi dettagli terapie alla notifica
+                            $htmlMessage .= "<br><b>Terapie assegnate:</b><br>";
+                            foreach ($therapies as $therapy) {
+                                if (!empty($therapy['treatment_type_id'])) {
+                                    $treatmentType = \common\models\TreatmentType::findOne($therapy['treatment_type_id']);
+                                    $setting = \common\models\Setting::findOne($therapy['setting_id']);
+                                    $htmlMessage .= "- {$treatmentType->name}: {$therapy['weekly_hours']} ore/settimana";
+                                    $htmlMessage .= " ({$setting->nome})";
+                                    if (!empty($therapy['is_group'])) {
+                                        $htmlMessage .= " [Gruppo]";
+                                    }
+                                    $htmlMessage .= "<br>";
+                                }
+                            }
+                            
+                            \common\helpers\NotificationHelper::sendToRole(
+                                'manager',
+                                'Nuovo piano terapeutico',
+                                $htmlMessage,
+                                Notification::TYPE_INTERNAL_COMMUNICATION,
+                                ['sender_id' => Yii::$app->user->id]
+                            );
+                            
+                            Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
+                        } catch (\Exception $e) {
+                            Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
+                            // Non blocchiamo il salvataggio se la notifica fallisce
+                        }
+
+                        $transaction->commit();
+                        Yii::info('Transazione completata con successo', __METHOD__);
+                        Yii::$app->session->setFlash('success', 'Piano terapeutico creato con successo.');
+                        return $this->redirect(['view', 'id' => $model->id]);
+                    } catch (\Exception $e) {
+                        $transaction->rollBack();
+                        Yii::error('Errore durante la transazione: ' . $e->getMessage(), __METHOD__);
+                        $error = $e->getMessage();
+                        $isValid = false;
+                    }
+                } else {
+                    Yii::error('Errori di validazione del modello principale: ' . json_encode($model->errors), __METHOD__);
+                    $isValid = false;
+                }
+            } catch (\Exception $e) {
+                Yii::error('Errore generale: ' . $e->getMessage(), __METHOD__);
+                $error = $e->getMessage();
+                $isValid = false;
+            }
+            
+            if (!$isValid) {
+                if ($error) {
+                    Yii::$app->session->setFlash('error', $error);
+                }
+                
+                Yii::info('Rendering del form con errori. Model errors: ' . json_encode($model->errors), __METHOD__);
+                Yii::info('Terapie da ripopolare: ' . json_encode($therapies), __METHOD__);
+                
+                // Ricarica i dati per il form in caso di errore
+                return $this->render('create', [
+                    'model' => $model,
+                    'therapyModel' => $therapyModel,
+                    'patients' => $this->getPatientsList(),
+                    'regimes' => $this->getRegimesList(),
+                    'treatmentTypes' => $this->getTreatmentTypesList(),
+                    'settings' => $this->getSettingsList(),
+                    'postedTherapies' => $therapies // Passa i dati delle terapie al form
+                ]);
             }
         } else {
             $model->loadDefaultValues();
@@ -175,8 +323,12 @@ class TherapeuticPlanController extends BaseController
 
         return $this->render('create', [
             'model' => $model,
+            'therapyModel' => $therapyModel,
             'patients' => $this->getPatientsList(),
             'regimes' => $this->getRegimesList(),
+            'treatmentTypes' => $this->getTreatmentTypesList(),
+            'settings' => $this->getSettingsList(),
+            'postedTherapies' => [] // Inizializza l'array vuoto per il primo caricamento
         ]);
     }
 
@@ -191,16 +343,134 @@ class TherapeuticPlanController extends BaseController
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+        $therapyModel = new \common\models\PlanTherapy();
 
-        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
-            return $this->redirect(['view', 'id' => $model->id]);
+        if ($this->request->isPost) {
+            $isValid = true;
+            $transaction = Yii::$app->db->beginTransaction();
+            
+            try {
+                if ($model->load($this->request->post()) && $model->save()) {
+                    // Valida le terapie
+                    $therapies = Yii::$app->request->post('PlanTherapy', []);
+                    if (empty($therapies)) {
+                        throw new \Exception('È necessario inserire almeno una terapia.');
+                    }
+
+                    // Verifica duplicati
+                    $treatmentTypes = [];
+                    foreach ($therapies as $therapy) {
+                        if (!empty($therapy['treatment_type_id'])) {
+                            if (in_array($therapy['treatment_type_id'], $treatmentTypes)) {
+                                throw new \Exception('Non è possibile assegnare lo stesso tipo di trattamento più volte.');
+                            }
+                            $treatmentTypes[] = $therapy['treatment_type_id'];
+                        }
+                    }
+
+                    // Verifica se ci sono appuntamenti per le terapie da rimuovere
+                    $currentTherapies = \common\models\PlanTherapy::find()
+                        ->where(['therapeutic_plan_id' => $model->id])
+                        ->all();
+                    
+                    $currentTherapyIds = array_map(function($therapy) {
+                        return $therapy->treatment_type_id;
+                    }, $currentTherapies);
+                    
+                    $newTherapyIds = array_map(function($therapy) {
+                        return $therapy['treatment_type_id'];
+                    }, array_filter($therapies, function($therapy) {
+                        return !empty($therapy['treatment_type_id']);
+                    }));
+                    
+                    $removedTherapyIds = array_diff($currentTherapyIds, $newTherapyIds);
+                    
+                    foreach ($removedTherapyIds as $treatmentTypeId) {
+                        $therapy = \common\models\PlanTherapy::findOne([
+                            'therapeutic_plan_id' => $model->id,
+                            'treatment_type_id' => $treatmentTypeId
+                        ]);
+                        
+                        if ($therapy) {
+                            $hasAppointments = \common\models\Appointment::find()
+                                ->where(['plan_therapy_id' => $therapy->id])
+                                ->exists();
+                            
+                            if ($hasAppointments) {
+                                throw new \Exception('Non è possibile rimuovere una terapia per cui esistono già degli appuntamenti.');
+                            }
+                        }
+                    }
+
+                    // Rimuovi le terapie esistenti che non hanno appuntamenti
+                    foreach ($currentTherapies as $therapy) {
+                        if (!in_array($therapy->treatment_type_id, $newTherapyIds)) {
+                            $therapy->delete();
+                        }
+                    }
+
+                    // Aggiorna o crea nuove terapie
+                    foreach ($therapies as $therapy) {
+                        if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
+                            $existingTherapy = \common\models\PlanTherapy::findOne([
+                                'therapeutic_plan_id' => $model->id,
+                                'treatment_type_id' => $therapy['treatment_type_id']
+                            ]);
+
+                            if ($existingTherapy) {
+                                $existingTherapy->weekly_hours = $therapy['weekly_hours'];
+                                $existingTherapy->is_group = !empty($therapy['is_group']);
+                                $existingTherapy->setting_id = $therapy['setting_id'];
+                                $existingTherapy->notes = $therapy['notes'] ?? null;
+                                
+                                if (!$existingTherapy->save()) {
+                                    throw new \Exception('Errore nell\'aggiornamento della terapia: ' . json_encode($existingTherapy->errors));
+                                }
+                            } else {
+                                $newTherapy = new \common\models\PlanTherapy();
+                                $newTherapy->therapeutic_plan_id = $model->id;
+                                $newTherapy->treatment_type_id = $therapy['treatment_type_id'];
+                                $newTherapy->weekly_hours = $therapy['weekly_hours'];
+                                $newTherapy->is_group = !empty($therapy['is_group']);
+                                $newTherapy->setting_id = $therapy['setting_id'];
+                                $newTherapy->notes = $therapy['notes'] ?? null;
+                                
+                                if (!$newTherapy->save()) {
+                                    throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
+                                }
+                            }
+                        }
+                    }
+
+                    $transaction->commit();
+                    Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
+                    return $this->redirect(['view', 'id' => $model->id]);
+                }
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+                $isValid = false;
+            }
+            
+            if (!$isValid) {
+                return $this->render('update', [
+                    'model' => $model,
+                    'therapyModel' => $therapyModel,
+                    'patients' => $this->getPatientsList(),
+                    'regimes' => $this->getRegimesList(),
+                    'treatmentTypes' => $this->getTreatmentTypesList(),
+                    'settings' => $this->getSettingsList(),
+                ]);
+            }
         }
 
         return $this->render('update', [
             'model' => $model,
+            'therapyModel' => $therapyModel,
             'patients' => $this->getPatientsList(),
             'regimes' => $this->getRegimesList(),
+            'treatmentTypes' => $this->getTreatmentTypesList(),
+            'settings' => $this->getSettingsList(),
         ]);
     }
 
