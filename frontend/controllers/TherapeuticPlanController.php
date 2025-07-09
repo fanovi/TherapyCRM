@@ -460,6 +460,7 @@ class TherapeuticPlanController extends BaseController
                     'regimes' => $this->getRegimesList(),
                     'treatmentTypes' => $this->getTreatmentTypesList(),
                     'settings' => $this->getSettingsList(),
+                    'postedTherapies' => $therapies ?? [] // Aggiungi $postedTherapies anche in caso di errore
                 ]);
             }
         }
@@ -471,6 +472,7 @@ class TherapeuticPlanController extends BaseController
             'regimes' => $this->getRegimesList(),
             'treatmentTypes' => $this->getTreatmentTypesList(),
             'settings' => $this->getSettingsList(),
+            'postedTherapies' => [] // Aggiungi $postedTherapies anche per il primo caricamento
         ]);
     }
 

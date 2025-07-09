@@ -88,9 +88,10 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
         <?php endif; ?>
         
         <?php if ($activeTherapeuticPlan && Yii::$app->user->can('view_therapeutic_plan')): ?>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>Piano Terapeutico', 
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>Piano Terapeutico #' . $activeTherapeuticPlan->id, 
                 ['/therapeutic-plan/view', 'id' => $activeTherapeuticPlan->id], [
-                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'title' => 'Visualizza Piano Terapeutico (Inizio: ' . Yii::$app->formatter->asDate($activeTherapeuticPlan->start_date) . ', Durata: ' . $activeTherapeuticPlan->duration_days . ' giorni)'
             ]) ?>
         <?php endif; ?>
         
@@ -197,6 +198,73 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
             ]) ?>
         </div>
     </div>
+
+    <?php if ($activeTherapeuticPlan): ?>
+    <!-- Piano Terapeutico Attivo -->
+    <div class="rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 mb-6">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-medium text-blue-800 dark:text-blue-200">
+                        Piano Terapeutico Attivo
+                    </h3>
+                    <p class="mt-1 text-sm text-blue-600 dark:text-blue-400">
+                        Dettagli del piano terapeutico corrente per questo paziente.
+                    </p>
+                </div>
+                <?php if (Yii::$app->user->can('view_therapeutic_plan')): ?>
+                    <?= Html::a('Visualizza Dettagli', ['/therapeutic-plan/view', 'id' => $activeTherapeuticPlan->id], [
+                        'class' => 'inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50'
+                    ]) ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <div class="border-t border-blue-100 dark:border-blue-800">
+            <?= DetailView::widget([
+                'model' => $activeTherapeuticPlan,
+                'options' => ['class' => 'w-full'],
+                'template' => '<tr class="border-b border-blue-100 dark:border-blue-800 last:border-b-0"><th class="px-5 py-4 sm:px-6 text-left text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/50 w-1/3">{label}</th><td class="px-5 py-4 sm:px-6 text-sm text-blue-800 dark:text-blue-200">{value}</td></tr>',
+                'attributes' => [
+                    [
+                        'attribute' => 'id',
+                        'label' => 'ID Piano',
+                        'value' => '#' . $activeTherapeuticPlan->id
+                    ],
+                    [
+                        'attribute' => 'start_date',
+                        'label' => 'Data Inizio',
+                        'format' => ['date', 'php:d/m/Y'],
+                    ],
+                    [
+                        'attribute' => 'duration_days',
+                        'label' => 'Durata',
+                        'value' => $activeTherapeuticPlan->duration_days . ' giorni'
+                    ],
+                    [
+                        'attribute' => 'end_date',
+                        'label' => 'Data Fine',
+                        'format' => ['date', 'php:d/m/Y'],
+                    ],
+                    [
+                        'attribute' => 'regime.nome',
+                        'label' => 'Regime',
+                        'value' => function($model) {
+                            return $model->regime ? $model->regime->nome : '-';
+                        }
+                    ],
+                    [
+                        'label' => 'Progresso',
+                        'value' => function($model) {
+                            $progress = $model->getProgressPercentage();
+                            return round($progress, 1) . '%';
+                        }
+                    ],
+                ],
+            ]) ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Informazioni di Sistema -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

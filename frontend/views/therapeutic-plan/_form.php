@@ -302,7 +302,7 @@ use yii\widgets\ActiveForm;
                     
                     items.forEach((item, index) => {
                         item.querySelectorAll('[name*=\"PlanTherapy[\"]').forEach(el => {
-                            const newName = el.name.replace(/PlanTherapy\[\d+\]/, `PlanTherapy[${index}]`);
+                            const newName = el.name.replace(/PlanTherapy\[\d+\]/, `PlanTherapy[\${index}]`);
                             log('Aggiornamento nome campo:', { old: el.name, new: newName });
                             el.name = newName;
                         });
@@ -310,7 +310,7 @@ use yii\widgets\ActiveForm;
                 }
 
                 // Inizializza le terapie esistenti
-                const postedTherapies = " . json_encode($postedTherapies) . ";
+                const postedTherapies = " . json_encode($postedTherapies ?? []) . ";
                 log('Terapie da inizializzare:', postedTherapies);
                 
                 if (postedTherapies && postedTherapies.length > 0) {
