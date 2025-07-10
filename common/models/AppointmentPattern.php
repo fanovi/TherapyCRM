@@ -27,6 +27,10 @@ use yii\behaviors\TimestampBehavior;
  */
 class AppointmentPattern extends ActiveRecord
 {
+    const TYPE_SUPERVISIONE = 'supervisione';
+    const TYPE_PARENT_TRAINING = 'parent_training';
+    const TYPE_TERAPIA = 'terapia';
+
     /**
      * {@inheritdoc}
      */
@@ -62,6 +66,9 @@ class AppointmentPattern extends ActiveRecord
             [['start_time'], 'time', 'format' => 'php:H:i'],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
             [['valid_to'], 'validateValidTo'],
+            [['appointment_type'], 'string', 'max' => 20],
+            [['appointment_type'], 'in', 'range' => [self::TYPE_SUPERVISIONE, self::TYPE_PARENT_TRAINING, self::TYPE_TERAPIA]],
+            [['appointment_type'], 'default', 'value' => self::TYPE_TERAPIA],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
@@ -94,6 +101,7 @@ class AppointmentPattern extends ActiveRecord
             'duration_minutes' => 'Durata (minuti)',
             'valid_from' => 'Valido Da',
             'valid_to' => 'Valido Fino',
+            'appointment_type' => 'Tipo Appuntamento',
             'created_by' => 'Creato Da',
             'created_at' => 'Creato il',
         ];
@@ -188,10 +196,36 @@ class AppointmentPattern extends ActiveRecord
     public function getFormattedDescription()
     {
         return sprintf(
-            '%s dalle %s (%s min)',
+            '%s dalle %s (%s min) - %s',
             $this->getDayName(),
             $this->getFormattedTimeRange(),
-            $this->duration_minutes
+            $this->duration_minutes,
+            $this->getAppointmentTypeLabel()
         );
+    }
+
+    /**
+     * Gets appointment type labels
+     *
+     * @return array
+     */
+    public static function getAppointmentTypeLabels()
+    {
+        return [
+            self::TYPE_SUPERVISIONE => 'Supervisione',
+            self::TYPE_PARENT_TRAINING => 'Parent Training',
+            self::TYPE_TERAPIA => 'Terapia',
+        ];
+    }
+
+    /**
+     * Gets appointment type label
+     *
+     * @return string
+     */
+    public function getAppointmentTypeLabel()
+    {
+        $labels = static::getAppointmentTypeLabels();
+        return $labels[$this->appointment_type] ?? $this->appointment_type;
     }
 } 

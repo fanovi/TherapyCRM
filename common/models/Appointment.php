@@ -38,6 +38,10 @@ class Appointment extends ActiveRecord
     const STATUS_ABSENT_NOT_JUSTIFIED = 'absent_not_justified';
     const STATUS_CANCELLED = 'cancelled';
 
+    const TYPE_SUPERVISIONE = 'supervisione';
+    const TYPE_PARENT_TRAINING = 'parent_training';
+    const TYPE_TERAPIA = 'terapia';
+
     /**
      * {@inheritdoc}
      */
@@ -80,6 +84,9 @@ class Appointment extends ActiveRecord
             [['notes'], 'string'],
             [['status'], 'string', 'max' => 30],
             [['status'], 'in', 'range' => [self::STATUS_SCHEDULED, self::STATUS_COMPLETED, self::STATUS_ABSENT_JUSTIFIED, self::STATUS_ABSENT_NOT_JUSTIFIED, self::STATUS_CANCELLED]],
+            [['appointment_type'], 'string', 'max' => 20],
+            [['appointment_type'], 'in', 'range' => [self::TYPE_SUPERVISIONE, self::TYPE_PARENT_TRAINING, self::TYPE_TERAPIA]],
+            [['appointment_type'], 'default', 'value' => self::TYPE_TERAPIA],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
             [['appointment_datetime'], 'validateFutureDateTime'],
             [['therapist_id', 'appointment_datetime'], 'validateTherapistAvailability'],
@@ -141,6 +148,7 @@ class Appointment extends ActiveRecord
             'status' => 'Stato',
             'original_therapist_id' => 'Terapista Originale',
             'notes' => 'Note',
+            'appointment_type' => 'Tipo Appuntamento',
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
@@ -206,6 +214,31 @@ class Appointment extends ActiveRecord
     public function getCreatedBy()
     {
         return $this->hasOne(User::class, ['id' => 'created_by']);
+    }
+
+    /**
+     * Gets appointment type labels
+     *
+     * @return array
+     */
+    public static function getAppointmentTypeLabels()
+    {
+        return [
+            self::TYPE_SUPERVISIONE => 'Supervisione',
+            self::TYPE_PARENT_TRAINING => 'Parent Training',
+            self::TYPE_TERAPIA => 'Terapia',
+        ];
+    }
+
+    /**
+     * Gets appointment type label
+     *
+     * @return string
+     */
+    public function getAppointmentTypeLabel()
+    {
+        $labels = static::getAppointmentTypeLabels();
+        return $labels[$this->appointment_type] ?? $this->appointment_type;
     }
 
     /**
