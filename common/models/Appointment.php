@@ -14,10 +14,8 @@ use yii\helpers\ArrayHelper;
  * @property int|null $pattern_id
  * @property int $plan_therapy_id
  * @property int $therapist_id
- * @property int $patient_id
  * @property string $appointment_datetime
  * @property int $duration_minutes
- * @property string $location_type
  * @property string $status
  * @property int|null $original_therapist_id
  * @property string|null $notes
@@ -39,9 +37,6 @@ class Appointment extends ActiveRecord
     const STATUS_ABSENT_JUSTIFIED = 'absent_justified';
     const STATUS_ABSENT_NOT_JUSTIFIED = 'absent_not_justified';
     const STATUS_CANCELLED = 'cancelled';
-
-    const LOCATION_OFFICE = 'office';
-    const LOCATION_HOME = 'home';
 
     /**
      * {@inheritdoc}
@@ -79,13 +74,11 @@ class Appointment extends ActiveRecord
     public function rules()
     {
         return [
-            [['plan_therapy_id', 'therapist_id', 'patient_id', 'appointment_datetime', 'duration_minutes', 'created_by'], 'required'],
-            [['pattern_id', 'plan_therapy_id', 'therapist_id', 'patient_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
+            [['plan_therapy_id', 'therapist_id', 'appointment_datetime', 'duration_minutes', 'created_by'], 'required'],
+            [['pattern_id', 'plan_therapy_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
             [['appointment_datetime'], 'datetime', 'format' => 'php:Y-m-d H:i:s'],
             [['notes'], 'string'],
-            [['location_type'], 'string', 'max' => 10],
             [['status'], 'string', 'max' => 30],
-            [['location_type'], 'in', 'range' => [self::LOCATION_OFFICE, self::LOCATION_HOME]],
             [['status'], 'in', 'range' => [self::STATUS_SCHEDULED, self::STATUS_COMPLETED, self::STATUS_ABSENT_JUSTIFIED, self::STATUS_ABSENT_NOT_JUSTIFIED, self::STATUS_CANCELLED]],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
             [['appointment_datetime'], 'validateFutureDateTime'],
@@ -93,7 +86,6 @@ class Appointment extends ActiveRecord
             [['pattern_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppointmentPattern::class, 'targetAttribute' => ['pattern_id' => 'id']],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
-            [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['original_therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['original_therapist_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
         ];
@@ -144,10 +136,8 @@ class Appointment extends ActiveRecord
             'pattern_id' => 'Pattern',
             'plan_therapy_id' => 'Piano Terapia',
             'therapist_id' => 'Terapista',
-            'patient_id' => 'Paziente',
             'appointment_datetime' => 'Data e Ora',
             'duration_minutes' => 'Durata (minuti)',
-            'location_type' => 'Luogo',
             'status' => 'Stato',
             'original_therapist_id' => 'Terapista Originale',
             'notes' => 'Note',
@@ -188,13 +178,14 @@ class Appointment extends ActiveRecord
     }
 
     /**
-     * Gets query for [[Patient]].
+     * Gets query for [[Patient]] via plan therapy.
      *
      * @return \yii\db\ActiveQuery
      */
     public function getPatient()
     {
-        return $this->hasOne(Patient::class, ['id' => 'patient_id']);
+        return $this->hasOne(Patient::class, ['id' => 'patient_id'])
+            ->via('planTherapy');
     }
 
     /**
@@ -243,19 +234,6 @@ class Appointment extends ActiveRecord
     }
 
     /**
-     * Gets location type labels
-     *
-     * @return array
-     */
-    public static function getLocationTypeLabels()
-    {
-        return [
-            self::LOCATION_OFFICE => 'Ambulatorio',
-            self::LOCATION_HOME => 'Domicilio',
-        ];
-    }
-
-    /**
      * Gets status label
      *
      * @return string
@@ -264,17 +242,6 @@ class Appointment extends ActiveRecord
     {
         $labels = static::getStatusLabels();
         return $labels[$this->status] ?? $this->status;
-    }
-
-    /**
-     * Gets location type label
-     *
-     * @return string
-     */
-    public function getLocationTypeLabel()
-    {
-        $labels = static::getLocationTypeLabels();
-        return $labels[$this->location_type] ?? $this->location_type;
     }
 
     /**
@@ -400,7 +367,8 @@ class Appointment extends ActiveRecord
     public static function findUpcomingByPatient($patientId, $limit = 10)
     {
         return static::find()
-            ->where(['patient_id' => $patientId])
+            ->joinWith('planTherapy')
+            ->where(['plan_therapies.patient_id' => $patientId])
             ->andWhere(['>=', 'appointment_datetime', date('Y-m-d H:i:s')])
             ->andWhere(['!=', 'status', self::STATUS_CANCELLED])
             ->orderBy('appointment_datetime')
