@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { CalendarContainer } from "./CalendarContainer";
 import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,8 @@ interface DualCalendarViewProps {
     newDate: Date,
     newTime: string
   ) => void;
+  viewType: CalendarViewType;
+  onViewTypeChange: (view: CalendarViewType) => void;
 }
 
 export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
@@ -21,10 +23,9 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
   appointments,
   onSlotClick,
   onAppointmentMove,
+  viewType,
+  onViewTypeChange,
 }) => {
-  const [therapistView, setTherapistView] = useState<CalendarViewType>("week");
-  const [patientView, setPatientView] = useState<CalendarViewType>("week");
-
   const therapistAppointments = appointments.filter(
     (apt) => selectedTherapist && apt.therapistId === selectedTherapist.id
   );
@@ -48,15 +49,15 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
               )}
             </CardTitle>
             <CalendarViewSelector
-              currentView={therapistView}
-              onViewChange={setTherapistView}
+              currentView={viewType}
+              onViewChange={onViewTypeChange}
             />
           </div>
         </CardHeader>
         <CardContent>
           {selectedTherapist ? (
             <CalendarContainer
-              view={therapistView}
+              view={viewType}
               appointments={therapistAppointments}
               onSlotClick={onSlotClick}
               onAppointmentMove={onAppointmentMove}
@@ -86,14 +87,14 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
               </span>
             </CardTitle>
             <CalendarViewSelector
-              currentView={patientView}
-              onViewChange={setPatientView}
+              currentView={viewType}
+              onViewChange={onViewTypeChange}
             />
           </div>
         </CardHeader>
         <CardContent>
           <CalendarContainer
-            view={patientView}
+            view={viewType}
             appointments={patientAppointments}
             onSlotClick={() => {}} // Patient calendar is read-only
             onAppointmentMove={() => {}} // Patient calendar is read-only

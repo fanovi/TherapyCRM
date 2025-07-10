@@ -3,6 +3,7 @@ import { TherapistSelector } from "@/components/TherapistSelector";
 import { DualCalendarView } from "@/components/DualCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
 import { Appointment, Therapist, AppointmentData } from "@/types/therapy";
+import { CalendarViewType } from "@/components/CalendarViewSelector";
 
 const Index = () => {
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(
@@ -14,6 +15,7 @@ const Index = () => {
     date: Date;
     time: string;
   } | null>(null);
+  const [viewType, setViewType] = useState<CalendarViewType>("week");
 
   const handleAppointmentCreate = (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
@@ -79,6 +81,8 @@ const Index = () => {
           appointments={appointments}
           onSlotClick={handleSlotClick}
           onAppointmentMove={handleAppointmentMove}
+          viewType={viewType}
+          onViewTypeChange={setViewType}
         />
 
         <AppointmentModal

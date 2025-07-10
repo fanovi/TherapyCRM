@@ -11,27 +11,22 @@ use yii\behaviors\TimestampBehavior;
  *
  * @property int $id
  * @property int $plan_therapy_id
- * @property string $frequency_type
- * @property int $frequency_value
+ * @property int $therapist_id
+ * @property int $day_of_week
  * @property string $start_time
  * @property int $duration_minutes
- * @property string $days_of_week
- * @property string $start_date
- * @property string|null $end_date
- * @property int $is_active
- * @property string|null $notes
+ * @property string $valid_from
+ * @property string $valid_to
+ * @property int $created_by
  * @property string $created_at
- * @property string $updated_at
  *
  * @property PlanTherapy $planTherapy
+ * @property Therapist $therapist
+ * @property User $createdBy
  * @property Appointment[] $appointments
  */
 class AppointmentPattern extends ActiveRecord
 {
-    const FREQUENCY_WEEKLY = 'weekly';
-    const FREQUENCY_BIWEEKLY = 'biweekly';
-    const FREQUENCY_MONTHLY = 'monthly';
-
     /**
      * {@inheritdoc}
      */
@@ -46,7 +41,11 @@ class AppointmentPattern extends ActiveRecord
     public function behaviors()
     {
         return [
-            TimestampBehavior::class,
+            [
+                'class' => TimestampBehavior::class,
+                'createdAtAttribute' => 'created_at',
+                'updatedAtAttribute' => false,
+            ],
         ];
     }
 
@@ -56,47 +55,27 @@ class AppointmentPattern extends ActiveRecord
     public function rules()
     {
         return [
-            [['plan_therapy_id', 'frequency_type', 'frequency_value', 'start_time', 'duration_minutes', 'days_of_week', 'start_date'], 'required'],
-            [['plan_therapy_id', 'frequency_value', 'duration_minutes', 'is_active'], 'integer'],
-            [['is_active'], 'boolean'],
-            [['start_date', 'end_date'], 'date', 'format' => 'php:Y-m-d'],
+            [['plan_therapy_id', 'therapist_id', 'day_of_week', 'start_time', 'duration_minutes', 'valid_from', 'valid_to', 'created_by'], 'required'],
+            [['plan_therapy_id', 'therapist_id', 'day_of_week', 'duration_minutes', 'created_by'], 'integer'],
+            [['day_of_week'], 'integer', 'min' => 1, 'max' => 7],
+            [['valid_from', 'valid_to'], 'date', 'format' => 'php:Y-m-d'],
             [['start_time'], 'time', 'format' => 'php:H:i'],
-            [['notes'], 'string'],
-            [['frequency_type'], 'string', 'max' => 20],
-            [['frequency_type'], 'in', 'range' => [self::FREQUENCY_WEEKLY, self::FREQUENCY_BIWEEKLY, self::FREQUENCY_MONTHLY]],
-            [['days_of_week'], 'string', 'max' => 20],
-            [['days_of_week'], 'validateDaysOfWeek'],
-            [['frequency_value'], 'integer', 'min' => 1, 'max' => 4],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
-            [['end_date'], 'validateEndDate'],
+            [['valid_to'], 'validateValidTo'],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
+            [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
         ];
     }
 
     /**
-     * Validates days of week format
+     * Validates valid_to date
      */
-    public function validateDaysOfWeek($attribute, $params)
+    public function validateValidTo($attribute, $params)
     {
-        if (!empty($this->$attribute)) {
-            $days = explode(',', $this->$attribute);
-            foreach ($days as $day) {
-                if (!in_array(trim($day), ['1', '2', '3', '4', '5', '6', '7'])) {
-                    $this->addError($attribute, 'I giorni della settimana devono essere numeri da 1 a 7');
-                    break;
-                }
-            }
-        }
-    }
-
-    /**
-     * Validates end date
-     */
-    public function validateEndDate($attribute, $params)
-    {
-        if (!empty($this->$attribute) && !empty($this->start_date)) {
-            if ($this->$attribute < $this->start_date) {
-                $this->addError($attribute, 'La data di fine non può essere precedente alla data di inizio');
+        if (!empty($this->$attribute) && !empty($this->valid_from)) {
+            if ($this->$attribute < $this->valid_from) {
+                $this->addError($attribute, 'La data di fine validità non può essere precedente alla data di inizio');
             }
         }
     }
@@ -109,17 +88,14 @@ class AppointmentPattern extends ActiveRecord
         return [
             'id' => 'ID',
             'plan_therapy_id' => 'Piano Terapia',
-            'frequency_type' => 'Tipo Frequenza',
-            'frequency_value' => 'Valore Frequenza',
+            'therapist_id' => 'Terapista',
+            'day_of_week' => 'Giorno della Settimana',
             'start_time' => 'Ora Inizio',
             'duration_minutes' => 'Durata (minuti)',
-            'days_of_week' => 'Giorni della Settimana',
-            'start_date' => 'Data Inizio',
-            'end_date' => 'Data Fine',
-            'is_active' => 'Attivo',
-            'notes' => 'Note',
+            'valid_from' => 'Valido Da',
+            'valid_to' => 'Valido Fino',
+            'created_by' => 'Creato Da',
             'created_at' => 'Creato il',
-            'updated_at' => 'Aggiornato il',
         ];
     }
 
@@ -134,6 +110,26 @@ class AppointmentPattern extends ActiveRecord
     }
 
     /**
+     * Gets query for [[Therapist]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTherapist()
+    {
+        return $this->hasOne(Therapist::class, ['id' => 'therapist_id']);
+    }
+
+    /**
+     * Gets query for [[CreatedBy]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedBy()
+    {
+        return $this->hasOne(User::class, ['id' => 'created_by']);
+    }
+
+    /**
      * Gets query for [[Appointments]].
      *
      * @return \yii\db\ActiveQuery
@@ -144,41 +140,6 @@ class AppointmentPattern extends ActiveRecord
     }
 
     /**
-     * Gets frequency type labels
-     *
-     * @return array
-     */
-    public static function getFrequencyTypeLabels()
-    {
-        return [
-            self::FREQUENCY_WEEKLY => 'Settimanale',
-            self::FREQUENCY_BIWEEKLY => 'Bisettimanale',
-            self::FREQUENCY_MONTHLY => 'Mensile',
-        ];
-    }
-
-    /**
-     * Gets frequency type label
-     *
-     * @return string
-     */
-    public function getFrequencyTypeLabel()
-    {
-        $labels = static::getFrequencyTypeLabels();
-        return $labels[$this->frequency_type] ?? $this->frequency_type;
-    }
-
-    /**
-     * Gets days of week as array
-     *
-     * @return array
-     */
-    public function getDaysOfWeekArray()
-    {
-        return array_map('trim', explode(',', $this->days_of_week));
-    }
-
-    /**
      * Gets day names
      *
      * @return array
@@ -186,33 +147,51 @@ class AppointmentPattern extends ActiveRecord
     public static function getDayNames()
     {
         return [
-            '1' => 'Lunedì',
-            '2' => 'Martedì',
-            '3' => 'Mercoledì',
-            '4' => 'Giovedì',
-            '5' => 'Venerdì',
-            '6' => 'Sabato',
-            '7' => 'Domenica',
+            1 => 'Lunedì',
+            2 => 'Martedì',
+            3 => 'Mercoledì',
+            4 => 'Giovedì',
+            5 => 'Venerdì',
+            6 => 'Sabato',
+            7 => 'Domenica',
         ];
     }
 
     /**
-     * Gets formatted days of week
+     * Gets day name
      *
      * @return string
      */
-    public function getFormattedDaysOfWeek()
+    public function getDayName()
     {
         $dayNames = static::getDayNames();
-        $days = $this->getDaysOfWeekArray();
-        $formattedDays = [];
-        
-        foreach ($days as $day) {
-            if (isset($dayNames[$day])) {
-                $formattedDays[] = $dayNames[$day];
-            }
-        }
-        
-        return implode(', ', $formattedDays);
+        return $dayNames[$this->day_of_week] ?? 'N/A';
+    }
+
+    /**
+     * Gets formatted time range
+     *
+     * @return string
+     */
+    public function getFormattedTimeRange()
+    {
+        $startTime = $this->start_time;
+        $endTime = date('H:i', strtotime($startTime . ' + ' . $this->duration_minutes . ' minutes'));
+        return $startTime . ' - ' . $endTime;
+    }
+
+    /**
+     * Gets formatted pattern description
+     *
+     * @return string
+     */
+    public function getFormattedDescription()
+    {
+        return sprintf(
+            '%s dalle %s (%s min)',
+            $this->getDayName(),
+            $this->getFormattedTimeRange(),
+            $this->duration_minutes
+        );
     }
 } 
