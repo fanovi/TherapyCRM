@@ -47,6 +47,14 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                // Route per il calendar
+                'calendar' => 'calendar/index',
+                'calendar/<id_patient:\d+>' => 'calendar/index',
+                'calendar/therapist/<id_therapist:\d+>' => 'calendar/index',
+                
+                // API routes
+                'api/therapist/<id:\d+>' => 'api/therapist/view',
+                'api/patient/<id:\d+>' => 'api/patient/view',
             ],
         ],
     ],

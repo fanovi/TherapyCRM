@@ -17,4 +17,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    outDir: "./dist",
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: "index.js",
+        chunkFileNames: "[name]-[hash].js",
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name === "index.css") return "index.css";
+          return "[name]-[hash][extname]";
+        },
+      },
+    },
+  },
 }));

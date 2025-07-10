@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { DualCalendarView } from "@/components/DualCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
@@ -13,6 +14,7 @@ interface Patient {
 }
 
 const Index = () => {
+  const params = useParams();
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(
     null
   );
@@ -28,9 +30,9 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const patientId = urlParams.get("id_patient");
-    const therapistId = urlParams.get("id_therapist");
+    // Leggi i parametri dall'URL usando React Router
+    const patientId = params.id_patient;
+    const therapistId = params.id_therapist;
 
     const fetchData = async () => {
       setLoading(true);
@@ -118,7 +120,7 @@ const Index = () => {
     };
 
     fetchData();
-  }, []);
+  }, [params]);
 
   const handleAppointmentCreate = (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
@@ -162,28 +164,15 @@ const Index = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+      <div className="flex items-center justify-center p-8">
         <div className="text-xl">Caricamento...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Gestione Terapie
-          </h1>
-          <p className="text-gray-600 text-lg">
-            {isTherapistView
-              ? `Vista Terapista: ${selectedTherapist?.name || ""}`
-              : patient
-              ? `Paziente: ${patient.name}`
-              : "Sistema di pianificazione appuntamenti terapeutici"}
-          </p>
-        </div>
-
+    <div className="w-full">
+      <div className="p-4">
         {/* Mostra il selettore terapista solo se non siamo in modalità terapista */}
         {!isTherapistView && (
           <div className="mb-8">
