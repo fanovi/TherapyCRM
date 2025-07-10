@@ -1,9 +1,8 @@
 import React from "react";
-import { CalendarContainer } from "./CalendarContainer";
+import { Card } from "@/components/ui/card";
+import { CalendarView } from "./CalendarView";
 import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, User } from "lucide-react";
-import { Appointment, Therapist } from "@/types/therapy";
+import { Therapist, Appointment } from "@/types/therapy";
 
 interface DualCalendarViewProps {
   selectedTherapist: Therapist | null;
@@ -15,7 +14,8 @@ interface DualCalendarViewProps {
     newTime: string
   ) => void;
   viewType: CalendarViewType;
-  onViewTypeChange: (view: CalendarViewType) => void;
+  onViewTypeChange: (viewType: CalendarViewType) => void;
+  hidePatientCalendar?: boolean;
 }
 
 export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
@@ -25,84 +25,79 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
   onAppointmentMove,
   viewType,
   onViewTypeChange,
+  hidePatientCalendar = false,
 }) => {
-  const therapistAppointments = appointments.filter(
-    (apt) => selectedTherapist && apt.therapistId === selectedTherapist.id
-  );
+  const therapistAppointments = selectedTherapist
+    ? appointments.filter((apt) => apt.therapistId === selectedTherapist.id)
+    : [];
 
-  // Patient view shows all appointments for the current patient across all therapists
-  const patientAppointments = appointments; // In a real app, this would be filtered by patient
+  // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
+  if (hidePatientCalendar && selectedTherapist) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <CalendarViewSelector
+            viewType={viewType}
+            onViewTypeChange={onViewTypeChange}
+          />
+        </div>
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">
+            Calendario di {selectedTherapist.name}
+          </h2>
+          <CalendarView
+            viewType={viewType}
+            appointments={therapistAppointments}
+            onSlotClick={onSlotClick}
+            onAppointmentMove={onAppointmentMove}
+            isTherapistView={true}
+          />
+        </Card>
+      </div>
+    );
+  }
 
+  // Vista normale con due calendari
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Therapist Calendar */}
-      <Card className="bg-white shadow-lg border-0">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl text-gray-800">
-              <User className="h-5 w-5 text-blue-600" />
-              Calendario Terapista
-              {selectedTherapist && (
-                <span className="text-sm font-normal text-gray-600">
-                  - {selectedTherapist.name}
-                </span>
-              )}
-            </CardTitle>
-            <CalendarViewSelector
-              currentView={viewType}
-              onViewChange={onViewTypeChange}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <CalendarViewSelector
+          viewType={viewType}
+          onViewTypeChange={onViewTypeChange}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">
+            {selectedTherapist
+              ? `Calendario di ${selectedTherapist.name}`
+              : "Seleziona un terapista"}
+          </h2>
           {selectedTherapist ? (
-            <CalendarContainer
-              view={viewType}
+            <CalendarView
+              viewType={viewType}
               appointments={therapistAppointments}
               onSlotClick={onSlotClick}
               onAppointmentMove={onAppointmentMove}
-              isEditable={true}
-              primaryColor={selectedTherapist.color}
+              isTherapistView={true}
             />
           ) : (
-            <div className="h-96 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Seleziona un terapista per visualizzare il calendario</p>
-              </div>
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              <p>Seleziona un terapista per visualizzare il suo calendario</p>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Patient Calendar */}
-      <Card className="bg-white shadow-lg border-0">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl text-gray-800">
-              <Calendar className="h-5 w-5 text-green-600" />
-              Calendario Paziente
-              <span className="text-sm font-normal text-gray-600">
-                - Vista Aggregata
-              </span>
-            </CardTitle>
-            <CalendarViewSelector
-              currentView={viewType}
-              onViewChange={onViewTypeChange}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <CalendarContainer
-            view={viewType}
-            appointments={patientAppointments}
-            onSlotClick={() => {}} // Patient calendar is read-only
-            onAppointmentMove={() => {}} // Patient calendar is read-only
-            isEditable={false}
-            primaryColor="#16a34a"
+        </Card>
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Calendario Paziente</h2>
+          <CalendarView
+            viewType={viewType}
+            appointments={appointments}
+            onSlotClick={onSlotClick}
+            onAppointmentMove={onAppointmentMove}
+            isTherapistView={false}
           />
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

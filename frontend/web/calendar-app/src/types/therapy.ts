@@ -1,9 +1,9 @@
 export interface Therapist {
   id: string;
   name: string;
-  specialization: string;
-  email: string;
-  color: string;
+  specialization?: string;
+  email?: string;
+  color?: string;
 }
 
 export interface Appointment {
@@ -16,18 +16,12 @@ export interface Appointment {
   duration: number;
   therapyType: string;
   notes?: string;
-  isRecurring: boolean;
+  isRecurring?: boolean;
 }
 
 export interface AppointmentData {
   therapyType: string;
   duration: number;
   notes?: string;
-  isRecurring: boolean;
-}
-
-export interface TimeSlot {
-  time: string;
-  isAvailable: boolean;
-  appointment?: Appointment;
+  isRecurring?: boolean;
 }

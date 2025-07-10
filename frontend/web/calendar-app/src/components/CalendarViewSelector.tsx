@@ -5,38 +5,38 @@ import { Calendar, CalendarDays } from "lucide-react";
 export type CalendarViewType = "day" | "week" | "month";
 
 interface CalendarViewSelectorProps {
-  currentView: CalendarViewType;
-  onViewChange: (view: CalendarViewType) => void;
+  viewType: CalendarViewType;
+  onViewTypeChange: (view: CalendarViewType) => void;
 }
 
 export const CalendarViewSelector: React.FC<CalendarViewSelectorProps> = ({
-  currentView,
-  onViewChange,
+  viewType,
+  onViewTypeChange,
 }) => {
   return (
     <div className="flex gap-2">
       <Button
-        variant={currentView === "day" ? "default" : "outline"}
+        variant={viewType === "day" ? "default" : "outline"}
         size="sm"
-        onClick={() => onViewChange("day")}
+        onClick={() => onViewTypeChange("day")}
         className="flex items-center gap-2"
       >
         <Calendar className="h-4 w-4" />
         Giorno
       </Button>
       <Button
-        variant={currentView === "week" ? "default" : "outline"}
+        variant={viewType === "week" ? "default" : "outline"}
         size="sm"
-        onClick={() => onViewChange("week")}
+        onClick={() => onViewTypeChange("week")}
         className="flex items-center gap-2"
       >
         <CalendarDays className="h-4 w-4" />
         Settimana
       </Button>
       <Button
-        variant={currentView === "month" ? "default" : "outline"}
+        variant={viewType === "month" ? "default" : "outline"}
         size="sm"
-        onClick={() => onViewChange("month")}
+        onClick={() => onViewTypeChange("month")}
         className="flex items-center gap-2"
       >
         <CalendarDays className="h-4 w-4" />
