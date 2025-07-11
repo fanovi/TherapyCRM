@@ -164,12 +164,6 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
                       ${appointment ? "bg-opacity-10" : ""}
                     `}
                     onClick={() => {
-                      console.log("📅 WeekCalendar slot clicked:", {
-                        day,
-                        time,
-                        isEditable,
-                        hasAppointment: !!appointment,
-                      });
                       if (isEditable && !appointment) {
                         onSlotClick(day, time);
                       }

@@ -46,8 +46,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onConfirm,
   selectedSlot,
 }) => {
-  console.log("🔍 AppointmentModal render:", { isOpen, selectedSlot });
-
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
     duration: 60,
@@ -69,7 +67,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   const handleClose = () => {
-    console.log("🔍 AppointmentModal handleClose called");
     onClose();
     setFormData({
       therapyType: "",
@@ -139,8 +136,24 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         </div>
 
         {selectedSlot && (
-          <div className="bg-blue-50 p-3 rounded-lg mb-4">
-            <div className="flex items-center gap-2 text-sm text-blue-800">
+          <div
+            style={{
+              backgroundColor: "#eff6ff",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              border: "1px solid #dbeafe",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "14px",
+                color: "#1e40af",
+              }}
+            >
               <Clock className="h-4 w-4" />
               <span>
                 {format(selectedSlot.date, "EEEE dd MMMM yyyy", {
@@ -152,99 +165,220 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="therapyType">Tipo di Terapia *</Label>
-            <Select
-              value={formData.therapyType}
-              onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, therapyType: value }))
-              }
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
+                marginBottom: "6px",
+              }}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleziona tipo di terapia" />
-              </SelectTrigger>
-              <SelectContent>
-                {therapyTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="duration">Durata (minuti)</Label>
-            <Select
-              value={formData.duration.toString()}
-              onValueChange={(value) =>
+              Tipo di Terapia *
+            </label>
+            <select
+              value={formData.therapyType}
+              onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  duration: parseInt(value),
+                  therapyType: e.target.value,
                 }))
               }
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontSize: "14px",
+                backgroundColor: "white",
+                color: "#374151",
+              }}
+              required
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {durations.map((duration) => (
-                  <SelectItem key={duration} value={duration.toString()}>
-                    {duration} minuti
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <option value="">Seleziona tipo di terapia</option>
+              {therapyTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div>
-            <Label htmlFor="notes" className="flex items-center gap-1">
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
+                marginBottom: "6px",
+              }}
+            >
+              Durata (minuti)
+            </label>
+            <select
+              value={formData.duration.toString()}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  duration: parseInt(e.target.value),
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontSize: "14px",
+                backgroundColor: "white",
+                color: "#374151",
+              }}
+            >
+              {durations.map((duration) => (
+                <option key={duration} value={duration.toString()}>
+                  {duration} minuti
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
+                marginBottom: "6px",
+              }}
+            >
               <FileText className="h-4 w-4" />
               Note (opzionale)
-            </Label>
-            <Textarea
-              id="notes"
+            </label>
+            <textarea
               placeholder="Inserisci eventuali note per l'appuntamento..."
               value={formData.notes}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, notes: e.target.value }))
               }
-              className="resize-none"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontSize: "14px",
+                backgroundColor: "white",
+                color: "#374151",
+                resize: "none",
+                minHeight: "80px",
+              }}
               rows={3}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "20px",
+            }}
+          >
+            <input
+              type="checkbox"
               id="recurring"
               checked={formData.isRecurring}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isRecurring: checked }))
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  isRecurring: e.target.checked,
+                }))
               }
+              style={{
+                width: "16px",
+                height: "16px",
+                accentColor: "#3b82f6",
+              }}
             />
-            <Label htmlFor="recurring" className="flex items-center gap-1">
+            <label
+              htmlFor="recurring"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "14px",
+                color: "#374151",
+                cursor: "pointer",
+              }}
+            >
               <Repeat className="h-4 w-4" />
               Ripeti fino a fine piano terapeutico
-            </Label>
+            </label>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              paddingTop: "16px",
+            }}
+          >
+            <button
               type="button"
-              variant="outline"
               onClick={handleClose}
-              className="flex-1"
+              style={{
+                flex: 1,
+                padding: "10px 16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: "500",
+                backgroundColor: "white",
+                color: "#374151",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "#f9fafb";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "white";
+              }}
             >
               Annulla
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={!formData.therapyType}
+              style={{
+                flex: 1,
+                padding: "10px 16px",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: "500",
+                backgroundColor: formData.therapyType ? "#3b82f6" : "#9ca3af",
+                color: "white",
+                cursor: formData.therapyType ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+              }}
+              onMouseOver={(e) => {
+                if (formData.therapyType) {
+                  e.currentTarget.style.backgroundColor = "#2563eb";
+                }
+              }}
+              onMouseOut={(e) => {
+                if (formData.therapyType) {
+                  e.currentTarget.style.backgroundColor = "#3b82f6";
+                }
+              }}
             >
               Conferma Appuntamento
-            </Button>
+            </button>
           </div>
         </form>
       </div>
