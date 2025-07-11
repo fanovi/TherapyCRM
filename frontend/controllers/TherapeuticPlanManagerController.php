@@ -277,8 +277,9 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Ottiene la lista dei terapisti filtrati per tipo di trattamento
+     * Ottiene i terapisti per un tipo di trattamento specifico
      * 
+     * @param int $treatmentTypeId
      * @return array
      */
     public function actionGetTherapistsByTreatment($treatmentTypeId)
@@ -288,11 +289,12 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $therapists = Therapist::find()
                 ->alias('t')
-                ->innerJoin('therapist_treatment_types tt', 'tt.therapist_id = t.id')
-                ->innerJoin('users u', 'u.id = t.user_id')
-                ->innerJoin('user_profiles up', 'up.user_id = u.id')
-                ->where(['t.is_active' => 1, 'tt.treatment_type_id' => $treatmentTypeId])
-                ->with(['user.profile'])
+                ->innerJoin('{{%specializations}} s', 's.id = t.specialization_id')
+                ->innerJoin('{{%specialization_treatments}} st', 'st.specialization_id = s.id')
+                ->innerJoin('{{%users}} u', 'u.id = t.user_id')
+                ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
+                ->where(['t.is_active' => true])
+                ->andWhere(['st.treatment_type_id' => $treatmentTypeId])
                 ->orderBy(['up.last_name' => SORT_ASC])
                 ->all();
 
