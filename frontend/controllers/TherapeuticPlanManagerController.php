@@ -327,7 +327,7 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->innerJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->innerJoin('patients p', 'p.id = tp.patient_id')
-                ->with(['planTherapy.therapeuticPlan.patient'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType'])
                 ->where([
                     'a.therapist_id' => $therapistId
                 ])
@@ -348,6 +348,8 @@ class TherapeuticPlanManagerController extends Controller
                     'datetime' => $appointment->appointment_datetime,
                     'duration' => $appointment->duration_minutes,
                     'status' => $appointment->status,
+                    'notes' => $appointment->notes,
+                    'treatmentType' => $appointment->planTherapy->treatmentType->name ?? 'Non specificato',
                     'patient' => [
                         'id' => $patient->id,
                         'name' => $patient->getFullName()
@@ -438,7 +440,8 @@ class TherapeuticPlanManagerController extends Controller
 
         try {
             $data = $this->getRequestData();
-            $this->validateSingleAppointmentFields($data);
+            Yii::info("Dati ricevuti per update appointment: " . json_encode($data), __METHOD__);
+            $this->validateUpdateAppointmentFields($data);
 
             $appointment = Appointment::findOne($data['appointmentId']);
             if (!$appointment) {
@@ -482,17 +485,24 @@ class TherapeuticPlanManagerController extends Controller
                 $appointment->notes = $data['notes'] ?? null;
 
                 if (!$appointment->save()) {
-                    throw new Exception('Errore salvataggio appuntamento');
+                    $errors = $appointment->getFirstErrors();
+                    Yii::error("Errori validazione appuntamento: " . json_encode($errors), __METHOD__);
+                    throw new Exception('Errore salvataggio appuntamento: ' . implode(', ', $errors));
                 }
 
-                // Traccia modifiche
-                Yii::$app->activityLog->record(
-                    'update_appointment',
-                    'Appuntamento modificato',
-                    $appointment->id,
-                    $oldValues,
-                    $appointment->getAttributes()
-                );
+                // Traccia modifiche (opzionale se il componente esiste)
+                if (isset(Yii::$app->activityLog)) {
+                    Yii::$app->activityLog->record(
+                        'update_appointment',
+                        'Appuntamento modificato',
+                        $appointment->id,
+                        $oldValues,
+                        $appointment->getAttributes()
+                    );
+                }
+                
+                // Log della modifica
+                Yii::info("Appuntamento {$appointment->id} modificato con successo", __METHOD__);
 
                 $transaction->commit();
 
@@ -763,6 +773,28 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Valida i campi per l'aggiornamento di un appuntamento esistente
+     * Non richiede planTherapyId perché l'appuntamento esiste già
+     * 
+     * @param array $data
+     * @throws BadRequestHttpException
+     */
+    private function validateUpdateAppointmentFields($data)
+    {
+        $requiredFields = ['appointmentId', 'therapistId', 'appointmentDateTime', 'durationMinutes'];
+        
+        foreach ($requiredFields as $field) {
+            if (!isset($data[$field]) || $data[$field] === '') {
+                throw new BadRequestHttpException("Campo obbligatorio mancante: {$field}");
+            }
+        }
+
+        if ($data['durationMinutes'] < 15 || $data['durationMinutes'] > 180) {
+            throw new BadRequestHttpException('Durata non valida (15-180 minuti)');
+        }
+    }
+
+    /**
      * Trova e valida PlanTherapy
      * 
      * @param int $id
@@ -1012,12 +1044,17 @@ class TherapeuticPlanManagerController extends Controller
      */
     private function formatConflictInfo($conflict, $date = null, $time = null, $therapistId = null)
     {
+        // Calcola start e end time dall'appuntamento
+        $startDateTime = new DateTime($conflict->appointment_datetime);
+        $endDateTime = clone $startDateTime;
+        $endDateTime->modify("+{$conflict->duration_minutes} minutes");
+
         $conflictInfo = [
             'existingAppointmentId' => $conflict->id,
             'existingAppointmentInfo' => [
                 'patientName' => $conflict->planTherapy->therapeuticPlan->patient->getFullName(),
-                'startTime' => $conflict->getStartTime(),
-                'endTime' => $conflict->getEndTime()
+                'startTime' => $startDateTime->format('H:i'),
+                'endTime' => $endDateTime->format('H:i')
             ]
         ];
 

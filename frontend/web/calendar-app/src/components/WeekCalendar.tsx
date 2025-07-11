@@ -1,16 +1,11 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
-
-// Tipo Appointment simulato per il componente
-interface Appointment {
-  id: number;
-  datetime: string;
-  duration: number;
-  patient?: { name: string };
-  therapist?: { name: string };
-  treatmentType?: string;
-}
+import { Appointment } from "@/types/therapy";
+import {
+  getAppointmentColor,
+  getAppointmentTooltip,
+} from "@/lib/appointment-colors";
 
 const timeSlots = [
   "08:00",
@@ -66,6 +61,8 @@ interface WeekCalendarProps {
   ) => void;
   isEditable: boolean;
   primaryColor: string;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
 }
 
 // Helper functions implementate manualmente
@@ -153,11 +150,18 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
   onAppointmentMove,
   isEditable,
   primaryColor,
+  mode,
+  currentPatientId,
 }) => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [draggedAppointment, setDraggedAppointment] = useState<string | null>(
     null
   );
+  const [dragPreview, setDragPreview] = useState<{
+    date: Date;
+    time: string;
+    appointment: Appointment;
+  } | null>(null);
 
   const weekStart = startOfWeek(currentWeek);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -218,14 +222,35 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
 
   const handleDragStart = (e: React.DragEvent, appointmentId: number) => {
     if (!isEditable) return;
+    const appointment = appointments.find((apt) => apt.id === appointmentId);
+    if (!appointment) return;
+
     setDraggedAppointment(appointmentId.toString());
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appointmentId.toString());
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    if (!isEditable) return;
+  const handleDragOver = (e: React.DragEvent, date: Date, time: string) => {
+    if (!isEditable || !draggedAppointment) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+
+    // Aggiorna la preview
+    const appointment = appointments.find(
+      (apt) => apt.id.toString() === draggedAppointment
+    );
+    if (appointment) {
+      const existingAppointment = getAppointmentForSlot(date, time);
+      const canDrop =
+        !existingAppointment ||
+        existingAppointment.id.toString() === draggedAppointment;
+
+      if (canDrop) {
+        setDragPreview({ date, time, appointment });
+      } else {
+        setDragPreview(null);
+      }
+    }
   };
 
   const handleDrop = (e: React.DragEvent, date: Date, time: string) => {
@@ -238,6 +263,12 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
     }
 
     setDraggedAppointment(null);
+    setDragPreview(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppointment(null);
+    setDragPreview(null);
   };
 
   // Crea una struttura dati per tenere traccia delle celle già renderizzate
@@ -324,7 +355,7 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
                         onSlotClick(day, time);
                       }
                     }}
-                    onDragOver={handleDragOver}
+                    onDragOver={(e) => handleDragOver(e, day, time)}
                     onDrop={(e) => handleDrop(e, day, time)}
                   >
                     {appointment && isFirstSlot && (
@@ -344,6 +375,7 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
                         }}
                         draggable={isEditable}
                         onDragStart={(e) => handleDragStart(e, appointment.id)}
+                        onDragEnd={handleDragEnd}
                         title={`${getAppointmentTreatmentType(
                           appointment
                         )} - ${getAppointmentPatientName(appointment)}`}

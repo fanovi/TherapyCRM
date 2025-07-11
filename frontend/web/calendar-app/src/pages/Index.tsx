@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
-import { DualCalendarView } from "@/components/DualCalendarView";
+import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
 import {
   Appointment,
@@ -12,9 +12,11 @@ import {
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
 import { Loader2 } from "lucide-react";
+import { ToastContainer, useToast } from "@/components/Toast";
 
 const Index = () => {
   const params = useParams();
+  const { messages, showSuccess, showError, showInfo, closeToast } = useToast();
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(
     null
   );
@@ -29,6 +31,9 @@ const Index = () => {
   const [isTherapistView, setIsTherapistView] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [therapistAppointments, setTherapistAppointments] = useState<
+    Appointment[]
+  >([]);
 
   useEffect(() => {
     // Leggi i parametri dall'URL usando React Router
@@ -146,6 +151,55 @@ const Index = () => {
     fetchData();
   }, [params]);
 
+  // Effect per caricare appuntamenti del terapista selezionato (in modalità paziente)
+  useEffect(() => {
+    const loadTherapistAppointments = async () => {
+      if (!selectedTherapist || isTherapistView) return;
+
+      try {
+        const now = new Date();
+        const appointments = await therapyAPI.getTherapistAppointments(
+          selectedTherapist.id,
+          now.getMonth() + 1,
+          now.getFullYear()
+        );
+        setTherapistAppointments(appointments);
+      } catch (err) {
+        console.error("Errore caricamento appuntamenti terapista:", err);
+        setTherapistAppointments([]);
+      }
+    };
+
+    loadTherapistAppointments();
+  }, [selectedTherapist, isTherapistView]);
+
+  // Combina appuntamenti del paziente e del terapista per la visualizzazione
+  const getCombinedAppointments = (): Appointment[] => {
+    if (isTherapistView) {
+      // In modalità terapista, mostra solo i suoi appuntamenti
+      return appointments;
+    } else {
+      // In modalità paziente, combina appuntamenti del paziente + tutti quelli del terapista selezionato
+      if (!selectedTherapist) {
+        return appointments; // Solo appuntamenti del paziente
+      }
+
+      // Combina senza duplicati (un appuntamento può essere sia del paziente che del terapista)
+      const combined = [...appointments];
+
+      therapistAppointments.forEach((therapistApt) => {
+        const isDuplicate = appointments.some(
+          (patientApt) => patientApt.id === therapistApt.id
+        );
+        if (!isDuplicate) {
+          combined.push(therapistApt);
+        }
+      });
+
+      return combined;
+    }
+  };
+
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
 
@@ -202,22 +256,44 @@ const Index = () => {
       setIsModalOpen(false);
       setSelectedSlot(null);
 
+      // Mostra messaggio di successo
+      showSuccess(
+        "Appuntamento creato",
+        "L'appuntamento è stato creato con successo"
+      );
+
       // Gestisci avvisi sui limiti settimanali se presenti
       if (result.weeklyLimitExceeded.length > 0) {
         console.warn(
           "Limite settimanale superato:",
           result.weeklyLimitExceeded
         );
-        // TODO: Mostrare un toast/modal di avviso
+        showInfo(
+          "Attenzione limite settimanale",
+          "Il limite di ore settimanali del terapista potrebbe essere stato superato"
+        );
       }
     } catch (err) {
       console.error("Errore nella creazione dell'appuntamento:", err);
-      // TODO: Mostrare messaggio di errore all'utente
 
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
-        console.warn("Conflitto rilevato:", (err as any).conflict);
-        // TODO: Mostrare modal di conflitto
+        const conflict = (err as any).conflict;
+        showError(
+          "Conflitto appuntamento",
+          `Il terapista ha già un appuntamento in questo orario con ${
+            conflict?.existingAppointmentInfo?.patientName ||
+            "un altro paziente"
+          }`
+        );
+      } else {
+        // Errore generico
+        const errorMessage =
+          err instanceof Error ? err.message : "Errore sconosciuto";
+        showError(
+          "Errore creazione",
+          `Non è stato possibile creare l'appuntamento: ${errorMessage}`
+        );
       }
     }
   };
@@ -230,7 +306,8 @@ const Index = () => {
   const handleAppointmentMove = async (
     appointmentId: string,
     newDate: Date,
-    newTime: string
+    newTime: string,
+    eventData?: any
   ) => {
     try {
       // Converti l'ID in numero per compatibilità con l'API
@@ -265,15 +342,36 @@ const Index = () => {
           apt.id === numericId ? { ...apt, datetime: newDateTime } : apt
         )
       );
+
+      // Mostra messaggio di successo
+      showSuccess(
+        "Appuntamento spostato",
+        "L'appuntamento è stato spostato con successo"
+      );
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
-      // TODO: Mostrare messaggio di errore e ripristinare posizione originale
 
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
-        console.warn("Conflitto rilevato:", (err as any).conflict);
-        // TODO: Mostrare modal di conflitto
+        const conflict = (err as any).conflict;
+        showError(
+          "Conflitto appuntamento",
+          `Il terapista ha già un appuntamento in questo orario con ${
+            conflict?.existingAppointmentInfo?.patientName ||
+            "un altro paziente"
+          }`
+        );
+      } else {
+        // Errore generico
+        const errorMessage =
+          err instanceof Error ? err.message : "Errore sconosciuto";
+        showError(
+          "Errore spostamento",
+          `Non è stato possibile spostare l'appuntamento: ${errorMessage}`
+        );
       }
+
+      // TODO: Ripristinare posizione originale dell'appuntamento nell'UI
     }
   };
 
@@ -329,6 +427,7 @@ const Index = () => {
 
   return (
     <div className="w-full">
+      <ToastContainer messages={messages} onClose={closeToast} />
       <div className="p-4">
         {/* Informazioni paziente/terapista nella barra superiore */}
         <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
@@ -372,14 +471,16 @@ const Index = () => {
           </div>
         )}
 
-        <DualCalendarView
+        <DualFullCalendarView
           selectedTherapist={selectedTherapist}
-          appointments={appointments}
+          appointments={getCombinedAppointments()}
           onSlotClick={handleSlotClick}
           onAppointmentMove={handleAppointmentMove}
           viewType={viewType}
           onViewTypeChange={setViewType}
           hidePatientCalendar={isTherapistView}
+          mode={isTherapistView ? "therapist" : "patient"}
+          currentPatientId={patient?.id}
         />
 
         <AppointmentModal

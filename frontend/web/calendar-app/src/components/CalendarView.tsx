@@ -15,6 +15,8 @@ interface CalendarViewProps {
     newTime: string
   ) => void;
   isTherapistView: boolean;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -23,6 +25,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onSlotClick,
   onAppointmentMove,
   isTherapistView,
+  mode,
+  currentPatientId,
 }) => {
   // Determina il colore primario in base al tipo di vista
   const primaryColor = isTherapistView ? "#3b82f6" : "#16a34a";
@@ -36,6 +40,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onAppointmentMove={onAppointmentMove}
           isEditable={true}
           primaryColor={primaryColor}
+          mode={mode}
+          currentPatientId={currentPatientId}
         />
       );
     case "week":
@@ -46,6 +52,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onAppointmentMove={onAppointmentMove}
           isEditable={true}
           primaryColor={primaryColor}
+          mode={mode}
+          currentPatientId={currentPatientId}
         />
       );
     case "month":

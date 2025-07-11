@@ -16,6 +16,8 @@ interface CalendarContainerProps {
   ) => void;
   isEditable: boolean;
   primaryColor: string;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
 }
 
 export const CalendarContainer: React.FC<CalendarContainerProps> = ({
@@ -25,6 +27,8 @@ export const CalendarContainer: React.FC<CalendarContainerProps> = ({
   onAppointmentMove,
   isEditable,
   primaryColor,
+  mode,
+  currentPatientId,
 }) => {
   switch (view) {
     case "day":
@@ -35,6 +39,8 @@ export const CalendarContainer: React.FC<CalendarContainerProps> = ({
           onAppointmentMove={onAppointmentMove}
           isEditable={isEditable}
           primaryColor={primaryColor}
+          mode={mode}
+          currentPatientId={currentPatientId}
         />
       );
     case "week":
@@ -45,6 +51,8 @@ export const CalendarContainer: React.FC<CalendarContainerProps> = ({
           onAppointmentMove={onAppointmentMove}
           isEditable={isEditable}
           primaryColor={primaryColor}
+          mode={mode}
+          currentPatientId={currentPatientId}
         />
       );
     case "month":

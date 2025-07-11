@@ -16,6 +16,8 @@ interface DualCalendarViewProps {
   viewType: CalendarViewType;
   onViewTypeChange: (viewType: CalendarViewType) => void;
   hidePatientCalendar?: boolean;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
 }
 
 export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
@@ -26,6 +28,8 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
   viewType,
   onViewTypeChange,
   hidePatientCalendar = false,
+  mode,
+  currentPatientId,
 }) => {
   const therapistAppointments = selectedTherapist
     ? appointments.filter((apt) => apt.therapist?.id === selectedTherapist.id)

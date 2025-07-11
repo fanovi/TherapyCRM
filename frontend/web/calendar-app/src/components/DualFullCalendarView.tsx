@@ -1,0 +1,325 @@
+import React, { useState, useEffect, useRef } from "react";
+import { Card } from "@/components/ui/card";
+import FullCalendarContainer from "./FullCalendarContainer";
+import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
+import { Therapist, Appointment } from "@/types/therapy";
+
+interface DualFullCalendarViewProps {
+  selectedTherapist: Therapist | null;
+  appointments: Appointment[];
+  onSlotClick: (date: Date, time: string) => void;
+  onAppointmentMove: (
+    appointmentId: string,
+    newDate: Date,
+    newTime: string,
+    eventData?: any
+  ) => void;
+  viewType: CalendarViewType;
+  onViewTypeChange: (viewType: CalendarViewType) => void;
+  hidePatientCalendar?: boolean;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
+}
+
+export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
+  selectedTherapist,
+  appointments,
+  onSlotClick,
+  onAppointmentMove,
+  viewType,
+  onViewTypeChange,
+  hidePatientCalendar = false,
+  mode,
+  currentPatientId,
+}) => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [sharedEvents, setSharedEvents] = useState<any[]>([]);
+
+  // Refs per comunicare direttamente con i calendari
+  const therapistCalendarRef = useRef<any>(null);
+  const patientCalendarRef = useRef<any>(null);
+
+  // Converte viewType del componente alle viste di FullCalendar
+  const getFullCalendarView = (
+    view: CalendarViewType
+  ): "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek" => {
+    switch (view) {
+      case "day":
+        return "timeGridDay";
+      case "week":
+        return "timeGridWeek";
+      case "month":
+        return "dayGridMonth";
+      default:
+        return "dayGridMonth";
+    }
+  };
+
+  const currentFullCalendarView = getFullCalendarView(viewType);
+
+  // Sincronizza eventi quando cambiano gli appuntamenti originali
+  useEffect(() => {
+    // Trasforma gli appuntamenti in formato FullCalendar per la sincronizzazione
+    const formattedEvents = appointments.map((appointment) => {
+      const [datePart, timePart] = appointment.datetime.split(" ");
+      const startTime = new Date(`${datePart}T${timePart}`);
+      const endTime = new Date(
+        startTime.getTime() + appointment.duration * 60000
+      );
+
+      // Determina colore basato su status
+      const getStatusColor = (status: string) => {
+        switch (status) {
+          case "confirmed":
+            return "#10B981"; // Verde
+          case "pending":
+            return "#F59E0B"; // Arancione
+          case "cancelled":
+            return "#EF4444"; // Rosso
+          case "completed":
+            return "#6366F1"; // Blu
+          default:
+            return "#6B7280"; // Grigio
+        }
+      };
+
+      return {
+        id: appointment.id.toString(),
+        title:
+          appointment.therapist?.name ||
+          appointment.patient?.name ||
+          "Appuntamento",
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        backgroundColor: getStatusColor(appointment.status),
+        borderColor: getStatusColor(appointment.status),
+        textColor: "#ffffff",
+        extendedProps: {
+          patient_name: appointment.patient?.name || "N/A",
+          therapist_name: appointment.therapist?.name || "N/A",
+          status: appointment.status,
+          duration: appointment.duration,
+          patient_id: appointment.patient?.id || null,
+          therapist_id: appointment.therapist?.id || null,
+        },
+      };
+    });
+
+    setSharedEvents(formattedEvents);
+  }, [appointments]);
+
+  // Filtri per appuntamenti specifici
+  const therapistAppointments = selectedTherapist
+    ? appointments.filter((apt) => apt.therapist?.id === selectedTherapist.id)
+    : [];
+
+  const patientAppointments = currentPatientId
+    ? appointments.filter(
+        (apt) =>
+          apt.patient &&
+          (typeof apt.patient === "object"
+            ? apt.patient.id === currentPatientId
+            : false)
+      )
+    : appointments;
+
+  // Gestione selezione data
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    console.log("Data selezionata:", date);
+  };
+
+  // Gestione cambio vista - sincronizza entrambi i calendari
+  const handleViewChange = (
+    view: "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek"
+  ) => {
+    // Converte la vista di FullCalendar al formato del component
+    let newViewType: CalendarViewType;
+    switch (view) {
+      case "timeGridDay":
+        newViewType = "day";
+        break;
+      case "timeGridWeek":
+        newViewType = "week";
+        break;
+      case "dayGridMonth":
+        newViewType = "month";
+        break;
+      case "listWeek":
+        newViewType = "week";
+        break;
+      default:
+        newViewType = "month";
+        break;
+    }
+
+    // Aggiorna la vista per entrambi i calendari
+    onViewTypeChange(newViewType);
+  };
+
+  // Gestione movimento appuntamenti con sincronizzazione
+  const handleAppointmentMoveWithSync = (
+    appointmentId: string,
+    newDate: Date,
+    newTime: string,
+    eventData?: any
+  ) => {
+    // Chiama la funzione originale per aggiornare il backend
+    onAppointmentMove(appointmentId, newDate, newTime, eventData);
+
+    // Calcola il nuovo datetime
+    const newDateTime = new Date(newDate);
+    const [hours, minutes] = newTime.split(":");
+    newDateTime.setHours(parseInt(hours), parseInt(minutes));
+
+    // Usa i dati dell'evento per ottenere le informazioni necessarie
+    const duration = eventData?.duration || 60;
+    const patientId = eventData?.patient_id;
+    const therapistId = eventData?.therapist_id;
+
+    const newStart = newDateTime.toISOString();
+    const newEnd = new Date(
+      newDateTime.getTime() + duration * 60000
+    ).toISOString();
+
+    console.log(`🔄 Sincronizzazione evento ${appointmentId}:`, {
+      newStart,
+      newEnd,
+      patientId,
+      therapistId,
+      currentPatientId,
+    });
+
+    // Sincronizza con il calendario del paziente se l'evento appartiene al paziente visualizzato
+    if (patientId === currentPatientId && patientCalendarRef.current) {
+      console.log(
+        `✅ Aggiornamento calendario paziente per evento ${appointmentId}`
+      );
+      patientCalendarRef.current.updateEvent(appointmentId, newStart, newEnd);
+    }
+  };
+
+  // Filtra eventi per il calendario del terapista
+  const therapistEvents = sharedEvents.filter(
+    (event) =>
+      selectedTherapist &&
+      event.extendedProps?.therapist_id === selectedTherapist.id
+  );
+
+  // Filtra eventi per il calendario del paziente
+  const patientEvents = sharedEvents.filter(
+    (event) =>
+      currentPatientId && event.extendedProps?.patient_id === currentPatientId
+  );
+
+  // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
+  if (hidePatientCalendar && selectedTherapist) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <CalendarViewSelector
+            viewType={viewType}
+            onViewTypeChange={onViewTypeChange}
+          />
+        </div>
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: selectedTherapist.color || "#3b82f6" }}
+            />
+            Calendario di {selectedTherapist.name}
+          </h2>
+          <FullCalendarContainer
+            therapistId={selectedTherapist.id.toString()}
+            selectedDate={selectedDate}
+            onDateSelect={handleDateSelect}
+            onSlotClick={onSlotClick}
+            onAppointmentMove={handleAppointmentMoveWithSync}
+            readOnly={false}
+            currentView={currentFullCalendarView}
+            onViewChange={handleViewChange}
+            onRef={(ref) => {
+              therapistCalendarRef.current = ref;
+            }}
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // Vista normale con due calendari affiancati
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <CalendarViewSelector
+          viewType={viewType}
+          onViewTypeChange={onViewTypeChange}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Calendario Terapista */}
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+            {selectedTherapist ? (
+              <>
+                <div
+                  className="w-4 h-4 rounded-full"
+                  style={{
+                    backgroundColor: selectedTherapist.color || "#3b82f6",
+                  }}
+                />
+                Calendario di {selectedTherapist.name}
+              </>
+            ) : (
+              "Seleziona un terapista"
+            )}
+          </h2>
+          {selectedTherapist ? (
+            <FullCalendarContainer
+              therapistId={selectedTherapist.id.toString()}
+              selectedDate={selectedDate}
+              onDateSelect={handleDateSelect}
+              onSlotClick={onSlotClick}
+              onAppointmentMove={handleAppointmentMoveWithSync}
+              readOnly={false}
+              currentView={currentFullCalendarView}
+              onViewChange={handleViewChange}
+              onRef={(ref) => {
+                therapistCalendarRef.current = ref;
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="text-center">
+                <p className="text-lg font-medium">Seleziona un terapista</p>
+                <p className="text-sm mt-2">
+                  per visualizzare il suo calendario
+                </p>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Calendario Paziente */}
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-green-500" />
+            Calendario Paziente
+          </h2>
+          <FullCalendarContainer
+            patientId={currentPatientId?.toString()}
+            selectedDate={selectedDate}
+            onDateSelect={handleDateSelect}
+            readOnly={true}
+            currentView={currentFullCalendarView}
+            onViewChange={handleViewChange}
+            onRef={(ref) => {
+              patientCalendarRef.current = ref;
+            }}
+          />
+        </Card>
+      </div>
+    </div>
+  );
+};

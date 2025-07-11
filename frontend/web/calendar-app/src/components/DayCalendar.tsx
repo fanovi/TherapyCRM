@@ -4,6 +4,10 @@ import { it } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Appointment } from "@/types/therapy";
+import {
+  getAppointmentColor,
+  getAppointmentTooltip,
+} from "@/lib/appointment-colors";
 
 const timeSlots = [
   "08:00",
@@ -59,6 +63,8 @@ interface DayCalendarProps {
   ) => void;
   isEditable: boolean;
   primaryColor: string;
+  mode: "patient" | "therapist";
+  currentPatientId?: number;
 }
 
 // Helper functions per gestire la nuova struttura dati
@@ -89,11 +95,17 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
   onAppointmentMove,
   isEditable,
   primaryColor,
+  mode,
+  currentPatientId,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedAppointment, setDraggedAppointment] = useState<string | null>(
     null
   );
+  const [dragPreview, setDragPreview] = useState<{
+    time: string;
+    appointment: Appointment;
+  } | null>(null);
 
   // Filtra gli appuntamenti per il giorno corrente
   const todayAppointments = appointments.filter((apt) => {
@@ -146,14 +158,37 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
 
   const handleDragStart = (e: React.DragEvent, appointmentId: number) => {
     if (!isEditable) return;
+    const appointment = todayAppointments.find(
+      (apt) => apt.id === appointmentId
+    );
+    if (!appointment) return;
+
     setDraggedAppointment(appointmentId.toString());
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appointmentId.toString());
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    if (!isEditable) return;
+  const handleDragOver = (e: React.DragEvent, time: string) => {
+    if (!isEditable || !draggedAppointment) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+
+    // Aggiorna la preview solo se è una posizione diversa
+    const appointment = todayAppointments.find(
+      (apt) => apt.id.toString() === draggedAppointment
+    );
+    if (appointment) {
+      const existingAppointment = getAppointmentForSlot(time);
+      const canDrop =
+        !existingAppointment ||
+        existingAppointment.id.toString() === draggedAppointment;
+
+      if (canDrop) {
+        setDragPreview({ time, appointment });
+      } else {
+        setDragPreview(null);
+      }
+    }
   };
 
   const handleDrop = (e: React.DragEvent, time: string) => {
@@ -169,6 +204,12 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
     }
 
     setDraggedAppointment(null);
+    setDragPreview(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppointment(null);
+    setDragPreview(null);
   };
 
   return (
@@ -241,7 +282,7 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
                   onClick={() =>
                     isEditable && !appointment && onSlotClick(currentDate, time)
                   }
-                  onDragOver={handleDragOver}
+                  onDragOver={(e) => handleDragOver(e, time)}
                   onDrop={(e) => handleDrop(e, time)}
                 >
                   {appointment && isFirstSlot && (
@@ -249,21 +290,24 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
                       className={`absolute inset-0 m-1 rounded text-sm text-white font-medium cursor-move transition-all z-10 p-2
                         ${
                           draggedAppointment === appointment.id.toString()
-                            ? "opacity-50"
+                            ? "opacity-30"
                             : "opacity-100"
                         }
                       `}
                       style={{
-                        backgroundColor: primaryColor,
+                        backgroundColor: getAppointmentColor(
+                          appointment,
+                          mode,
+                          currentPatientId
+                        ),
                         height: `${
                           (Math.floor(appointment.duration / 15) + 1) * 48 - 8
                         }px`, // Estende verso il basso
                       }}
                       draggable={isEditable}
                       onDragStart={(e) => handleDragStart(e, appointment.id)}
-                      title={`${getAppointmentTreatmentType(
-                        appointment
-                      )} - ${getAppointmentPatientName(appointment)}`}
+                      onDragEnd={handleDragEnd}
+                      title={getAppointmentTooltip(appointment, mode)}
                     >
                       <div className="font-semibold text-sm leading-tight">
                         {getAppointmentTreatmentType(appointment)}
@@ -281,11 +325,53 @@ export const DayCalendar: React.FC<DayCalendarProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Preview del drag quando l'appuntamento viene trascinato */}
+                  {dragPreview && dragPreview.time === time && !appointment && (
+                    <div
+                      className="absolute inset-0 m-1 rounded text-sm text-white font-medium z-20 p-2 border-2 border-dashed"
+                      style={{
+                        backgroundColor: getAppointmentColor(
+                          dragPreview.appointment,
+                          mode,
+                          currentPatientId
+                        ),
+                        opacity: 0.7,
+                        height: `${
+                          (Math.floor(dragPreview.appointment.duration / 15) +
+                            1) *
+                            48 -
+                          8
+                        }px`,
+                        borderColor: "rgba(255, 255, 255, 0.8)",
+                      }}
+                    >
+                      <div className="font-semibold text-sm leading-tight">
+                        {getAppointmentTreatmentType(dragPreview.appointment)}
+                      </div>
+                      <div className="text-sm opacity-90 leading-tight mt-1">
+                        {getAppointmentPatientName(dragPreview.appointment)}
+                      </div>
+                      <div className="text-sm opacity-75 leading-tight mt-1">
+                        {dragPreview.appointment.duration} min
+                      </div>
+                      <div className="text-xs opacity-75 leading-tight mt-1 italic">
+                        Nuova posizione
+                      </div>
+                    </div>
+                  )}
+
                   {appointment && !isFirstSlot && (
                     <div className="h-full flex items-center justify-center">
                       <div
                         className="w-2 h-8 rounded"
-                        style={{ backgroundColor: primaryColor }}
+                        style={{
+                          backgroundColor: getAppointmentColor(
+                            appointment,
+                            mode,
+                            currentPatientId
+                          ),
+                        }}
                       />
                     </div>
                   )}
