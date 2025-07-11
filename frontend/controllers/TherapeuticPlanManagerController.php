@@ -429,6 +429,8 @@ class TherapeuticPlanManagerController extends Controller
             $result = [];
             foreach ($appointments as $appointment) {
                 $patient = $appointment->planTherapy->therapeuticPlan->patient;
+                $therapist = $appointment->therapist;
+                $profile = $therapist->user->profile;
                 
                 $result[] = [
                     'id' => $appointment->id,
@@ -440,6 +442,10 @@ class TherapeuticPlanManagerController extends Controller
                     'patient' => [
                         'id' => $patient->id,
                         'name' => $patient->getFullName()
+                    ],
+                    'therapist' => [
+                        'id' => $therapist->id,
+                        'name' => $profile->getFullName()
                     ]
                 ];
             }
@@ -472,10 +478,11 @@ class TherapeuticPlanManagerController extends Controller
                 ->alias('a')
                 ->innerJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->innerJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->innerJoin('patients p', 'p.id = tp.patient_id')
                 ->innerJoin('therapists t', 't.id = a.therapist_id')
                 ->innerJoin('users u', 'u.id = t.user_id')
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
-                ->with(['planTherapy.treatmentType'])
+                ->with(['planTherapy.treatmentType', 'planTherapy.therapeuticPlan.patient'])
                 ->where([
                     'tp.patient_id' => $patientId
                 ])
@@ -491,16 +498,22 @@ class TherapeuticPlanManagerController extends Controller
             foreach ($appointments as $appointment) {
                 $therapist = $appointment->therapist;
                 $profile = $therapist->user->profile;
+                $patient = $appointment->planTherapy->therapeuticPlan->patient;
                 
                 $result[] = [
                     'id' => $appointment->id,
                     'datetime' => $appointment->appointment_datetime,
                     'duration' => $appointment->duration_minutes,
                     'status' => $appointment->status,
+                    'notes' => $appointment->notes,
                     'treatmentType' => $appointment->planTherapy->treatmentType->name,
                     'therapist' => [
                         'id' => $therapist->id,
                         'name' => $profile->getFullName()
+                    ],
+                    'patient' => [
+                        'id' => $patient->id,
+                        'name' => $patient->getFullName()
                     ]
                 ];
             }

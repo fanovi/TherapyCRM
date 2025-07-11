@@ -487,9 +487,39 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           dayHeaderClassNames="bg-gray-50 font-medium text-gray-700 py-2"
           eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"
           datesSet={(dateInfo) => {
-            // Chiamato quando cambia la vista o si naviga
-            if (onNavigate) {
-              onNavigate(dateInfo.start);
+            // Ottieni l'API del calendario
+            const calendarApi = calendarRef.current?.getApi();
+
+            if (calendarApi && onNavigate) {
+              const view = calendarApi.view;
+
+              // Per la vista settimana, estrai la data dal titolo
+              if (view.type === "timeGridWeek") {
+                // Il titolo contiene "13 – 19 lug 2025"
+                const title = view.title;
+                console.log("📅 Titolo vista settimana:", title);
+
+                // Estrai il primo numero (giorno iniziale)
+                const match = title.match(/(\d+)/);
+                if (match) {
+                  const startDay = parseInt(match[1]);
+                  // Usa l'anno e il mese dalla vista corrente
+                  const viewDate = new Date(view.currentStart);
+                  const firstDayOfWeek = new Date(
+                    viewDate.getFullYear(),
+                    viewDate.getMonth(),
+                    startDay
+                  );
+
+                  console.log("📅 Data estratta dal titolo:", firstDayOfWeek);
+                  onNavigate(firstDayOfWeek);
+                } else {
+                  // Fallback
+                  onNavigate(view.currentStart);
+                }
+              } else {
+                onNavigate(view.currentStart);
+              }
             }
 
             // Notifica il cambio del range visibile

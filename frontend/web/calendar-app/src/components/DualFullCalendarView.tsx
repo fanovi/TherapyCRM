@@ -152,8 +152,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     setCurrentWeekStart(weekStart);
 
     console.log("📅 Navigazione calendario terapista:", {
-      date: date.toLocaleDateString(),
-      weekStart: weekStart.toLocaleDateString(),
+      date: date.toLocaleDateString("it-IT"),
+      weekStart: weekStart.toLocaleDateString("it-IT"),
+      weekStartFormatted: moment(weekStart).format("YYYY-MM-DD"),
     });
 
     // Chiama il callback originale se presente
@@ -171,15 +172,26 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
   // Gestione cambio range visibile specifico per il calendario del terapista
   const handleTherapistVisibleRangeChange = (start: Date, end: Date) => {
-    // Aggiorna la settimana corrente per il componente ore settimanali
-    // Usa moment per assicurarsi che sia sempre l'inizio della settimana ISO (lunedì)
-    const weekStart = moment(start).startOf("isoWeek").toDate();
+    // FullCalendar fornisce il range domenica-sabato
+    // Per le ore settimanali, vogliamo il lunedì della stessa settimana
+    let weekStart: Date;
+
+    if (moment(start).day() === 0) {
+      // Se start è domenica, il lunedì è il giorno successivo
+      weekStart = moment(start).add(1, "day").toDate();
+    } else {
+      // Altrimenti usa startOf('isoWeek') per ottenere il lunedì
+      weekStart = moment(start).startOf("isoWeek").toDate();
+    }
+
     setCurrentWeekStart(weekStart);
 
     console.log("🧑‍⚕️ Range terapista cambiato:", {
-      start: start.toLocaleDateString(),
-      end: end.toLocaleDateString(),
-      weekStart: weekStart.toLocaleDateString(),
+      originalStart: start.toLocaleDateString("it-IT"),
+      originalEnd: end.toLocaleDateString("it-IT"),
+      startDay: moment(start).format("dddd"),
+      weekStart: weekStart.toLocaleDateString("it-IT"),
+      weekStartFormatted: moment(weekStart).format("YYYY-MM-DD"),
     });
 
     // Chiama anche il callback generico
@@ -250,12 +262,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       newDateTime.getTime() + duration * 60000
     ).toISOString();
 
-    console.log(`🔄 Sincronizzazione evento ${appointmentId}:`, {
-      newStart,
-      newEnd,
-      patientId,
-      therapistId,
-      currentPatientId,
+    // Aggiungi questo log per debug
+    console.log("🔍 Debug TherapistWeeklyHours:", {
+      viewType,
+      hasSelectedTherapist: !!selectedTherapist,
+      currentWeekStart,
+      currentWeekStartString: currentWeekStart?.toISOString(),
     });
 
     // Sincronizza con il calendario del paziente se l'evento appartiene al paziente visualizzato
@@ -292,7 +304,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         </div>
 
         {/* Ore settimanali - visibile solo in vista settimana */}
-        {viewType === "week" && (
+        {viewType === "week" && selectedTherapist && (
           <TherapistWeeklyHours
             therapist={selectedTherapist}
             currentDate={currentWeekStart}

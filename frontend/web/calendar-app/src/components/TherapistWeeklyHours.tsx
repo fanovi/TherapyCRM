@@ -24,6 +24,11 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
   therapist,
   currentDate,
 }) => {
+  console.log("📅 TherapistWeeklyHours riceve currentDate:", {
+    currentDate,
+    currentDateString: currentDate?.toISOString(),
+    currentDateFormatted: currentDate?.toLocaleDateString("it-IT"),
+  });
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHoursData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +41,25 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
       setError(null);
 
       try {
-        const startDate = currentDate.toISOString().split("T")[0];
+        // Passa la domenica precedente al lunedì corrente
+        // Così il backend calcolerà "monday this week" correttamente
+        const sundayDate = new Date(currentDate);
+        sundayDate.setDate(sundayDate.getDate() - 1); // Sottrai 1 giorno per ottenere la domenica
+
+        const year = sundayDate.getFullYear();
+        const month = String(sundayDate.getMonth() + 1).padStart(2, "0");
+        const day = String(sundayDate.getDate()).padStart(2, "0");
+        const startDate = `${year}-${month}-${day}`;
+
+        console.log("🔧 TherapistWeeklyHours - Date formatting:", {
+          originalDate: currentDate.toLocaleDateString("it-IT"),
+          sundayDate: sundayDate.toLocaleDateString("it-IT"),
+          year,
+          month,
+          day,
+          startDateString: startDate,
+        });
+
         const data = await therapyAPI.getTherapistWeeklyHours(
           therapist.id,
           startDate
