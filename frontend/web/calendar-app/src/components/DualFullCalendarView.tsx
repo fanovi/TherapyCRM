@@ -20,6 +20,7 @@ interface DualFullCalendarViewProps {
   mode: "patient" | "therapist";
   currentPatientId?: number;
   onDateChange?: (date: Date) => void;
+  onVisibleRangeChange?: (start: Date, end: Date) => void;
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -33,6 +34,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   mode,
   currentPatientId,
   onDateChange,
+  onVisibleRangeChange,
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sharedEvents, setSharedEvents] = useState<any[]>([]);
@@ -129,6 +131,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     console.log("Data selezionata:", date);
+  };
+
+  // Gestione cambio range visibile
+  const handleVisibleRangeChange = (start: Date, end: Date) => {
+    if (onVisibleRangeChange) {
+      onVisibleRangeChange(start, end);
+    }
   };
 
   // Gestione cambio vista - sincronizza entrambi i calendari
@@ -242,6 +251,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
             onNavigate={onDateChange}
+            onVisibleRangeChange={handleVisibleRangeChange}
             onRef={(ref) => {
               therapistCalendarRef.current = ref;
             }}
@@ -289,6 +299,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               currentView={currentFullCalendarView}
               onViewChange={handleViewChange}
               onNavigate={onDateChange}
+              onVisibleRangeChange={handleVisibleRangeChange}
               onRef={(ref) => {
                 therapistCalendarRef.current = ref;
               }}
@@ -319,6 +330,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
             onNavigate={onDateChange}
+            onVisibleRangeChange={handleVisibleRangeChange}
             onRef={(ref) => {
               patientCalendarRef.current = ref;
             }}

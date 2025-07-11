@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { DualFullCalendarView } from "@/components/DualFullCalendarView";
@@ -36,6 +36,11 @@ const Index = () => {
     Appointment[]
   >([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentVisibleRange, setCurrentVisibleRange] = useState<{
+    start: Date;
+    end: Date;
+  } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
@@ -65,6 +70,83 @@ const Index = () => {
     }
   };
 
+  // Funzione per ricaricare gli appuntamenti per il range attualmente visibile
+  const reloadCurrentVisibleAppointments = async () => {
+    if (!currentVisibleRange) {
+      // Fallback al mese corrente se non abbiamo il range
+      const now = new Date();
+      await loadAppointmentsForMonth(now);
+      return;
+    }
+
+    try {
+      // Determina tutti i mesi nel range visibile
+      const startDate = new Date(currentVisibleRange.start);
+      const endDate = new Date(currentVisibleRange.end);
+
+      const monthsToLoad = new Set<{ month: number; year: number }>();
+      const current = new Date(startDate);
+
+      while (current <= endDate) {
+        monthsToLoad.add({
+          month: current.getMonth() + 1,
+          year: current.getFullYear(),
+        });
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      // Carica appuntamenti per tutti i mesi necessari
+      const appointmentPromises: Promise<any[]>[] = [];
+
+      for (const { month, year } of monthsToLoad) {
+        if (patient) {
+          appointmentPromises.push(
+            therapyAPI.getPatientAppointments(patient.id, month, year)
+          );
+        }
+        if (selectedTherapist) {
+          appointmentPromises.push(
+            therapyAPI.getTherapistAppointments(
+              selectedTherapist.id,
+              month,
+              year
+            )
+          );
+        }
+      }
+
+      const results = await Promise.all(appointmentPromises);
+
+      // Separa i risultati per paziente e terapista
+      let patientResults: any[] = [];
+      let therapistResults: any[] = [];
+
+      let resultIndex = 0;
+      for (const { month, year } of monthsToLoad) {
+        if (patient) {
+          patientResults = patientResults.concat(results[resultIndex]);
+          resultIndex++;
+        }
+        if (selectedTherapist) {
+          therapistResults = therapistResults.concat(results[resultIndex]);
+          resultIndex++;
+        }
+      }
+
+      if (patient) {
+        setAppointments(patientResults);
+      }
+      if (selectedTherapist) {
+        setTherapistAppointments(therapistResults);
+      }
+    } catch (error) {
+      console.error(
+        "Errore nel ricaricamento appuntamenti per range visibile:",
+        error
+      );
+    }
+  };
+
   // Gestisce il cambio di mese/data nel calendario
   const handleDateChange = (date: Date) => {
     const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -77,6 +159,11 @@ const Index = () => {
       setCurrentMonth(newMonth);
       loadAppointmentsForMonth(newMonth);
     }
+  };
+
+  // Gestisce il cambio del range di date visibile nel calendario
+  const handleVisibleRangeChange = (start: Date, end: Date) => {
+    setCurrentVisibleRange({ start, end });
   };
 
   useEffect(() => {
@@ -218,7 +305,7 @@ const Index = () => {
   }, [selectedTherapist, isTherapistView]);
 
   // Combina appuntamenti del paziente e del terapista per la visualizzazione
-  const getCombinedAppointments = (): Appointment[] => {
+  const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
       // In modalità terapista, mostra solo i suoi appuntamenti
       return appointments;
@@ -242,7 +329,7 @@ const Index = () => {
 
       return combined;
     }
-  };
+  }, [appointments, therapistAppointments, isTherapistView, selectedTherapist]);
 
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
@@ -326,40 +413,61 @@ const Index = () => {
         weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
       }
 
-      // Ricarica i dati dei calendari per sincronizzare
+      // Ricarica gli appuntamenti usando la stessa logica del caricamento iniziale
       const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
 
-      // Usa Promise.all per ricaricare contemporaneamente
-      const reloadPromises = [];
+      console.log("🔄 Ricaricando appuntamenti dopo creazione:", {
+        currentMonth,
+        currentYear,
+        patientId: patient?.id,
+        therapistId: selectedTherapist?.id,
+      });
 
+      console.log("📊 Stato attuale degli appuntamenti:", {
+        appointments: appointments.length,
+        therapistAppointments: therapistAppointments.length,
+      });
+
+      // Ricarica appuntamenti paziente (sempre in modalità paziente)
       if (patient) {
-        // Ricarica appuntamenti del paziente
-        reloadPromises.push(
-          therapyAPI
-            .getPatientAppointments(patient.id, month, year)
-            .then((updatedAppointments) => {
-              setAppointments(updatedAppointments);
-            })
+        console.log("📅 Caricando appuntamenti paziente...");
+        const patientAppointments = await therapyAPI.getPatientAppointments(
+          patient.id,
+          currentMonth,
+          currentYear
         );
+        console.log("✅ Appuntamenti paziente ricevuti:", patientAppointments);
+        setAppointments([...patientAppointments]);
       }
 
+      // Ricarica appuntamenti terapista per il calendario di destra
       if (selectedTherapist) {
-        // Ricarica appuntamenti del terapista
-        reloadPromises.push(
-          therapyAPI
-            .getTherapistAppointments(selectedTherapist.id, month, year)
-            .then((updatedAppointments) => {
-              setTherapistAppointments(updatedAppointments);
-            })
+        console.log("🧑‍⚕️ Caricando appuntamenti terapista...");
+        const therapistAppointments = await therapyAPI.getTherapistAppointments(
+          selectedTherapist.id,
+          currentMonth,
+          currentYear
         );
+        console.log(
+          "✅ Appuntamenti terapista ricevuti:",
+          therapistAppointments
+        );
+        setTherapistAppointments([...therapistAppointments]);
+        setRefreshKey((prev) => prev + 1);
       }
 
-      // Aspetta che tutti i ricaricamenti siano completati
-      if (reloadPromises.length > 0) {
-        await Promise.all(reloadPromises);
-      }
+      console.log("🎯 Ricaricamento completato!");
+
+      // Forza un piccolo delay per assicurarsi che React rilevi il cambiamento
+      setTimeout(() => {
+        console.log("📊 Stato finale degli appuntamenti:", {
+          appointments: appointments.length,
+          therapistAppointments: therapistAppointments.length,
+          combinedLength: combinedAppointments.length,
+        });
+      }, 100);
 
       setIsModalOpen(false);
       setSelectedSlot(null);
@@ -587,8 +695,9 @@ const Index = () => {
         )}
 
         <DualFullCalendarView
+          key={refreshKey}
           selectedTherapist={selectedTherapist}
-          appointments={getCombinedAppointments()}
+          appointments={combinedAppointments}
           onSlotClick={handleSlotClick}
           onAppointmentMove={handleAppointmentMove}
           viewType={viewType}
@@ -597,6 +706,7 @@ const Index = () => {
           mode={isTherapistView ? "therapist" : "patient"}
           currentPatientId={patient?.id}
           onDateChange={handleDateChange}
+          onVisibleRangeChange={handleVisibleRangeChange}
         />
 
         <AppointmentModal

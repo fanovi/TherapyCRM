@@ -32,6 +32,7 @@ interface FullCalendarContainerProps {
   externalEvents?: EventInput[];
   onRef?: (ref: any) => void;
   onNavigate?: (date: Date) => void;
+  onVisibleRangeChange?: (start: Date, end: Date) => void;
 }
 
 interface AppointmentEvent {
@@ -61,6 +62,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   externalEvents,
   onRef,
   onNavigate,
+  onVisibleRangeChange,
 }) => {
   const [internalCurrentView, setInternalCurrentView] = useState<
     "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek"
@@ -480,6 +482,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             // Chiamato quando cambia la vista o si naviga
             if (onNavigate) {
               onNavigate(dateInfo.start);
+            }
+
+            // Notifica il cambio del range visibile
+            if (onVisibleRangeChange) {
+              onVisibleRangeChange(dateInfo.start, dateInfo.end);
             }
 
             // Ricarica gli appuntamenti solo se è cambiato il range di date e non stiamo usando eventi esterni
