@@ -11,6 +11,7 @@ use yii\widgets\ActiveForm;
 /* @var $regimes array */
 /* @var $treatmentTypes array */
 /* @var $settings array */
+/* @var $postedTherapies array */
 ?>
 
 <div class="therapeutic-plan-form">
@@ -259,6 +260,8 @@ use yii\widgets\ActiveForm;
                         const treatmentTypeSelect = clone.querySelector('.treatment-type');
                         const weeklyHoursInput = clone.querySelector('.weekly-hours');
                         const settingSelect = clone.querySelector('.setting');
+                        const isGroupCheckbox = clone.querySelector('.is-group');
+                        const notesTextarea = clone.querySelector('.notes');
                         
                         if (treatmentTypeSelect && data.treatment_type_id) {
                             treatmentTypeSelect.value = data.treatment_type_id;
@@ -273,6 +276,17 @@ use yii\widgets\ActiveForm;
                         if (settingSelect && data.setting_id) {
                             settingSelect.value = data.setting_id;
                             log('Impostato setting:', data.setting_id);
+                        }
+                        
+                        if (isGroupCheckbox && data.is_group !== undefined) {
+                            // Gestione checkbox per is_group
+                            isGroupCheckbox.checked = data.is_group == 1 || data.is_group === true || data.is_group === 'true';
+                            log('Impostato is_group:', data.is_group);
+                        }
+                        
+                        if (notesTextarea && data.notes) {
+                            notesTextarea.value = data.notes;
+                            log('Impostate note:', data.notes);
                         }
                     }
                     
@@ -670,4 +684,4 @@ $this->registerJs("
         return true;
     });
 ");
-?> 
+?>

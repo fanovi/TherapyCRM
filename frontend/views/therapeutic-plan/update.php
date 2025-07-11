@@ -9,6 +9,7 @@ use yii\helpers\Html;
 /* @var $regimes array */
 /* @var $treatmentTypes array */
 /* @var $settings array */
+/* @var $postedTherapies array */
 
 $this->title = 'Modifica Piano Terapeutico #' . $model->id;
 $this->params['breadcrumbs'][] = ['label' => 'Piani Terapeutici', 'url' => ['index']];
@@ -28,5 +29,6 @@ $this->params['breadcrumbs'][] = 'Modifica';
         'regimes' => $regimes,
         'treatmentTypes' => $treatmentTypes,
         'settings' => $settings,
+        'postedTherapies' => $postedTherapies, // Aggiungi questa riga!
     ]) ?>
-</div> 
+</div>

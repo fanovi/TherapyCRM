@@ -171,21 +171,21 @@ class TherapeuticPlanController extends BaseController
 
         if ($this->request->isPost) {
             Yii::info('Inizio processo di creazione piano terapeutico', __METHOD__);
-            
+
             // Carica i dati del form
             if ($model->load($this->request->post())) {
                 Yii::info('Dati del modello caricati: ' . json_encode($model->attributes), __METHOD__);
             } else {
                 Yii::error('Errore nel caricamento dei dati del modello', __METHOD__);
             }
-            
+
             // Valida le terapie
             $therapies = Yii::$app->request->post('PlanTherapy', []);
             Yii::info('Terapie ricevute: ' . json_encode($therapies), __METHOD__);
-            
+
             $isValid = true;
             $error = null;
-            
+
             try {
                 if (empty($therapies)) {
                     Yii::error('Nessuna terapia ricevuta', __METHOD__);
@@ -207,14 +207,14 @@ class TherapeuticPlanController extends BaseController
                 // Se il modello principale è valido, procedi con il salvataggio
                 if ($model->validate()) {
                     Yii::info('Validazione modello principale superata', __METHOD__);
-                    
+
                     $transaction = Yii::$app->db->beginTransaction();
                     try {
                         if (!$model->save()) {
                             Yii::error('Errore nel salvataggio del modello principale: ' . json_encode($model->errors), __METHOD__);
                             throw new \Exception('Errore nel salvataggio del piano terapeutico: ' . json_encode($model->errors));
                         }
-                        
+
                         Yii::info('Modello principale salvato con ID: ' . $model->id, __METHOD__);
 
                         // Salva le terapie
@@ -227,12 +227,12 @@ class TherapeuticPlanController extends BaseController
                                 $newTherapy->is_group = !empty($therapy['is_group']);
                                 $newTherapy->setting_id = $therapy['setting_id'];
                                 $newTherapy->notes = $therapy['notes'] ?? null;
-                                
+
                                 if (!$newTherapy->save()) {
                                     Yii::error('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors), __METHOD__);
                                     throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
                                 }
-                                
+
                                 Yii::info('Terapia salvata con successo: ' . json_encode($newTherapy->attributes), __METHOD__);
                             }
                         }
@@ -242,14 +242,14 @@ class TherapeuticPlanController extends BaseController
                             $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
                             $patient = $model->patient;
                             $patientName = $patient->first_name . ' ' . $patient->last_name;
-                            
+
                             $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
                             $htmlMessage .= "Paziente: {$patientName}<br>";
                             $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
                             $htmlMessage .= "Regime: {$model->regime->nome}<br>";
                             $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
                             $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
-                            
+
                             // Aggiungi dettagli terapie alla notifica
                             $htmlMessage .= "<br><b>Terapie assegnate:</b><br>";
                             foreach ($therapies as $therapy) {
@@ -265,7 +265,7 @@ class TherapeuticPlanController extends BaseController
                                 }
                             }
 
-                           
+
                             NotificationHelper::sendToManagers(
                                 'Nuovo piano terapeutico',
                                 $htmlMessage,
@@ -273,9 +273,9 @@ class TherapeuticPlanController extends BaseController
                                 [],
                                 true // skipPush
                             );
-                            
-                            
-                            
+
+
+
                             Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
                         } catch (\Exception $e) {
                             Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
@@ -301,15 +301,15 @@ class TherapeuticPlanController extends BaseController
                 $error = $e->getMessage();
                 $isValid = false;
             }
-            
+
             if (!$isValid) {
                 if ($error) {
                     Yii::$app->session->setFlash('error', $error);
                 }
-                
+
                 Yii::info('Rendering del form con errori. Model errors: ' . json_encode($model->errors), __METHOD__);
                 Yii::info('Terapie da ripopolare: ' . json_encode($therapies), __METHOD__);
-                
+
                 // Ricarica i dati per il form in caso di errore
                 return $this->render('create', [
                     'model' => $model,
@@ -349,10 +349,28 @@ class TherapeuticPlanController extends BaseController
         $model = $this->findModel($id);
         $therapyModel = new \common\models\PlanTherapy();
 
+        // Carica le terapie esistenti per l'update
+        $existingTherapies = [];
+        if (!$this->request->isPost) {
+            $planTherapies = \common\models\PlanTherapy::find()
+                ->where(['therapeutic_plan_id' => $model->id])
+                ->all();
+
+            foreach ($planTherapies as $therapy) {
+                $existingTherapies[] = [
+                    'treatment_type_id' => $therapy->treatment_type_id,
+                    'weekly_hours' => $therapy->weekly_hours,
+                    'is_group' => $therapy->is_group,
+                    'setting_id' => $therapy->setting_id,
+                    'notes' => $therapy->notes,
+                ];
+            }
+        }
+
         if ($this->request->isPost) {
             $isValid = true;
             $transaction = Yii::$app->db->beginTransaction();
-            
+
             try {
                 if ($model->load($this->request->post()) && $model->save()) {
                     // Valida le terapie
@@ -376,30 +394,30 @@ class TherapeuticPlanController extends BaseController
                     $currentTherapies = \common\models\PlanTherapy::find()
                         ->where(['therapeutic_plan_id' => $model->id])
                         ->all();
-                    
-                    $currentTherapyIds = array_map(function($therapy) {
+
+                    $currentTherapyIds = array_map(function ($therapy) {
                         return $therapy->treatment_type_id;
                     }, $currentTherapies);
-                    
-                    $newTherapyIds = array_map(function($therapy) {
+
+                    $newTherapyIds = array_map(function ($therapy) {
                         return $therapy['treatment_type_id'];
-                    }, array_filter($therapies, function($therapy) {
+                    }, array_filter($therapies, function ($therapy) {
                         return !empty($therapy['treatment_type_id']);
                     }));
-                    
+
                     $removedTherapyIds = array_diff($currentTherapyIds, $newTherapyIds);
-                    
+
                     foreach ($removedTherapyIds as $treatmentTypeId) {
                         $therapy = \common\models\PlanTherapy::findOne([
                             'therapeutic_plan_id' => $model->id,
                             'treatment_type_id' => $treatmentTypeId
                         ]);
-                        
+
                         if ($therapy) {
                             $hasAppointments = \common\models\Appointment::find()
                                 ->where(['plan_therapy_id' => $therapy->id])
                                 ->exists();
-                            
+
                             if ($hasAppointments) {
                                 throw new \Exception('Non è possibile rimuovere una terapia per cui esistono già degli appuntamenti.');
                             }
@@ -426,7 +444,7 @@ class TherapeuticPlanController extends BaseController
                                 $existingTherapy->is_group = !empty($therapy['is_group']);
                                 $existingTherapy->setting_id = $therapy['setting_id'];
                                 $existingTherapy->notes = $therapy['notes'] ?? null;
-                                
+
                                 if (!$existingTherapy->save()) {
                                     throw new \Exception('Errore nell\'aggiornamento della terapia: ' . json_encode($existingTherapy->errors));
                                 }
@@ -438,7 +456,7 @@ class TherapeuticPlanController extends BaseController
                                 $newTherapy->is_group = !empty($therapy['is_group']);
                                 $newTherapy->setting_id = $therapy['setting_id'];
                                 $newTherapy->notes = $therapy['notes'] ?? null;
-                                
+
                                 if (!$newTherapy->save()) {
                                     throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
                                 }
@@ -455,7 +473,7 @@ class TherapeuticPlanController extends BaseController
                 Yii::$app->session->setFlash('error', $e->getMessage());
                 $isValid = false;
             }
-            
+
             if (!$isValid) {
                 return $this->render('update', [
                     'model' => $model,
@@ -464,7 +482,7 @@ class TherapeuticPlanController extends BaseController
                     'regimes' => $this->getRegimesList(),
                     'treatmentTypes' => $this->getTreatmentTypesList(),
                     'settings' => $this->getSettingsList(),
-                    'postedTherapies' => $therapies ?? [] // Aggiungi $postedTherapies anche in caso di errore
+                    'postedTherapies' => $therapies ?? []
                 ]);
             }
         }
@@ -476,7 +494,7 @@ class TherapeuticPlanController extends BaseController
             'regimes' => $this->getRegimesList(),
             'treatmentTypes' => $this->getTreatmentTypesList(),
             'settings' => $this->getSettingsList(),
-            'postedTherapies' => [] // Aggiungi $postedTherapies anche per il primo caricamento
+            'postedTherapies' => $existingTherapies // Passa le terapie esistenti alla vista
         ]);
     }
 
@@ -491,7 +509,7 @@ class TherapeuticPlanController extends BaseController
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
-        
+
         try {
             $model->delete();
             Yii::$app->session->setFlash('success', 'Piano terapeutico eliminato con successo.');
@@ -530,7 +548,7 @@ class TherapeuticPlanController extends BaseController
         return ArrayHelper::map(
             Patient::find()->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])->all(),
             'id',
-            function($model) {
+            function ($model) {
                 return $model->fullName . ' (' . $model->fiscal_code . ')';
             }
         );
@@ -546,7 +564,7 @@ class TherapeuticPlanController extends BaseController
     public function actionSearchPatients($q = '', $id = null)
     {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-        
+
         // If requesting specific patient by ID
         if ($id) {
             $patient = Patient::findOne($id);
@@ -560,7 +578,7 @@ class TherapeuticPlanController extends BaseController
             }
             return ['results' => []];
         }
-        
+
         // Return all patients if no search term (for initialization)
         if (empty($q)) {
             $patients = Patient::find()
@@ -572,9 +590,10 @@ class TherapeuticPlanController extends BaseController
             if (strlen($q) < 2) {
                 return ['results' => []];
             }
-            
+
             $patients = Patient::find()
-                ->where(['or',
+                ->where([
+                    'or',
                     ['like', 'first_name', $q],
                     ['like', 'last_name', $q],
                     ['like', 'fiscal_code', $q],
@@ -584,7 +603,7 @@ class TherapeuticPlanController extends BaseController
                 ->limit(20)
                 ->all();
         }
-        
+
         $results = [];
         foreach ($patients as $patient) {
             $results[] = [
@@ -594,7 +613,7 @@ class TherapeuticPlanController extends BaseController
                 'full_name' => $patient->fullName
             ];
         }
-        
+
         return ['results' => $results];
     }
 
@@ -611,4 +630,4 @@ class TherapeuticPlanController extends BaseController
             'nome'
         );
     }
-} 
+}
