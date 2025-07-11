@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Clock, List, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
 import { Appointment } from "@/types/therapy";
+import moment from "moment";
 
 interface FullCalendarContainerProps {
   patientId?: string;
@@ -30,6 +31,7 @@ interface FullCalendarContainerProps {
   ) => void;
   externalEvents?: EventInput[];
   onRef?: (ref: any) => void;
+  onNavigate?: (date: Date) => void;
 }
 
 interface AppointmentEvent {
@@ -58,6 +60,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   onViewChange,
   externalEvents,
   onRef,
+  onNavigate,
 }) => {
   const [internalCurrentView, setInternalCurrentView] = useState<
     "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek"
@@ -72,32 +75,74 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   );
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
+  const [currentDateRange, setCurrentDateRange] = useState<string>(() => {
+    const now = moment();
+    return `${now.format("YYYY-MM")}`;
+  });
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
 
-  // Carica gli appuntamenti dal server
-  const loadAppointments = async () => {
+  // Carica gli appuntamenti dal server per un range di date
+  const loadAppointments = async (startDate?: Date, endDate?: Date) => {
     try {
-      setLoading(true);
+      setIsLoadingAppointments(true);
+      if (!startDate) {
+        setLoading(true);
+      }
+
       let appointments: Appointment[] = [];
 
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
+      // Se non vengono fornite date, usa la data corrente
+      const start = startDate ? moment(startDate) : moment();
+      const end = endDate ? moment(endDate) : moment();
 
-      if (patientId) {
-        // Carica appuntamenti del paziente
-        appointments = await therapyAPI.getPatientAppointments(
-          parseInt(patientId),
-          month,
-          year
-        );
-      } else if (therapistId) {
-        // Carica appuntamenti del terapista
-        appointments = await therapyAPI.getTherapistAppointments(
-          parseInt(therapistId),
-          month,
-          year
-        );
+      // Determina tutti i mesi che dobbiamo caricare
+      const monthsToLoad = new Set<string>();
+      let current = start.clone().startOf("month");
+      const endMonth = end.clone().endOf("month");
+
+      while (current.isSameOrBefore(endMonth)) {
+        monthsToLoad.add(current.format("YYYY-MM"));
+        current.add(1, "month");
       }
+
+      // Crea una chiave unica per il range
+      const rangeKey = Array.from(monthsToLoad).sort().join("|");
+
+      // Se stiamo già caricando gli stessi dati, evita chiamate duplicate
+      if (isLoadingAppointments) {
+        return;
+      }
+
+      setCurrentDateRange(rangeKey);
+
+      // Carica gli appuntamenti per tutti i mesi necessari
+      const appointmentPromises: Promise<Appointment[]>[] = [];
+
+      for (const monthKey of monthsToLoad) {
+        const [year, month] = monthKey.split("-");
+
+        if (patientId) {
+          appointmentPromises.push(
+            therapyAPI.getPatientAppointments(
+              parseInt(patientId),
+              parseInt(month),
+              parseInt(year)
+            )
+          );
+        } else if (therapistId) {
+          appointmentPromises.push(
+            therapyAPI.getTherapistAppointments(
+              parseInt(therapistId),
+              parseInt(month),
+              parseInt(year)
+            )
+          );
+        }
+      }
+
+      // Attendi tutti i caricamenti e combina i risultati
+      const allAppointments = await Promise.all(appointmentPromises);
+      appointments = allAppointments.flat();
 
       // Trasforma i dati in formato FullCalendar
       const formattedEvents: EventInput[] = appointments.map(
@@ -141,6 +186,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       });
     } finally {
       setLoading(false);
+      setIsLoadingAppointments(false);
     }
   };
 
@@ -162,7 +208,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
   useEffect(() => {
     if (!externalEvents || externalEvents.length === 0) {
-      loadAppointments();
+      // Carica gli appuntamenti per il mese corrente
+      const now = moment();
+      const startOfMonth = now.clone().startOf("month").toDate();
+      const endOfMonth = now.clone().endOf("month").toDate();
+      loadAppointments(startOfMonth, endOfMonth);
     } else {
       // Se usiamo eventi esterni, non siamo in caricamento
       setLoading(false);
@@ -198,8 +248,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
         })
       );
     },
-    refreshEvents: () => {
-      loadAppointments();
+    refreshEvents: (startDate?: Date, endDate?: Date) => {
+      loadAppointments(startDate, endDate);
     },
   };
 
@@ -426,6 +476,35 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           // Stili personalizzati
           dayHeaderClassNames="bg-gray-50 font-medium text-gray-700 py-2"
           eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"
+          datesSet={(dateInfo) => {
+            // Chiamato quando cambia la vista o si naviga
+            if (onNavigate) {
+              onNavigate(dateInfo.start);
+            }
+
+            // Ricarica gli appuntamenti solo se è cambiato il range di date e non stiamo usando eventi esterni
+            if (!externalEvents || externalEvents.length === 0) {
+              const start = moment(dateInfo.start);
+              const end = moment(dateInfo.end);
+
+              // Determina tutti i mesi visibili nel range corrente
+              const monthsVisible = new Set<string>();
+              let current = start.clone().startOf("month");
+              const endMonth = end.clone().endOf("month");
+
+              while (current.isSameOrBefore(endMonth)) {
+                monthsVisible.add(current.format("YYYY-MM"));
+                current.add(1, "month");
+              }
+
+              const newRangeKey = Array.from(monthsVisible).sort().join("|");
+
+              // Ricarica solo se è cambiato il range di date
+              if (newRangeKey !== currentDateRange && !isLoadingAppointments) {
+                loadAppointments(dateInfo.start, dateInfo.end);
+              }
+            }
+          }}
         />
       </div>
     </div>

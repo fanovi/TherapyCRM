@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { AppointmentData, Therapist } from "@/types/therapy";
-import { Calendar, Clock, FileText, Repeat, User } from "lucide-react";
+import {
+  AppointmentData,
+  Therapist,
+  PlanTherapy,
+  Patient,
+} from "@/types/therapy";
+import { Calendar, Clock, FileText, Repeat, User, Info } from "lucide-react";
 
 const durations = [15, 30, 45, 60, 90, 120];
 
@@ -31,6 +36,7 @@ interface AppointmentModalProps {
   onConfirm: (data: AppointmentData) => void;
   selectedSlot: { date: Date; time: string } | null;
   selectedTherapist: Therapist | null;
+  patient?: Patient | null;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -39,6 +45,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onConfirm,
   selectedSlot,
   selectedTherapist,
+  patient,
 }) => {
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
@@ -47,8 +54,21 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isRecurring: false,
   });
 
+  // Usa direttamente i dati del piano terapeutico dal paziente
+  const planTherapy = patient?.planTherapy;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Debug: verifica stato del piano terapeutico
+    console.log("🔍 Debug AppointmentModal - handleSubmit:");
+    console.log("- planTherapy:", planTherapy);
+    console.log("- patient:", patient);
+
+    if (!planTherapy) {
+      console.error("❌ Piano terapeutico non disponibile");
+      return;
+    }
 
     // Usa la specializzazione del terapista come tipo di terapia
     const therapyType = selectedTherapist?.specialization || "Terapia generica";
@@ -56,6 +76,19 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     onConfirm({
       ...formData,
       therapyType,
+      planTherapy: planTherapy
+        ? {
+            planTherapyId: planTherapy.planTherapyId,
+            therapeuticPlanId: planTherapy.therapeuticPlanId,
+            patientId: patient?.id || 0,
+            patientName: patient?.name || "",
+            startDate: planTherapy.startDate,
+            endDate: planTherapy.endDate,
+            durationDays: planTherapy.durationDays,
+            weeklyHours: planTherapy.weeklyHours,
+            notes: planTherapy.notes,
+          }
+        : undefined,
     });
 
     setFormData({
@@ -192,6 +225,38 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 </span>
                 <span style={{ color: "#64748b", marginLeft: "8px" }}>
                   • {selectedTherapist.specialization}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Piano Terapeutico */}
+        {planTherapy && (
+          <div
+            style={{
+              backgroundColor: "#f0fdf4",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              border: "1px solid #bbf7d0",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "14px",
+                color: "#14532d",
+              }}
+            >
+              <Info className="h-4 w-4" />
+              <div>
+                <span style={{ fontWeight: "500" }}>Piano Terapeutico</span>
+                <span style={{ color: "#64748b", marginLeft: "8px" }}>
+                  • Fino al{" "}
+                  {format(new Date(planTherapy.endDate), "dd/MM/yyyy")}
                 </span>
               </div>
             </div>

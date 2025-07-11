@@ -19,6 +19,7 @@ interface DualFullCalendarViewProps {
   hidePatientCalendar?: boolean;
   mode: "patient" | "therapist";
   currentPatientId?: number;
+  onDateChange?: (date: Date) => void;
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -31,6 +32,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   hidePatientCalendar = false,
   mode,
   currentPatientId,
+  onDateChange,
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sharedEvents, setSharedEvents] = useState<any[]>([]);
@@ -239,6 +241,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             readOnly={false}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
+            onNavigate={onDateChange}
             onRef={(ref) => {
               therapistCalendarRef.current = ref;
             }}
@@ -285,6 +288,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               readOnly={false}
               currentView={currentFullCalendarView}
               onViewChange={handleViewChange}
+              onNavigate={onDateChange}
               onRef={(ref) => {
                 therapistCalendarRef.current = ref;
               }}
@@ -314,6 +318,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             readOnly={true}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
+            onNavigate={onDateChange}
             onRef={(ref) => {
               patientCalendarRef.current = ref;
             }}

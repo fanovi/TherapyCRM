@@ -13,6 +13,28 @@ export interface Patient {
   birthDate?: string;
   fiscalCode?: string;
   email?: string;
+  hasActiveTherapeuticPlans?: boolean;
+  planTherapy?: {
+    planTherapyId: number;
+    therapeuticPlanId: number;
+    startDate: string;
+    endDate: string;
+    durationDays: number;
+    weeklyHours: number;
+    notes?: string;
+  };
+}
+
+export interface PlanTherapy {
+  planTherapyId: number;
+  therapeuticPlanId: number;
+  patientId: number;
+  patientName: string;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  weeklyHours: number;
+  notes?: string;
 }
 
 export interface Appointment {
@@ -39,6 +61,7 @@ export interface AppointmentData {
   duration: number;
   notes?: string;
   isRecurring?: boolean;
+  planTherapy?: PlanTherapy;
 }
 
 // Tipi per le richieste API

@@ -13,6 +13,7 @@ import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
 import { Loader2 } from "lucide-react";
 import { ToastContainer, useToast } from "@/components/Toast";
+import { format } from "date-fns";
 
 const Index = () => {
   const params = useParams();
@@ -34,6 +35,49 @@ const Index = () => {
   const [therapistAppointments, setTherapistAppointments] = useState<
     Appointment[]
   >([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Funzione per ricaricare gli appuntamenti per un mese specifico
+  const loadAppointmentsForMonth = async (date: Date) => {
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+
+    try {
+      if (patient) {
+        const patientAppointments = await therapyAPI.getPatientAppointments(
+          patient.id,
+          month,
+          year
+        );
+        setAppointments(patientAppointments);
+      }
+
+      if (selectedTherapist) {
+        const therapistAppointments = await therapyAPI.getTherapistAppointments(
+          selectedTherapist.id,
+          month,
+          year
+        );
+        setTherapistAppointments(therapistAppointments);
+      }
+    } catch (error) {
+      console.error("Errore nel caricamento appuntamenti per il mese:", error);
+    }
+  };
+
+  // Gestisce il cambio di mese/data nel calendario
+  const handleDateChange = (date: Date) => {
+    const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+
+    // Se è cambiato il mese, ricarica gli appuntamenti
+    if (
+      newMonth.getTime() !==
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getTime()
+    ) {
+      setCurrentMonth(newMonth);
+      loadAppointmentsForMonth(newMonth);
+    }
+  };
 
   useEffect(() => {
     // Leggi i parametri dall'URL usando React Router
@@ -217,9 +261,11 @@ const Index = () => {
         throw new Error("Dati paziente mancanti");
       }
 
-      // TODO: Ottenere il planTherapyId corretto - per ora uso un valore mock
-      // Questo dovrà essere implementato quando avremo l'endpoint per ottenere i piani terapia del paziente
-      const mockPlanTherapyId = 1;
+      // Usa il planTherapyId dal piano terapeutico caricato
+      const planTherapyId = appointmentData.planTherapy?.planTherapyId;
+      if (!planTherapyId) {
+        throw new Error("Piano terapeutico non trovato");
+      }
 
       // Formatta la data per l'API
       const appointmentDateTime =
@@ -228,46 +274,115 @@ const Index = () => {
         selectedSlot.time +
         ":00";
 
-      const request = {
-        planTherapyId: mockPlanTherapyId,
-        therapistId: selectedTherapist.id,
-        appointmentDateTime,
-        durationMinutes: appointmentData.duration,
-        notes: appointmentData.notes,
-      };
+      let result;
+      let appointmentsCreated = 1;
+      let weeklyLimitExceeded: any[] = [];
 
-      const result = await therapyAPI.createAppointment(request);
+      if (appointmentData.isRecurring) {
+        // Crea pattern ricorrente
+        const dayOfWeek = selectedSlot.date.getDay() || 7; // 0 = Domenica -> 7, 1-6 = Lunedì-Sabato
+        const startTime = selectedSlot.time; // "HH:mm"
+        const validFrom = selectedSlot.date.toISOString().split("T")[0];
+        const validTo = appointmentData.planTherapy?.endDate;
 
-      // Crea l'appuntamento locale per aggiornare immediatamente l'UI
-      const newAppointment: Appointment = {
-        id: result.appointmentId,
-        datetime: appointmentDateTime,
-        duration: appointmentData.duration,
-        status: "scheduled",
-        notes: appointmentData.notes,
-        therapist: {
-          id: selectedTherapist.id,
-          name: selectedTherapist.name,
-        },
-        treatmentType: appointmentData.therapyType,
-      };
+        if (!validTo) {
+          throw new Error("Data fine piano terapeutico non disponibile");
+        }
 
-      setAppointments((prev) => [...prev, newAppointment]);
+        const patternRequest = {
+          planTherapyId,
+          therapistId: selectedTherapist.id,
+          dayOfWeek,
+          startTime,
+          durationMinutes: appointmentData.duration,
+          validFrom,
+          validTo,
+        };
+
+        const patternResult = await therapyAPI.createPattern(patternRequest);
+        result = { appointmentId: patternResult.data.patternId };
+        appointmentsCreated = patternResult.appointmentsCreated;
+        weeklyLimitExceeded = patternResult.weeklyLimitExceeded || [];
+
+        // Gestisci conflitti se presenti
+        if (patternResult.conflicts && patternResult.conflicts.length > 0) {
+          showInfo(
+            "Conflitti rilevati",
+            `${patternResult.conflicts.length} appuntamenti non sono stati creati a causa di conflitti con altri appuntamenti.`
+          );
+        }
+      } else {
+        // Crea singolo appuntamento
+        const request = {
+          planTherapyId,
+          therapistId: selectedTherapist.id,
+          appointmentDateTime,
+          durationMinutes: appointmentData.duration,
+          notes: appointmentData.notes,
+        };
+
+        const singleResult = await therapyAPI.createAppointment(request);
+        result = singleResult;
+        weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
+      }
+
+      // Ricarica i dati dei calendari per sincronizzare
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
+      // Usa Promise.all per ricaricare contemporaneamente
+      const reloadPromises = [];
+
+      if (patient) {
+        // Ricarica appuntamenti del paziente
+        reloadPromises.push(
+          therapyAPI
+            .getPatientAppointments(patient.id, month, year)
+            .then((updatedAppointments) => {
+              setAppointments(updatedAppointments);
+            })
+        );
+      }
+
+      if (selectedTherapist) {
+        // Ricarica appuntamenti del terapista
+        reloadPromises.push(
+          therapyAPI
+            .getTherapistAppointments(selectedTherapist.id, month, year)
+            .then((updatedAppointments) => {
+              setTherapistAppointments(updatedAppointments);
+            })
+        );
+      }
+
+      // Aspetta che tutti i ricaricamenti siano completati
+      if (reloadPromises.length > 0) {
+        await Promise.all(reloadPromises);
+      }
+
       setIsModalOpen(false);
       setSelectedSlot(null);
 
       // Mostra messaggio di successo
-      showSuccess(
-        "Appuntamento creato",
-        "L'appuntamento è stato creato con successo"
-      );
+      if (appointmentData.isRecurring) {
+        showSuccess(
+          "Pattern ricorrente creato",
+          `${appointmentsCreated} appuntamenti sono stati creati con successo fino al ${format(
+            new Date(appointmentData.planTherapy?.endDate || ""),
+            "dd/MM/yyyy"
+          )}`
+        );
+      } else {
+        showSuccess(
+          "Appuntamento creato",
+          "L'appuntamento è stato creato con successo"
+        );
+      }
 
       // Gestisci avvisi sui limiti settimanali se presenti
-      if (result.weeklyLimitExceeded.length > 0) {
-        console.warn(
-          "Limite settimanale superato:",
-          result.weeklyLimitExceeded
-        );
+      if (weeklyLimitExceeded.length > 0) {
+        console.warn("Limite settimanale superato:", weeklyLimitExceeded);
         showInfo(
           "Attenzione limite settimanale",
           "Il limite di ore settimanali del terapista potrebbe essere stato superato"
@@ -481,6 +596,7 @@ const Index = () => {
           hidePatientCalendar={isTherapistView}
           mode={isTherapistView ? "therapist" : "patient"}
           currentPatientId={patient?.id}
+          onDateChange={handleDateChange}
         />
 
         <AppointmentModal
@@ -492,6 +608,7 @@ const Index = () => {
           onConfirm={handleAppointmentCreate}
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
+          patient={patient}
         />
       </div>
     </div>

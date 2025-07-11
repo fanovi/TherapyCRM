@@ -49,6 +49,9 @@ class AppointmentPattern extends ActiveRecord
                 'class' => TimestampBehavior::class,
                 'createdAtAttribute' => 'created_at',
                 'updatedAtAttribute' => false,
+                'value' => function() {
+                    return date('Y-m-d H:i:s');
+                },
             ],
         ];
     }
