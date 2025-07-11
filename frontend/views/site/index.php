@@ -325,15 +325,19 @@ dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-g
                          <div class="flex items-center gap-3">
                            <div class="h-[40px] w-[40px] overflow-hidden rounded-full bg-brand-100 flex items-center justify-center">
                              <span class="text-brand-600 font-semibold">
-                               <?= substr($appointment->patient->first_name, 0, 1) . substr($appointment->patient->last_name, 0, 1) ?>
+                               <?php if ($appointment->patient && $appointment->patient->first_name && $appointment->patient->last_name): ?>
+                                 <?= substr($appointment->patient->first_name, 0, 1) . substr($appointment->patient->last_name, 0, 1) ?>
+                               <?php else: ?>
+                                 --
+                               <?php endif; ?>
                              </span>
                            </div>
                            <div>
                              <p class="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                               <?= Html::encode($appointment->patient->getFullName()) ?>
+                               <?= $appointment->patient ? Html::encode($appointment->patient->getFullName()) : 'Paziente non trovato' ?>
                              </p>
                              <span class="text-gray-500 text-theme-xs dark:text-gray-400">
-                               ID: <?= $appointment->patient->id ?>
+                               ID: <?= $appointment->patient ? $appointment->patient->id : 'N/A' ?>
                              </span>
                            </div>
                          </div>
@@ -342,7 +346,11 @@ dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-g
                      <td class="py-3">
                        <div class="flex items-center">
                          <p class="text-gray-500 text-theme-sm dark:text-gray-400">
-                           <?= Html::encode($appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name) ?>
+                           <?php if ($appointment->therapist && $appointment->therapist->user && $appointment->therapist->user->profile): ?>
+                             <?= Html::encode($appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name) ?>
+                           <?php else: ?>
+                             Terapista non assegnato
+                           <?php endif; ?>
                          </p>
                        </div>
                      </td>

@@ -124,10 +124,21 @@ class SiteController extends BaseController
             ->count();
 
         $upcomingAppointments = Appointment::find()
-            ->where(['>', 'appointment_datetime', date('Y-m-d H:i:s')])
-            ->andWhere(['status' => Appointment::STATUS_SCHEDULED])
+            ->alias('a')
+            ->innerJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+            ->innerJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+            ->innerJoin('patients p', 'p.id = tp.patient_id')
+            ->innerJoin('therapists t', 't.id = a.therapist_id')
+            ->innerJoin('users u', 'u.id = t.user_id')
+            ->innerJoin('user_profiles up', 'up.user_id = u.id')
+            ->where(['>', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+            ->andWhere(['a.status' => Appointment::STATUS_SCHEDULED])
+            ->andWhere(['is not', 'p.first_name', null])
+            ->andWhere(['is not', 'p.last_name', null])
+            ->andWhere(['is not', 'up.first_name', null])
+            ->andWhere(['is not', 'up.last_name', null])
             ->limit(5)
-            ->orderBy(['appointment_datetime' => SORT_ASC])
+            ->orderBy(['a.appointment_datetime' => SORT_ASC])
             ->with(['patient', 'therapist.user.profile'])
             ->all();
 

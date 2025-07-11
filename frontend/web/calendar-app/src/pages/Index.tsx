@@ -511,13 +511,27 @@ const Index = () => {
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
-        showError(
-          "Conflitto appuntamento",
-          `Il terapista ha già un appuntamento in questo orario con ${
-            conflict?.existingAppointmentInfo?.patientName ||
-            "un altro paziente"
-          }`
-        );
+
+        // Gestisci diversi tipi di conflitto
+        let conflictMessage = "";
+        let conflictTitle = "Conflitto appuntamento";
+
+        if (conflict?.type === "same_treatment_type") {
+          conflictTitle = "Conflitto tipologia trattamento";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
+        } else if (conflict?.existingAppointmentInfo) {
+          // Conflitto terapista (formato vecchio)
+          conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
+            conflict.existingAppointmentInfo.patientName || "un altro paziente"
+          }`;
+        } else {
+          // Fallback generico
+          conflictMessage = conflict?.message || "Conflitto rilevato";
+        }
+
+        showError(conflictTitle, conflictMessage);
       } else {
         // Errore generico
         const errorMessage =
@@ -637,13 +651,27 @@ const Index = () => {
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
-        showError(
-          "Conflitto appuntamento",
-          `Il terapista ha già un appuntamento in questo orario con ${
-            conflict?.existingAppointmentInfo?.patientName ||
-            "un altro paziente"
-          }`
-        );
+
+        // Gestisci diversi tipi di conflitto
+        let conflictMessage = "";
+        let conflictTitle = "Conflitto appuntamento";
+
+        if (conflict?.type === "same_treatment_type") {
+          conflictTitle = "Conflitto tipologia trattamento";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
+        } else if (conflict?.existingAppointmentInfo) {
+          // Conflitto terapista (formato vecchio)
+          conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
+            conflict.existingAppointmentInfo.patientName || "un altro paziente"
+          }`;
+        } else {
+          // Fallback generico
+          conflictMessage = conflict?.message || "Conflitto rilevato";
+        }
+
+        showError(conflictTitle, conflictMessage);
       } else {
         // Errore generico
         const errorMessage =
