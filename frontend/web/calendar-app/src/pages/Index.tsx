@@ -662,14 +662,23 @@ const Index = () => {
         )
       );
 
+      // Aggiorna anche il calendario del terapista se necessario
+      if (
+        selectedTherapist &&
+        appointment.therapist?.id === selectedTherapist.id
+      ) {
+        setTherapistAppointments((prev) =>
+          prev.map((apt) =>
+            apt.id === numericId ? { ...apt, datetime: newDateTime } : apt
+          )
+        );
+      }
+
       // Mostra messaggio di successo
       showSuccess(
         "Appuntamento spostato",
         "L'appuntamento è stato spostato con successo"
       );
-
-      // Ricarica gli appuntamenti per sicurezza
-      await handleAppointmentUpdate(appointmentId);
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
 
