@@ -323,6 +323,37 @@ class TherapeuticPlanManagerAPI {
       );
     }
   }
+
+  /**
+   * Calcola le ore settimanali del terapista per una settimana specifica
+   */
+  async getTherapistWeeklyHours(
+    therapistId: number,
+    startDate: string
+  ): Promise<{
+    therapistId: number;
+    weekStart: string;
+    weekEnd: string;
+    totalHours: number;
+    contractHours: number;
+    appointmentCount: number;
+    isOverContract: boolean;
+    remainingHours: number;
+    exceededHours: number;
+  }> {
+    const response = await this.get<any>("get-therapist-weekly-hours", {
+      therapistId,
+      startDate,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel calcolo delle ore settimanali"
+      );
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton

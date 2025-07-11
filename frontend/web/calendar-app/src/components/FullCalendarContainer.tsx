@@ -18,6 +18,7 @@ interface FullCalendarContainerProps {
   selectedDate?: Date;
   onDateSelect?: (date: Date) => void;
   onSlotClick?: (date: Date, time: string) => void;
+  onAppointmentClick?: (appointmentId: string) => void;
   onAppointmentMove?: (
     appointmentId: string,
     newDate: Date,
@@ -55,6 +56,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   selectedDate,
   onDateSelect,
   onSlotClick,
+  onAppointmentClick,
   onAppointmentMove,
   readOnly = false,
   currentView: externalCurrentView,
@@ -267,15 +269,21 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const event = clickInfo.event;
     const props = event.extendedProps;
 
-    toast({
-      title: event.title,
-      description: `
-        Paziente: ${props.patient_name || "N/A"}
-        Terapista: ${props.therapist_name || "N/A"}
-        Status: ${props.status || "N/A"}
-        Orario: ${event.start?.toLocaleTimeString()} - ${event.end?.toLocaleTimeString()}
-      `,
-    });
+    // Se abbiamo onAppointmentClick, usa quello per aprire il modal di modifica
+    if (onAppointmentClick) {
+      onAppointmentClick(event.id);
+    } else {
+      // Fallback: mostra toast con informazioni
+      toast({
+        title: event.title,
+        description: `
+          Paziente: ${props.patient_name || "N/A"}
+          Terapista: ${props.therapist_name || "N/A"}
+          Status: ${props.status || "N/A"}
+          Orario: ${event.start?.toLocaleTimeString()} - ${event.end?.toLocaleTimeString()}
+        `,
+      });
+    }
   };
 
   // Gestione selezione date

@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import FullCalendarContainer from "./FullCalendarContainer";
 import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
+import { TherapistWeeklyHours } from "./TherapistWeeklyHours";
 import { Therapist, Appointment } from "@/types/therapy";
+import moment from "moment";
 
 interface DualFullCalendarViewProps {
   selectedTherapist: Therapist | null;
   appointments: Appointment[];
   onSlotClick: (date: Date, time: string) => void;
+  onAppointmentClick?: (appointmentId: string) => void;
   onAppointmentMove: (
     appointmentId: string,
     newDate: Date,
@@ -27,6 +30,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   selectedTherapist,
   appointments,
   onSlotClick,
+  onAppointmentClick,
   onAppointmentMove,
   viewType,
   onViewTypeChange,
@@ -38,6 +42,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sharedEvents, setSharedEvents] = useState<any[]>([]);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    return moment().startOf("isoWeek").toDate(); // Lunedì della settimana corrente
+  });
 
   // Refs per comunicare direttamente con i calendari
   const therapistCalendarRef = useRef<any>(null);
@@ -130,14 +137,64 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   // Gestione selezione data
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    console.log("Data selezionata:", date);
+
+    // Aggiorna anche l'inizio settimana per le ore settimanali usando moment
+    const startOfWeek = moment(date).startOf("isoWeek").toDate();
+    setCurrentWeekStart(startOfWeek);
+
+    console.log("Data selezionata:", date, "Inizio settimana:", startOfWeek);
   };
 
-  // Gestione cambio range visibile
+  // Gestione navigazione calendario (quando si usano i controlli prev/next)
+  const handleTherapistNavigate = (date: Date) => {
+    // Aggiorna l'inizio settimana per le ore settimanali
+    const weekStart = moment(date).startOf("isoWeek").toDate();
+    setCurrentWeekStart(weekStart);
+
+    console.log("📅 Navigazione calendario terapista:", {
+      date: date.toLocaleDateString(),
+      weekStart: weekStart.toLocaleDateString(),
+    });
+
+    // Chiama il callback originale se presente
+    if (onDateChange) {
+      onDateChange(date);
+    }
+  };
+
+  // Gestione cambio range visibile - callback generico
   const handleVisibleRangeChange = (start: Date, end: Date) => {
     if (onVisibleRangeChange) {
       onVisibleRangeChange(start, end);
     }
+  };
+
+  // Gestione cambio range visibile specifico per il calendario del terapista
+  const handleTherapistVisibleRangeChange = (start: Date, end: Date) => {
+    // Aggiorna la settimana corrente per il componente ore settimanali
+    // Usa moment per assicurarsi che sia sempre l'inizio della settimana ISO (lunedì)
+    const weekStart = moment(start).startOf("isoWeek").toDate();
+    setCurrentWeekStart(weekStart);
+
+    console.log("🧑‍⚕️ Range terapista cambiato:", {
+      start: start.toLocaleDateString(),
+      end: end.toLocaleDateString(),
+      weekStart: weekStart.toLocaleDateString(),
+    });
+
+    // Chiama anche il callback generico
+    handleVisibleRangeChange(start, end);
+  };
+
+  // Gestione cambio range visibile per il calendario del paziente (non aggiorna le ore)
+  const handlePatientVisibleRangeChange = (start: Date, end: Date) => {
+    console.log("👤 Range paziente cambiato:", {
+      start: start.toLocaleDateString(),
+      end: end.toLocaleDateString(),
+    });
+
+    // Chiama solo il callback generico, non aggiorna le ore settimanali
+    handleVisibleRangeChange(start, end);
   };
 
   // Gestione cambio vista - sincronizza entrambi i calendari
@@ -233,11 +290,22 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             onViewTypeChange={onViewTypeChange}
           />
         </div>
+
+        {/* Ore settimanali - visibile solo in vista settimana */}
+        {viewType === "week" && (
+          <TherapistWeeklyHours
+            therapist={selectedTherapist}
+            currentDate={currentWeekStart}
+          />
+        )}
+
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
             <div
               className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: selectedTherapist.color || "#3b82f6" }}
+              style={{
+                backgroundColor: selectedTherapist.color || "#3b82f6",
+              }}
             />
             Calendario di {selectedTherapist.name}
           </h2>
@@ -246,12 +314,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
             onSlotClick={onSlotClick}
+            onAppointmentClick={onAppointmentClick}
             onAppointmentMove={handleAppointmentMoveWithSync}
             readOnly={false}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
-            onNavigate={onDateChange}
-            onVisibleRangeChange={handleVisibleRangeChange}
+            onNavigate={handleTherapistNavigate}
+            onVisibleRangeChange={handleTherapistVisibleRangeChange}
             onRef={(ref) => {
               therapistCalendarRef.current = ref;
             }}
@@ -270,6 +339,15 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           onViewTypeChange={onViewTypeChange}
         />
       </div>
+
+      {/* Ore settimanali - visibile solo in vista settimana */}
+      {viewType === "week" && selectedTherapist && (
+        <TherapistWeeklyHours
+          therapist={selectedTherapist}
+          currentDate={currentWeekStart}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendario Terapista */}
         <Card className="p-6">
@@ -294,12 +372,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
               onSlotClick={onSlotClick}
+              onAppointmentClick={onAppointmentClick}
               onAppointmentMove={handleAppointmentMoveWithSync}
               readOnly={false}
               currentView={currentFullCalendarView}
               onViewChange={handleViewChange}
-              onNavigate={onDateChange}
-              onVisibleRangeChange={handleVisibleRangeChange}
+              onNavigate={handleTherapistNavigate}
+              onVisibleRangeChange={handleTherapistVisibleRangeChange}
               onRef={(ref) => {
                 therapistCalendarRef.current = ref;
               }}
@@ -330,7 +409,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
             onNavigate={onDateChange}
-            onVisibleRangeChange={handleVisibleRangeChange}
+            onVisibleRangeChange={handlePatientVisibleRangeChange}
             onRef={(ref) => {
               patientCalendarRef.current = ref;
             }}

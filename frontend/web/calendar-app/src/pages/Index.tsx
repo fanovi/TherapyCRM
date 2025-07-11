@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
+import { AppointmentEditModal } from "@/components/AppointmentEditModal";
 import {
   Appointment,
   Therapist,
@@ -24,10 +25,14 @@ const Index = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: Date;
     time: string;
   } | null>(null);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [viewType, setViewType] = useState<CalendarViewType>("week");
   const [isTherapistView, setIsTherapistView] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -176,6 +181,10 @@ const Index = () => {
       setError(null);
 
       try {
+        // Carica sempre la lista dei terapisti per il modal di modifica
+        const therapistsList = await therapyAPI.getTherapists();
+        setTherapists(therapistsList);
+
         if (therapistId) {
           // Modalità terapista
           setIsTherapistView(true);
@@ -526,6 +535,57 @@ const Index = () => {
     setIsModalOpen(true);
   };
 
+  const handleAppointmentClick = (appointmentId: string) => {
+    // Trova l'appuntamento nel combined array
+    const appointment = combinedAppointments.find(
+      (apt) => apt.id.toString() === appointmentId
+    );
+    if (appointment) {
+      setSelectedAppointment(appointment);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleAppointmentUpdate = async (appointmentId: string) => {
+    // Ricarica gli appuntamenti usando la stessa logica del caricamento iniziale
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    console.log("🔄 Ricaricando appuntamenti dopo modifica:", {
+      currentMonth,
+      currentYear,
+      patientId: patient?.id,
+      therapistId: selectedTherapist?.id,
+    });
+
+    // Ricarica appuntamenti paziente (sempre in modalità paziente)
+    if (patient) {
+      const patientAppointments = await therapyAPI.getPatientAppointments(
+        patient.id,
+        currentMonth,
+        currentYear
+      );
+      setAppointments([...patientAppointments]);
+    }
+
+    // Ricarica appuntamenti terapista per il calendario di destra
+    if (selectedTherapist) {
+      const therapistAppointments = await therapyAPI.getTherapistAppointments(
+        selectedTherapist.id,
+        currentMonth,
+        currentYear
+      );
+      setTherapistAppointments([...therapistAppointments]);
+      setRefreshKey((prev) => prev + 1);
+    }
+  };
+
+  const handleAppointmentDelete = async (appointmentId: string) => {
+    // Ricarica gli appuntamenti dopo eliminazione
+    await handleAppointmentUpdate(appointmentId);
+  };
+
   const handleAppointmentMove = async (
     appointmentId: string,
     newDate: Date,
@@ -699,6 +759,7 @@ const Index = () => {
           selectedTherapist={selectedTherapist}
           appointments={combinedAppointments}
           onSlotClick={handleSlotClick}
+          onAppointmentClick={handleAppointmentClick}
           onAppointmentMove={handleAppointmentMove}
           viewType={viewType}
           onViewTypeChange={setViewType}
@@ -719,6 +780,18 @@ const Index = () => {
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
           patient={patient}
+        />
+
+        <AppointmentEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          therapists={therapists}
+          onAppointmentUpdate={handleAppointmentUpdate}
+          onAppointmentDelete={handleAppointmentDelete}
         />
       </div>
     </div>

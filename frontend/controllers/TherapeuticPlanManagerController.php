@@ -755,7 +755,9 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $appointmentId = Yii::$app->request->post('appointmentId');
+            $data = $this->getRequestData();
+            $appointmentId = $data['appointmentId'] ?? null;
+            
             if (!$appointmentId) {
                 throw new BadRequestHttpException('ID appuntamento mancante');
             }
@@ -775,11 +777,13 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Traccia cancellazione
-            Yii::$app->activityLog->record(
-                'delete_appointment',
-                'Appuntamento cancellato',
-                $appointment->id
-            );
+            if (isset(Yii::$app->activityLog)) {
+                Yii::$app->activityLog->record(
+                    'delete_appointment',
+                    'Appuntamento cancellato',
+                    $appointment->id
+                );
+            }
 
             return [
                 'success' => true,
@@ -788,6 +792,68 @@ class TherapeuticPlanManagerController extends Controller
 
         } catch (Exception $e) {
             Yii::error("Errore cancellazione appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Calcola le ore settimanali del terapista per una settimana specifica
+     * 
+     * @return array
+     */
+    public function actionGetTherapistWeeklyHours($therapistId, $startDate)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $therapist = $this->findTherapist($therapistId);
+            
+            // Calcola inizio e fine settimana
+            $weekStart = new DateTime($startDate);
+            $weekStart->modify('monday this week');
+            $weekEnd = (clone $weekStart)->modify('+6 days');
+
+            // Trova tutti gli appuntamenti del terapista per quella settimana
+            $appointments = Appointment::find()
+                ->where([
+                    'therapist_id' => $therapistId
+                ])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->andWhere(['between', 'appointment_datetime', 
+                    $weekStart->format('Y-m-d 00:00:00'),
+                    $weekEnd->format('Y-m-d 23:59:59')
+                ])
+                ->all();
+
+            // Calcola ore totali
+            $totalMinutes = 0;
+            $appointmentCount = 0;
+            
+            foreach ($appointments as $appointment) {
+                $totalMinutes += $appointment->duration_minutes;
+                $appointmentCount++;
+            }
+
+            $totalHours = round($totalMinutes / 60, 2);
+            $contractHours = $therapist->weekly_hours_contract ?? 0;
+
+            return [
+                'success' => true,
+                'data' => [
+                    'therapistId' => $therapistId,
+                    'weekStart' => $weekStart->format('Y-m-d'),
+                    'weekEnd' => $weekEnd->format('Y-m-d'),
+                    'totalHours' => $totalHours,
+                    'contractHours' => $contractHours,
+                    'appointmentCount' => $appointmentCount,
+                    'isOverContract' => $totalHours > $contractHours,
+                    'remainingHours' => max(0, $contractHours - $totalHours),
+                    'exceededHours' => max(0, $totalHours - $contractHours)
+                ]
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore calcolo ore settimanali: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }
