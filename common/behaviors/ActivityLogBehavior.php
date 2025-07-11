@@ -288,8 +288,16 @@ class ActivityLogBehavior extends Behavior
             return call_user_func($this->entityNameCallback, $this->owner);
         }
         
-        // Usa il nome della classe senza namespace
-        return (new \ReflectionClass($this->owner))->getShortName();
+        // Usa il nome della classe senza namespace e rimuovi caratteri non validi
+        $name = (new \ReflectionClass($this->owner))->getShortName();
+        
+        // Rimuovi eventuali caratteri non validi e assicura che inizi con una lettera o underscore
+        $name = preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
+        if (!preg_match('/^[a-zA-Z_]/', $name)) {
+            $name = '_' . $name;
+        }
+        
+        return $name;
     }
 
     /**

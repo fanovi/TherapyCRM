@@ -51,7 +51,7 @@ class PlanTherapy extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Terapia Piano';
+                    return 'TerapiaPiano';
                 },
             ],
         ];
