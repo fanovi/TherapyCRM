@@ -1,3 +1,8 @@
+export interface Specialization {
+  id: number;
+  name: string;
+}
+
 export interface Therapist {
   id: number;
   name: string;

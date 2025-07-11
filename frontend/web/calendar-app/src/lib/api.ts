@@ -120,6 +120,58 @@ class TherapeuticPlanManagerAPI {
     return response.data || [];
   }
 
+  /**
+   * Ottiene le specializzazioni disponibili per un paziente basate sul suo piano terapeutico
+   */
+  async getPatientSpecializations(patientId: number): Promise<
+    {
+      id: number;
+      name: string;
+    }[]
+  > {
+    const response = await this.get<
+      APIResponse<
+        {
+          id: number;
+          name: string;
+        }[]
+      >
+    >("get-patient-specializations", {
+      patientId,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento specializzazioni paziente"
+      );
+    }
+
+    return response.data || [];
+  }
+
+  /**
+   * Ottiene la lista dei terapisti filtrati per specializzazione
+   */
+  async getTherapistsBySpecialization(
+    specializationId: number
+  ): Promise<Therapist[]> {
+    const response = await this.get<APIResponse<Therapist[]>>(
+      "get-therapists-by-specialization",
+      {
+        specializationId,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Errore nel caricamento terapisti per specializzazione"
+      );
+    }
+
+    return response.data || [];
+  }
+
   // === GESTIONE PAZIENTI ===
 
   /**

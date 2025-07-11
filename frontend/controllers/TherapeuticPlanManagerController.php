@@ -277,6 +277,114 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Ottiene le specializzazioni disponibili per un paziente basate sul suo piano terapeutico
+     * 
+     * @param int $patientId
+     * @return array
+     */
+    public function actionGetPatientSpecializations($patientId)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            // Trova il piano terapeutico attivo più recente
+            $therapeuticPlan = TherapeuticPlan::find()
+                ->where(['patient_id' => $patientId])
+                ->andWhere(['<=', 'start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                ->orderBy(['created_at' => SORT_DESC])
+                ->one();
+
+            if (!$therapeuticPlan) {
+                return $this->errorResponse('Nessun piano terapeutico attivo trovato');
+            }
+
+            // Ottieni i trattamenti dal piano terapeutico
+            $planTherapies = PlanTherapy::find()
+                ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+                ->all();
+
+            if (empty($planTherapies)) {
+                return $this->errorResponse('Nessun piano terapia trovato');
+            }
+
+            $treatmentTypeIds = [];
+            foreach ($planTherapies as $planTherapy) {
+                $treatmentTypeIds[] = $planTherapy->treatment_type_id;
+            }
+
+            // Ottieni le specializzazioni che coprono questi trattamenti
+            $specializations = \common\models\Specialization::find()
+                ->alias('s')
+                ->innerJoin('{{%specialization_treatments}} st', 'st.specialization_id = s.id')
+                ->where(['st.treatment_type_id' => $treatmentTypeIds])
+                ->groupBy('s.id')
+                ->orderBy(['s.name' => SORT_ASC])
+                ->all();
+
+            $result = [];
+            foreach ($specializations as $specialization) {
+                $result[] = [
+                    'id' => $specialization->id,
+                    'name' => $specialization->name,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore recupero specializzazioni paziente: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Ottiene i terapisti per una specializzazione specifica
+     * 
+     * @param int $specializationId
+     * @return array
+     */
+    public function actionGetTherapistsBySpecialization($specializationId)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $therapists = Therapist::find()
+                ->alias('t')
+                ->innerJoin('{{%users}} u', 'u.id = t.user_id')
+                ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
+                ->where(['t.is_active' => true])
+                ->andWhere(['t.specialization_id' => $specializationId])
+                ->orderBy(['up.last_name' => SORT_ASC])
+                ->all();
+
+            $result = [];
+            foreach ($therapists as $therapist) {
+                $profile = $therapist->user->profile;
+                $result[] = [
+                    'id' => $therapist->id,
+                    'name' => $profile->getFullName(),
+                    'email' => $therapist->user->email,
+                    'specialization' => $therapist->specialization->name ?? 'Non specificata',
+                    'weeklyHours' => $therapist->weekly_hours_contract
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore recupero terapisti per specializzazione: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
      * Ottiene i terapisti per un tipo di trattamento specifico
      * 
      * @param int $treatmentTypeId

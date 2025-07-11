@@ -8,47 +8,78 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Therapist } from "@/types/therapy";
+import { Therapist, Specialization } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { Users, Filter, Loader2 } from "lucide-react";
-
-const specializations = ["Tutte"];
 
 interface TherapistSelectorProps {
   selectedTherapist: Therapist | null;
   onTherapistSelect: (therapist: Therapist) => void;
+  patientId?: number; // ID del paziente per ottenere le specializzazioni
 }
 
 export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   selectedTherapist,
   onTherapistSelect,
+  patientId,
 }) => {
-  const [selectedSpecialization, setSelectedSpecialization] = useState("Tutte");
+  const [selectedSpecialization, setSelectedSpecialization] =
+    useState<Specialization | null>(null);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [therapistsLoading, setTherapistsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSpecializations, setAvailableSpecializations] = useState<
-    string[]
-  >(["Tutte"]);
+    Specialization[]
+  >([]);
 
-  // Carica i terapisti dal backend
+  // Carica le specializzazioni disponibili per il paziente
   useEffect(() => {
-    const loadTherapists = async () => {
+    const loadSpecializations = async () => {
+      if (!patientId) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
-        const data = await therapyAPI.getTherapists();
-        setTherapists(data);
+        const data = await therapyAPI.getPatientSpecializations(patientId);
+        setAvailableSpecializations(data);
+      } catch (err) {
+        console.error("Errore caricamento specializzazioni:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Errore nel caricamento delle specializzazioni"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-        // Estrai le specializzazioni uniche e aggiungi colori casuali
-        const specs = new Set<string>();
+    loadSpecializations();
+  }, [patientId]);
+
+  // Carica i terapisti per la specializzazione selezionata
+  useEffect(() => {
+    const loadTherapists = async () => {
+      if (!selectedSpecialization) {
+        setTherapists([]);
+        return;
+      }
+
+      try {
+        setTherapistsLoading(true);
+        setError(null);
+
+        const data = await therapyAPI.getTherapistsBySpecialization(
+          selectedSpecialization.id
+        );
+
+        // Assegna colori casuali ai terapisti
         const therapistsWithColors = data.map((therapist, index) => {
-          if (therapist.specialization) {
-            specs.add(therapist.specialization);
-          }
-
-          // Assegna un colore casuale se non presente
           if (!therapist.color) {
             const colors = [
               "#3b82f6",
@@ -60,12 +91,10 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
             ];
             therapist.color = colors[index % colors.length];
           }
-
           return therapist;
         });
 
         setTherapists(therapistsWithColors);
-        setAvailableSpecializations(["Tutte", ...Array.from(specs).sort()]);
       } catch (err) {
         console.error("Errore caricamento terapisti:", err);
         setError(
@@ -74,18 +103,39 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
             : "Errore nel caricamento dei terapisti"
         );
       } finally {
-        setLoading(false);
+        setTherapistsLoading(false);
       }
     };
 
     loadTherapists();
-  }, []);
+  }, [selectedSpecialization]);
 
-  const filteredTherapists = therapists.filter(
-    (therapist) =>
-      selectedSpecialization === "Tutte" ||
-      therapist.specialization === selectedSpecialization
-  );
+  // Reset terapista selezionato quando cambia la specializzazione
+  useEffect(() => {
+    if (selectedTherapist && selectedSpecialization) {
+      // Verifica se il terapista selezionato è ancora nella lista
+      const isTherapistStillValid = therapists.some(
+        (t) => t.id === selectedTherapist.id
+      );
+
+      if (!isTherapistStillValid) {
+        // Reset della selezione se il terapista non è più valido
+        // onTherapistSelect(null); // Commentiamo per non causare errori
+      }
+    }
+  }, [therapists, selectedTherapist, selectedSpecialization]);
+
+  const handleSpecializationChange = (value: string) => {
+    const specialization = availableSpecializations.find(
+      (spec) => spec.id.toString() === value
+    );
+    setSelectedSpecialization(specialization || null);
+
+    // Reset terapista quando cambia specializzazione
+    if (selectedTherapist) {
+      // onTherapistSelect(null); // Commentiamo per non causare errori
+    }
+  };
 
   if (loading) {
     return (
@@ -147,16 +197,16 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
               Specializzazione
             </label>
             <Select
-              value={selectedSpecialization}
-              onValueChange={setSelectedSpecialization}
+              value={selectedSpecialization?.id?.toString() || ""}
+              onValueChange={handleSpecializationChange}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Seleziona specializzazione" />
               </SelectTrigger>
               <SelectContent>
                 {availableSpecializations.map((spec) => (
-                  <SelectItem key={spec} value={spec}>
-                    {spec}
+                  <SelectItem key={spec.id} value={spec.id.toString()}>
+                    {spec.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -170,17 +220,26 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
             <Select
               value={selectedTherapist?.id?.toString() || ""}
               onValueChange={(value) => {
-                const therapist = filteredTherapists.find(
+                const therapist = therapists.find(
                   (t) => t.id.toString() === value
                 );
                 if (therapist) onTherapistSelect(therapist);
               }}
+              disabled={!selectedSpecialization || therapistsLoading}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleziona terapista" />
+                <SelectValue
+                  placeholder={
+                    !selectedSpecialization
+                      ? "Seleziona prima una specializzazione"
+                      : therapistsLoading
+                      ? "Caricamento terapisti..."
+                      : "Seleziona terapista"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {filteredTherapists.map((therapist) => (
+                {therapists.map((therapist) => (
                   <SelectItem
                     key={therapist.id}
                     value={therapist.id.toString()}
@@ -228,11 +287,15 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
           </div>
         )}
 
-        {filteredTherapists.length === 0 && !loading && (
-          <div className="text-center p-4 text-gray-500">
-            <p>Nessun terapista trovato per la specializzazione selezionata</p>
-          </div>
-        )}
+        {therapists.length === 0 &&
+          selectedSpecialization &&
+          !therapistsLoading && (
+            <div className="text-center p-4 text-gray-500">
+              <p>
+                Nessun terapista trovato per la specializzazione selezionata
+              </p>
+            </div>
+          )}
       </CardContent>
     </Card>
   );

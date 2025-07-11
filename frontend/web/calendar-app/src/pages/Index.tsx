@@ -750,6 +750,7 @@ const Index = () => {
             <TherapistSelector
               selectedTherapist={selectedTherapist}
               onTherapistSelect={setSelectedTherapist}
+              patientId={patient?.id}
             />
           </div>
         )}
