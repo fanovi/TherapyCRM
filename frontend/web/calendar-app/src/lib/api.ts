@@ -5,6 +5,7 @@ import {
   CreateAppointmentRequest,
   CreatePatternRequest,
   UpdateAppointmentRequest,
+  DeletePatternRequest,
   APIResponse,
   CreatePatternResponse,
 } from "@/types/therapy";
@@ -374,6 +375,27 @@ class TherapeuticPlanManagerAPI {
         response.error || "Errore nella cancellazione dell'appuntamento"
       );
     }
+  }
+
+  /**
+   * Cancella tutti gli appuntamenti futuri di un pattern ricorrente
+   */
+  async deletePatternAppointments(request: DeletePatternRequest): Promise<{
+    deletedCount: number;
+  }> {
+    const response = await this.post<any>(
+      "delete-pattern-appointments",
+      request
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Errore nella cancellazione degli appuntamenti del pattern"
+      );
+    }
+
+    return response.data;
   }
 
   /**

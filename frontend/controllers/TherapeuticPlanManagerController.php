@@ -570,7 +570,9 @@ class TherapeuticPlanManagerController extends Controller
                     'therapist' => [
                         'id' => $therapist->id,
                         'name' => $profile->getFullName()
-                    ]
+                    ],
+                    'patternId' => $appointment->pattern_id,
+                    'isRecurring' => $appointment->pattern_id !== null
                 ];
             }
 
@@ -638,7 +640,9 @@ class TherapeuticPlanManagerController extends Controller
                     'patient' => [
                         'id' => $patient->id,
                         'name' => $patient->getFullName()
-                    ]
+                    ],
+                    'patternId' => $appointment->pattern_id,
+                    'isRecurring' => $appointment->pattern_id !== null
                 ];
             }
 
@@ -962,6 +966,95 @@ class TherapeuticPlanManagerController extends Controller
 
         } catch (Exception $e) {
             Yii::error("Errore cancellazione appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Cancella tutti gli appuntamenti futuri di un pattern ricorrente
+     * 
+     * @return array
+     */
+    public function actionDeletePatternAppointments()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $data = $this->getRequestData();
+            
+            if (!isset($data['patternId'])) {
+                throw new BadRequestHttpException('ID pattern mancante');
+            }
+
+            if (!isset($data['fromDate'])) {
+                throw new BadRequestHttpException('Data di inizio cancellazione mancante');
+            }
+
+            $pattern = AppointmentPattern::findOne($data['patternId']);
+            if (!$pattern) {
+                throw new NotFoundHttpException('Pattern non trovato');
+            }
+
+            // Trova tutti gli appuntamenti del pattern dalla data specificata in poi
+            $appointments = Appointment::find()
+                ->where([
+                    'pattern_id' => $pattern->id,
+                    'status' => Appointment::STATUS_SCHEDULED
+                ])
+                ->andWhere(['>=', 'appointment_datetime', $data['fromDate'] . ' 00:00:00'])
+                ->all();
+
+            if (empty($appointments)) {
+                return [
+                    'success' => true,
+                    'message' => 'Nessun appuntamento da cancellare',
+                    'data' => ['deletedCount' => 0]
+                ];
+            }
+
+            // Inizia transazione
+            $transaction = Yii::$app->db->beginTransaction();
+
+            try {
+                $deletedCount = 0;
+
+                foreach ($appointments as $appointment) {
+                    // Cancella logicamente l'appuntamento
+                    $appointment->status = Appointment::STATUS_CANCELLED;
+                    
+                    if (!$appointment->save()) {
+                        throw new Exception('Errore cancellazione appuntamento ID: ' . $appointment->id);
+                    }
+
+                    // Traccia cancellazione
+                    if (isset(Yii::$app->activityLog)) {
+                        Yii::$app->activityLog->record(
+                            'delete_appointment',
+                            'Appuntamento cancellato (cancellazione pattern)',
+                            $appointment->id
+                        );
+                    }
+
+                    $deletedCount++;
+                }
+
+                $transaction->commit();
+
+                Yii::info("Cancellati {$deletedCount} appuntamenti del pattern {$pattern->id} dalla data {$data['fromDate']}", __METHOD__);
+
+                return [
+                    'success' => true,
+                    'message' => 'Appuntamenti cancellati con successo',
+                    'data' => ['deletedCount' => $deletedCount]
+                ];
+
+            } catch (Exception $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+
+        } catch (Exception $e) {
+            Yii::error("Errore cancellazione appuntamenti pattern: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }

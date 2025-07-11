@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, Clock, User, Edit, Trash2, Save } from "lucide-react";
+import {
+  X,
+  Calendar,
+  Clock,
+  User,
+  Edit,
+  Trash2,
+  Save,
+  Repeat,
+} from "lucide-react";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 
@@ -22,6 +31,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleteAllFuture, setDeleteAllFuture] = useState(false);
   const [formData, setFormData] = useState({
     therapistId: 0,
     date: "",
@@ -74,13 +84,31 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const handleDelete = async () => {
     if (!appointment) return;
 
-    if (!confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
+    // Determina il messaggio di conferma
+    let confirmMessage = "Sei sicuro di voler eliminare questo appuntamento?";
+    if (deleteAllFuture && appointment.isRecurring && appointment.patternId) {
+      confirmMessage =
+        "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
+    }
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     setLoading(true);
     try {
-      await therapyAPI.deleteAppointment(appointment.id);
+      if (deleteAllFuture && appointment.isRecurring && appointment.patternId) {
+        // Cancella tutti gli appuntamenti futuri del pattern
+        const appointmentDate = appointment.datetime.split(" ")[0]; // Estrae solo la data
+        await therapyAPI.deletePatternAppointments({
+          patternId: appointment.patternId,
+          fromDate: appointmentDate,
+        });
+      } else {
+        // Cancella solo questo appuntamento
+        await therapyAPI.deleteAppointment(appointment.id);
+      }
+
       onAppointmentDelete(appointment.id.toString());
       onClose();
     } catch (error) {
@@ -171,6 +199,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 >
                   {getStatusText(appointment.status)}
                 </span>
+                {appointment.isRecurring && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                    <Repeat className="w-3 h-3" />
+                    Ricorrente
+                  </span>
+                )}
               </div>
 
               {/* Paziente */}
@@ -345,27 +379,52 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex gap-3">
-            {!isEditing && appointment.status !== "completed" && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium"
-              >
-                <Edit className="w-4 h-4" />
-                Modifica
-              </button>
-            )}
+          <div className="flex flex-col gap-3">
+            {/* Checkbox per cancellazione pattern - mostra solo se l'appuntamento è ricorrente */}
+            {!isEditing &&
+              appointment?.isRecurring &&
+              appointment?.patternId &&
+              appointment.status !== "completed" && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="deleteAllFuture"
+                    checked={deleteAllFuture}
+                    onChange={(e) => setDeleteAllFuture(e.target.checked)}
+                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                  />
+                  <label
+                    htmlFor="deleteAllFuture"
+                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                  >
+                    <Repeat className="h-4 w-4" />
+                    Cancella tutti gli appuntamenti futuri
+                  </label>
+                </div>
+              )}
 
-            {!isEditing && appointment.status !== "completed" && (
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Trash2 className="w-4 h-4" />
-                {loading ? "Eliminando..." : "Elimina"}
-              </button>
-            )}
+            <div className="flex gap-3">
+              {!isEditing && appointment.status !== "completed" && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium"
+                >
+                  <Edit className="w-4 h-4" />
+                  Modifica
+                </button>
+              )}
+
+              {!isEditing && appointment.status !== "completed" && (
+                <button
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {loading ? "Eliminando..." : "Elimina"}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-3">

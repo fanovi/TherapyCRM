@@ -59,6 +59,9 @@ export interface Appointment {
     id: number;
     name: string;
   };
+  // Informazioni sul pattern ricorrente
+  patternId?: number;
+  isRecurring?: boolean;
 }
 
 export interface AppointmentData {
@@ -94,6 +97,11 @@ export interface UpdateAppointmentRequest {
   appointmentDateTime: string;
   durationMinutes: number;
   notes?: string;
+}
+
+export interface DeletePatternRequest {
+  patternId: number;
+  fromDate: string; // YYYY-MM-DD - cancella dal questo appuntamento in poi
 }
 
 // Tipi per le risposte API
