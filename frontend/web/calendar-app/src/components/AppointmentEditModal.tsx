@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+import { useToast } from "@/components/Toast";
 
 interface AppointmentEditModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     notes: "",
   });
 
+  const { showSuccess, showError } = useToast();
+
   useEffect(() => {
     if (appointment) {
       const [datePart, timePart] = appointment.datetime.split(" ");
@@ -62,7 +65,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     try {
       const appointmentDateTime = `${formData.date} ${formData.time}:00`;
 
-      await therapyAPI.updateAppointment({
+      const result = await therapyAPI.updateAppointment({
         appointmentId: appointment.id,
         therapistId: formData.therapistId,
         appointmentDateTime,
@@ -70,12 +73,63 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         notes: formData.notes,
       });
 
+      console.log("✅ Appuntamento aggiornato con successo:", result);
+
+      // Mostra messaggio di successo
+      showSuccess(
+        "Appuntamento aggiornato",
+        "L'appuntamento è stato modificato con successo"
+      );
+
+      // Trigger re-render del calendario
       onAppointmentUpdate(appointment.id.toString());
       setIsEditing(false);
       onClose();
     } catch (error) {
       console.error("Errore aggiornamento appuntamento:", error);
-      alert("Errore durante l'aggiornamento dell'appuntamento");
+
+      // Forza il re-render del calendario per rimuovere modifiche "fantasma"
+      onAppointmentUpdate(appointment.id.toString());
+
+      // Gestisci conflitti specifici
+      if (error instanceof Error && "conflict" in error) {
+        const conflict = (error as any).conflict;
+
+        let conflictMessage = "";
+        let conflictTitle = "Conflitto appuntamento";
+
+        if (conflict?.type === "same_plan_therapy") {
+          conflictTitle = "Conflitto terapia specifica";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate} alle ore ${conflict.existingAppointmentTime} con ${conflict.existingTherapistName}`;
+        } else if (conflict?.type === "same_treatment_type") {
+          conflictTitle = "Conflitto tipologia trattamento";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
+        } else if (conflict?.existingAppointmentInfo) {
+          // Conflitto terapista
+          conflictTitle = "Conflitto terapista";
+          conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
+            conflict.existingAppointmentInfo.patientName || "un altro paziente"
+          }`;
+        } else {
+          // Fallback generico
+          conflictMessage =
+            conflict?.message || "Conflitto rilevato durante l'aggiornamento";
+        }
+
+        showError(conflictTitle, conflictMessage);
+      } else {
+        // Errore generico
+        const errorMessage =
+          error instanceof Error ? error.message : "Errore sconosciuto";
+        showError(
+          "Errore aggiornamento",
+          `Non è stato possibile aggiornare l'appuntamento: ${errorMessage}`
+        );
+      }
     } finally {
       setLoading(false);
     }

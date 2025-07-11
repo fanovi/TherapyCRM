@@ -62,6 +62,27 @@ class Specialization extends ActiveRecord
     }
 
     /**
+     * Gets query for [[SpecializationTreatments]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSpecializationTreatments()
+    {
+        return $this->hasMany(SpecializationTreatment::class, ['specialization_id' => 'id']);
+    }
+
+    /**
+     * Gets query for [[TreatmentTypes]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTreatmentTypes()
+    {
+        return $this->hasMany(TreatmentType::class, ['id' => 'treatment_type_id'])
+            ->viaTable('{{%specialization_treatments}}', ['specialization_id' => 'id']);
+    }
+
+    /**
      * Restituisce tutte le specializzazioni come array key-value per dropdown
      * @return array
      */

@@ -309,29 +309,42 @@ class TherapeuticPlanManagerAPI {
   // === GESTIONE APPUNTAMENTI - MODIFICA ===
 
   /**
-   * Aggiorna un singolo appuntamento
+   * Aggiorna un appuntamento esistente
    */
-  async updateAppointment(request: UpdateAppointmentRequest): Promise<{
+  async updateAppointment(appointmentData: {
     appointmentId: number;
+    therapistId: number;
+    appointmentDateTime: string;
+    durationMinutes: number;
+    notes?: string;
+  }): Promise<{
+    appointmentId: number;
+    planTherapyId?: number;
   }> {
-    const response = await this.post<any>("update-appointment", request);
+    const response = await this.post<{
+      success: boolean;
+      message: string;
+      data?: {
+        appointmentId: number;
+        planTherapyId?: number;
+      };
+      error?: string;
+      conflict?: any;
+    }>("update-appointment", appointmentData);
 
     if (!response.success) {
-      // Se c'è un conflitto, includiamo le informazioni del conflitto nell'errore
+      // Se c'è un conflitto, lancia un errore con le informazioni del conflitto
       if (response.conflict) {
-        const error = new Error(
-          response.error || "Conflitto appuntamento rilevato"
-        ) as any;
-        error.conflict = response.conflict;
+        const error = new Error(response.error || "Conflitto rilevato");
+        (error as any).conflict = response.conflict;
         throw error;
       }
-
       throw new Error(
         response.error || "Errore nell'aggiornamento dell'appuntamento"
       );
     }
 
-    return response.data;
+    return response.data || { appointmentId: appointmentData.appointmentId };
   }
 
   /**
@@ -427,6 +440,45 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data;
+  }
+
+  /**
+   * Ottiene il planTherapyId corretto per un paziente e terapista specifico
+   */
+  async getPlanTherapyForTherapist(
+    patientId: number,
+    therapistId: number
+  ): Promise<{
+    planTherapyId: number;
+    treatmentTypeId: number;
+    treatmentTypeName: string;
+    therapeuticPlanId: number;
+    weeklyHours: number;
+  }> {
+    const response = await fetch(
+      `${this.baseURL}/get-plan-therapy-for-therapist`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          therapistId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || "Errore nel recupero piano terapia");
+    }
+
+    return data.data;
   }
 }
 

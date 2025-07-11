@@ -508,6 +508,9 @@ const Index = () => {
     } catch (err) {
       console.error("Errore nella creazione dell'appuntamento:", err);
 
+      // Forza il re-render del calendario per rimuovere l'appuntamento "fantasma"
+      setRefreshKey((prev) => prev + 1);
+
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
@@ -516,7 +519,12 @@ const Index = () => {
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_treatment_type") {
+        if (conflict?.type === "same_plan_therapy") {
+          conflictTitle = "Conflitto terapia specifica";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate} alle ore ${conflict.existingAppointmentTime} con ${conflict.existingTherapistName}`;
+        } else if (conflict?.type === "same_treatment_type") {
           conflictTitle = "Conflitto tipologia trattamento";
           conflictMessage =
             conflict.message ||
@@ -541,6 +549,9 @@ const Index = () => {
           `Non è stato possibile creare l'appuntamento: ${errorMessage}`
         );
       }
+    } finally {
+      setIsModalOpen(false);
+      setSelectedSlot(null);
     }
   };
 
@@ -613,8 +624,10 @@ const Index = () => {
         throw new Error("ID appuntamento non valido");
       }
 
-      // Trova l'appuntamento da spostare
-      const appointment = appointments.find((apt) => apt.id === numericId);
+      // Trova l'appuntamento da spostare nel combined array
+      const appointment = combinedAppointments.find(
+        (apt) => apt.id === numericId
+      );
       if (!appointment) {
         throw new Error("Appuntamento non trovato");
       }
@@ -623,17 +636,26 @@ const Index = () => {
       const newDateTime =
         newDate.toISOString().split("T")[0] + " " + newTime + ":00";
 
+      // IMPORTANTE: Quando si sposta un appuntamento via drag and drop,
+      // mantieni sempre il terapista originale. Il cambiamento di terapista
+      // dovrebbe avvenire solo tramite il modal di modifica.
       const request = {
         appointmentId: numericId,
-        therapistId: appointment.therapist?.id || selectedTherapist?.id || 0,
+        therapistId: appointment.therapist?.id || 0, // Usa sempre il terapista originale
         appointmentDateTime: newDateTime,
         durationMinutes: appointment.duration,
         notes: appointment.notes,
       };
 
+      console.log("🔄 Spostamento appuntamento:", {
+        appointmentId: numericId,
+        originalTherapist: appointment.therapist?.id,
+        newDateTime,
+      });
+
       await therapyAPI.updateAppointment(request);
 
-      // Aggiorna l'UI localmente
+      // Aggiorna l'UI localmente per immediate feedback
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === numericId ? { ...apt, datetime: newDateTime } : apt
@@ -645,8 +667,14 @@ const Index = () => {
         "Appuntamento spostato",
         "L'appuntamento è stato spostato con successo"
       );
+
+      // Ricarica gli appuntamenti per sicurezza
+      await handleAppointmentUpdate(appointmentId);
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
+
+      // Forza il re-render per ripristinare la posizione originale
+      setRefreshKey((prev) => prev + 1);
 
       // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
@@ -656,19 +684,26 @@ const Index = () => {
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_treatment_type") {
+        if (conflict?.type === "same_plan_therapy") {
+          conflictTitle = "Conflitto terapia specifica";
+          conflictMessage =
+            conflict.message ||
+            `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate} alle ore ${conflict.existingAppointmentTime} con ${conflict.existingTherapistName}`;
+        } else if (conflict?.type === "same_treatment_type") {
           conflictTitle = "Conflitto tipologia trattamento";
           conflictMessage =
             conflict.message ||
             `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
         } else if (conflict?.existingAppointmentInfo) {
           // Conflitto terapista (formato vecchio)
+          conflictTitle = "Conflitto terapista";
           conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
             conflict.existingAppointmentInfo.patientName || "un altro paziente"
           }`;
         } else {
           // Fallback generico
-          conflictMessage = conflict?.message || "Conflitto rilevato";
+          conflictMessage =
+            conflict?.message || "Conflitto rilevato durante lo spostamento";
         }
 
         showError(conflictTitle, conflictMessage);
@@ -681,8 +716,6 @@ const Index = () => {
           `Non è stato possibile spostare l'appuntamento: ${errorMessage}`
         );
       }
-
-      // TODO: Ripristinare posizione originale dell'appuntamento nell'UI
     }
   };
 

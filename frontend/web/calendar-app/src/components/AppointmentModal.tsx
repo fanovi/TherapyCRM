@@ -1,34 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
-import {
-  AppointmentData,
-  Therapist,
-  PlanTherapy,
-  Patient,
-} from "@/types/therapy";
-import { Calendar, Clock, FileText, Repeat, User, Info } from "lucide-react";
-
-const durations = [15, 30, 45, 60, 90, 120];
+import { Checkbox } from "@/components/ui/checkbox";
+import { AppointmentData, Therapist, Patient } from "@/types/therapy";
+import { therapyAPI } from "@/lib/api";
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -36,7 +19,7 @@ interface AppointmentModalProps {
   onConfirm: (data: AppointmentData) => void;
   selectedSlot: { date: Date; time: string } | null;
   selectedTherapist: Therapist | null;
-  patient?: Patient | null;
+  patient: Patient | null;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -54,49 +37,68 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isRecurring: false,
   });
 
-  // Usa direttamente i dati del piano terapeutico dal paziente
-  const planTherapy = patient?.planTherapy;
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Debug: verifica stato del piano terapeutico
-    console.log("🔍 Debug AppointmentModal - handleSubmit:");
-    console.log("- planTherapy:", planTherapy);
-    console.log("- patient:", patient);
-
-    if (!planTherapy) {
-      console.error("❌ Piano terapeutico non disponibile");
+    if (!selectedTherapist || !patient) {
+      console.error("❌ Terapista o paziente non selezionato");
       return;
     }
 
-    // Usa la specializzazione del terapista come tipo di terapia
-    const therapyType = selectedTherapist?.specialization || "Terapia generica";
+    setLoading(true);
 
-    onConfirm({
-      ...formData,
-      therapyType,
-      planTherapy: planTherapy
-        ? {
-            planTherapyId: planTherapy.planTherapyId,
-            therapeuticPlanId: planTherapy.therapeuticPlanId,
-            patientId: patient?.id || 0,
-            patientName: patient?.name || "",
-            startDate: planTherapy.startDate,
-            endDate: planTherapy.endDate,
-            durationDays: planTherapy.durationDays,
-            weeklyHours: planTherapy.weeklyHours,
-            notes: planTherapy.notes,
-          }
-        : undefined,
-    });
+    try {
+      // Ottieni il planTherapyId corretto per il terapista selezionato
+      const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
+        patient.id,
+        selectedTherapist.id
+      );
 
-    setFormData({
-      therapyType: "",
-      duration: 60,
-      notes: "",
-      isRecurring: false,
-    });
+      console.log(
+        "🔍 Debug AppointmentModal - planTherapyData:",
+        planTherapyData
+      );
+
+      // Usa la specializzazione del terapista come tipo di terapia
+      const therapyType =
+        selectedTherapist?.specialization || planTherapyData.treatmentTypeName;
+
+      onConfirm({
+        ...formData,
+        therapyType,
+        planTherapy: {
+          planTherapyId: planTherapyData.planTherapyId,
+          therapeuticPlanId: planTherapyData.therapeuticPlanId,
+          patientId: patient.id,
+          patientName: patient.name,
+          // Usa le date dal piano terapeutico esistente per backward compatibility
+          startDate: patient.planTherapy?.startDate || "",
+          endDate: patient.planTherapy?.endDate || "",
+          durationDays: patient.planTherapy?.durationDays || 0,
+          weeklyHours: planTherapyData.weeklyHours,
+          notes: patient.planTherapy?.notes || "",
+        },
+      });
+
+      setFormData({
+        therapyType: "",
+        duration: 60,
+        notes: "",
+        isRecurring: false,
+      });
+    } catch (error) {
+      console.error("❌ Errore nel recupero piano terapia:", error);
+      alert(
+        "Errore: Non è possibile creare l'appuntamento. " +
+          (error instanceof Error
+            ? error.message
+            : "Il terapista selezionato non può gestire questo tipo di terapia.")
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -112,335 +114,87 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-      onClick={handleClose}
-    >
-      <div
-        style={{
-          background: "white",
-          borderRadius: "8px",
-          padding: "24px",
-          minWidth: "400px",
-          maxWidth: "500px",
-          maxHeight: "80vh",
-          overflow: "auto",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ marginBottom: "20px" }}>
-          <h2
-            style={{
-              fontSize: "18px",
-              fontWeight: "600",
-              color: "#1f2937",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              margin: 0,
-            }}
-          >
-            <Calendar className="h-5 w-5 text-blue-600" />
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
             Nuovo Appuntamento
-          </h2>
-          <p
-            style={{
-              fontSize: "14px",
-              color: "#6b7280",
-              marginTop: "4px",
-              margin: 0,
-            }}
-          >
-            Compila i dettagli per creare un nuovo appuntamento.
-          </p>
-        </div>
-
-        {selectedSlot && (
-          <div
-            style={{
-              backgroundColor: "#eff6ff",
-              padding: "12px",
-              borderRadius: "8px",
-              marginBottom: "16px",
-              border: "1px solid #dbeafe",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "14px",
-                color: "#1e40af",
-              }}
-            >
-              <Clock className="h-4 w-4" />
-              <span>
-                {format(selectedSlot.date, "EEEE dd MMMM yyyy", {
-                  locale: it,
-                })}{" "}
-                alle {selectedSlot.time}
+            {selectedSlot && (
+              <span className="text-sm text-gray-500 block mt-1">
+                {selectedSlot.date.toLocaleDateString("it-IT")} alle{" "}
+                {selectedSlot.time}
               </span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {selectedTherapist && (
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">
+                Terapista: {selectedTherapist.name}
+              </p>
+              <p className="text-xs text-blue-700">
+                {selectedTherapist.specialization}
+              </p>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Info Terapista */}
-        {selectedTherapist && (
-          <div
-            style={{
-              backgroundColor: "#f0f9ff",
-              padding: "12px",
-              borderRadius: "8px",
-              marginBottom: "16px",
-              border: "1px solid #bae6fd",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "14px",
-                color: "#0c4a6e",
-              }}
-            >
-              <User className="h-4 w-4" />
-              <div>
-                <span style={{ fontWeight: "500" }}>
-                  {selectedTherapist.name}
-                </span>
-                <span style={{ color: "#64748b", marginLeft: "8px" }}>
-                  • {selectedTherapist.specialization}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Info Piano Terapeutico */}
-        {planTherapy && (
-          <div
-            style={{
-              backgroundColor: "#f0fdf4",
-              padding: "12px",
-              borderRadius: "8px",
-              marginBottom: "16px",
-              border: "1px solid #bbf7d0",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "14px",
-                color: "#14532d",
-              }}
-            >
-              <Info className="h-4 w-4" />
-              <div>
-                <span style={{ fontWeight: "500" }}>Piano Terapeutico</span>
-                <span style={{ color: "#64748b", marginLeft: "8px" }}>
-                  • Fino al{" "}
-                  {format(new Date(planTherapy.endDate), "dd/MM/yyyy")}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#374151",
-                marginBottom: "6px",
-              }}
-            >
-              Durata (minuti)
-            </label>
-            <select
-              value={formData.duration.toString()}
+          <div className="space-y-2">
+            <Label htmlFor="duration">Durata (minuti)</Label>
+            <Input
+              id="duration"
+              type="number"
+              value={formData.duration}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  duration: parseInt(e.target.value),
-                }))
+                setFormData({ ...formData, duration: parseInt(e.target.value) })
               }
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "14px",
-                backgroundColor: "white",
-                color: "#374151",
-              }}
-            >
-              {durations.map((duration) => (
-                <option key={duration} value={duration.toString()}>
-                  {duration} minuti
-                </option>
-              ))}
-            </select>
+              min="15"
+              max="180"
+              step="15"
+            />
           </div>
 
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#374151",
-                marginBottom: "6px",
-              }}
-            >
-              <FileText className="h-4 w-4" />
-              Note (opzionale)
-            </label>
-            <textarea
-              placeholder="Inserisci eventuali note per l'appuntamento..."
+          <div className="space-y-2">
+            <Label htmlFor="notes">Note (opzionale)</Label>
+            <Textarea
+              id="notes"
               value={formData.notes}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                setFormData({ ...formData, notes: e.target.value })
               }
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "14px",
-                backgroundColor: "white",
-                color: "#374151",
-                resize: "none",
-                minHeight: "80px",
-              }}
+              placeholder="Aggiungi note per l'appuntamento..."
               rows={3}
             />
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "20px",
-            }}
-          >
-            <input
-              type="checkbox"
+          <div className="flex items-center space-x-2">
+            <Checkbox
               id="recurring"
               checked={formData.isRecurring}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  isRecurring: e.target.checked,
-                }))
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, isRecurring: checked as boolean })
               }
-              style={{
-                width: "16px",
-                height: "16px",
-                accentColor: "#3b82f6",
-              }}
             />
-            <label
-              htmlFor="recurring"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "14px",
-                color: "#374151",
-                cursor: "pointer",
-              }}
-            >
-              <Repeat className="h-4 w-4" />
-              Ripeti fino a fine piano terapeutico
-            </label>
+            <Label htmlFor="recurring" className="text-sm">
+              Appuntamento ricorrente
+            </Label>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              paddingTop: "16px",
-            }}
-          >
-            <button
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
               type="button"
+              variant="outline"
               onClick={handleClose}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: "500",
-                backgroundColor: "white",
-                color: "#374151",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = "#f9fafb";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = "white";
-              }}
+              disabled={loading}
             >
               Annulla
-            </button>
-
-            <button
-              type="submit"
-              disabled={!selectedTherapist}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                border: "none",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: "500",
-                backgroundColor: selectedTherapist ? "#3b82f6" : "#9ca3af",
-                color: "white",
-                cursor: selectedTherapist ? "pointer" : "not-allowed",
-                transition: "all 0.2s",
-              }}
-              onMouseOver={(e) => {
-                if (selectedTherapist) {
-                  e.currentTarget.style.backgroundColor = "#2563eb";
-                }
-              }}
-              onMouseOut={(e) => {
-                if (selectedTherapist) {
-                  e.currentTarget.style.backgroundColor = "#3b82f6";
-                }
-              }}
-            >
-              Conferma Appuntamento
-            </button>
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Caricamento..." : "Crea Appuntamento"}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
