@@ -389,6 +389,13 @@ use yii\widgets\ActiveForm;
                     }
                     
                     log('Form valido, procedo con il submit');
+                    
+                    // Disable submit button to prevent double submission
+                    const submitBtn = document.getElementById('submit-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<svg class=\"animate-spin -ml-1 mr-3 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Salvataggio...';
+                    }
                 });
             ");
             ?>
@@ -591,36 +598,6 @@ $this->registerJs("
     
     // Calculate on page load if values are present
     calculateEndDate();
-    
-    // Therapies management
-    var therapyIndex = 0;
-    
-    // Add therapy
-    $('#add-therapy').on('click', function() {
-        var template = document.getElementById('therapy-template').innerHTML;
-        template = template.replace(/{index}/g, therapyIndex);
-        
-        var container = document.getElementById('therapies-container');
-        var div = document.createElement('div');
-        div.innerHTML = template;
-        container.appendChild(div.firstElementChild);
-        
-        updateTherapyNumbers();
-        therapyIndex++;
-    });
-    
-    // Remove therapy
-    $(document).on('click', '.remove-therapy', function() {
-        $(this).closest('.therapy-item').remove();
-        updateTherapyNumbers();
-    });
-    
-    // Update therapy numbers
-    function updateTherapyNumbers() {
-        $('.therapy-number').each(function(index) {
-            $(this).text(index + 1);
-        });
-    }
     
     // Form validation
     $('#therapeutic-plan-form').on('beforeSubmit', function() {
