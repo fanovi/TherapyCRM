@@ -144,8 +144,13 @@ const Index = () => {
   };
 
   const handleSlotClick = (date: Date, time: string) => {
+    console.log("🎯 handleSlotClick called:", { date, time });
     setSelectedSlot({ date, time });
     setIsModalOpen(true);
+    console.log("🎯 Modal state set to:", {
+      isModalOpen: true,
+      selectedSlot: { date, time },
+    });
   };
 
   const handleAppointmentMove = (

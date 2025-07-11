@@ -34,7 +34,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           appointments={appointments}
           onSlotClick={onSlotClick}
           onAppointmentMove={onAppointmentMove}
-          isEditable={isTherapistView}
+          isEditable={true}
           primaryColor={primaryColor}
         />
       );
@@ -44,7 +44,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           appointments={appointments}
           onSlotClick={onSlotClick}
           onAppointmentMove={onAppointmentMove}
-          isEditable={isTherapistView}
+          isEditable={true}
           primaryColor={primaryColor}
         />
       );
@@ -54,7 +54,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           appointments={appointments}
           onSlotClick={onSlotClick}
           onAppointmentMove={onAppointmentMove}
-          isEditable={isTherapistView}
+          isEditable={true}
           primaryColor={primaryColor}
         />
       );

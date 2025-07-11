@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onConfirm,
   selectedSlot,
 }) => {
+  console.log("🔍 AppointmentModal render:", { isOpen, selectedSlot });
+
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
     duration: 60,
@@ -66,6 +69,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   };
 
   const handleClose = () => {
+    console.log("🔍 AppointmentModal handleClose called");
     onClose();
     setFormData({
       therapyType: "",
@@ -75,22 +79,73 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     });
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        zIndex: 999999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onClick={handleClose}
+    >
+      <div
+        style={{
+          background: "white",
+          borderRadius: "8px",
+          padding: "24px",
+          minWidth: "400px",
+          maxWidth: "500px",
+          maxHeight: "80vh",
+          overflow: "auto",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ marginBottom: "20px" }}>
+          <h2
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#1f2937",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              margin: 0,
+            }}
+          >
             <Calendar className="h-5 w-5 text-blue-600" />
             Nuovo Appuntamento
-          </DialogTitle>
-        </DialogHeader>
+          </h2>
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#6b7280",
+              marginTop: "4px",
+              margin: 0,
+            }}
+          >
+            Compila i dettagli per creare un nuovo appuntamento.
+          </p>
+        </div>
 
         {selectedSlot && (
           <div className="bg-blue-50 p-3 rounded-lg mb-4">
             <div className="flex items-center gap-2 text-sm text-blue-800">
               <Clock className="h-4 w-4" />
               <span>
-                {format(selectedSlot.date, "EEEE dd MMMM yyyy", { locale: it })}{" "}
+                {format(selectedSlot.date, "EEEE dd MMMM yyyy", {
+                  locale: it,
+                })}{" "}
                 alle {selectedSlot.time}
               </span>
             </div>
@@ -124,7 +179,10 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             <Select
               value={formData.duration.toString()}
               onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, duration: parseInt(value) }))
+                setFormData((prev) => ({
+                  ...prev,
+                  duration: parseInt(value),
+                }))
               }
             >
               <SelectTrigger>
@@ -189,7 +247,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };

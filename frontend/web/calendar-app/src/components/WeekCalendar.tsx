@@ -163,9 +163,17 @@ export const WeekCalendar: React.FC<WeekCalendarProps> = ({
                       ${isEditable ? "hover:bg-blue-50" : "hover:bg-gray-50"}
                       ${appointment ? "bg-opacity-10" : ""}
                     `}
-                    onClick={() =>
-                      isEditable && !appointment && onSlotClick(day, time)
-                    }
+                    onClick={() => {
+                      console.log("📅 WeekCalendar slot clicked:", {
+                        day,
+                        time,
+                        isEditable,
+                        hasAppointment: !!appointment,
+                      });
+                      if (isEditable && !appointment) {
+                        onSlotClick(day, time);
+                      }
+                    }}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, day, time)}
                   >
