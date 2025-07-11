@@ -148,6 +148,22 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
+            // Verifica conflitti slot temporale paziente
+            $patientId = $planTherapy->therapeuticPlan->patient_id;
+            $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                $patientId,
+                $data['appointmentDateTime'], 
+                $data['durationMinutes']
+            );
+
+            if ($patientSlotConflict) {
+                return [
+                    'success' => false,
+                    'error' => 'Slot paziente già occupato',
+                    'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
+                ];
+            }
+
             // Verifica conflitti tipologia trattamento
             $treatmentConflict = $this->checkSameTreatmentTypeConflict(
                 $data['planTherapyId'], 
@@ -800,6 +816,7 @@ class TherapeuticPlanManagerController extends Controller
                 $data['therapistId'] != $appointment->therapist_id ||
                 $data['durationMinutes'] != $appointment->duration_minutes) {
                 
+                // Controllo conflitti terapista
                 $conflict = $this->checkTherapistConflict(
                     $data['therapistId'], 
                     $data['appointmentDateTime'], 
@@ -812,6 +829,23 @@ class TherapeuticPlanManagerController extends Controller
                         'success' => false,
                         'error' => 'Conflitto terapista rilevato',
                         'conflict' => $this->formatConflictInfo($conflict)
+                    ];
+                }
+
+                // NUOVO: Controllo conflitti slot temporale paziente
+                $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
+                $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                    $patientId,
+                    $data['appointmentDateTime'], 
+                    $data['durationMinutes'],
+                    $appointment->id
+                );
+
+                if ($patientSlotConflict) {
+                    return [
+                        'success' => false,
+                        'error' => 'Slot paziente già occupato',
+                        'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
                     ];
                 }
             }
@@ -963,6 +997,20 @@ class TherapeuticPlanManagerController extends Controller
                             $data['startTime'],
                             $data['therapistId']
                         );
+                        continue;
+                    }
+
+                    // Verifica conflitti slot temporale paziente
+                    $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
+                    $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                        $patientId,
+                        $newDateTime,
+                        $data['durationMinutes'],
+                        $appointment->id
+                    );
+
+                    if ($patientSlotConflict) {
+                        $errors[] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
                         continue;
                     }
 
@@ -1499,6 +1547,21 @@ class TherapeuticPlanManagerController extends Controller
                     continue;
                 }
 
+                // Verifica conflitti slot temporale paziente
+                $patientId = $planTherapy->therapeuticPlan->patient_id;
+                $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                    $patientId,
+                    $appointmentDateTime,
+                    $pattern->duration_minutes
+                );
+                
+                if ($patientSlotConflict) {
+                    Yii::info("Conflitto slot temporale paziente rilevato per {$appointmentDateTime}", __METHOD__);
+                    $result['conflicts'][] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
+                    $currentDate->modify('+1 day');
+                    continue;
+                }
+
                 // Verifica conflitti tipologia trattamento
                 $treatmentConflict = $this->checkSameTreatmentTypeConflict($pattern->plan_therapy_id, $appointmentDateTime);
                 
@@ -1696,6 +1759,56 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Controlla se lo stesso paziente ha già un appuntamento che si sovrappone temporalmente
+     * 
+     * @param int $patientId
+     * @param string $appointmentDateTime
+     * @param int $durationMinutes
+     * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
+     * @return Appointment|null
+     */
+    private function checkPatientTimeSlotConflict($patientId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
+    {
+        $startTime = new DateTime($appointmentDateTime);
+        $endTime = clone $startTime;
+        $endTime->modify("+{$durationMinutes} minutes");
+
+        $query = Appointment::find()
+            ->alias('a')
+            ->innerJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+            ->innerJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+            ->where(['tp.patient_id' => $patientId])
+            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['or',
+                ['and',
+                    ['<=', 'a.appointment_datetime', $appointmentDateTime],
+                    ['>', 'DATE_ADD(a.appointment_datetime, INTERVAL a.duration_minutes MINUTE)', $appointmentDateTime]
+                ],
+                ['and',
+                    ['<', 'a.appointment_datetime', $endTime->format('Y-m-d H:i:s')],
+                    ['>=', 'a.appointment_datetime', $appointmentDateTime]
+                ]
+            ])
+            ->with(['planTherapy.treatmentType', 'planTherapy.therapeuticPlan.patient', 'therapist.user.profile']);
+
+        if ($excludeAppointmentId) {
+            $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
+        }
+
+        $result = $query->one();
+        
+        if ($result) {
+            $patient = $result->planTherapy->therapeuticPlan->patient;
+            $treatmentType = $result->planTherapy->treatmentType;
+            $therapist = $result->therapist;
+            $therapistName = $therapist ? $therapist->user->profile->getFullName() : 'Terapista non specificato';
+            Yii::info("Conflitto slot temporale paziente rilevato: Paziente {$patient->getFullName()}, Terapia {$treatmentType->name}, Terapista {$therapistName}, DateTime {$result->appointment_datetime}", __METHOD__);
+        }
+
+        return $result;
+    }
+
+    /**
      * Formatta le informazioni del conflitto
      * 
      * @param Appointment $conflict
@@ -1763,6 +1876,38 @@ class TherapeuticPlanManagerController extends Controller
             $conflictInfo['requestedDate'] = $date;
             $conflictInfo['requestedTime'] = $time;
         }
+
+        return $conflictInfo;
+    }
+
+    /**
+     * Formatta le informazioni del conflitto per slot temporale paziente
+     * 
+     * @param Appointment $conflict
+     * @return array
+     */
+    private function formatPatientSlotConflictInfo($conflict)
+    {
+        $startDateTime = new DateTime($conflict->appointment_datetime);
+        $endDateTime = clone $startDateTime;
+        $endDateTime->modify("+{$conflict->duration_minutes} minutes");
+        
+        $treatmentType = $conflict->planTherapy->treatmentType;
+        $patient = $conflict->planTherapy->therapeuticPlan->patient;
+        $therapist = $conflict->therapist;
+        $therapistInfo = $therapist ? $therapist->user->profile->getFullName() : 'Terapista non specificato';
+
+        $conflictInfo = [
+            'type' => 'patient_time_slot_conflict',
+            'existingAppointmentId' => $conflict->id,
+            'patientName' => $patient->getFullName(),
+            'treatmentType' => $treatmentType->name,
+            'existingAppointmentDate' => $startDateTime->format('Y-m-d'),
+            'existingAppointmentTime' => $startDateTime->format('H:i'),
+            'existingAppointmentEndTime' => $endDateTime->format('H:i'),
+            'existingTherapistName' => $therapistInfo,
+            'message' => "Il paziente {$patient->getFullName()} ha già un appuntamento di {$treatmentType->name} in data {$startDateTime->format('d/m/Y')} dalle ore {$startDateTime->format('H:i')} alle ore {$endDateTime->format('H:i')} con {$therapistInfo}"
+        ];
 
         return $conflictInfo;
     }
