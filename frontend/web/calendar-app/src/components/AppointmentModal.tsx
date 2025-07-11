@@ -20,24 +20,17 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { AppointmentData } from "@/types/therapy";
-import { Calendar, Clock, FileText, Repeat } from "lucide-react";
+import { AppointmentData, Therapist } from "@/types/therapy";
+import { Calendar, Clock, FileText, Repeat, User } from "lucide-react";
 
-const therapyTypes = [
-  "Fisioterapia",
-  "Logopedia",
-  "Psicomotricità",
-  "Terapia Occupazionale",
-  "Massoterapia",
-];
-
-const durations = [30, 45, 60, 90, 120];
+const durations = [15, 30, 45, 60, 90, 120];
 
 interface AppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (data: AppointmentData) => void;
   selectedSlot: { date: Date; time: string } | null;
+  selectedTherapist: Therapist | null;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -45,6 +38,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onClose,
   onConfirm,
   selectedSlot,
+  selectedTherapist,
 }) => {
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
@@ -55,9 +49,15 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.therapyType) return;
 
-    onConfirm(formData);
+    // Usa la specializzazione del terapista come tipo di terapia
+    const therapyType = selectedTherapist?.specialization || "Terapia generica";
+
+    onConfirm({
+      ...formData,
+      therapyType,
+    });
+
     setFormData({
       therapyType: "",
       duration: 60,
@@ -165,47 +165,40 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "16px" }}>
-            <label
+        {/* Info Terapista */}
+        {selectedTherapist && (
+          <div
+            style={{
+              backgroundColor: "#f0f9ff",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              border: "1px solid #bae6fd",
+            }}
+          >
+            <div
               style={{
-                display: "block",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
                 fontSize: "14px",
-                fontWeight: "500",
-                color: "#374151",
-                marginBottom: "6px",
+                color: "#0c4a6e",
               }}
             >
-              Tipo di Terapia *
-            </label>
-            <select
-              value={formData.therapyType}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  therapyType: e.target.value,
-                }))
-              }
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "14px",
-                backgroundColor: "white",
-                color: "#374151",
-              }}
-              required
-            >
-              <option value="">Seleziona tipo di terapia</option>
-              {therapyTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+              <User className="h-4 w-4" />
+              <div>
+                <span style={{ fontWeight: "500" }}>
+                  {selectedTherapist.name}
+                </span>
+                <span style={{ color: "#64748b", marginLeft: "8px" }}>
+                  • {selectedTherapist.specialization}
+                </span>
+              </div>
+            </div>
           </div>
+        )}
 
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "16px" }}>
             <label
               style={{
@@ -351,9 +344,10 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             >
               Annulla
             </button>
+
             <button
               type="submit"
-              disabled={!formData.therapyType}
+              disabled={!selectedTherapist}
               style={{
                 flex: 1,
                 padding: "10px 16px",
@@ -361,18 +355,18 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 borderRadius: "6px",
                 fontSize: "14px",
                 fontWeight: "500",
-                backgroundColor: formData.therapyType ? "#3b82f6" : "#9ca3af",
+                backgroundColor: selectedTherapist ? "#3b82f6" : "#9ca3af",
                 color: "white",
-                cursor: formData.therapyType ? "pointer" : "not-allowed",
+                cursor: selectedTherapist ? "pointer" : "not-allowed",
                 transition: "all 0.2s",
               }}
               onMouseOver={(e) => {
-                if (formData.therapyType) {
+                if (selectedTherapist) {
                   e.currentTarget.style.backgroundColor = "#2563eb";
                 }
               }}
               onMouseOut={(e) => {
-                if (formData.therapyType) {
+                if (selectedTherapist) {
                   e.currentTarget.style.backgroundColor = "#3b82f6";
                 }
               }}

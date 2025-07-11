@@ -9,6 +9,7 @@ import {
   isSameMonth,
   isSameDay,
   addMonths,
+  parseISO,
 } from "date-fns";
 import { it } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,28 @@ interface MonthCalendarProps {
   primaryColor: string;
 }
 
+// Helper functions per gestire la nuova struttura dati
+const getAppointmentDate = (appointment: Appointment): Date => {
+  return parseISO(appointment.datetime);
+};
+
+const getAppointmentTime = (appointment: Appointment): string => {
+  const date = parseISO(appointment.datetime);
+  return format(date, "HH:mm");
+};
+
+const getAppointmentPatientName = (appointment: Appointment): string => {
+  return appointment.patient?.name || "Paziente sconosciuto";
+};
+
+const getAppointmentTherapistName = (appointment: Appointment): string => {
+  return appointment.therapist?.name || "Terapista sconosciuto";
+};
+
+const getAppointmentTreatmentType = (appointment: Appointment): string => {
+  return appointment.treatmentType || "Trattamento non specificato";
+};
+
 export const MonthCalendar: React.FC<MonthCalendarProps> = ({
   appointments,
   onSlotClick,
@@ -41,7 +64,10 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const getAppointmentsForDay = (date: Date) => {
-    return appointments.filter((apt) => isSameDay(apt.date, date));
+    return appointments.filter((apt) => {
+      const aptDate = getAppointmentDate(apt);
+      return isSameDay(aptDate, date);
+    });
   };
 
   const handlePreviousMonth = () => {
@@ -83,9 +109,14 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({
                 key={appointment.id}
                 className="text-xs p-1 rounded text-white truncate"
                 style={{ backgroundColor: primaryColor }}
-                title={`${appointment.time} - ${appointment.therapyType} - ${appointment.patientName}`}
+                title={`${getAppointmentTime(
+                  appointment
+                )} - ${getAppointmentTreatmentType(
+                  appointment
+                )} - ${getAppointmentPatientName(appointment)}`}
               >
-                {appointment.time} {appointment.therapyType}
+                {getAppointmentTime(appointment)}{" "}
+                {getAppointmentTreatmentType(appointment)}
               </div>
             ))}
             {dayAppointments.length > 3 && (

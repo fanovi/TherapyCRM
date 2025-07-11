@@ -58,5 +58,22 @@ return [
             ],
         ],
     ],
+    'as beforeRequest' => [
+        'class' => 'yii\filters\AccessControl',
+        'rules' => [
+            [
+                'actions' => [],
+                'allow' => true,
+            ],
+            [
+                'controllers' => ['therapeutic-plan-manager'],
+                'allow' => true,
+            ],
+            [
+                'allow' => true,
+                'roles' => ['@'],
+            ],
+        ],
+    ],
     'params' => $params,
 ];

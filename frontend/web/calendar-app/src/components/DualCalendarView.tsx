@@ -28,7 +28,7 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
   hidePatientCalendar = false,
 }) => {
   const therapistAppointments = selectedTherapist
-    ? appointments.filter((apt) => apt.therapistId === selectedTherapist.id)
+    ? appointments.filter((apt) => apt.therapist?.id === selectedTherapist.id)
     : [];
 
   // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
