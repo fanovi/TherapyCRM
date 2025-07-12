@@ -11,50 +11,68 @@ $this->title = 'Piani Terapeutici';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
-<div class="therapeutic-plan-index">
-    <!-- Header Section -->
-    <div class="mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+<div class="mx-auto max-w-full p-4 md:p-6">
+    <!-- Breadcrumb Start -->
+    <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
+            
+            <!-- Action Button -->
             <div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white"><?= Html::encode($this->title) ?></h1>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Gestisci i piani terapeutici dei pazienti
-                </p>
-            </div>
-            <div class="mt-4 sm:mt-0">
                 <?= Html::a(
-                    '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Nuovo Piano Terapeutico',
+                    '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>Nuovo Piano Terapeutico',
                     ['create'],
                     [
-                        'class' => 'inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                        'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
                     ]
                 ) ?>
             </div>
         </div>
     </div>
+    <!-- Breadcrumb End -->
 
-    <!-- Content Card -->
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
-        <div class="p-6">
-            <?php Pjax::begin(); ?>
+    <!-- Content Start -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Lista Piani Terapeutici
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Gestisci i piani terapeutici dei pazienti
+            </p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <?= 'Trovati ' . $dataProvider->totalCount . ' piani terapeutici' ?>
+            </div>
+            <div class="flex gap-2">
+                <?= Html::a('Reset Filtri', ['index'], [
+                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
+                ]) ?>
+                <?= Html::button('Aggiorna', [
+                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-brand-600 border border-transparent rounded-md shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
+                    'onclick' => '$.pjax.reload({container:"#therapeutic-plan-grid-pjax"});'
+                ]) ?>
+            </div>
+        </div>
+
+        <!-- Scrollable Table Container -->
+        <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
+            <?php Pjax::begin(['id' => 'therapeutic-plan-grid-pjax']); ?>
             
             <?= GridView::widget([
                 'dataProvider' => $dataProvider,
-                'layout' => '{items}{pager}',
-                'tableOptions' => [
-                    'class' => 'min-w-full divide-y divide-gray-200 dark:divide-gray-700'
-                ],
-                'options' => [
-                    'class' => 'overflow-hidden'
-                ],
+                'options' => ['class' => 'min-w-full'],
+                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
+                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
+                'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
                 'columns' => [
                     [
                         'attribute' => 'id',
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'],
                         'options' => ['style' => 'width: 80px;'],
                     ],
                     [
@@ -63,8 +81,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function($model) {
                             return $model->patient ? $model->patient->fullName : 'N/A';
                         },
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'content' => function($model) {
                             $patientName = $model->patient ? $model->patient->fullName : 'N/A';
                             return '<div class="text-sm font-medium text-gray-900 dark:text-white">' . Html::encode($patientName) . '</div>';
@@ -76,8 +94,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function($model) {
                             return $model->regime ? $model->regime->nome : 'N/A';
                         },
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'content' => function($model) {
                             $regimeName = $model->regime ? $model->regime->nome : 'N/A';
                             return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">' . 
@@ -90,8 +108,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function($model) {
                             return $model->start_date ? Yii::$app->formatter->asDate($model->start_date) : 'N/A';
                         },
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
                     ],
                     [
                         'attribute' => 'duration_days',
@@ -99,8 +117,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function($model) {
                             return $model->getFormattedDuration();
                         },
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
                     ],
                     [
                         'attribute' => 'end_date',
@@ -108,8 +126,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function($model) {
                             return $model->end_date ? Yii::$app->formatter->asDate($model->end_date) : 'N/A';
                         },
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'content' => function($model) {
                             if (!$model->end_date) {
                                 return '<span class="text-sm text-gray-500 dark:text-gray-400">N/A</span>';
@@ -127,8 +145,8 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right'],
                         'template' => '{view} {update} {delete}',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
@@ -140,7 +158,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url,
                                     [
                                         'title' => 'Visualizza',
-                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3',
+                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                         'data-pjax' => '0'
                                     ]
                                 );
@@ -153,7 +171,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url,
                                     [
                                         'title' => 'Modifica',
-                                        'class' => 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-3',
+                                        'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
                                         'data-pjax' => '0'
                                     ]
                                 );
@@ -166,7 +184,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url,
                                     [
                                         'title' => 'Elimina',
-                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300',
+                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
                                         'data-confirm' => 'Sei sicuro di voler eliminare questo piano terapeutico?',
                                         'data-method' => 'post',
                                         'data-pjax' => '0'
