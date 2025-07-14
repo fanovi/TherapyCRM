@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://00274aa5fa12.ngrok-free.app/TherapyCRM/api',
+  BASE_URL: 'https://17203f7f58bf.ngrok-free.app/TherapyCRM/api',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
@@ -44,4 +44,12 @@ export const ERROR_MESSAGES = {
   SERVER_ERROR: 'Errore del server',
   TOKEN_EXPIRED: 'Sessione scaduta. Effettua nuovamente il login.',
   GENERIC_ERROR: 'Si è verificato un errore imprevisto',
+};
+
+// Aggiungi gli endpoint del calendario se non presenti
+export const API_ENDPOINTS = {
+  // Calendar endpoints
+  CALENDAR_PATIENT_APPOINTMENTS: '/calendar/patient-appointments',
+  CALENDAR_PATIENT_MARKED_DATES: '/calendar/patient-marked-dates',
+  CALENDAR_CANCEL_APPOINTMENT: '/calendar/cancel-appointment',
 };

@@ -88,6 +88,14 @@ return [
                 'POST auth/logout' => 'auth/logout',
                 'GET auth/verify' => 'auth/verify',
                 
+                // Calendar routes
+                'POST calendar/patient-appointments' => 'calendar/patient-appointments',
+                'POST calendar/patient-marked-dates' => 'calendar/patient-marked-dates',
+                'POST calendar/cancel-appointment' => 'calendar/cancel-appointment',
+                'POST calendar/therapist-appointments' => 'calendar/therapist-appointments',
+                'POST calendar/therapist-marked-dates' => 'calendar/therapist-marked-dates',
+                'POST calendar/mark-patient-absent' => 'calendar/mark-patient-absent',
+                
                 // Altre route qui...
             ],
         ],

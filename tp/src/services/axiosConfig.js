@@ -135,20 +135,46 @@ apiClient.interceptors.response.use(
     return response;
   },
   async error => {
-    const {response} = error;
+    const {response, config} = error;
 
     // Gestione errore 401 - Token scaduto o non valido
     if (response?.status === 401) {
       console.log('❌ Errore 401 ricevuto dal server');
-      const {performAutoLogout} = await import('../utils/authUtils');
-      await performAutoLogout('Errore 401 dal server');
 
-      // Ritorna un errore specifico per la gestione nel UI
-      return Promise.reject({
-        type: 'AUTH_ERROR',
-        message: 'Sessione scaduta. Effettua nuovamente il login.',
-        originalError: error,
-      });
+      // Controlla se è un errore di autenticazione reale o un errore di autorizzazione
+      const errorMessage = response.data?.error || response.data?.message || '';
+      const isAuthError =
+        errorMessage.toLowerCase().includes('token') ||
+        errorMessage.toLowerCase().includes('unauthorized') ||
+        errorMessage.toLowerCase().includes('expired') ||
+        errorMessage.toLowerCase().includes('invalid');
+
+      if (isAuthError) {
+        console.log(
+          '🔐 Errore di autenticazione confermato - eseguendo logout',
+        );
+        const {performAutoLogout} = await import('../utils/authUtils');
+        await performAutoLogout('Errore 401 di autenticazione dal server');
+
+        // Ritorna un errore specifico per la gestione nel UI
+        return Promise.reject({
+          type: 'AUTH_ERROR',
+          message: 'Sessione scaduta. Effettua nuovamente il login.',
+          originalError: error,
+        });
+      } else {
+        console.log(
+          '⚠️ Errore 401 ma non di autenticazione - non forzando logout',
+        );
+        // Errore 401 ma non di autenticazione (es. permessi insufficienti)
+        return Promise.reject({
+          type: 'PERMISSION_ERROR',
+          message:
+            errorMessage ||
+            'Non hai i permessi necessari per questa operazione.',
+          originalError: error,
+        });
+      }
     }
 
     // Gestione errori di rete
@@ -160,8 +186,8 @@ apiClient.interceptors.response.use(
         originalError: error,
       };
 
-      // Mostra errore di rete nell'UI
-      if (store) {
+      // Mostra errore di rete nell'UI solo per errori critici
+      if (store && !config.url.includes('/notifications')) {
         const {setNetworkError} = await import('../slices/uiSlice');
         store.dispatch(setNetworkError(networkError));
       }
@@ -184,8 +210,12 @@ apiClient.interceptors.response.use(
       originalError: error,
     };
 
-    // Mostra errore del server nell'UI (solo per errori 5xx)
-    if (store && response.status >= 500) {
+    // Mostra errore del server nell'UI solo per errori 5xx critici
+    if (
+      store &&
+      response.status >= 500 &&
+      !config.url.includes('/notifications')
+    ) {
       const {setNetworkError} = await import('../slices/uiSlice');
       store.dispatch(setNetworkError(serverError));
     }

@@ -147,6 +147,15 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
     /**
+     * Relazione con gli account pazienti
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAccountPatients()
+    {
+        return $this->hasMany(AccountPatient::class, ['user_id' => 'id']);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public static function findIdentity($id)
