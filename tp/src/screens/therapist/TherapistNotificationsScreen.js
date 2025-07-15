@@ -15,10 +15,9 @@ import {
   Chip,
   ActivityIndicator,
   Divider,
-  FAB,
 } from 'react-native-paper';
 import {useSelector} from 'react-redux';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import {
@@ -35,20 +34,24 @@ const TherapistNotificationsScreen = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, unread, read, type
-  const [typeFilter, setTypeFilter] = useState('all'); // all, info, reminder, deadline, mandatory_read
+  const [filter, setFilter] = useState('all'); // all, unread, read
 
   const theme = useTheme();
+  const navigation = useNavigation();
   const {user} = useSelector(state => state.auth);
 
   useFocusEffect(
     useCallback(() => {
       fetchNotifications(1, true);
-    }, [filter, typeFilter]),
+    }, [filter]),
   );
 
   const fetchNotifications = async (pageNum = 1, refresh = false) => {
     try {
+      console.log(
+        `🩺 TherapistNotifications: Recupero notifiche pagina ${pageNum}, refresh: ${refresh}`,
+      );
+
       if (refresh) {
         setRefreshing(true);
         setPage(1);
@@ -58,36 +61,60 @@ const TherapistNotificationsScreen = () => {
       }
 
       const response = await getNotifications(pageNum, 10); // 10 per pagina
+      console.log('🩺 TherapistNotifications: Risposta ricevuta:', response);
 
       if (response.success && response.data) {
-        let newNotifications = response.data.notifications || [];
+        const newNotifications = response.data.notifications || [];
+        console.log(
+          `🩺 TherapistNotifications: ${newNotifications.length} notifiche ricevute`,
+        );
 
-        // Applica i filtri
+        // Applica il filtro
+        let filteredNotifications = newNotifications;
         if (filter === 'unread') {
-          newNotifications = newNotifications.filter(n => !n.read_at);
+          filteredNotifications = newNotifications.filter(n => !n.read_at);
         } else if (filter === 'read') {
-          newNotifications = newNotifications.filter(n => n.read_at);
+          filteredNotifications = newNotifications.filter(n => n.read_at);
         }
-
-        if (typeFilter !== 'all') {
-          newNotifications = newNotifications.filter(
-            n => n.notification_type === typeFilter,
-          );
-        }
+        console.log(
+          `🩺 TherapistNotifications: ${filteredNotifications.length} notifiche dopo filtro '${filter}'`,
+        );
 
         if (refresh || pageNum === 1) {
-          setNotifications(newNotifications);
+          setNotifications(filteredNotifications);
         } else {
-          setNotifications(prev => [...prev, ...newNotifications]);
+          setNotifications(prev => [...prev, ...filteredNotifications]);
         }
 
         // Verifica se ci sono altre pagine usando has_next
         const {pagination} = response.data;
         setHasMore(pagination && pagination.has_next);
         setPage(pageNum);
+        console.log('🩺 TherapistNotifications: Paginazione:', pagination);
+      } else {
+        console.warn(
+          '🩺 TherapistNotifications: Risposta non valida:',
+          response,
+        );
+        setNotifications([]);
       }
     } catch (error) {
-      console.error('Errore recupero notifiche:', error);
+      console.error(
+        '❌ TherapistNotifications: Errore recupero notifiche:',
+        error,
+      );
+      console.error('❌ TherapistNotifications: Tipo errore:', error.type);
+      console.error(
+        '❌ TherapistNotifications: Messaggio errore:',
+        error.message,
+      );
+      console.error(
+        '❌ TherapistNotifications: Errore completo:',
+        JSON.stringify(error, null, 2),
+      );
+
+      // In caso di errore, mostra lista vuota
+      setNotifications([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -95,11 +122,47 @@ const TherapistNotificationsScreen = () => {
     }
   };
 
-  const handleNotificationPress = notification => {
-    // Naviga al dettaglio della notifica
-    navigation.navigate('NotificationDetail', {
-      notificationId: notification.id,
-    });
+  const handleNotificationPress = async notification => {
+    try {
+      // Se la notifica non è già stata letta, segnala come letta
+      if (!notification.read_at) {
+        console.log(
+          `🩺 TherapistNotifications: Segnando notifica ${notification.id} come letta`,
+        );
+
+        // Segna come letta immediatamente nell'UI per feedback rapido
+        setNotifications(prev =>
+          prev.map(n =>
+            n.id === notification.id
+              ? {...n, read_at: new Date().toISOString()}
+              : n,
+          ),
+        );
+
+        // Invia la richiesta al backend
+        await markNotificationAsRead(notification.id);
+        console.log(
+          `✅ TherapistNotifications: Notifica ${notification.id} segnata come letta`,
+        );
+      }
+
+      // Naviga al dettaglio della notifica
+      navigation.navigate('NotificationDetail', {
+        notificationId: notification.id,
+      });
+    } catch (error) {
+      console.error(
+        `❌ TherapistNotifications: Errore nel segnare notifica ${notification.id} come letta:`,
+        error,
+      );
+
+      // In caso di errore, ripristina lo stato precedente
+      if (!notification.read_at) {
+        setNotifications(prev =>
+          prev.map(n => (n.id === notification.id ? {...n, read_at: null} : n)),
+        );
+      }
+    }
   };
 
   const handleLoadMore = () => {
@@ -128,19 +191,6 @@ const TherapistNotificationsScreen = () => {
         return 'priority-high';
       default:
         return 'info';
-    }
-  };
-
-  const getPriorityIcon = type => {
-    switch (type) {
-      case 'mandatory_read':
-        return 'flag';
-      case 'deadline':
-        return 'error';
-      case 'reminder':
-        return 'access-time';
-      default:
-        return null;
     }
   };
 
@@ -186,10 +236,6 @@ const TherapistNotificationsScreen = () => {
     });
   };
 
-  const getUnreadCount = () => notifications.filter(n => !n.read_at).length;
-  const getTypeCount = type =>
-    notifications.filter(n => n.notification_type === type).length;
-
   const renderNotificationItem = ({item: notification}) => (
     <TouchableOpacity
       onPress={() => handleNotificationPress(notification)}
@@ -201,11 +247,6 @@ const TherapistNotificationsScreen = () => {
             backgroundColor: notification.read_at
               ? theme.colors.surface
               : theme.colors.primaryContainer + '30',
-            borderLeftWidth: notification.requires_read_confirmation ? 4 : 0,
-            borderLeftColor: getNotificationColor(
-              notification.notification_type,
-              false,
-            ),
           },
         ]}>
         <Card.Content style={styles.cardContent}>
@@ -234,36 +275,21 @@ const TherapistNotificationsScreen = () => {
                 ]}>
                 {getTypeLabel(notification.notification_type)}
               </Chip>
-
-              {/* Indicatore priorità */}
-              {getPriorityIcon(notification.notification_type) && (
-                <Icon
-                  name={getPriorityIcon(notification.notification_type)}
-                  size={16}
-                  color={getNotificationColor(
-                    notification.notification_type,
-                    !!notification.read_at,
-                  )}
-                  style={styles.priorityIcon}
-                />
-              )}
             </View>
 
-            <View style={styles.headerRight}>
-              {!notification.read_at && (
-                <View
-                  style={[
-                    styles.unreadIndicator,
-                    {
-                      backgroundColor: getNotificationColor(
-                        notification.notification_type,
-                        false,
-                      ),
-                    },
-                  ]}
-                />
-              )}
-            </View>
+            {!notification.read_at && (
+              <View
+                style={[
+                  styles.unreadIndicator,
+                  {
+                    backgroundColor: getNotificationColor(
+                      notification.notification_type,
+                      false,
+                    ),
+                  },
+                ]}
+              />
+            )}
           </View>
 
           <Text
@@ -297,11 +323,10 @@ const TherapistNotificationsScreen = () => {
                 ]}>
                 {formatDate(notification.created_at)}
               </Text>
-
               {notification.sender_name && (
                 <Text
                   style={[
-                    styles.senderInfo,
+                    styles.senderName,
                     {color: theme.colors.onSurfaceVariant},
                   ]}>
                   • {notification.sender_name}
@@ -362,13 +387,11 @@ const TherapistNotificationsScreen = () => {
       </Text>
       <Text
         style={[styles.emptySubtitle, {color: theme.colors.onSurfaceVariant}]}>
-        {filter === 'all' &&
-          typeFilter === 'all' &&
-          'Le notifiche appariranno qui'}
+        {filter === 'all' && 'Le tue notifiche appariranno qui'}
       </Text>
 
       {/* Pulsanti per test in sviluppo */}
-      {__DEV__ && filter === 'all' && typeFilter === 'all' && (
+      {__DEV__ && (
         <View style={styles.devButtons}>
           <Button
             mode="outlined"
@@ -390,67 +413,18 @@ const TherapistNotificationsScreen = () => {
   return (
     <ScreenTemplate
       title="Notifiche"
-      subtitle={`${notifications.length} notifiche${
-        getUnreadCount() > 0 ? ` • ${getUnreadCount()} non lette` : ''
-      }`}
+      subtitle={`${notifications.length} notifiche`}
       showNotifications={false} // Non mostrare il dropdown qui
       headerRight={
-        <View style={styles.headerActions}>
-          <IconButton
-            icon="refresh"
-            size={24}
-            onPress={() => fetchNotifications(1, true)}
-            iconColor={theme.colors.secondary}
-          />
-        </View>
+        <IconButton
+          icon="refresh"
+          size={24}
+          onPress={() => fetchNotifications(1, true)}
+          iconColor={theme.colors.secondary}
+        />
       }>
-      {/* Statistiche veloce */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, {color: theme.colors.primary}]}>
-            {notifications.length}
-          </Text>
-          <Text
-            style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>
-            Totali
-          </Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, {color: '#F44336'}]}>
-            {getUnreadCount()}
-          </Text>
-          <Text
-            style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>
-            Non lette
-          </Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, {color: '#FF9800'}]}>
-            {getTypeCount('deadline')}
-          </Text>
-          <Text
-            style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>
-            Scadenze
-          </Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, {color: theme.colors.secondary}]}>
-            {getTypeCount('reminder')}
-          </Text>
-          <Text
-            style={[styles.statLabel, {color: theme.colors.onSurfaceVariant}]}>
-            Promemoria
-          </Text>
-        </View>
-      </View>
-
-      <Divider />
-
-      {/* Filtri Stato */}
+      {/* Filtri */}
       <View style={styles.filtersContainer}>
-        <Text style={[styles.filterTitle, {color: theme.colors.onSurface}]}>
-          Stato
-        </Text>
         <View style={styles.filters}>
           <Chip
             selected={filter === 'all'}
@@ -462,52 +436,13 @@ const TherapistNotificationsScreen = () => {
             selected={filter === 'unread'}
             onPress={() => setFilter('unread')}
             style={styles.filterChip}>
-            Non lette ({getUnreadCount()})
+            Non lette
           </Chip>
           <Chip
             selected={filter === 'read'}
             onPress={() => setFilter('read')}
             style={styles.filterChip}>
             Lette
-          </Chip>
-        </View>
-      </View>
-
-      {/* Filtri Tipo */}
-      <View style={styles.filtersContainer}>
-        <Text style={[styles.filterTitle, {color: theme.colors.onSurface}]}>
-          Tipo
-        </Text>
-        <View style={styles.filters}>
-          <Chip
-            selected={typeFilter === 'all'}
-            onPress={() => setTypeFilter('all')}
-            style={styles.filterChip}>
-            Tutti
-          </Chip>
-          <Chip
-            selected={typeFilter === 'info'}
-            onPress={() => setTypeFilter('info')}
-            style={styles.filterChip}>
-            Info
-          </Chip>
-          <Chip
-            selected={typeFilter === 'reminder'}
-            onPress={() => setTypeFilter('reminder')}
-            style={styles.filterChip}>
-            Promemoria
-          </Chip>
-          <Chip
-            selected={typeFilter === 'deadline'}
-            onPress={() => setTypeFilter('deadline')}
-            style={styles.filterChip}>
-            Scadenze
-          </Chip>
-          <Chip
-            selected={typeFilter === 'mandatory_read'}
-            onPress={() => setTypeFilter('mandatory_read')}
-            style={styles.filterChip}>
-            Obbligatorie
           </Chip>
         </View>
       </View>
@@ -540,44 +475,16 @@ const TherapistNotificationsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 2,
-  },
   filtersContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  filterTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    paddingVertical: 16,
   },
   filters: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   filterChip: {
     marginRight: 8,
-    marginBottom: 4,
   },
   notificationTouchable: {
     marginHorizontal: 20,
@@ -607,16 +514,11 @@ const styles = StyleSheet.create({
   typeChip: {
     height: 24,
   },
-  priorityIcon: {
-    marginLeft: 8,
-  },
-  headerRight: {
-    alignItems: 'center',
-  },
   unreadIndicator: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginLeft: 8,
   },
   notificationTitle: {
     fontSize: 16,
@@ -631,9 +533,12 @@ const styles = StyleSheet.create({
   notificationFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    marginTop: 4,
   },
   footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
   footerRight: {
@@ -641,15 +546,10 @@ const styles = StyleSheet.create({
   },
   notificationDate: {
     fontSize: 12,
-    marginBottom: 2,
   },
-  senderInfo: {
-    fontSize: 11,
-    fontStyle: 'italic',
-  },
-  readStatus: {
-    fontSize: 11,
-    fontWeight: '500',
+  senderName: {
+    fontSize: 12,
+    marginLeft: 4,
   },
   loadMoreContainer: {
     padding: 20,

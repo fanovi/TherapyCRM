@@ -114,6 +114,11 @@ class CommunicationController extends BaseController
         if (!$notification->isViewed()) {
             $notification->markAsViewed();
         }
+        
+        // Segna automaticamente come letta se non lo è già
+        if (!$notification->isRead()) {
+            $notification->markAsRead();
+        }
 
         return $this->render('view', [
             'model' => $notification,
