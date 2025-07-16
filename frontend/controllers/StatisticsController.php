@@ -31,7 +31,7 @@ class StatisticsController extends BaseController
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'absence-stats', 'patient-stats', 'treatment-stats', 'regime-stats'],
+                        'actions' => ['index', 'absence-stats', 'patient-stats', 'treatment-stats', 'regime-stats', 'multi-treatment-stats'],
                         'allow' => true,
                         'matchCallback' => function ($rule, $action) {
                             return Yii::$app->user->can('view_statistics');
@@ -335,6 +335,138 @@ class StatisticsController extends BaseController
             return [
                 'success' => false,
                 'message' => 'Errore nel caricamento delle statistiche trattamenti'
+            ];
+        }
+    }
+
+    /**
+     * AJAX: Statistiche pazienti con più trattamenti (ABA escluso)
+     */
+    public function actionMultiTreatmentStats()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        $dateFrom = Yii::$app->request->get('date_from');
+        $dateTo = Yii::$app->request->get('date_to');
+        
+        // Pulisci i parametri
+        if ($dateFrom === 'null' || $dateFrom === '') $dateFrom = null;
+        if ($dateTo === 'null' || $dateTo === '') $dateTo = null;
+        
+        try {
+            // Query ottimizzata per performance
+            $sql = "
+                SELECT 
+                    p.id as patient_id,
+                    CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+                    COUNT(DISTINCT pt.treatment_type_id) as treatment_count
+                FROM patients p
+                INNER JOIN therapeutic_plans tp ON p.id = tp.patient_id
+                INNER JOIN plan_therapies pt ON tp.id = pt.therapeutic_plan_id
+                INNER JOIN regime r ON tp.regime_id = r.id
+                WHERE 1=1
+                    AND r.nome != 'ABA'  -- Esclude piani ABA
+                    AND tp.end_date >= CURDATE()  -- Solo piani in corso
+            ";
+            
+            $params = [];
+            
+            // Filtri data - applicati alla data di inizio del piano
+            if ($dateFrom) {
+                $sql .= " AND tp.start_date >= :date_from";
+                $params[':date_from'] = $dateFrom;
+            }
+            if ($dateTo) {
+                $sql .= " AND tp.start_date <= :date_to";
+                $params[':date_to'] = $dateTo;
+            }
+            
+            $sql .= "
+                GROUP BY p.id, p.first_name, p.last_name
+                HAVING treatment_count > 1
+                ORDER BY treatment_count DESC, patient_name ASC
+            ";
+            
+            $multiTreatmentPatients = Yii::$app->db->createCommand($sql, $params)->queryAll();
+            
+            // Statistiche aggregate
+            $totalMultiTreatment = count($multiTreatmentPatients);
+            
+            // Distribuzione per numero di trattamenti
+            $distribution = [];
+            $distributionLabels = [];
+            $distributionValues = [];
+            
+            foreach ($multiTreatmentPatients as $patient) {
+                $count = (int)$patient['treatment_count'];
+                if (!isset($distribution[$count])) {
+                    $distribution[$count] = 0;
+                }
+                $distribution[$count]++;
+            }
+            
+            // Prepara dati per il grafico - raggruppa 4+ trattamenti
+            foreach ($distribution as $treatmentCount => $patientCount) {
+                if ($treatmentCount >= 4) {
+                    if (!in_array('4+ Trattamenti', $distributionLabels)) {
+                        $distributionLabels[] = '4+ Trattamenti';
+                        $distributionValues[] = $patientCount;
+                    } else {
+                        $index = array_search('4+ Trattamenti', $distributionLabels);
+                        $distributionValues[$index] += $patientCount;
+                    }
+                } else {
+                    $distributionLabels[] = $treatmentCount . ' Trattamenti';
+                    $distributionValues[] = $patientCount;
+                }
+            }
+            
+            // Calcola percentuale sul totale pazienti attivi (non ABA)
+            $totalActivePatientsQuery = "
+                SELECT COUNT(DISTINCT p.id) as total
+                FROM patients p
+                INNER JOIN therapeutic_plans tp ON p.id = tp.patient_id
+                INNER JOIN regime r ON tp.regime_id = r.id
+                WHERE r.nome != 'ABA' AND tp.end_date >= CURDATE()
+            ";
+            
+            if ($dateFrom || $dateTo) {
+                $totalActivePatientsQuery .= " AND (1=1";
+                if ($dateFrom) $totalActivePatientsQuery .= " AND tp.start_date >= :date_from";
+                if ($dateTo) $totalActivePatientsQuery .= " AND tp.start_date <= :date_to";
+                $totalActivePatientsQuery .= ")";
+            }
+            
+            $totalActivePatients = Yii::$app->db->createCommand($totalActivePatientsQuery, $params)->queryScalar();
+            $percentage = $totalActivePatients > 0 ? round(($totalMultiTreatment / $totalActivePatients) * 100, 1) : 0;
+            
+            // Top 5 pazienti con più trattamenti per dettagli
+            $topPatients = array_slice($multiTreatmentPatients, 0, 5);
+            
+            return [
+                'success' => true,
+                'data' => [
+                    'total_patients' => $totalMultiTreatment,
+                    'percentage' => $percentage,
+                    'total_active_patients' => $totalActivePatients,
+                    'distribution' => [
+                        'labels' => $distributionLabels,
+                        'values' => $distributionValues
+                    ],
+                    'top_patients' => $topPatients,
+                    'filters_applied' => [
+                        'date_from' => $dateFrom,
+                        'date_to' => $dateTo,
+                        'excludes_aba' => true
+                    ]
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error("Errore statistiche multi-trattamento: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Errore nel caricamento delle statistiche multi-trattamento'
             ];
         }
     }

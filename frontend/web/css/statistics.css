@@ -562,3 +562,69 @@
     color: #15803d;
     transform: scale(1.05);
 }
+
+/* Stili per la card Multi-Trattamento */
+.btn-multi-treatment {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-multi-treatment:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6c4298 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.btn-multi-treatment:active {
+    transform: translateY(0);
+}
+
+/* Animazioni per le metriche multi-treatment */
+#multi-treatment-count,
+#multi-treatment-percentage,
+#total-active-non-aba {
+    font-variant-numeric: tabular-nums;
+    transition: all 0.3s ease;
+}
+
+#multi-treatment-content .bg-indigo-50:hover {
+    background-color: #e0e7ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(99, 102, 241, 0.15);
+}
+
+#multi-treatment-content .bg-green-50:hover {
+    background-color: #dcfce7;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.15);
+}
+
+#multi-treatment-content .bg-blue-50:hover {
+    background-color: #dbeafe;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
+}
+
+/* Badge esclusione ABA */
+.bg-orange-100 {
+    transition: all 0.3s ease;
+}
+
+.bg-orange-100:hover {
+    background-color: #fed7aa;
+    border-color: #fb923c;
+}
+
+/* Stili per la lista top pazienti */
+#top-patients-list .bg-gray-50 {
+    transition: all 0.3s ease;
+}
+
+#top-patients-list .bg-gray-50:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateX(4px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}

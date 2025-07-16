@@ -323,6 +323,87 @@ $this->registerCssFile('@web/css/statistics.css', [
                 </div>
             </div>
 
+            <!-- Card Multi-Trattamenti (ABA Escluso) -->
+            <div class="stats-card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <h3 class="stats-title text-lg font-medium text-gray-900 dark:text-white">Pazienti Multi-Trattamento</h3>
+                        <p class="stats-subtitle text-sm text-gray-500 dark:text-gray-400">Pazienti con 2+ trattamenti (ABA escluso)</p>
+                        
+                        <!-- Badge esclusione ABA -->
+                        <div class="mt-2 flex items-center">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                </svg>
+                                Esclude ABA
+                            </span>
+                        </div>
+                    </div>
+                    <button id="load-multi-treatment" type="button" class="btn-multi-treatment stats-button inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus-ring">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Carica
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="multi-treatment-loading" class="hidden text-center py-8">
+                        <div class="inline-flex items-center">
+                            <svg class="animate-spin h-5 w-5 text-indigo-500 mr-3" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Caricamento multi-trattamenti...</span>
+                        </div>
+                    </div>
+                    <div id="multi-treatment-content" class="hidden">
+                        <!-- Metriche principali -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="text-center p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                                <div class="text-3xl font-bold text-indigo-900" id="multi-treatment-count">0</div>
+                                <div class="text-sm text-indigo-700 font-medium">Pazienti</div>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                                <div class="text-3xl font-bold text-green-900" id="multi-treatment-percentage">0%</div>
+                                <div class="text-sm text-green-700 font-medium">Sul Totale Attivi</div>
+                            </div>
+                            <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div class="text-3xl font-bold text-blue-900" id="total-active-non-aba">0</div>
+                                <div class="text-sm text-blue-700 font-medium">Totale Non-ABA</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Distribuzione per numero trattamenti -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3">Distribuzione per Numero Trattamenti</h4>
+                            <div class="chart-container" style="height: 200px;">
+                                <canvas id="multi-treatment-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Top pazienti -->
+                        <div id="top-multi-treatment-patients" class="hidden">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                                Top 5 Pazienti con Più Trattamenti
+                            </h4>
+                            <div id="top-patients-list" class="space-y-2"></div>
+                        </div>
+                    </div>
+                    <div id="multi-treatment-empty" class="text-center py-8">
+                        <div class="flex flex-col items-center">
+                            <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Clicca "Carica" per vedere i pazienti con più trattamenti</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Card Trattamenti -->
             <div class="stats-card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -405,7 +486,6 @@ $this->registerCssFile('@web/css/statistics.css', [
 <script>
 // Funzione per animare il contatore (definita globalmente)
 function animateCounter(element, targetValue) {
-    console.log('animateCounter called with:', element, targetValue);
     const startValue = 0;
     const duration = 1000; // 1 secondo
     const increment = targetValue / (duration / 16); // 60fps
@@ -430,7 +510,9 @@ document.addEventListener('DOMContentLoaded', function() {
         absences: null,
         demographics: null,
         treatments: null,
-        regimes: null
+        regimes: null,
+        multiTreatment: null,
+        multiTreatmentDistribution: null
     };
 
     // Gestione filtri
@@ -452,6 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadDemographics: document.getElementById('load-demographics'),
         loadTreatments: document.getElementById('load-treatments'),
         loadRegimes: document.getElementById('load-regimes'),
+        loadMultiTreatment: document.getElementById('load-multi-treatment'),
         exportData: document.getElementById('export-data')
     };
 
@@ -704,6 +787,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Aggiungi dati multi-treatment se disponibili
+        const multiTreatmentCount = document.getElementById('multi-treatment-count');
+        const multiTreatmentPercentage = document.getElementById('multi-treatment-percentage');
+        const totalActiveNonAba = document.getElementById('total-active-non-aba');
+        
+        if (multiTreatmentCount && multiTreatmentCount.textContent !== '0') {
+            exportData.push(['PAZIENTI MULTI-TRATTAMENTO (ABA ESCLUSO)']);
+            exportData.push(['Metrica', 'Valore']);
+            exportData.push(['Pazienti con 2+ Trattamenti', multiTreatmentCount.textContent]);
+            exportData.push(['Percentuale sul Totale Attivi', multiTreatmentPercentage.textContent]);
+            exportData.push(['Totale Pazienti Non-ABA', totalActiveNonAba.textContent]);
+            
+            // Aggiungi distribuzione se disponibile
+            if (charts.multiTreatmentDistribution && charts.multiTreatmentDistribution.data) {
+                exportData.push(['']);
+                exportData.push(['DISTRIBUZIONE PER NUMERO TRATTAMENTI']);
+                exportData.push(['Numero Trattamenti', 'Numero Pazienti']);
+                
+                const distributionData = charts.multiTreatmentDistribution.data;
+                distributionData.labels.forEach((label, index) => {
+                    exportData.push([label, distributionData.datasets[0].data[index] || 0]);
+                });
+            }
+            
+            exportData.push(['']);
+        }
+        
         // Crea il file Excel
         createExcelFile(exportData, `Statistiche_TherapyCRM_${new Date().toISOString().split('T')[0]}.xlsx`);
         
@@ -717,6 +827,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'demographics': return selectedDemoType === 'gender' ? 'Distribuzione per Genere' : 'Distribuzione per Fasce d\'Età';
             case 'treatments': return 'Statistiche Trattamenti';
             case 'regimes': return 'Status Pazienti';
+            case 'multi-treatment': return 'Pazienti Multi-Trattamento (ABA Escluso)';
             default: return 'Statistiche';
         }
     }
@@ -768,6 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
     buttons.loadDemographics.addEventListener('click', () => loadChart('demographics'));
     buttons.loadTreatments.addEventListener('click', () => loadChart('treatments'));
     buttons.loadRegimes.addEventListener('click', () => loadChart('regimes'));
+    buttons.loadMultiTreatment.addEventListener('click', () => loadChart('multi-treatment'));
 
     // Pulsanti di selezione tipo demografico
     let selectedDemoType = 'gender'; // Default
@@ -873,7 +985,8 @@ document.addEventListener('DOMContentLoaded', function() {
             absences: '<?= Url::to(['statistics/absence-stats']) ?>',
             demographics: '<?= Url::to(['statistics/patient-stats']) ?>',
             treatments: '<?= Url::to(['statistics/treatment-stats']) ?>',
-            regimes: '<?= Url::to(['statistics/regime-stats']) ?>'
+            regimes: '<?= Url::to(['statistics/regime-stats']) ?>',
+            'multi-treatment': '<?= Url::to(['statistics/multi-treatment-stats']) ?>'
         };
 
         const params = new URLSearchParams(getFilters());
@@ -891,16 +1004,18 @@ document.addEventListener('DOMContentLoaded', function() {
             hideLoading(type);
             
             if (data.success && data.data) {
-                createChart(type, data.data);
+                // Gestione speciale per multi-treatment
+                if (type === 'multi-treatment') {
+                    updateMultiTreatmentDisplay(data.data);
+                } else {
+                    createChart(type, data.data);
+                }
                 
                 // Aggiorna il totale pazienti se è demographics
                 if (type === 'demographics' && data.data.total_patients !== undefined) {
-                    console.log('Updating total patients:', data.data.total_patients);
                     const totalPatientsElement = document.getElementById('total-patients-count');
                     if (totalPatientsElement) {
                         animateCounter(totalPatientsElement, data.data.total_patients);
-                    } else {
-                        console.error('Total patients element not found');
                     }
                 }
                 
@@ -928,6 +1043,139 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
+
+    // Funzione per aggiornare il display multi-treatment
+    function updateMultiTreatmentDisplay(data) {
+        // Aggiorna le metriche principali con animazioni
+        const countElement = document.getElementById('multi-treatment-count');
+        const percentageElement = document.getElementById('multi-treatment-percentage');
+        const totalElement = document.getElementById('total-active-non-aba');
+        
+        if (countElement) animateCounter(countElement, data.total_patients);
+        if (percentageElement) {
+            percentageElement.textContent = data.percentage + '%';
+        }
+        if (totalElement) animateCounter(totalElement, data.total_active_patients);
+        
+        // Crea il grafico di distribuzione
+        if (data.distribution && data.distribution.labels.length > 0) {
+            createMultiTreatmentDistributionChart(data.distribution);
+        }
+        
+        // Aggiorna la lista dei top pazienti
+        updateTopPatientsList(data.top_patients);
+    }
+    
+    // Funzione per creare il grafico di distribuzione multi-treatment
+    function createMultiTreatmentDistributionChart(distributionData) {
+        if (charts.multiTreatmentDistribution) {
+            charts.multiTreatmentDistribution.destroy();
+        }
+        
+        const ctx = document.getElementById('multi-treatment-distribution-chart').getContext('2d');
+        
+        charts.multiTreatmentDistribution = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: distributionData.labels,
+                datasets: [{
+                    label: 'Numero Pazienti',
+                    data: distributionData.values,
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.8)',  // Indigo
+                        'rgba(139, 92, 246, 0.8)',  // Violet
+                        'rgba(168, 85, 247, 0.8)',  // Purple
+                        'rgba(192, 132, 252, 0.8)'  // Light purple
+                    ],
+                    borderColor: [
+                        'rgba(99, 102, 241, 1)',
+                        'rgba(139, 92, 246, 1)',
+                        'rgba(168, 85, 247, 1)',
+                        'rgba(192, 132, 252, 1)'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                return context.parsed.y + ' pazienti';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                        ticks: { 
+                            color: '#6b7280',
+                            stepSize: 1
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#6b7280' }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+    
+    // Funzione per aggiornare la lista dei top pazienti
+    function updateTopPatientsList(topPatients) {
+        const listContainer = document.getElementById('top-patients-list');
+        const parentContainer = document.getElementById('top-multi-treatment-patients');
+        
+        if (!topPatients || topPatients.length === 0) {
+            parentContainer.classList.add('hidden');
+            return;
+        }
+        
+        parentContainer.classList.remove('hidden');
+        listContainer.innerHTML = '';
+        
+        topPatients.forEach((patient, index) => {
+            const patientItem = document.createElement('div');
+            patientItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+            
+            patientItem.innerHTML = `
+                <div class="flex items-center">
+                    <span class="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold flex items-center justify-center mr-3">
+                        ${index + 1}
+                    </span>
+                    <span class="font-medium text-gray-900">${patient.patient_name}</span>
+                </div>
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                    ${patient.treatment_count} trattamenti
+                </span>
+            `;
+            
+            listContainer.appendChild(patientItem);
+        });
+    }
 
     // Funzione per mostrare notifiche
     function showNotification(message, type = 'info') {
