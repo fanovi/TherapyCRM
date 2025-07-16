@@ -221,12 +221,18 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         return "Annullato";
       case "completed":
         return "Completato";
+      case "absent_not_justified":
+        return "Assenza non giustificata";
+      case "absent_justified":
+        return "Assenza giustificata";
       default:
         return "Sconosciuto";
     }
   };
 
   if (!isOpen || !appointment) return null;
+
+  console.log(appointment);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -480,11 +486,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-col gap-3">
-            {/* Checkbox per cancellazione pattern - mostra solo se l'appuntamento è ricorrente */}
+            {/* Checkbox per cancellazione pattern - mostra solo se l'appuntamento è ricorrente e scheduled */}
             {!isEditing &&
               appointment?.isRecurring &&
               appointment?.patternId &&
-              appointment.status !== "completed" && (
+              appointment.status === "scheduled" && (
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -504,7 +510,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
               )}
 
             <div className="flex gap-3">
-              {!isEditing && appointment.status !== "completed" && (
+              {!isEditing && appointment.status === "scheduled" && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium"
@@ -514,7 +520,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 </button>
               )}
 
-              {!isEditing && appointment.status !== "completed" && (
+              {!isEditing && appointment.status === "scheduled" && (
                 <button
                   onClick={handleDelete}
                   disabled={loading}
@@ -523,6 +529,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   <Trash2 className="w-4 h-4" />
                   {loading ? "Eliminando..." : "Elimina"}
                 </button>
+              )}
+
+              {/* Mostra un messaggio se l'appuntamento non è modificabile */}
+              {!isEditing && appointment.status !== "scheduled" && (
+                <div className="text-sm text-gray-500 italic">
+                  Questo appuntamento non può essere modificato (stato:{" "}
+                  {getStatusText(appointment.status)})
+                </div>
               )}
             </div>
           </div>
