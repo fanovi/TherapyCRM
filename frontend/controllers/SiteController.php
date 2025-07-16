@@ -196,17 +196,10 @@ class SiteController extends BaseController
         // Converto gli ID stato in nomi leggibili e filtro stati con 0 richieste
         $statusLabels = DocumentRequest::getStatusLabels();
         $requestsData = [];
+        $hasRealData = false;
         
-        // Se non ci sono dati nel database, creo dati di esempio realistici
-        if (empty($documentRequestsByStatus)) {
-            $requestsData = [
-                ['status_name' => 'Inviata', 'count' => 12],
-                ['status_name' => 'Presa in carico', 'count' => 8],
-                ['status_name' => 'Stampato', 'count' => 5],
-                ['status_name' => 'Consegnato', 'count' => 25],
-            ];
-        } else {
-            // Usa dati reali e filtra quelli con count = 0
+        // Usa solo dati reali dal database
+        if (!empty($documentRequestsByStatus)) {
             foreach ($documentRequestsByStatus as $item) {
                 $count = (int)$item['count'];
                 if ($count > 0) {  // Solo stati con richieste effettive
@@ -214,28 +207,13 @@ class SiteController extends BaseController
                         'status_name' => $statusLabels[$item['status']] ?? 'Sconosciuto',
                         'count' => $count
                     ];
-                }
-            }
-            
-            // Se tutti gli stati hanno 0 richieste, mostra almeno qualcosa di rappresentativo
-            if (empty($requestsData)) {
-                $totalRequests = DocumentRequest::find()->count();
-                if ($totalRequests == 0) {
-                    // Database completamente vuoto - usa dati di esempio
-                    $requestsData = [
-                        ['status_name' => 'Inviata', 'count' => 8],
-                        ['status_name' => 'Presa in carico', 'count' => 5],
-                        ['status_name' => 'Stampato', 'count' => 3],
-                        ['status_name' => 'Consegnato', 'count' => 15],
-                    ];
-                } else {
-                    // Ci sono richieste ma tutti con stato 0? Mostra comunque qualcosa
-                    $requestsData = [
-                        ['status_name' => 'Richieste Presenti', 'count' => $totalRequests],
-                    ];
+                    $hasRealData = true;
                 }
             }
         }
+        
+        // Se non ci sono dati reali, il grafico non verrà mostrato
+        // La vista controllerà se $requestsData è vuoto per nascondere il componente
 
         return $this->render('index', [
             'totalPatients' => $totalPatients,
@@ -254,6 +232,7 @@ class SiteController extends BaseController
             'dailyAppointments' => $dailyAppointments,
             'dayLabels' => $dayLabels,
             'requestsData' => $requestsData,
+            'hasRealRequestsData' => $hasRealData,
         ]);
     }
 

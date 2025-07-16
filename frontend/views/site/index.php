@@ -20,6 +20,7 @@ use yii\helpers\Html;
 /* @var $dailyAppointments array */
 /* @var $dayLabels array */
 /* @var $requestsData array */
+/* @var $hasRealRequestsData bool */
 
 $this->title = 'Dashboard - TherapyCRM';
 
@@ -130,10 +131,10 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexc
       </div>
     </div>
 
-    <!-- Seconda Riga: Grafici (2 colonne: 2/3 + 1/3) -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 mb-4">
+    <!-- Seconda Riga: Grafici (layout dinamico) -->
+    <div class="grid grid-cols-1 <?= $hasRealRequestsData ? 'xl:grid-cols-3' : 'xl:grid-cols-2' ?> gap-4 md:gap-6 mb-4">
      
-
+      <?php if ($hasRealRequestsData): ?>
       <div class="col-span-1 xl:col-span-1">
         <!-- Stato Richieste Documenti -->
         <div class="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6 h-full">
@@ -152,6 +153,7 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexc
           </div>
         </div>
       </div>
+      <?php endif; ?>
       <div class="col-span-1 xl:col-span-1">
         <!-- Statistiche Sistema -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 h-full">
@@ -449,7 +451,8 @@ function createDailyChart() {
 function createRequestsChart() {
   const chartElement = document.getElementById('requestsStatusChart');
   if (!chartElement) {
-    console.error('Elemento requestsStatusChart non trovato');
+    // Il grafico non esiste quando non ci sono dati reali - questo è normale
+    console.log('Grafico richieste documenti nascosto: nessun dato reale disponibile');
     return;
   }
   
@@ -460,6 +463,12 @@ function createRequestsChart() {
   }
   
   const data = JSON.parse(requestsData);
+  
+  // Verifica che ci siano effettivamente dati da visualizzare
+  if (!data || data.length === 0) {
+    console.log('Nessun dato disponibile per il grafico richieste documenti');
+    return;
+  }
   
   const categories = data.map(item => item.status_name || 'Sconosciuto');
   const values = data.map(item => parseInt(item.count));

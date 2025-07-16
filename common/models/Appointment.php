@@ -12,7 +12,11 @@ use yii\helpers\ArrayHelper;
  *
  * @property int $id
  * @property int|null $pattern_id
- * @property int $plan_therapy_id
+ * @property int|null $plan_therapy_id
+ * @property string $appointment_source
+ * @property int|null $treatment_type_id
+ * @property int|null $private_cycle_id
+ * @property int|null $patient_id
  * @property int $therapist_id
  * @property string $appointment_datetime
  * @property int $duration_minutes
@@ -25,8 +29,10 @@ use yii\helpers\ArrayHelper;
  *
  * @property AppointmentPattern $pattern
  * @property PlanTherapy $planTherapy
- * @property Therapist $therapist
+ * @property TreatmentType $treatmentType
+ * @property PrivateCycle $privateCycle
  * @property Patient $patient
+ * @property Therapist $therapist
  * @property Therapist $originalTherapist
  * @property User $createdBy
  */
@@ -41,6 +47,10 @@ class Appointment extends ActiveRecord
     const TYPE_SUPERVISIONE = 'supervisione';
     const TYPE_PARENT_TRAINING = 'parent_training';
     const TYPE_TERAPIA = 'terapia';
+
+    // Appointment source constants
+    const SOURCE_THERAPEUTIC_PLAN = 'therapeutic_plan';
+    const SOURCE_PRIVATE = 'private';
 
     /**
      * {@inheritdoc}
@@ -78,20 +88,37 @@ class Appointment extends ActiveRecord
     public function rules()
     {
         return [
-            [['plan_therapy_id', 'therapist_id', 'appointment_datetime', 'duration_minutes', 'created_by'], 'required'],
-            [['pattern_id', 'plan_therapy_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
+            [['therapist_id', 'appointment_datetime', 'duration_minutes', 'appointment_source', 'created_by'], 'required'],
+            [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
             [['appointment_datetime'], 'validateAppointmentDateTime'],
             [['notes'], 'string'],
             [['status'], 'string', 'max' => 30],
             [['status'], 'in', 'range' => [self::STATUS_SCHEDULED, self::STATUS_COMPLETED, self::STATUS_ABSENT_JUSTIFIED, self::STATUS_ABSENT_NOT_JUSTIFIED, self::STATUS_CANCELLED]],
+            [['appointment_source'], 'in', 'range' => [self::SOURCE_THERAPEUTIC_PLAN, self::SOURCE_PRIVATE]],
+            [['appointment_source'], 'default', 'value' => self::SOURCE_THERAPEUTIC_PLAN],
             [['appointment_type'], 'string', 'max' => 20],
             [['appointment_type'], 'in', 'range' => [self::TYPE_SUPERVISIONE, self::TYPE_PARENT_TRAINING, self::TYPE_TERAPIA]],
             [['appointment_type'], 'default', 'value' => self::TYPE_TERAPIA],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
             [['appointment_datetime'], 'validateFutureDateTime'],
             [['therapist_id', 'appointment_datetime'], 'validateTherapistAvailability'],
+            // Validazione condizionale per appuntamenti da piano terapeutico
+            [['plan_therapy_id'], 'required', 'when' => function($model) {
+                return $model->appointment_source === self::SOURCE_THERAPEUTIC_PLAN;
+            }],
+            // Validazione condizionale per appuntamenti privati
+            [['patient_id', 'treatment_type_id'], 'required', 'when' => function($model) {
+                return $model->appointment_source === self::SOURCE_PRIVATE;
+            }],
+            [['private_cycle_id'], 'required', 'when' => function($model) {
+                return $model->appointment_source === self::SOURCE_PRIVATE;
+            }],
+            // Foreign key validations
             [['pattern_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppointmentPattern::class, 'targetAttribute' => ['pattern_id' => 'id']],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
+            [['treatment_type_id'], 'exist', 'skipOnError' => true, 'targetClass' => TreatmentType::class, 'targetAttribute' => ['treatment_type_id' => 'id']],
+            [['private_cycle_id'], 'exist', 'skipOnError' => true, 'targetClass' => PrivateCycle::class, 'targetAttribute' => ['private_cycle_id' => 'id']],
+            [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
             [['original_therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['original_therapist_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
@@ -186,6 +213,10 @@ class Appointment extends ActiveRecord
             'id' => 'ID',
             'pattern_id' => 'Pattern',
             'plan_therapy_id' => 'Piano Terapia',
+            'appointment_source' => 'Origine Appuntamento',
+            'treatment_type_id' => 'Tipo Trattamento',
+            'private_cycle_id' => 'Ciclo Privato',
+            'patient_id' => 'Paziente',
             'therapist_id' => 'Terapista',
             'appointment_datetime' => 'Data e Ora',
             'duration_minutes' => 'Durata (minuti)',
@@ -230,11 +261,41 @@ class Appointment extends ActiveRecord
     }
 
     /**
-     * Gets query for [[Patient]] via plan therapy.
+     * Gets query for [[TreatmentType]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTreatmentType()
+    {
+        return $this->hasOne(TreatmentType::class, ['id' => 'treatment_type_id']);
+    }
+
+    /**
+     * Gets query for [[PrivateCycle]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPrivateCycle()
+    {
+        return $this->hasOne(PrivateCycle::class, ['id' => 'private_cycle_id']);
+    }
+
+    /**
+     * Gets query for [[Patient]].
      *
      * @return \yii\db\ActiveQuery
      */
     public function getPatient()
+    {
+        return $this->hasOne(Patient::class, ['id' => 'patient_id']);
+    }
+
+    /**
+     * Gets query for [[Patient]] via plan therapy (legacy method for backward compatibility).
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPatientViaPlanTherapy()
     {
         return $this->hasOne(Patient::class, ['id' => 'patient_id'])
             ->via('planTherapy');
@@ -389,6 +450,82 @@ class Appointment extends ActiveRecord
     public function getFormattedTime()
     {
         return Yii::$app->formatter->asTime($this->appointment_datetime);
+    }
+
+    /**
+     * Checks if appointment is from therapeutic plan
+     *
+     * @return bool
+     */
+    public function isFromTherapeuticPlan()
+    {
+        return $this->appointment_source === self::SOURCE_THERAPEUTIC_PLAN;
+    }
+
+    /**
+     * Checks if appointment is private
+     *
+     * @return bool
+     */
+    public function isPrivate()
+    {
+        return $this->appointment_source === self::SOURCE_PRIVATE;
+    }
+
+    /**
+     * Gets appointment source labels
+     *
+     * @return array
+     */
+    public static function getAppointmentSourceLabels()
+    {
+        return [
+            self::SOURCE_THERAPEUTIC_PLAN => 'Piano Terapeutico',
+            self::SOURCE_PRIVATE => 'Privato',
+        ];
+    }
+
+    /**
+     * Gets appointment source label
+     *
+     * @return string
+     */
+    public function getAppointmentSourceLabel()
+    {
+        $labels = static::getAppointmentSourceLabels();
+        return $labels[$this->appointment_source] ?? $this->appointment_source;
+    }
+
+    /**
+     * Gets the actual patient for this appointment
+     * Works for both therapeutic plan and private appointments
+     *
+     * @return Patient|null
+     */
+    public function getActualPatient()
+    {
+        if ($this->isPrivate()) {
+            return $this->patient;
+        } elseif ($this->isFromTherapeuticPlan() && $this->planTherapy) {
+            return $this->planTherapy->therapeuticPlan->patient ?? null;
+        }
+        return null;
+    }
+
+    /**
+     * Gets the treatment type for this appointment
+     * Works for both therapeutic plan and private appointments
+     *
+     * @return TreatmentType|null
+     */
+    public function getActualTreatmentType()
+    {
+        if ($this->isPrivate()) {
+            return $this->treatmentType;
+        } elseif ($this->isFromTherapeuticPlan() && $this->planTherapy) {
+            return $this->planTherapy->treatmentType ?? null;
+        }
+        return null;
     }
 
     /**
