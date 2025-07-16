@@ -88,91 +88,100 @@ $this->registerCssFile('@web/css/statistics.css', [
                 </div>
 
                 <!-- Filtri Dettagliati -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-6">
                     
-                    <!-- Colonna 1: Periodo -->
-                    <div class="space-y-4">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-white">📅 Periodo Temporale</h4>
+                    <!-- Sezione 1: Periodo Temporale - Layout orizzontale ottimizzato -->
+                    <div class="filter-section bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                        <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            📅 Periodo di Analisi
+                        </h4>
                         
-                        <div class="space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Da</label>
-                                <input type="text" id="date-from" placeholder="Seleziona data..." class="datepicker-input">
+                                <label class="block text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Data Inizio</label>
+                                <input type="text" id="date-from" placeholder="Seleziona data inizio..." class="datepicker-input">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">A</label>
-                                <input type="text" id="date-to" placeholder="Seleziona data..." class="datepicker-input">
+                                <label class="block text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Data Fine</label>
+                                <input type="text" id="date-to" placeholder="Seleziona data fine..." class="datepicker-input">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Colonna 2: Demografia -->
-                    <div class="space-y-4">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-white">👥 Demografia Pazienti</h4>
+                    <!-- Sezione 2: Demografia e Età - Layout ottimizzato -->
+                    <div class="filter-section bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
+                        <h4 class="text-sm font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            👥 Demografia Pazienti
+                        </h4>
                         
-                        <div class="space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Genere</label>
-                                <select id="gender" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
+                                <label class="block text-xs font-medium text-green-700 dark:text-green-300 mb-1">Genere</label>
+                                <select id="gender" class="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
                                     <option value="">🔄 Tutti i generi</option>
                                     <option value="M">👨 Maschi</option>
                                     <option value="F">👩 Femmine</option>
                                 </select>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Età min</label>
-                                    <input type="number" id="age-from" min="0" max="120" placeholder="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Età max</label>
-                                    <input type="number" id="age-to" min="0" max="120" placeholder="120" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
-                                </div>
+                            <div>
+                                <label class="block text-xs font-medium text-green-700 dark:text-green-300 mb-1">Età Minima</label>
+                                <input type="number" id="age-from" min="0" max="120" placeholder="0" class="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-medium text-green-700 dark:text-green-300 mb-1">Età Massima</label>
+                                <input type="number" id="age-to" min="0" max="120" placeholder="120" class="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Colonna 3: Trattamenti -->
-                    <div class="space-y-4">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-white">🎯 Trattamenti</h4>
+                    <!-- Sezione 3: Trattamenti - Layout ottimizzato -->
+                    <div class="filter-section bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+                        <h4 class="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z"></path>
+                            </svg>
+                            🩺 Selezione Trattamenti
+                        </h4>
                         
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Seleziona Trattamenti</label>
-                                <div class="treatments-container relative">
-                                    <button type="button" id="treatments-toggle" class="w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
-                                        <span id="treatments-text">🔄 Tutti i trattamenti</span>
-                                        <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        </svg>
-                                    </button>
-                                    
-                                    <div id="treatments-dropdown" class="hidden absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                        <div class="p-2">
-                                            <div class="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-600 rounded">
-                                                <input type="checkbox" id="select-all-treatments" class="mr-2 text-blue-600 focus:ring-blue-500">
-                                                <label for="select-all-treatments" class="text-sm font-medium text-gray-700 dark:text-gray-300">Tutti i trattamenti</label>
-                                            </div>
-                                            <hr class="my-2 border-gray-200 dark:border-gray-600">
-                                            <?php foreach ($treatments as $treatment): ?>
-                                                <div class="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-600 rounded">
-                                                    <input type="checkbox" name="treatments[]" value="<?= $treatment['id'] ?>" id="treatment-<?= $treatment['id'] ?>" class="treatment-checkbox mr-2 text-blue-600 focus:ring-blue-500">
-                                                    <label for="treatment-<?= $treatment['id'] ?>" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1">
-                                                        <span class="font-medium"><?= Html::encode($treatment['name']) ?></span>
-                                                        <span class="text-xs text-gray-500 dark:text-gray-400 block"><?= Html::encode($treatment['code']) ?></span>
-                                                    </label>
-                                                </div>
-                                            <?php endforeach; ?>
+                        <div class="treatments-container relative">
+                            <button type="button" id="treatments-toggle" class="w-full px-3 py-2 text-left border border-purple-300 dark:border-purple-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200">
+                                <span id="treatments-text">🔄 Tutti i trattamenti</span>
+                                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <div id="treatments-dropdown" class="hidden absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-purple-300 dark:border-purple-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                <div class="p-2">
+                                    <div class="flex items-center p-2 hover:bg-purple-50 dark:hover:bg-purple-600 rounded">
+                                        <input type="checkbox" id="select-all-treatments" class="mr-2 text-purple-600 focus:ring-purple-500">
+                                        <label for="select-all-treatments" class="text-sm font-medium text-gray-700 dark:text-gray-300">Tutti i trattamenti</label>
+                                    </div>
+                                    <hr class="my-2 border-purple-200 dark:border-purple-600">
+                                    <?php foreach ($treatments as $treatment): ?>
+                                        <div class="flex items-center p-2 hover:bg-purple-50 dark:hover:bg-purple-600 rounded">
+                                            <input type="checkbox" name="treatments[]" value="<?= $treatment['id'] ?>" id="treatment-<?= $treatment['id'] ?>" class="treatment-checkbox mr-2 text-purple-600 focus:ring-purple-500">
+                                            <label for="treatment-<?= $treatment['id'] ?>" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1">
+                                                <span class="font-medium"><?= Html::encode($treatment['name']) ?></span>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400 block"><?= Html::encode($treatment['code']) ?></span>
+                                            </label>
                                         </div>
-                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
-                                
-                                <div id="selected-treatments" class="mt-2 hidden">
-                                    <div class="flex flex-wrap gap-1" id="treatment-tags">
-                                        <!-- I tag dei trattamenti selezionati appariranno qui -->
-                                    </div>
-                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="selected-treatments" class="mt-2 hidden">
+                            <div class="flex flex-wrap gap-1" id="treatment-tags">
+                                <!-- I tag dei trattamenti selezionati appariranno qui -->
                             </div>
                         </div>
                     </div>
@@ -284,8 +293,24 @@ $this->registerCssFile('@web/css/statistics.css', [
                             <span class="text-sm text-gray-600 dark:text-gray-400">Caricamento demografia...</span>
                         </div>
                     </div>
-                    <div id="demographics-content" class="hidden chart-container">
-                        <canvas id="demographics-chart"></canvas>
+                    <div id="demographics-content" class="hidden">
+                        <!-- Totale Pazienti -->
+                        <div id="total-patients-display" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium text-green-800">Totale Pazienti</span>
+                                </div>
+                                <span id="total-patients-count" class="text-lg font-bold text-green-900">0</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Grafico -->
+                        <div class="chart-container">
+                            <canvas id="demographics-chart"></canvas>
+                        </div>
                     </div>
                     <div id="demographics-empty" class="text-center py-8">
                         <div class="flex flex-col items-center">
@@ -378,6 +403,27 @@ $this->registerCssFile('@web/css/statistics.css', [
 </div>
 
 <script>
+// Funzione per animare il contatore (definita globalmente)
+function animateCounter(element, targetValue) {
+    console.log('animateCounter called with:', element, targetValue);
+    const startValue = 0;
+    const duration = 1000; // 1 secondo
+    const increment = targetValue / (duration / 16); // 60fps
+    let currentValue = startValue;
+    
+    function updateCounter() {
+        currentValue += increment;
+        if (currentValue >= targetValue) {
+            element.textContent = targetValue;
+        } else {
+            element.textContent = Math.floor(currentValue);
+            requestAnimationFrame(updateCounter);
+        }
+    }
+    
+    updateCounter();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Variabili globali per i grafici
     let charts = {
@@ -613,37 +659,98 @@ document.addEventListener('DOMContentLoaded', function() {
     buttons.exportData.addEventListener('click', function() {
         const filters = getFilters();
         
-        // Crea un oggetto con tutti i dati dei grafici
-        const exportData = {
-            filters: filters,
-            timestamp: new Date().toISOString(),
-            charts: {}
-        };
+        // Verifica se ci sono dati da esportare
+        const hasData = Object.keys(charts).some(chartType => 
+            charts[chartType] && charts[chartType].data && charts[chartType].data.labels.length > 0
+        );
         
-        // Raccoglie i dati dai grafici esistenti
+        if (!hasData) {
+            showNotification('Nessun dato disponibile per l\'esportazione. Carica prima alcuni grafici.', 'warning');
+            return;
+        }
+        
+        // Prepara i dati per Excel
+        const exportData = [];
+        
+        // Aggiungi informazioni sui filtri
+        exportData.push(['REPORT STATISTICHE THERAPYCRM']);
+        exportData.push(['Generato il:', new Date().toLocaleDateString('it-IT')]);
+        exportData.push(['']);
+        
+        // Aggiungi filtri applicati
+        exportData.push(['FILTRI APPLICATI:']);
+        if (filters.date_from) exportData.push(['Periodo Da:', filters.date_from]);
+        if (filters.date_to) exportData.push(['Periodo A:', filters.date_to]);
+        if (filters.gender) exportData.push(['Genere:', filters.gender === 'M' ? 'Maschi' : filters.gender === 'F' ? 'Femmine' : 'Tutti']);
+        if (filters.age_from) exportData.push(['Età Minima:', filters.age_from]);
+        if (filters.age_to) exportData.push(['Età Massima:', filters.age_to]);
+        if (filters.treatments) exportData.push(['Trattamenti:', 'Selezionati (' + filters.treatments.length + ')']);
+        exportData.push(['']);
+        
+        // Aggiungi dati dei grafici
         Object.keys(charts).forEach(chartType => {
             if (charts[chartType] && charts[chartType].data) {
-                exportData.charts[chartType] = {
-                    labels: charts[chartType].data.labels,
-                    data: charts[chartType].data.datasets[0].data
-                };
+                const chartData = charts[chartType].data;
+                const chartTitle = getChartTitle(chartType);
+                
+                exportData.push([chartTitle.toUpperCase()]);
+                exportData.push(['Categoria', 'Valore']);
+                
+                chartData.labels.forEach((label, index) => {
+                    exportData.push([label, chartData.datasets[0].data[index] || 0]);
+                });
+                
+                exportData.push(['']);
             }
         });
         
-        // Crea e scarica il file JSON
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        const url = URL.createObjectURL(dataBlob);
+        // Crea il file Excel
+        createExcelFile(exportData, `Statistiche_TherapyCRM_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        showNotification('File Excel generato e scaricato con successo!', 'success');
+    });
+    
+    // Funzione per ottenere il titolo del grafico
+    function getChartTitle(type) {
+        switch(type) {
+            case 'absences': return 'Analisi Assenze';
+            case 'demographics': return selectedDemoType === 'gender' ? 'Distribuzione per Genere' : 'Distribuzione per Fasce d\'Età';
+            case 'treatments': return 'Statistiche Trattamenti';
+            case 'regimes': return 'Status Pazienti';
+            default: return 'Statistiche';
+        }
+    }
+    
+    // Funzione per creare file Excel
+    function createExcelFile(data, filename) {
+        // Crea un CSV (più compatibile e non richiede librerie esterne)
+        let csvContent = '';
+        data.forEach(row => {
+            const csvRow = row.map(field => {
+                // Gestisci celle che contengono virgole o caratteri speciali
+                if (typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
+                    return '"' + field.replace(/"/g, '""') + '"';
+                }
+                return field;
+            }).join(',');
+            csvContent += csvRow + '\n';
+        });
+        
+        // Aggiungi BOM per supporto UTF-8 in Excel
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        // Crea link per download
         const link = document.createElement('a');
-        link.href = url;
-        link.download = `statistiche_${new Date().toISOString().split('T')[0]}.json`;
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename.replace('.xlsx', '.csv'));
+        link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        showNotification('Dati esportati con successo!', 'success');
-    });
+    }
 
     // Aggiunta gestione pulsante refresh-all se non esiste già
     if (!buttons.refreshAll) {
@@ -785,6 +892,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.success && data.data) {
                 createChart(type, data.data);
+                
+                // Aggiorna il totale pazienti se è demographics
+                if (type === 'demographics' && data.data.total_patients !== undefined) {
+                    console.log('Updating total patients:', data.data.total_patients);
+                    const totalPatientsElement = document.getElementById('total-patients-count');
+                    if (totalPatientsElement) {
+                        animateCounter(totalPatientsElement, data.data.total_patients);
+                    } else {
+                        console.error('Total patients element not found');
+                    }
+                }
+                
                 showContent(type);
             } else {
                 showEmpty(type);
@@ -807,6 +926,8 @@ document.addEventListener('DOMContentLoaded', function() {
             loadChart(type);
         });
     }
+
+
 
     // Funzione per mostrare notifiche
     function showNotification(message, type = 'info') {

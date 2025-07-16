@@ -265,11 +265,15 @@ class StatisticsController extends BaseController
                 }
             }
 
+            // Calcola il totale pazienti
+            $totalPatients = array_sum($values);
+
             return [
                 'success' => true,
                 'data' => [
                     'labels' => $labels,
-                    'values' => $values
+                    'values' => $values,
+                    'total_patients' => $totalPatients
                 ]
             ];
 
