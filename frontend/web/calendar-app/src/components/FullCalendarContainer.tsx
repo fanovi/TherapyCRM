@@ -158,14 +158,62 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             startTime.getTime() + appointment.duration * 60000
           );
 
+          // Determina il colore basato su status E tipo di appuntamento
+          const getAppointmentColor = (appointment: Appointment) => {
+            // Prima controlla se è privato
+            if (
+              appointment.appointmentSource === "private" ||
+              appointment.isPrivate
+            ) {
+              // Colori viola per appuntamenti privati
+              switch (appointment.status) {
+                case "confirmed":
+                case "scheduled":
+                  return "#8B5CF6"; // Viola
+                case "pending":
+                  return "#A78BFA"; // Viola chiaro
+                case "cancelled":
+                  return "#C4B5FD"; // Viola molto chiaro
+                case "completed":
+                  return "#6D28D9"; // Viola scuro
+                default:
+                  return "#9333EA"; // Viola default
+              }
+            }
+
+            // Colori normali per appuntamenti da piano terapeutico
+            switch (appointment.status) {
+              case "confirmed":
+              case "scheduled":
+                return "#10B981"; // Verde
+              case "pending":
+                return "#F59E0B"; // Arancione
+              case "cancelled":
+                return "#EF4444"; // Rosso
+              case "completed":
+                return "#6366F1"; // Blu
+              default:
+                return "#6B7280"; // Grigio
+            }
+          };
+
+          const backgroundColor = getAppointmentColor(appointment);
+
+          // Determina se l'evento è modificabile
+          const isEditable = appointment.status === "scheduled";
+
           return {
             id: appointment.id.toString(),
             title: appointment.therapist?.name || "Appuntamento",
             start: startTime.toISOString(),
             end: endTime.toISOString(),
-            backgroundColor: getStatusColor(appointment.status),
+            backgroundColor,
             borderColor: getStatusColor(appointment.status),
             textColor: "#ffffff",
+            // Disabilita drag & drop per appuntamenti non scheduled
+            editable: isEditable,
+            // Aggiungi classe CSS personalizzata per styling
+            classNames: isEditable ? [] : ["non-editable-event"],
             extendedProps: {
               patient_name: appointment.patient?.name || "N/A",
               therapist_name: appointment.therapist?.name || "N/A",
@@ -175,6 +223,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               notes: appointment.notes,
               type: appointment.treatmentType,
               duration: appointment.duration,
+              appointmentSource: appointment.appointmentSource,
+              isPrivate:
+                appointment.isPrivate ||
+                appointment.appointmentSource === "private",
+              isEditable: isEditable, // Passa questa info per il modal
             },
           };
         }
@@ -364,11 +417,17 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   // Personalizza rendering eventi
   const eventContent = (eventInfo: any) => {
     const props = eventInfo.event.extendedProps;
+    const isPrivate = props.isPrivate || props.appointmentSource === "private";
+    const isEditable = props.isEditable !== false;
 
     if (currentView === "timeGridDay" || currentView === "timeGridWeek") {
       return (
-        <div className="p-1 text-xs">
-          <div className="font-semibold truncate">{eventInfo.event.title}</div>
+        <div className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}>
+          <div className="font-semibold truncate flex items-center gap-1">
+            {isPrivate && <span className="text-purple-200">🔒</span>}
+            {eventInfo.event.title}
+            {!isEditable && <span className="text-xs">✓</span>}
+          </div>
           {props.therapist_name && (
             <div className="truncate opacity-80">{props.therapist_name}</div>
           )}
@@ -377,8 +436,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     }
 
     return (
-      <div className="p-1 text-xs">
-        <div className="font-semibold truncate">{eventInfo.event.title}</div>
+      <div className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}>
+        <div className="font-semibold truncate flex items-center gap-1">
+          {isPrivate && <span>🔒</span>}
+          {eventInfo.event.title}
+          {!isEditable && <span>✓</span>}
+        </div>
       </div>
     );
   };
@@ -440,6 +503,20 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
       {/* FullCalendar */}
       <div className="fullcalendar-container">
+        <style>{`
+          .fc-event.non-editable-event {
+            opacity: 0.7;
+            cursor: default !important;
+          }
+
+          .fc-event.non-editable-event:hover {
+            opacity: 0.8;
+          }
+
+          .fc-event.non-editable-event .fc-event-main {
+            cursor: default !important;
+          }
+        `}</style>
         <FullCalendar
           ref={calendarRef}
           plugins={[
@@ -466,6 +543,10 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           weekends={true}
           editable={!readOnly}
           droppable={!readOnly}
+          eventAllow={(dropInfo, draggedEvent) => {
+            // Impedisci il drop se l'evento non è editable
+            return draggedEvent.extendedProps?.isEditable !== false;
+          }}
           locale="it"
           buttonText={{
             today: "Oggi",

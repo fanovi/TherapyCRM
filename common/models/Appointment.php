@@ -110,9 +110,6 @@ class Appointment extends ActiveRecord
             [['patient_id', 'treatment_type_id'], 'required', 'when' => function($model) {
                 return $model->appointment_source === self::SOURCE_PRIVATE;
             }],
-            [['private_cycle_id'], 'required', 'when' => function($model) {
-                return $model->appointment_source === self::SOURCE_PRIVATE;
-            }],
             // Foreign key validations
             [['pattern_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppointmentPattern::class, 'targetAttribute' => ['pattern_id' => 'id']],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],

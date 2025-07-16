@@ -8,23 +8,29 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Therapist, Specialization } from "@/types/therapy";
+import { Therapist, Specialization, TreatmentType } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { Users, Filter, Loader2 } from "lucide-react";
 
 interface TherapistSelectorProps {
   selectedTherapist: Therapist | null;
   onTherapistSelect: (therapist: Therapist) => void;
-  patientId?: number; // ID del paziente per ottenere le specializzazioni
+  patientId?: number;
+  isPrivateMode?: boolean;
+  onTreatmentTypeSelect?: (treatmentType: TreatmentType | null) => void;
 }
 
 export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   selectedTherapist,
   onTherapistSelect,
   patientId,
+  isPrivateMode = false,
+  onTreatmentTypeSelect,
 }) => {
   const [selectedSpecialization, setSelectedSpecialization] =
     useState<Specialization | null>(null);
+  const [selectedTreatmentType, setSelectedTreatmentType] =
+    useState<TreatmentType | null>(null);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [loading, setLoading] = useState(true);
   const [therapistsLoading, setTherapistsLoading] = useState(false);
@@ -32,40 +38,50 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   const [availableSpecializations, setAvailableSpecializations] = useState<
     Specialization[]
   >([]);
+  const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
 
-  // Carica le specializzazioni disponibili per il paziente
+  // Carica le specializzazioni o i tipi di trattamento
   useEffect(() => {
-    const loadSpecializations = async () => {
-      if (!patientId) {
-        setLoading(false);
-        return;
-      }
-
+    const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const data = await therapyAPI.getPatientSpecializations(patientId);
-        setAvailableSpecializations(data);
+        if (isPrivateMode) {
+          // In Private Mode, carica tutti i tipi di trattamento
+          const types = await therapyAPI.getTreatmentTypes();
+          setTreatmentTypes(types);
+        } else {
+          // In modalità normale, carica le specializzazioni del paziente
+          if (!patientId) {
+            setLoading(false);
+            return;
+          }
+          const data = await therapyAPI.getPatientSpecializations(patientId);
+          setAvailableSpecializations(data);
+        }
       } catch (err) {
-        console.error("Errore caricamento specializzazioni:", err);
+        console.error("Errore caricamento dati:", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : "Errore nel caricamento delle specializzazioni"
+          err instanceof Error ? err.message : "Errore nel caricamento dei dati"
         );
       } finally {
         setLoading(false);
       }
     };
 
-    loadSpecializations();
-  }, [patientId]);
+    loadData();
+  }, [patientId, isPrivateMode]);
 
-  // Carica i terapisti per la specializzazione selezionata
+  // Carica i terapisti
   useEffect(() => {
     const loadTherapists = async () => {
-      if (!selectedSpecialization) {
+      if (isPrivateMode && !selectedTreatmentType) {
+        setTherapists([]);
+        return;
+      }
+
+      if (!isPrivateMode && !selectedSpecialization) {
         setTherapists([]);
         return;
       }
@@ -74,9 +90,21 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
         setTherapistsLoading(true);
         setError(null);
 
-        const data = await therapyAPI.getTherapistsBySpecialization(
-          selectedSpecialization.id
-        );
+        let data: Therapist[];
+
+        if (isPrivateMode && selectedTreatmentType) {
+          // In Private Mode, carica terapisti per tipo di trattamento
+          data = await therapyAPI.getTherapistsByTreatment(
+            selectedTreatmentType.id
+          );
+        } else if (selectedSpecialization) {
+          // In modalità normale, carica terapisti per specializzazione
+          data = await therapyAPI.getTherapistsBySpecialization(
+            selectedSpecialization.id
+          );
+        } else {
+          data = [];
+        }
 
         // Assegna colori casuali ai terapisti
         const therapistsWithColors = data.map((therapist, index) => {
@@ -108,32 +136,22 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
     };
 
     loadTherapists();
-  }, [selectedSpecialization]);
-
-  // Reset terapista selezionato quando cambia la specializzazione
-  useEffect(() => {
-    if (selectedTherapist && selectedSpecialization) {
-      // Verifica se il terapista selezionato è ancora nella lista
-      const isTherapistStillValid = therapists.some(
-        (t) => t.id === selectedTherapist.id
-      );
-
-      if (!isTherapistStillValid) {
-        // Reset della selezione se il terapista non è più valido
-        // onTherapistSelect(null); // Commentiamo per non causare errori
-      }
-    }
-  }, [therapists, selectedTherapist, selectedSpecialization]);
+  }, [selectedSpecialization, selectedTreatmentType, isPrivateMode]);
 
   const handleSpecializationChange = (value: string) => {
     const specialization = availableSpecializations.find(
       (spec) => spec.id.toString() === value
     );
     setSelectedSpecialization(specialization || null);
+  };
 
-    // Reset terapista quando cambia specializzazione
-    if (selectedTherapist) {
-      // onTherapistSelect(null); // Commentiamo per non causare errori
+  const handleTreatmentTypeChange = (value: string) => {
+    const treatmentType = treatmentTypes.find(
+      (type) => type.id.toString() === value
+    );
+    setSelectedTreatmentType(treatmentType || null);
+    if (onTreatmentTypeSelect) {
+      onTreatmentTypeSelect(treatmentType || null);
     }
   };
 
@@ -149,7 +167,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
         <CardContent className="space-y-4">
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
-            <span className="text-gray-600">Caricamento terapisti...</span>
+            <span className="text-gray-600">Caricamento...</span>
           </div>
         </CardContent>
       </Card>
@@ -186,7 +204,8 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-xl text-gray-800">
           <Users className="h-5 w-5 text-blue-600" />
-          Selezione Terapista
+          Selezione Terapista{" "}
+          {isPrivateMode && <Badge variant="secondary">Modalità Privata</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -194,23 +213,42 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Filter className="inline h-4 w-4 mr-1" />
-              Specializzazione
+              {isPrivateMode ? "Tipo di Trattamento" : "Specializzazione"}
             </label>
-            <Select
-              value={selectedSpecialization?.id?.toString() || ""}
-              onValueChange={handleSpecializationChange}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleziona specializzazione" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSpecializations.map((spec) => (
-                  <SelectItem key={spec.id} value={spec.id.toString()}>
-                    {spec.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            {isPrivateMode ? (
+              <Select
+                value={selectedTreatmentType?.id?.toString() || ""}
+                onValueChange={handleTreatmentTypeChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleziona tipo di trattamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {treatmentTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id.toString()}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select
+                value={selectedSpecialization?.id?.toString() || ""}
+                onValueChange={handleSpecializationChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleziona specializzazione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSpecializations.map((spec) => (
+                    <SelectItem key={spec.id} value={spec.id.toString()}>
+                      {spec.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div>
@@ -225,13 +263,18 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
                 );
                 if (therapist) onTherapistSelect(therapist);
               }}
-              disabled={!selectedSpecialization || therapistsLoading}
+              disabled={
+                (!selectedSpecialization && !selectedTreatmentType) ||
+                therapistsLoading
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    !selectedSpecialization
-                      ? "Seleziona prima una specializzazione"
+                    !selectedSpecialization && !selectedTreatmentType
+                      ? isPrivateMode
+                        ? "Seleziona prima un tipo di trattamento"
+                        : "Seleziona prima una specializzazione"
                       : therapistsLoading
                       ? "Caricamento terapisti..."
                       : "Seleziona terapista"
@@ -276,7 +319,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
                   <span className="text-sm text-gray-600">
                     {selectedTherapist.email}
                   </span>
-                  {selectedTherapist.weeklyHours && (
+                  {selectedTherapist.weeklyHours && !isPrivateMode && (
                     <span className="text-sm text-gray-500">
                       • {selectedTherapist.weeklyHours}h/settimana
                     </span>
@@ -288,11 +331,15 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
         )}
 
         {therapists.length === 0 &&
-          selectedSpecialization &&
+          (selectedSpecialization || selectedTreatmentType) &&
           !therapistsLoading && (
             <div className="text-center p-4 text-gray-500">
               <p>
-                Nessun terapista trovato per la specializzazione selezionata
+                Nessun terapista trovato per{" "}
+                {isPrivateMode
+                  ? "il tipo di trattamento"
+                  : "la specializzazione"}{" "}
+                selezionato/a
               </p>
             </div>
           )}

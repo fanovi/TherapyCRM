@@ -8,6 +8,7 @@ import {
   Trash2,
   Save,
   Repeat,
+  Lock,
 } from "lucide-react";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
@@ -42,6 +43,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   });
 
   const { showSuccess, showError } = useToast();
+
+  // Determina se è un appuntamento privato
+  const isPrivateAppointment =
+    appointment?.appointmentSource === "private" || appointment?.isPrivate;
 
   useEffect(() => {
     if (appointment) {
@@ -191,6 +196,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed":
+      case "scheduled":
         return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
@@ -207,6 +213,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     switch (status) {
       case "confirmed":
         return "Confermato";
+      case "scheduled":
+        return "Programmato";
       case "pending":
         return "In attesa";
       case "cancelled":
@@ -225,8 +233,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             {isEditing ? "Modifica Appuntamento" : "Dettagli Appuntamento"}
+            {isPrivateAppointment && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                <Lock className="w-3 h-3" />
+                Privato
+              </span>
+            )}
           </h2>
           <button
             onClick={onClose}
@@ -238,6 +252,17 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto">
+          {/* Avviso per appuntamenti privati */}
+          {isPrivateAppointment && !isEditing && (
+            <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <p className="text-sm text-purple-800 flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Questo è un appuntamento privato al di fuori del piano
+                terapeutico
+              </p>
+            </div>
+          )}
+
           {!isEditing ? (
             /* Vista dettagli */
             <div className="space-y-6">
@@ -260,6 +285,18 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* Tipo di trattamento - Mostra per appuntamenti privati */}
+              {isPrivateAppointment && appointment.treatmentType && (
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <div className="text-sm font-semibold text-gray-700 mb-1">
+                    Tipo di trattamento
+                  </div>
+                  <div className="font-semibold text-gray-900">
+                    {appointment.treatmentType}
+                  </div>
+                </div>
+              )}
 
               {/* Paziente */}
               <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg">
@@ -334,6 +371,15 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           ) : (
             /* Vista modifica */
             <div className="space-y-6">
+              {/* Avviso per appuntamenti privati in modifica */}
+              {isPrivateAppointment && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800">
+                    ⚠️ Stai modificando un appuntamento privato
+                  </p>
+                </div>
+              )}
+
               {/* Terapista */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">

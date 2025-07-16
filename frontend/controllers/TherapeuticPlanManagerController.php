@@ -15,6 +15,8 @@ use common\models\PlanTherapy;
 use common\models\TherapeuticPlan;
 use common\models\Therapist;
 use common\models\Patient;
+use common\models\TreatmentType;
+use common\models\PrivateCycle;
 use DateTime;
 use Exception;
 use yii\filters\Cors;
@@ -2218,6 +2220,7 @@ class TherapeuticPlanManagerController extends Controller
         
         $appointment = new Appointment();
         $appointment->pattern_id = $pattern->id;
+        $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
         $appointment->plan_therapy_id = $pattern->plan_therapy_id;
         $appointment->therapist_id = $pattern->therapist_id;
         $appointment->appointment_datetime = $appointmentDateTime;
@@ -2261,6 +2264,7 @@ class TherapeuticPlanManagerController extends Controller
         
         $appointment = new Appointment();
         $appointment->plan_therapy_id = $data['planTherapyId'];
+        $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
         $appointment->therapist_id = $data['therapistId'];
         $appointment->appointment_datetime = $appointmentDateTime;
         $appointment->duration_minutes = $data['durationMinutes'];

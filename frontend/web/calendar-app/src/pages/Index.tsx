@@ -3,18 +3,23 @@ import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
+import { PrivateAppointmentModal } from "@/components/PrivateAppointmentModal";
 import { AppointmentEditModal } from "@/components/AppointmentEditModal";
 import {
   Appointment,
   Therapist,
   Patient,
   AppointmentData,
+  PrivateAppointmentData,
+  TreatmentType,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock, LockOpen } from "lucide-react";
 import { ToastContainer, useToast } from "@/components/Toast";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const params = useParams();
@@ -22,9 +27,12 @@ const Index = () => {
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(
     null
   );
+  const [selectedTreatmentType, setSelectedTreatmentType] =
+    useState<TreatmentType | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPrivateModalOpen, setIsPrivateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: Date;
@@ -46,6 +54,7 @@ const Index = () => {
     end: Date;
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isPrivateMode, setIsPrivateMode] = useState(false);
 
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
@@ -78,14 +87,12 @@ const Index = () => {
   // Funzione per ricaricare gli appuntamenti per il range attualmente visibile
   const reloadCurrentVisibleAppointments = async () => {
     if (!currentVisibleRange) {
-      // Fallback al mese corrente se non abbiamo il range
       const now = new Date();
       await loadAppointmentsForMonth(now);
       return;
     }
 
     try {
-      // Determina tutti i mesi nel range visibile
       const startDate = new Date(currentVisibleRange.start);
       const endDate = new Date(currentVisibleRange.end);
 
@@ -100,7 +107,6 @@ const Index = () => {
         current.setMonth(current.getMonth() + 1);
       }
 
-      // Carica appuntamenti per tutti i mesi necessari
       const appointmentPromises: Promise<any[]>[] = [];
 
       for (const { month, year } of monthsToLoad) {
@@ -122,7 +128,6 @@ const Index = () => {
 
       const results = await Promise.all(appointmentPromises);
 
-      // Separa i risultati per paziente e terapista
       let patientResults: any[] = [];
       let therapistResults: any[] = [];
 
@@ -156,7 +161,6 @@ const Index = () => {
   const handleDateChange = (date: Date) => {
     const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
 
-    // Se è cambiato il mese, ricarica gli appuntamenti
     if (
       newMonth.getTime() !==
       new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getTime()
@@ -172,7 +176,6 @@ const Index = () => {
   };
 
   useEffect(() => {
-    // Leggi i parametri dall'URL usando React Router
     const patientId = params.id_patient;
     const therapistId = params.id_therapist;
 
@@ -181,16 +184,13 @@ const Index = () => {
       setError(null);
 
       try {
-        // Carica sempre la lista dei terapisti per il modal di modifica
         const therapistsList = await therapyAPI.getTherapists();
         setTherapists(therapistsList);
 
         if (therapistId) {
-          // Modalità terapista
           setIsTherapistView(true);
 
           try {
-            // Carica i dettagli del terapista dalla lista completa
             const therapists = await therapyAPI.getTherapists();
             const therapist = therapists.find(
               (t) => t.id.toString() === therapistId
@@ -200,7 +200,6 @@ const Index = () => {
               throw new Error(`Terapista con ID ${therapistId} non trovato`);
             }
 
-            // Assegna un colore se non presente
             if (!therapist.color) {
               const colors = [
                 "#3b82f6",
@@ -215,7 +214,6 @@ const Index = () => {
 
             setSelectedTherapist(therapist);
 
-            // Carica gli appuntamenti del terapista per il mese corrente
             const now = new Date();
             const therapistAppointments =
               await therapyAPI.getTherapistAppointments(
@@ -234,17 +232,14 @@ const Index = () => {
             );
           }
         } else if (patientId) {
-          // Modalità paziente
           setIsTherapistView(false);
 
           try {
-            // Carica i dati del paziente
             const patientData = await therapyAPI.getPatient(
               parseInt(patientId)
             );
             setPatient(patientData);
 
-            // Carica gli appuntamenti del paziente per il mese corrente
             const now = new Date();
             const patientAppointments = await therapyAPI.getPatientAppointments(
               patientData.id,
@@ -256,14 +251,23 @@ const Index = () => {
           } catch (err) {
             console.error("Errore caricamento dati paziente:", err);
 
-            // Gestione specifica per pazienti senza piani terapeutici attivi
             if (
               err instanceof Error &&
               (err as any).code === "NO_ACTIVE_THERAPEUTIC_PLAN"
             ) {
-              setError(
-                "Il paziente non ha piani terapeutici attivi. Contattare l'amministratore per attivare un piano terapeutico prima di poter utilizzare il calendario."
-              );
+              // In Private Mode, possiamo continuare anche senza piano terapeutico
+              setError(null);
+              // Imposta il paziente comunque se abbiamo i dati base
+              if (patientId) {
+                try {
+                  const patientData = await therapyAPI.getPatient(
+                    parseInt(patientId)
+                  );
+                  setPatient(patientData);
+                } catch (e) {
+                  setError("Errore nel caricamento dati paziente");
+                }
+              }
             } else {
               setError(
                 err instanceof Error
@@ -273,7 +277,6 @@ const Index = () => {
             }
           }
         } else {
-          // Nessun ID fornito - questo non dovrebbe accadere secondo le specifiche
           setError("ID paziente o terapista mancante nell'URL");
         }
       } catch (error) {
@@ -291,7 +294,6 @@ const Index = () => {
     fetchData();
   }, [params]);
 
-  // Effect per caricare appuntamenti del terapista selezionato (in modalità paziente)
   useEffect(() => {
     const loadTherapistAppointments = async () => {
       if (!selectedTherapist || isTherapistView) return;
@@ -313,18 +315,14 @@ const Index = () => {
     loadTherapistAppointments();
   }, [selectedTherapist, isTherapistView]);
 
-  // Combina appuntamenti del paziente e del terapista per la visualizzazione
   const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
-      // In modalità terapista, mostra solo i suoi appuntamenti
       return appointments;
     } else {
-      // In modalità paziente, combina appuntamenti del paziente + tutti quelli del terapista selezionato
       if (!selectedTherapist) {
-        return appointments; // Solo appuntamenti del paziente
+        return appointments;
       }
 
-      // Combina senza duplicati (un appuntamento può essere sia del paziente che del terapista)
       const combined = [...appointments];
 
       therapistAppointments.forEach((therapistApt) => {
@@ -344,8 +342,6 @@ const Index = () => {
     if (!selectedTherapist || !selectedSlot) return;
 
     try {
-      // In modalità paziente, il paziente è già caricato
-      // In modalità terapista, dobbiamo gestire diversamente (implementazione futura)
       if (!patient && isTherapistView) {
         console.warn(
           "Creazione appuntamento in modalità terapista non ancora implementata"
@@ -357,13 +353,11 @@ const Index = () => {
         throw new Error("Dati paziente mancanti");
       }
 
-      // Usa il planTherapyId dal piano terapeutico caricato
       const planTherapyId = appointmentData.planTherapy?.planTherapyId;
       if (!planTherapyId) {
         throw new Error("Piano terapeutico non trovato");
       }
 
-      // Formatta la data per l'API
       const appointmentDateTime =
         selectedSlot.date.toISOString().split("T")[0] +
         " " +
@@ -375,9 +369,8 @@ const Index = () => {
       let weeklyLimitExceeded: any[] = [];
 
       if (appointmentData.isRecurring) {
-        // Crea pattern ricorrente
-        const dayOfWeek = selectedSlot.date.getDay() || 7; // 0 = Domenica -> 7, 1-6 = Lunedì-Sabato
-        const startTime = selectedSlot.time; // "HH:mm"
+        const dayOfWeek = selectedSlot.date.getDay() || 7;
+        const startTime = selectedSlot.time;
         const validFrom = selectedSlot.date.toISOString().split("T")[0];
         const validTo = appointmentData.planTherapy?.endDate;
 
@@ -400,7 +393,6 @@ const Index = () => {
         appointmentsCreated = patternResult.appointmentsCreated;
         weeklyLimitExceeded = patternResult.weeklyLimitExceeded || [];
 
-        // Gestisci conflitti se presenti
         if (patternResult.conflicts && patternResult.conflicts.length > 0) {
           showInfo(
             "Conflitti rilevati",
@@ -408,7 +400,6 @@ const Index = () => {
           );
         }
       } else {
-        // Crea singolo appuntamento
         const request = {
           planTherapyId,
           therapistId: selectedTherapist.id,
@@ -422,66 +413,11 @@ const Index = () => {
         weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
       }
 
-      // Ricarica gli appuntamenti usando la stessa logica del caricamento iniziale
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-
-      console.log("🔄 Ricaricando appuntamenti dopo creazione:", {
-        currentMonth,
-        currentYear,
-        patientId: patient?.id,
-        therapistId: selectedTherapist?.id,
-      });
-
-      console.log("📊 Stato attuale degli appuntamenti:", {
-        appointments: appointments.length,
-        therapistAppointments: therapistAppointments.length,
-      });
-
-      // Ricarica appuntamenti paziente (sempre in modalità paziente)
-      if (patient) {
-        console.log("📅 Caricando appuntamenti paziente...");
-        const patientAppointments = await therapyAPI.getPatientAppointments(
-          patient.id,
-          currentMonth,
-          currentYear
-        );
-        console.log("✅ Appuntamenti paziente ricevuti:", patientAppointments);
-        setAppointments([...patientAppointments]);
-      }
-
-      // Ricarica appuntamenti terapista per il calendario di destra
-      if (selectedTherapist) {
-        console.log("🧑‍⚕️ Caricando appuntamenti terapista...");
-        const therapistAppointments = await therapyAPI.getTherapistAppointments(
-          selectedTherapist.id,
-          currentMonth,
-          currentYear
-        );
-        console.log(
-          "✅ Appuntamenti terapista ricevuti:",
-          therapistAppointments
-        );
-        setTherapistAppointments([...therapistAppointments]);
-        setRefreshKey((prev) => prev + 1);
-      }
-
-      console.log("🎯 Ricaricamento completato!");
-
-      // Forza un piccolo delay per assicurarsi che React rilevi il cambiamento
-      setTimeout(() => {
-        console.log("📊 Stato finale degli appuntamenti:", {
-          appointments: appointments.length,
-          therapistAppointments: therapistAppointments.length,
-          combinedLength: combinedAppointments.length,
-        });
-      }, 100);
+      await reloadCurrentVisibleAppointments();
 
       setIsModalOpen(false);
       setSelectedSlot(null);
 
-      // Mostra messaggio di successo
       if (appointmentData.isRecurring) {
         showSuccess(
           "Pattern ricorrente creato",
@@ -497,7 +433,6 @@ const Index = () => {
         );
       }
 
-      // Gestisci avvisi sui limiti settimanali se presenti
       if (weeklyLimitExceeded.length > 0) {
         console.warn("Limite settimanale superato:", weeklyLimitExceeded);
         showInfo(
@@ -507,15 +442,11 @@ const Index = () => {
       }
     } catch (err) {
       console.error("Errore nella creazione dell'appuntamento:", err);
-
-      // Forza il re-render del calendario per rimuovere l'appuntamento "fantasma"
       setRefreshKey((prev) => prev + 1);
 
-      // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
 
-        // Gestisci diversi tipi di conflitto
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
@@ -530,18 +461,15 @@ const Index = () => {
             conflict.message ||
             `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
         } else if (conflict?.existingAppointmentInfo) {
-          // Conflitto terapista (formato vecchio)
           conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
             conflict.existingAppointmentInfo.patientName || "un altro paziente"
           }`;
         } else {
-          // Fallback generico
           conflictMessage = conflict?.message || "Conflitto rilevato";
         }
 
         showError(conflictTitle, conflictMessage);
       } else {
-        // Errore generico
         const errorMessage =
           err instanceof Error ? err.message : "Errore sconosciuto";
         showError(
@@ -555,13 +483,113 @@ const Index = () => {
     }
   };
 
+  const handlePrivateAppointmentCreate = async (
+    appointmentData: PrivateAppointmentData
+  ) => {
+    if (!selectedTherapist || !selectedSlot || !patient) return;
+
+    try {
+      const appointmentDateTime =
+        selectedSlot.date.toISOString().split("T")[0] +
+        " " +
+        selectedSlot.time +
+        ":00";
+
+      if (appointmentData.isRecurring) {
+        // Crea ciclo privato ricorrente
+        const dayOfWeek = selectedSlot.date.getDay() || 7;
+        const request = {
+          patientId: patient.id,
+          therapistId: selectedTherapist.id,
+          treatmentTypeId: appointmentData.treatmentTypeId,
+          dayOfWeek,
+          startTime: selectedSlot.time,
+          durationMinutes: appointmentData.duration,
+          notes: appointmentData.notes,
+        };
+
+        const result = await therapyAPI.createPrivateCycle(request);
+
+        if (result.conflicts && result.conflicts.length > 0) {
+          showInfo(
+            "Conflitti rilevati",
+            `${result.conflicts.length} appuntamenti non sono stati creati a causa di conflitti.`
+          );
+        }
+
+        showSuccess(
+          "Ciclo privato creato",
+          `${result.appointmentsCreated} appuntamenti privati creati per il mese corrente`
+        );
+      } else {
+        // Crea singolo appuntamento privato
+        const request = {
+          patientId: patient.id,
+          therapistId: selectedTherapist.id,
+          treatmentTypeId: appointmentData.treatmentTypeId,
+          appointmentDateTime,
+          durationMinutes: appointmentData.duration,
+          notes: appointmentData.notes,
+        };
+
+        await therapyAPI.createPrivateAppointment(request);
+        showSuccess(
+          "Appuntamento privato creato",
+          "L'appuntamento privato è stato creato con successo"
+        );
+      }
+
+      // Ricarica appuntamenti per il range visibile
+      await reloadCurrentVisibleAppointments();
+
+      // Forza anche un refresh immediato con un piccolo delay
+      setTimeout(async () => {
+        await reloadCurrentVisibleAppointments();
+        setRefreshKey((prev) => prev + 1);
+      }, 100);
+
+      setIsPrivateModalOpen(false);
+      setSelectedSlot(null);
+    } catch (err) {
+      console.error("Errore nella creazione dell'appuntamento privato:", err);
+      setRefreshKey((prev) => prev + 1);
+
+      if (err instanceof Error && "conflict" in err) {
+        const conflict = (err as any).conflict;
+        let conflictMessage = conflict?.message || "Conflitto rilevato";
+        showError("Conflitto appuntamento", conflictMessage);
+      } else {
+        const errorMessage =
+          err instanceof Error ? err.message : "Errore sconosciuto";
+        showError(
+          "Errore creazione",
+          `Non è stato possibile creare l'appuntamento privato: ${errorMessage}`
+        );
+      }
+    } finally {
+      setIsPrivateModalOpen(false);
+      setSelectedSlot(null);
+    }
+  };
+
   const handleSlotClick = (date: Date, time: string) => {
     setSelectedSlot({ date, time });
-    setIsModalOpen(true);
+
+    if (isPrivateMode) {
+      if (!selectedTreatmentType) {
+        showError(
+          "Tipo di trattamento mancante",
+          "Seleziona prima un tipo di trattamento per creare un appuntamento privato"
+        );
+        return;
+      }
+      setIsPrivateModalOpen(true);
+    } else {
+      setIsModalOpen(true);
+    }
   };
 
   const handleAppointmentClick = (appointmentId: string) => {
-    // Trova l'appuntamento nel combined array
     const appointment = combinedAppointments.find(
       (apt) => apt.id.toString() === appointmentId
     );
@@ -572,42 +600,10 @@ const Index = () => {
   };
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
-    // Ricarica gli appuntamenti usando la stessa logica del caricamento iniziale
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-
-    console.log("🔄 Ricaricando appuntamenti dopo modifica:", {
-      currentMonth,
-      currentYear,
-      patientId: patient?.id,
-      therapistId: selectedTherapist?.id,
-    });
-
-    // Ricarica appuntamenti paziente (sempre in modalità paziente)
-    if (patient) {
-      const patientAppointments = await therapyAPI.getPatientAppointments(
-        patient.id,
-        currentMonth,
-        currentYear
-      );
-      setAppointments([...patientAppointments]);
-    }
-
-    // Ricarica appuntamenti terapista per il calendario di destra
-    if (selectedTherapist) {
-      const therapistAppointments = await therapyAPI.getTherapistAppointments(
-        selectedTherapist.id,
-        currentMonth,
-        currentYear
-      );
-      setTherapistAppointments([...therapistAppointments]);
-      setRefreshKey((prev) => prev + 1);
-    }
+    await reloadCurrentVisibleAppointments();
   };
 
   const handleAppointmentDelete = async (appointmentId: string) => {
-    // Ricarica gli appuntamenti dopo eliminazione
     await handleAppointmentUpdate(appointmentId);
   };
 
@@ -618,13 +614,11 @@ const Index = () => {
     eventData?: any
   ) => {
     try {
-      // Converti l'ID in numero per compatibilità con l'API
       const numericId = parseInt(appointmentId);
       if (isNaN(numericId)) {
         throw new Error("ID appuntamento non valido");
       }
 
-      // Trova l'appuntamento da spostare nel combined array
       const appointment = combinedAppointments.find(
         (apt) => apt.id === numericId
       );
@@ -632,16 +626,12 @@ const Index = () => {
         throw new Error("Appuntamento non trovato");
       }
 
-      // Formatta la nuova data/ora per l'API
       const newDateTime =
         newDate.toISOString().split("T")[0] + " " + newTime + ":00";
 
-      // IMPORTANTE: Quando si sposta un appuntamento via drag and drop,
-      // mantieni sempre il terapista originale. Il cambiamento di terapista
-      // dovrebbe avvenire solo tramite il modal di modifica.
       const request = {
         appointmentId: numericId,
-        therapistId: appointment.therapist?.id || 0, // Usa sempre il terapista originale
+        therapistId: appointment.therapist?.id || 0,
         appointmentDateTime: newDateTime,
         durationMinutes: appointment.duration,
         notes: appointment.notes,
@@ -655,14 +645,12 @@ const Index = () => {
 
       await therapyAPI.updateAppointment(request);
 
-      // Aggiorna l'UI localmente per immediate feedback
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === numericId ? { ...apt, datetime: newDateTime } : apt
         )
       );
 
-      // Aggiorna anche il calendario del terapista se necessario
       if (
         selectedTherapist &&
         appointment.therapist?.id === selectedTherapist.id
@@ -674,22 +662,17 @@ const Index = () => {
         );
       }
 
-      // Mostra messaggio di successo
       showSuccess(
         "Appuntamento spostato",
         "L'appuntamento è stato spostato con successo"
       );
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
-
-      // Forza il re-render per ripristinare la posizione originale
       setRefreshKey((prev) => prev + 1);
 
-      // Se c'è un conflitto, gestisci specificamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
 
-        // Gestisci diversi tipi di conflitto
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
@@ -704,20 +687,17 @@ const Index = () => {
             conflict.message ||
             `Esiste già un appuntamento di ${conflict.treatmentType} per ${conflict.patientName} in data ${conflict.existingAppointmentDate}`;
         } else if (conflict?.existingAppointmentInfo) {
-          // Conflitto terapista (formato vecchio)
           conflictTitle = "Conflitto terapista";
           conflictMessage = `Il terapista ha già un appuntamento in questo orario con ${
             conflict.existingAppointmentInfo.patientName || "un altro paziente"
           }`;
         } else {
-          // Fallback generico
           conflictMessage =
             conflict?.message || "Conflitto rilevato durante lo spostamento";
         }
 
         showError(conflictTitle, conflictMessage);
       } else {
-        // Errore generico
         const errorMessage =
           err instanceof Error ? err.message : "Errore sconosciuto";
         showError(
@@ -737,7 +717,7 @@ const Index = () => {
     );
   }
 
-  if (error) {
+  if (error && !isPrivateMode && !patient?.hasActiveTherapeuticPlans) {
     const isNoTherapeuticPlan = error.includes("piani terapeutici attivi");
 
     return (
@@ -784,34 +764,62 @@ const Index = () => {
       <div className="p-4">
         {/* Informazioni paziente/terapista nella barra superiore */}
         <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
-          {isTherapistView && selectedTherapist ? (
-            <div className="flex items-center gap-3">
-              <div
-                className="w-4 h-4 rounded-full"
-                style={{ backgroundColor: selectedTherapist.color }}
-              />
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Calendario di {selectedTherapist.name}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {selectedTherapist.specialization} • {selectedTherapist.email}
-                  {selectedTherapist.weeklyHours &&
-                    ` • ${selectedTherapist.weeklyHours}h/settimana`}
-                </p>
-              </div>
-            </div>
-          ) : patient ? (
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Calendario di {patient.name}
-              </h2>
-              <p className="text-sm text-gray-600">
-                {patient.email}
-                {patient.fiscalCode && ` • ${patient.fiscalCode}`}
-              </p>
+              {isTherapistView && selectedTherapist ? (
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: selectedTherapist.color }}
+                  />
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Calendario di {selectedTherapist.name}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {selectedTherapist.specialization} •{" "}
+                      {selectedTherapist.email}
+                      {selectedTherapist.weeklyHours &&
+                        ` • ${selectedTherapist.weeklyHours}h/settimana`}
+                    </p>
+                  </div>
+                </div>
+              ) : patient ? (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Calendario di {patient.name}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {patient.email}
+                    {patient.fiscalCode && ` • ${patient.fiscalCode}`}
+                  </p>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+
+            {/* Private Mode Toggle - Solo in modalità paziente */}
+            {!isTherapistView && patient && (
+              <div className="flex items-center space-x-3">
+                <Label
+                  htmlFor="private-mode"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  {isPrivateMode ? (
+                    <LockOpen className="h-4 w-4 text-purple-600" />
+                  ) : (
+                    <Lock className="h-4 w-4 text-gray-400" />
+                  )}
+                  <span className="text-sm font-medium">Modalità Privata</span>
+                </Label>
+                <Switch
+                  id="private-mode"
+                  checked={isPrivateMode}
+                  onCheckedChange={setIsPrivateMode}
+                  className="data-[state=checked]:bg-purple-600"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mostra il selettore terapista solo se non siamo in modalità terapista */}
@@ -821,6 +829,8 @@ const Index = () => {
               selectedTherapist={selectedTherapist}
               onTherapistSelect={setSelectedTherapist}
               patientId={patient?.id}
+              isPrivateMode={isPrivateMode}
+              onTreatmentTypeSelect={setSelectedTreatmentType}
             />
           </div>
         )}
@@ -839,6 +849,7 @@ const Index = () => {
           currentPatientId={patient?.id}
           onDateChange={handleDateChange}
           onVisibleRangeChange={handleVisibleRangeChange}
+          isPrivateMode={isPrivateMode}
         />
 
         <AppointmentModal
@@ -851,6 +862,19 @@ const Index = () => {
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
           patient={patient}
+        />
+
+        <PrivateAppointmentModal
+          isOpen={isPrivateModalOpen}
+          onClose={() => {
+            setIsPrivateModalOpen(false);
+            setSelectedSlot(null);
+          }}
+          onConfirm={handlePrivateAppointmentCreate}
+          selectedSlot={selectedSlot}
+          selectedTherapist={selectedTherapist}
+          patient={patient}
+          treatmentType={selectedTreatmentType}
         />
 
         <AppointmentEditModal

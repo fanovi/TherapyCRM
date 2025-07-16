@@ -28,6 +28,16 @@ export interface Patient {
     weeklyHours: number;
     notes?: string;
   };
+  availableTherapies?: {
+    planTherapyId: number;
+    treatmentTypeId: number;
+    treatmentTypeName: string;
+    weeklyHours: number;
+    isGroup: boolean;
+    notes?: string;
+  }[];
+
+  canCreatePrivateAppointments?: boolean; // Sempre true secondo il controller
 }
 
 export interface PlanTherapy {
@@ -46,7 +56,7 @@ export interface Appointment {
   id: number;
   datetime: string; // formato ISO datetime dalla API
   duration: number; // duration_minutes dall'API
-  status: "scheduled" | "completed" | "cancelled";
+  status: "scheduled" | "completed" | "cancelled" | "confirmed" | "pending";
   notes?: string;
   // Per appointment di paziente
   treatmentType?: string;
@@ -62,6 +72,10 @@ export interface Appointment {
   // Informazioni sul pattern ricorrente
   patternId?: number;
   isRecurring?: boolean;
+
+  appointmentSource?: "therapeutic_plan" | "private";
+
+  isPrivate?: boolean;
 }
 
 export interface AppointmentData {
@@ -140,4 +154,34 @@ export interface WeeklyLimitInfo {
   currentHours: number;
   limitHours: number;
   newTotal: number;
+}
+
+// Aggiungi questi tipi al file @/types/therapy
+
+export interface TreatmentType {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+export interface PrivateAppointmentData {
+  treatmentTypeId: number;
+  treatmentTypeName: string;
+  duration: number;
+  notes?: string;
+  isRecurring?: boolean;
+}
+
+export interface TreatmentType {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+export interface PrivateAppointmentData {
+  treatmentTypeId: number;
+  treatmentTypeName: string;
+  duration: number;
+  notes?: string;
+  isRecurring?: boolean;
 }

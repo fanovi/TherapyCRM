@@ -480,6 +480,100 @@ class TherapeuticPlanManagerAPI {
 
     return data.data;
   }
+
+  // Aggiungi questi metodi alla classe TherapeuticPlanManagerAPI nel file therapyAPI
+
+  /**
+   * Ottiene tutti i tipi di trattamento disponibili
+   */
+  async getTreatmentTypes(): Promise<
+    {
+      id: number;
+      name: string;
+      description?: string;
+    }[]
+  > {
+    const response = await this.get<
+      APIResponse<
+        {
+          id: number;
+          name: string;
+          description?: string;
+        }[]
+      >
+    >("get-treatment-types");
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento tipi trattamento"
+      );
+    }
+
+    return response.data || [];
+  }
+
+  /**
+   * Crea un appuntamento privato
+   */
+  async createPrivateAppointment(request: {
+    patientId: number;
+    therapistId: number;
+    treatmentTypeId: number;
+    appointmentDateTime: string;
+    durationMinutes: number;
+    notes?: string;
+  }): Promise<{
+    appointmentId: number;
+  }> {
+    const response = await this.post<any>(
+      "create-private-appointment",
+      request
+    );
+
+    if (!response.success) {
+      // Se c'è un conflitto, includiamo le informazioni del conflitto nell'errore
+      if (response.conflict) {
+        const error = new Error(
+          response.error || "Conflitto appuntamento rilevato"
+        ) as any;
+        error.conflict = response.conflict;
+        throw error;
+      }
+
+      throw new Error(
+        response.error || "Errore nella creazione dell'appuntamento privato"
+      );
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Crea un ciclo privato mensile di appuntamenti
+   */
+  async createPrivateCycle(request: {
+    patientId: number;
+    therapistId: number;
+    treatmentTypeId: number;
+    dayOfWeek: number;
+    startTime: string;
+    durationMinutes: number;
+    notes?: string;
+  }): Promise<{
+    privateCycleId: number;
+    appointmentsCreated: number;
+    conflicts: any[];
+  }> {
+    const response = await this.post<any>("create-private-cycle", request);
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nella creazione del ciclo privato"
+      );
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton

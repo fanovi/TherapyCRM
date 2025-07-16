@@ -24,6 +24,7 @@ interface DualFullCalendarViewProps {
   currentPatientId?: number;
   onDateChange?: (date: Date) => void;
   onVisibleRangeChange?: (start: Date, end: Date) => void;
+  isPrivateMode?: boolean; // Nuova prop
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -39,6 +40,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   currentPatientId,
   onDateChange,
   onVisibleRangeChange,
+  isPrivateMode = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sharedEvents, setSharedEvents] = useState<any[]>([]);
@@ -78,10 +80,14 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         startTime.getTime() + appointment.duration * 60000
       );
 
+      // Determina se l'appuntamento è modificabile
+      const isEditable = appointment.status === "scheduled";
+
       // Determina colore basato su status
       const getStatusColor = (status: string) => {
         switch (status) {
           case "confirmed":
+          case "scheduled":
             return "#10B981"; // Verde
           case "pending":
             return "#F59E0B"; // Arancione
@@ -105,6 +111,8 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         backgroundColor: getStatusColor(appointment.status),
         borderColor: getStatusColor(appointment.status),
         textColor: "#ffffff",
+        editable: isEditable, // Importante: disabilita drag & drop per non scheduled
+        classNames: isEditable ? [] : ["non-editable-event"],
         extendedProps: {
           patient_name: appointment.patient?.name || "N/A",
           therapist_name: appointment.therapist?.name || "N/A",
@@ -112,6 +120,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           duration: appointment.duration,
           patient_id: appointment.patient?.id || null,
           therapist_id: appointment.therapist?.id || null,
+          isEditable: isEditable,
+          appointmentSource: appointment.appointmentSource,
+          isPrivate: appointment.isPrivate,
         },
       };
     });
@@ -263,12 +274,6 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     ).toISOString();
 
     // Aggiungi questo log per debug
-    console.log("🔍 Debug TherapistWeeklyHours:", {
-      viewType,
-      hasSelectedTherapist: !!selectedTherapist,
-      currentWeekStart,
-      currentWeekStartString: currentWeekStart?.toISOString(),
-    });
 
     // Sincronizza con il calendario del paziente se l'evento appartiene al paziente visualizzato
     if (patientId === currentPatientId && patientCalendarRef.current) {
@@ -304,7 +309,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         </div>
 
         {/* Ore settimanali - visibile solo in vista settimana */}
-        {viewType === "week" && selectedTherapist && (
+        {viewType === "week" && selectedTherapist && !isPrivateMode && (
           <TherapistWeeklyHours
             therapist={selectedTherapist}
             currentDate={currentWeekStart}
@@ -353,7 +358,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       </div>
 
       {/* Ore settimanali - visibile solo in vista settimana */}
-      {viewType === "week" && selectedTherapist && (
+      {viewType === "week" && selectedTherapist && !isPrivateMode && (
         <TherapistWeeklyHours
           therapist={selectedTherapist}
           currentDate={currentWeekStart}
