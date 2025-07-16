@@ -414,7 +414,7 @@ const Index = () => {
       }
 
       await reloadCurrentVisibleAppointments();
-
+      setRefreshKey((prev) => prev + 1);
       setIsModalOpen(false);
       setSelectedSlot(null);
 
@@ -543,10 +543,7 @@ const Index = () => {
       await reloadCurrentVisibleAppointments();
 
       // Forza anche un refresh immediato con un piccolo delay
-      setTimeout(async () => {
-        await reloadCurrentVisibleAppointments();
-        setRefreshKey((prev) => prev + 1);
-      }, 100);
+      setRefreshKey((prev) => prev + 1);
 
       setIsPrivateModalOpen(false);
       setSelectedSlot(null);

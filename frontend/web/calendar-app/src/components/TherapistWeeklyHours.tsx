@@ -51,15 +51,6 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
         const day = String(sundayDate.getDate()).padStart(2, "0");
         const startDate = `${year}-${month}-${day}`;
 
-        console.log("🔧 TherapistWeeklyHours - Date formatting:", {
-          originalDate: currentDate.toLocaleDateString("it-IT"),
-          sundayDate: sundayDate.toLocaleDateString("it-IT"),
-          year,
-          month,
-          day,
-          startDateString: startDate,
-        });
-
         const data = await therapyAPI.getTherapistWeeklyHours(
           therapist.id,
           startDate
@@ -194,8 +185,13 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
         {/* Periodo */}
         <div className="text-xs text-gray-500 pt-2 border-t">
           Settimana:{" "}
-          {new Date(weeklyHours.weekStart).toLocaleDateString("it-IT")} -{" "}
-          {new Date(weeklyHours.weekEnd).toLocaleDateString("it-IT")}
+          {new Date(
+            currentDate.getTime() - 24 * 60 * 60 * 1000
+          ).toLocaleDateString("it-IT")}{" "}
+          -{" "}
+          {new Date(
+            currentDate.getTime() + 5 * 24 * 60 * 60 * 1000
+          ).toLocaleDateString("it-IT")}
         </div>
       </div>
     </div>

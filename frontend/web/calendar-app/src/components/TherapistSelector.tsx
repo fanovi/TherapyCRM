@@ -77,16 +77,19 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   useEffect(() => {
     const loadTherapists = async () => {
       if (isPrivateMode && !selectedTreatmentType) {
+        onTherapistSelect(null);
         setTherapists([]);
         return;
       }
 
       if (!isPrivateMode && !selectedSpecialization) {
+        onTherapistSelect(null);
         setTherapists([]);
         return;
       }
 
       try {
+        onTherapistSelect(null);
         setTherapistsLoading(true);
         setError(null);
 
