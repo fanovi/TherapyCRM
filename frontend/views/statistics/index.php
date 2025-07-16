@@ -12,6 +12,12 @@ $this->params['breadcrumbs'][] = $this->title;
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', [
     'depends' => [\yii\web\JqueryAsset::class]
 ]);
+
+// Registra Flatpickr per i datepicker
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js');
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/it.js');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css');
+
 $this->registerCssFile('@web/css/statistics.css', [
     'depends' => [\frontend\assets\AppAsset::class]
 ]);
@@ -91,11 +97,11 @@ $this->registerCssFile('@web/css/statistics.css', [
                         <div class="space-y-3">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Da</label>
-                                <input type="date" id="date-from" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
+                                <input type="text" id="date-from" placeholder="Seleziona data..." class="datepicker-input">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">A</label>
-                                <input type="date" id="date-to" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200">
+                                <input type="text" id="date-to" placeholder="Seleziona data..." class="datepicker-input">
                             </div>
                         </div>
                     </div>
@@ -134,7 +140,7 @@ $this->registerCssFile('@web/css/statistics.css', [
                         <div class="space-y-3">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Seleziona Trattamenti</label>
-                                <div class="relative">
+                                <div class="treatments-container relative">
                                     <button type="button" id="treatments-toggle" class="w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
                                         <span id="treatments-text">🔄 Tutti i trattamenti</span>
                                         <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,20 +180,26 @@ $this->registerCssFile('@web/css/statistics.css', [
 
                 <!-- Pulsanti Azione -->
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                        <button id="apply-filters" type="button" class="stats-button inline-flex justify-center items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus-ring">
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button id="apply-filters" type="button" class="filter-action-btn primary">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z"></path>
                             </svg>
-                            Applica Filtri e Aggiorna Grafici
+                            Applica Filtri
                         </button>
-                        <button id="reset-filters" type="button" class="stats-button inline-flex justify-center items-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus-ring">
+                        <button id="refresh-all" type="button" class="filter-action-btn success">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Aggiorna Tutto
+                        </button>
+                        <button id="reset-filters" type="button" class="filter-action-btn secondary">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
-                            Reset Filtri
+                            Azzera Tutto
                         </button>
-                        <button id="export-data" type="button" class="stats-button inline-flex justify-center items-center px-6 py-3 border border-purple-300 dark:border-purple-600 text-sm font-medium rounded-lg text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900 hover:bg-purple-100 dark:hover:bg-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus-ring">
+                        <button id="export-data" type="button" class="filter-action-btn export">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
@@ -245,6 +257,15 @@ $this->registerCssFile('@web/css/statistics.css', [
                     <div>
                         <h3 class="stats-title text-lg font-medium text-gray-900 dark:text-white">Demografia Pazienti</h3>
                         <p class="stats-subtitle text-sm text-gray-500 dark:text-gray-400">Distribuzione per età e genere</p>
+                        <!-- Pulsanti di scelta tipo distribuzione -->
+                        <div class="mt-2 flex gap-2">
+                            <button id="demo-gender-btn" type="button" data-demo-type="gender" class="demo-type-btn active text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 transition-colors">
+                                Genere
+                            </button>
+                            <button id="demo-age-btn" type="button" data-demo-type="age" class="demo-type-btn text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 transition-colors">
+                                Età
+                            </button>
+                        </div>
                     </div>
                     <button id="load-demographics" type="button" class="btn-demographics stats-button inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus-ring">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -591,9 +612,49 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export dati
     buttons.exportData.addEventListener('click', function() {
         const filters = getFilters();
-        showNotification('Funzione di export in sviluppo', 'warning');
-        // TODO: Implementare export CSV/Excel
+        
+        // Crea un oggetto con tutti i dati dei grafici
+        const exportData = {
+            filters: filters,
+            timestamp: new Date().toISOString(),
+            charts: {}
+        };
+        
+        // Raccoglie i dati dai grafici esistenti
+        Object.keys(charts).forEach(chartType => {
+            if (charts[chartType] && charts[chartType].data) {
+                exportData.charts[chartType] = {
+                    labels: charts[chartType].data.labels,
+                    data: charts[chartType].data.datasets[0].data
+                };
+            }
+        });
+        
+        // Crea e scarica il file JSON
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `statistiche_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showNotification('Dati esportati con successo!', 'success');
     });
+
+    // Aggiunta gestione pulsante refresh-all se non esiste già
+    if (!buttons.refreshAll) {
+        const refreshAllBtn = document.getElementById('refresh-all');
+        if (refreshAllBtn) {
+            refreshAllBtn.addEventListener('click', function() {
+                loadAllCharts();
+                showNotification('Aggiornamento di tutti i grafici in corso...', 'info');
+            });
+        }
+    }
 
     // Caricatori individuali
     buttons.loadAbsences.addEventListener('click', () => loadChart('absences'));
@@ -601,9 +662,34 @@ document.addEventListener('DOMContentLoaded', function() {
     buttons.loadTreatments.addEventListener('click', () => loadChart('treatments'));
     buttons.loadRegimes.addEventListener('click', () => loadChart('regimes'));
 
+    // Pulsanti di selezione tipo demografico
+    let selectedDemoType = 'gender'; // Default
+
+    document.querySelectorAll('.demo-type-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Rimuovi classe active da tutti
+            document.querySelectorAll('.demo-type-btn').forEach(b => b.classList.remove('active'));
+            
+            // Aggiungi classe active al corrente
+            this.classList.add('active');
+            
+            // Aggiorna il tipo selezionato
+            selectedDemoType = this.getAttribute('data-demo-type');
+            
+            // Notifica del cambio
+            const typeLabel = selectedDemoType === 'gender' ? 'Genere' : 'Fasce d\'Età';
+            showNotification(`Visualizzazione cambiata: Distribuzione per ${typeLabel}`, 'info');
+            
+            // Ricarica automaticamente il grafico se già caricato
+            if (charts.demographics) {
+                loadChart('demographics');
+            }
+        });
+    });
+
     // Funzione per raccogliere filtri
     function getFilters() {
-        return {
+        const baseFilters = {
             date_from: filters.dateFrom.value || null,
             date_to: filters.dateTo.value || null,
             age_from: filters.ageFrom.value || null,
@@ -611,6 +697,20 @@ document.addEventListener('DOMContentLoaded', function() {
             gender: filters.gender.value || null,
             treatments: filters.treatments.length > 0 ? filters.treatments : null
         };
+        
+        // Rimuovi i valori null per evitare di inviarli come stringa 'null'
+        Object.keys(baseFilters).forEach(key => {
+            if (baseFilters[key] === null || baseFilters[key] === '' || baseFilters[key] === 'null') {
+                delete baseFilters[key];
+            }
+        });
+        
+        // Aggiungi il tipo demografico se disponibile
+        if (typeof selectedDemoType !== 'undefined') {
+            baseFilters.type = selectedDemoType;
+        }
+        
+        return baseFilters;
     }
 
     // Funzione per mostrare loading
@@ -830,14 +930,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     labels: data.labels || ['Maschi', 'Femmine'],
                     datasets: [{
                         data: data.values || [0, 0],
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(236, 72, 153, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(236, 72, 153, 1)'
-                        ],
+                        backgroundColor: generateColors(data.labels ? data.labels.length : 2, 0.8),
+                        borderColor: generateColors(data.labels ? data.labels.length : 2, 1),
                         borderWidth: 3,
                         hoverBorderWidth: 5
                     }]
@@ -848,7 +942,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Distribuzione per Genere',
+                            text: getDemographicsTitle(),
                             font: { size: 16, weight: 'bold' }
                         },
                         legend: {
@@ -951,8 +1045,79 @@ document.addEventListener('DOMContentLoaded', function() {
         showNotification(`Grafico ${type} caricato con successo`, 'success');
     }
 
+    // Funzione per generare colori unici per i grafici
+    function generateColors(count, opacity) {
+        // Palette di colori predefiniti per una migliore leggibilità
+        const predefinedColors = [
+            [59, 130, 246],    // Blu
+            [236, 72, 153],    // Rosa
+            [34, 197, 94],     // Verde
+            [245, 158, 11],    // Arancione
+            [147, 51, 234],    // Viola
+            [239, 68, 68],     // Rosso
+            [6, 182, 212],     // Teal
+            [251, 191, 36],    // Giallo
+            [107, 114, 128],   // Grigio
+            [16, 185, 129]     // Verde smeraldo
+        ];
+        
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+            if (i < predefinedColors.length) {
+                // Usa colori predefiniti
+                const [r, g, b] = predefinedColors[i];
+                colors.push(`rgba(${r}, ${g}, ${b}, ${opacity})`);
+            } else {
+                // Genera colori aggiuntivi se necessario
+                const hue = (i * 137.5) % 360;
+                colors.push(`hsla(${hue}, 70%, 60%, ${opacity})`);
+            }
+        }
+        return colors;
+    }
+
+    // Funzione per ottenere il titolo dinamico per la demografia
+    function getDemographicsTitle() {
+        if (selectedDemoType === 'gender') {
+            return 'Distribuzione per Genere';
+        } else { // age
+            return 'Distribuzione per Fasce d\'Età';
+        }
+    }
+
     // Inizializzazione
     function initializeDashboard() {
+        // Inizializza datepicker
+        flatpickr("#date-from", {
+            dateFormat: "Y-m-d",
+            locale: "it",
+            maxDate: "today",
+            allowInput: true,
+            clickOpens: true,
+            onChange: function(selectedDates, dateStr, instance) {
+                // Aggiorna automaticamente il limite minimo del datepicker "A"
+                const dateTo = document.querySelector("#date-to")._flatpickr;
+                if (dateTo && dateStr) {
+                    dateTo.set('minDate', dateStr);
+                }
+            }
+        });
+        
+        flatpickr("#date-to", {
+            dateFormat: "Y-m-d", 
+            locale: "it",
+            maxDate: "today",
+            allowInput: true,
+            clickOpens: true,
+            onChange: function(selectedDates, dateStr, instance) {
+                // Aggiorna automaticamente il limite massimo del datepicker "Da"
+                const dateFrom = document.querySelector("#date-from")._flatpickr;
+                if (dateFrom && dateStr) {
+                    dateFrom.set('maxDate', dateStr);
+                }
+            }
+        });
+        
         // Imposta periodo predefinito (ultimo trimestre)
         setQuickPeriod('quarter');
         

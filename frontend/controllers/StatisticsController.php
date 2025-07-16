@@ -129,6 +129,13 @@ class StatisticsController extends BaseController
         $ageFrom = Yii::$app->request->get('age_from');
         $ageTo = Yii::$app->request->get('age_to');
         $treatments = Yii::$app->request->get('treatments', []);
+        $type = Yii::$app->request->get('type', 'gender'); // 'gender' o 'age'
+        
+        // Pulisci i parametri per evitare stringhe 'null'
+        if ($gender === 'null' || $gender === '') $gender = null;
+        if ($ageFrom === 'null' || $ageFrom === '') $ageFrom = null;
+        if ($ageTo === 'null' || $ageTo === '') $ageTo = null;
+        if ($treatments === 'null' || empty($treatments)) $treatments = [];
         
         try {
             $query = (new Query())
@@ -156,21 +163,106 @@ class StatisticsController extends BaseController
                 $query->andWhere(['in', 'sp.id', $subQuery]);
             }
 
-            // Distribuzione per genere
-            $genderStats = (clone $query)
-                ->select([
-                    'sp.gender',
-                    'COUNT(*) as count'
-                ])
-                ->groupBy('sp.gender')
-                ->all();
-
             $labels = [];
             $values = [];
             
-            foreach ($genderStats as $stat) {
-                $labels[] = $stat['gender'] === 'M' ? 'Maschi' : 'Femmine';
-                $values[] = (int)$stat['count'];
+            if ($type === 'age') {
+                // Distribuzione per fasce d'età - approccio semplificato
+                $allPatients = (clone $query)->all();
+                
+                // Definisci le fasce d'età e inizializza i contatori
+                $ageGroups = [
+                    'Under 18' => 0,
+                    '18-25' => 0,
+                    '26-35' => 0,
+                    '36-45' => 0,
+                    '46-55' => 0,
+                    '56-65' => 0,
+                    'Over 65' => 0
+                ];
+                
+                // Conta i pazienti unici per fascia d'età
+                $seenPatients = [];
+                foreach ($allPatients as $patient) {
+                    // Evita duplicati
+                    if (isset($seenPatients[$patient['id']])) {
+                        continue;
+                    }
+                    $seenPatients[$patient['id']] = true;
+                    
+                    $age = $patient['age'];
+                    if ($age < 18) {
+                        $ageGroups['Under 18']++;
+                    } elseif ($age >= 18 && $age <= 25) {
+                        $ageGroups['18-25']++;
+                    } elseif ($age >= 26 && $age <= 35) {
+                        $ageGroups['26-35']++;
+                    } elseif ($age >= 36 && $age <= 45) {
+                        $ageGroups['36-45']++;
+                    } elseif ($age >= 46 && $age <= 55) {
+                        $ageGroups['46-55']++;
+                    } elseif ($age >= 56 && $age <= 65) {
+                        $ageGroups['56-65']++;
+                    } else {
+                        $ageGroups['Over 65']++;
+                    }
+                }
+                
+                // Prepara i dati per il grafico
+                foreach ($ageGroups as $group => $count) {
+                    $labels[] = $group;
+                    $values[] = $count;
+                }
+            } else {
+                // Distribuzione per genere (default) - approccio semplificato
+                $allPatients = (clone $query)->all();
+                
+                $genderGroups = [
+                    'M' => 0,
+                    'F' => 0,
+                    'N' => 0
+                ];
+                
+                // Conta i pazienti unici per genere
+                $seenPatients = [];
+                foreach ($allPatients as $patient) {
+                    // Evita duplicati
+                    if (isset($seenPatients[$patient['id']])) {
+                        continue;
+                    }
+                    $seenPatients[$patient['id']] = true;
+                    
+                    $gender = $patient['gender'] ?? 'N';
+                    if (isset($genderGroups[$gender])) {
+                        $genderGroups[$gender]++;
+                    } else {
+                        $genderGroups['N']++;
+                    }
+                }
+                
+                // Prepara i dati per il grafico
+                foreach ($genderGroups as $gender => $count) {
+                    if ($count > 0) { // Mostra solo categorie con pazienti
+                        switch($gender) {
+                            case 'M':
+                                $labels[] = 'Maschi';
+                                break;
+                            case 'F':
+                                $labels[] = 'Femmine';
+                                break;
+                            default:
+                                $labels[] = 'Non Specificato';
+                                break;
+                        }
+                        $values[] = $count;
+                    }
+                }
+                
+                // Se non ci sono dati, mostra almeno un placeholder
+                if (empty($labels)) {
+                    $labels[] = 'Nessun Paziente';
+                    $values[] = 0;
+                }
             }
 
             return [
