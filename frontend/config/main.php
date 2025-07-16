@@ -52,6 +52,13 @@ return [
                 'calendar/<id_patient:\d+>' => 'calendar/index',
                 'calendar/therapist/<id_therapist:\d+>' => 'calendar/index',
                 
+                // Route per le statistiche
+                'statistics' => 'statistics/index',
+                'statistics/absences' => 'statistics/absence-stats',
+                'statistics/patients' => 'statistics/patient-stats',
+                'statistics/treatments' => 'statistics/treatment-stats',
+                'statistics/regimes' => 'statistics/regime-stats',
+                
                 // API routes
                 'api/therapist/<id:\d+>' => 'api/therapist/view',
                 'api/patient/<id:\d+>' => 'api/patient/view',

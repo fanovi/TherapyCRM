@@ -128,7 +128,37 @@ use yii\helpers\Url;
                     </li>
                     <!-- Menu Item Calendar -->
 
-              
+                    <!-- Menu Item Statistics -->
+                    <?php if (Yii::$app->user->can('view_statistics')): ?>
+                    <li>
+                        <a
+                            href="<?= Url::to(['statistics/index']) ?>"
+                            @click="selected = (selected === 'Statistics' ? '':'Statistics')"
+                            class="menu-item group"
+                            :class=" (selected === 'Statistics') && (page === 'statistics') ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Statistics') && (page === 'statistics') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M3 6C3 4.34315 4.34315 3 6 3H18C19.6569 3 21 4.34315 21 6V18C21 19.6569 19.6569 21 18 21H6C4.34315 21 3 19.6569 3 18V6ZM6 5C5.44772 5 5 5.44772 5 6V18C5 18.5523 5.44772 19 6 19H18C18.5523 19 19 18.5523 19 18V6C19 5.44772 18.5523 5 18 5H6ZM7 8C7 7.44772 7.44772 7 8 7C8.55228 7 9 7.44772 9 8V16C9 16.5523 8.55228 17 8 17C7.44772 17 7 16.5523 7 16V8ZM11 10C11 9.44772 11.4477 9 12 9C12.5523 9 13 9.44772 13 10V16C13 16.5523 12.5523 17 12 17C11.4477 17 11 16.5523 11 16V10ZM15 12C15 11.4477 15.4477 11 16 11C16.5523 11 17 11.4477 17 12V16C17 16.5523 16.5523 17 16 17C15.4477 17 15 16.5523 15 16V12Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Statistiche
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Statistics -->
 
                     <!-- Menu Item Administrators -->
                     <?php if (Yii::$app->user->can('create_admin')): ?>

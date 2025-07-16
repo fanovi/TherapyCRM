@@ -1,0 +1,318 @@
+/* Statistiche Dashboard - Stili Personalizzati */
+
+/* Animazioni per i bottoni */
+.stats-button {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.stats-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.stats-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Stili per le cards */
+.stats-card {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+
+.stats-card:hover::before {
+    transform: translateX(100%);
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Indicatori di caricamento personalizzati */
+.loading-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: .5;
+    }
+}
+
+/* Stili per i grafici */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+.chart-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+}
+
+.dark .chart-overlay {
+    background: rgba(31, 41, 55, 0.9);
+}
+
+/* Bottoni colorati per categoria */
+.btn-absences {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-color: #2563eb;
+}
+
+.btn-absences:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    border-color: #1d4ed8;
+}
+
+.btn-demographics {
+    background: linear-gradient(135deg, #10b981, #047857);
+    border-color: #059669;
+}
+
+.btn-demographics:hover {
+    background: linear-gradient(135deg, #059669, #065f46);
+    border-color: #047857;
+}
+
+.btn-treatments {
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    border-color: #7c3aed;
+}
+
+.btn-treatments:hover {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    border-color: #6d28d9;
+}
+
+.btn-regimes {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-color: #f59e0b;
+}
+
+.btn-regimes:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    border-color: #d97706;
+}
+
+/* Badge per notifiche */
+.stats-badge {
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+        transform: translate3d(0,0,0);
+    }
+    40%, 43% {
+        transform: translate3d(0,-8px,0);
+    }
+    70% {
+        transform: translate3d(0,-4px,0);
+    }
+    90% {
+        transform: translate3d(0,-2px,0);
+    }
+}
+
+/* Animazioni per i filtri */
+.filter-container {
+    transition: all 0.4s ease;
+}
+
+.filter-container.collapsed {
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+
+.filter-container.expanded {
+    height: auto;
+    opacity: 1;
+}
+
+/* Effetti glassmorphism per le cards */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-card {
+    background: rgba(31, 41, 55, 0.2);
+    border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Scrollbar personalizzata */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+    transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #6b7280;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Responsive design migliorato */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 1rem;
+    }
+    
+    .chart-container {
+        height: 250px;
+    }
+    
+    .stats-button {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Tipografia migliorata */
+.stats-title {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+}
+
+.stats-subtitle {
+    font-weight: 500;
+    opacity: 0.8;
+    line-height: 1.4;
+}
+
+/* Stati di errore */
+.error-state {
+    color: #ef4444;
+    background-color: #fef2f2;
+    border-color: #fecaca;
+}
+
+.dark .error-state {
+    color: #f87171;
+    background-color: #450a0a;
+    border-color: #7f1d1d;
+}
+
+/* Stati di successo */
+.success-state {
+    color: #10b981;
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.dark .success-state {
+    color: #34d399;
+    background-color: #022c22;
+    border-color: #166534;
+}
+
+/* Tooltip personalizzati */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+    z-index: 1000;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+    bottom: 110%;
+}
+
+/* Transizioni fluide per il tema scuro */
+* {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Grid layout migliorato */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Focus states migliorati */
+.focus-ring:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.dark .focus-ring:focus {
+    outline-color: #60a5fa;
+} 
