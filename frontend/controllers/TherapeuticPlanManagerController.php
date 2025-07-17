@@ -1157,9 +1157,14 @@ class TherapeuticPlanManagerController extends Controller
             }
         }
 
-        // Verifica conflitti tipologia trattamento SOLO se il plan_therapy_id è cambiato
-        if ($newPlanTherapyId != $appointment->plan_therapy_id) {
-            Yii::info("Plan therapy cambiato da {$appointment->plan_therapy_id} a {$newPlanTherapyId}, controllo duplicati", __METHOD__);
+        // Verifica conflitti tipologia trattamento se cambia la data O il plan_therapy_id
+        if ($data['appointmentDateTime'] != $appointment->appointment_datetime || 
+            $newPlanTherapyId != $appointment->plan_therapy_id) {
+            
+            Yii::info("Controllo conflitto tipologia trattamento - Data cambiata: " . 
+                     ($data['appointmentDateTime'] != $appointment->appointment_datetime ? 'SI' : 'NO') . 
+                     ", Plan therapy cambiato: " . 
+                     ($newPlanTherapyId != $appointment->plan_therapy_id ? 'SI' : 'NO'), __METHOD__);
             
             $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
                 $newPlanTherapyId,
