@@ -84,7 +84,7 @@ class TherapeuticPlanManagerController extends Controller
             $therapist = $this->findTherapist($data['therapistId']);
 
             // Verifica date
-            $this->validateDates($data['validFrom'], $data['validTo'], $planTherapy->therapeuticPlan);
+            $this->validateDates($data['validFrom'], $data['validTo'], planTherapy->therapeuticPlan);
 
             // Inizia transazione
             $transaction = Yii::$app->db->beginTransaction();
@@ -220,7 +220,14 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica entità correlate
             $patient = $this->findPatient($data['patientId']);
             $therapist = $this->findTherapist($data['therapistId']);
-            $treatmentType = $this->findTreatmentType($data['treatmentTypeId']);
+            
+            // Se treatmentTypeId non è fornito o è 0, lo ricavo dalla specializzazione del terapista
+            if (!isset($data['treatmentTypeId']) || $data['treatmentTypeId'] == 0) {
+                $treatmentType = $this->getTreatmentTypeFromTherapist($therapist);
+                Yii::info("TreatmentType ricavato dalla specializzazione terapista: ID {$treatmentType->id}, Nome '{$treatmentType->name}'", __METHOD__);
+            } else {
+                $treatmentType = $this->findTreatmentType($data['treatmentTypeId']);
+            }
 
             // Verifica conflitti terapista
             $conflict = $this->checkTherapistConflict(
@@ -255,7 +262,7 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica conflitti tipologia trattamento per appuntamenti privati
             $treatmentConflict = $this->checkSameTreatmentTypeConflict(
                 $data['patientId'],
-                $data['treatmentTypeId'],
+                $treatmentType->id,
                 $data['appointmentDateTime']
             );
 
@@ -266,6 +273,9 @@ class TherapeuticPlanManagerController extends Controller
                     'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
                 ];
             }
+
+            // Aggiungi il treatmentTypeId ai dati per createPrivateSingleAppointment
+            $data['treatmentTypeId'] = $treatmentType->id;
 
             // Crea appuntamento privato
             $appointment = $this->createPrivateSingleAppointment($data);
@@ -303,7 +313,7 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica entità correlate
             $patient = $this->findPatient($data['patientId']);
             $therapist = $this->findTherapist($data['therapistId']);
-            $treatmentType = $this->findTreatmentType($data['treatmentTypeId']);
+            $treatmentType = $this->findTreatmentType($data['treatmentTypeId'], $data['therapistId']);
 
             // Inizia transazione
             $transaction = Yii::$app->db->beginTransaction();
@@ -355,17 +365,76 @@ class TherapeuticPlanManagerController extends Controller
      * Trova e valida TreatmentType
      * 
      * @param int $id
+     * @param int $therapistId Opzionale: se $id è 0, usa la specializzazione del terapista
      * @return TreatmentType
      * @throws NotFoundHttpException
      */
-    private function findTreatmentType($id)
+    private function findTreatmentType($id, $therapistId = null)
     {
+        // Se l'ID è 0 e abbiamo un terapista, trova il TreatmentType dalla sua specializzazione
+        if ($id === 0 && $therapistId) {
+            Yii::info("TreatmentType ID = 0, cerco dalla specializzazione del terapista {$therapistId}", __METHOD__);
+            
+            // Trova il terapista con la sua specializzazione
+            $therapist = Therapist::find()
+                ->with(['specialization'])
+                ->where(['id' => $therapistId])
+                ->one();
+                
+            if (!$therapist || !$therapist->specialization) {
+                throw new NotFoundHttpException('Terapista o specializzazione non trovata');
+            }
+            
+            // Trova il primo TreatmentType associato alla specializzazione del terapista
+            $treatmentType = TreatmentType::find()
+                ->innerJoin('specialization_treatments st', 'st.treatment_type_id = treatment_types.id')
+                ->where(['st.specialization_id' => $therapist->specialization_id])
+                ->one();
+                
+            if (!$treatmentType) {
+                throw new NotFoundHttpException("Nessun tipo di trattamento trovato per la specializzazione '{$therapist->specialization->name}'");
+            }
+            
+            Yii::info("TreatmentType trovato dalla specializzazione: ID {$treatmentType->id}, Nome '{$treatmentType->name}'", __METHOD__);
+            return $treatmentType;
+        }
+        
+        // Comportamento normale: cerca per ID
         $treatmentType = TreatmentType::findOne($id);
 
         if (!$treatmentType) {
             throw new NotFoundHttpException('Tipo trattamento non trovato');
         }
 
+        return $treatmentType;
+    }
+
+    /**
+     * Ottiene il TreatmentType dalla specializzazione del terapista
+     * 
+     * @param Therapist $therapist
+     * @return TreatmentType
+     * @throws NotFoundHttpException
+     */
+    private function getTreatmentTypeFromTherapist($therapist)
+    {
+        if (!$therapist->specialization_id) {
+            throw new NotFoundHttpException('Terapista senza specializzazione');
+        }
+        
+        // Trova il primo TreatmentType associato alla specializzazione del terapista
+        $treatmentType = TreatmentType::find()
+            ->innerJoin('specialization_treatments st', 'st.treatment_type_id = treatment_types.id')
+            ->where(['st.specialization_id' => $therapist->specialization_id])
+            ->one();
+            
+        if (!$treatmentType) {
+            // Carica la specializzazione per il messaggio di errore
+            $specialization = \common\models\Specialization::findOne($therapist->specialization_id);
+            $specializationName = $specialization ? $specialization->name : "ID {$therapist->specialization_id}";
+            throw new NotFoundHttpException("Nessun tipo di trattamento trovato per la specializzazione '{$specializationName}'");
+        }
+        
         return $treatmentType;
     }
 
@@ -1342,7 +1411,8 @@ class TherapeuticPlanManagerController extends Controller
      */
     private function validatePrivateAppointmentFields($data)
     {
-        $requiredFields = ['patientId', 'therapistId', 'treatmentTypeId', 'appointmentDateTime', 'durationMinutes'];
+        // treatmentTypeId è opzionale, verrà derivato dal terapista se mancante
+        $requiredFields = ['patientId', 'therapistId', 'appointmentDateTime', 'durationMinutes'];
         
         foreach ($requiredFields as $field) {
             if (!isset($data[$field]) || $data[$field] === '') {
@@ -1398,7 +1468,7 @@ class TherapeuticPlanManagerController extends Controller
         
         // Verifica se il tipo trattamento esiste
         if ($newTreatmentTypeId != $appointment->treatment_type_id) {
-            $treatmentType = $this->findTreatmentType($newTreatmentTypeId);
+            $treatmentType = $this->findTreatmentType($newTreatmentTypeId, $data['therapistId'] ?? $appointment->therapist_id);
         }
 
         // Verifica conflitti se cambiano data/ora/terapista
@@ -2867,6 +2937,58 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
 
         } catch (Exception $e) {
             Yii::error("Errore nella sostituzione terapista: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Ottiene la lista di tutti i pazienti
+     * 
+     * @return array
+     */
+    public function actionGetPatients()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $patients = Patient::find()
+                ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])
+                ->all();
+
+            $result = [];
+            foreach ($patients as $patient) {
+                // Ottieni l'email dal primo utente collegato (se presente)
+                $email = null;
+                $linkedUsers = $patient->linkedUsers;
+                if (!empty($linkedUsers)) {
+                    $email = $linkedUsers[0]->email;
+                }
+
+                // Verifica se ha piani terapeutici attivi
+                $hasActiveTherapeuticPlans = TherapeuticPlan::find()
+                    ->where(['patient_id' => $patient->id])
+                    ->andWhere(['<=', 'start_date', date('Y-m-d')])
+                    ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                    ->exists();
+
+                $result[] = [
+                    'id' => $patient->id,
+                    'name' => $patient->getFullName(),
+                    'birthDate' => $patient->birth_date,
+                    'fiscalCode' => $patient->fiscal_code,
+                    'email' => $email,
+                    'hasActiveTherapeuticPlans' => $hasActiveTherapeuticPlans,
+                    'canCreatePrivateAppointments' => true // Sempre true
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore recupero pazienti: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }

@@ -174,8 +174,8 @@ export interface TreatmentType {
 }
 
 export interface PrivateAppointmentData {
-  treatmentTypeId: number;
-  treatmentTypeName: string;
+  treatmentTypeId?: number; // Opzionale nella vista terapista
+  treatmentTypeName?: string; // Opzionale nella vista terapista
   duration: number;
   notes?: string;
   isRecurring?: boolean;

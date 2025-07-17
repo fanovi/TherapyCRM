@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 
 interface PrivateAppointmentModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ interface PrivateAppointmentModalProps {
   selectedTherapist: Therapist | null;
   patient: Patient | null;
   treatmentType: TreatmentType | null;
+  isTherapistView?: boolean; // Nuova prop per distinguere la vista
 }
 
 export const PrivateAppointmentModal: React.FC<
@@ -39,6 +41,7 @@ export const PrivateAppointmentModal: React.FC<
   selectedTherapist,
   patient,
   treatmentType,
+  isTherapistView = false,
 }) => {
   const [formData, setFormData] = useState<{
     duration: number;
@@ -51,25 +54,103 @@ export const PrivateAppointmentModal: React.FC<
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingTreatmentType, setLoadingTreatmentType] = useState(false);
+  const [effectiveTreatmentType, setEffectiveTreatmentType] =
+    useState<TreatmentType | null>(null);
+
+  // Effetto per gestire il treatmentType
+  useEffect(() => {
+    if (isTherapistView) {
+      // Nella vista terapista, non serve caricare il treatmentType dal frontend
+      // Il backend lo ricaverà automaticamente dalla specializzazione del terapista
+      setEffectiveTreatmentType({
+        id: 0, // Placeholder, il backend ignorerà questo valore
+        name: selectedTherapist?.specialization || "Trattamento automatico",
+        description: `Trattamento basato sulla specializzazione del terapista`,
+      });
+    } else if (treatmentType) {
+      // Vista normale: usa il treatmentType fornito
+      setEffectiveTreatmentType(treatmentType);
+    } else {
+      // Vista normale senza treatmentType: carica automaticamente
+      const loadTreatmentType = async () => {
+        if (!selectedTherapist || !isOpen) return;
+
+        setLoadingTreatmentType(true);
+        try {
+          console.log(
+            "🔍 Caricamento treatmentType per terapista:",
+            selectedTherapist.specialization
+          );
+
+          const treatmentTypes = await therapyAPI.getTreatmentTypes();
+          const matchingTreatmentType = treatmentTypes.find(
+            (type) => type.name === selectedTherapist.specialization
+          );
+
+          if (matchingTreatmentType) {
+            console.log("✅ TreatmentType trovato:", matchingTreatmentType);
+            setEffectiveTreatmentType(matchingTreatmentType);
+          } else {
+            console.warn(
+              "⚠️ Nessun treatmentType trovato per specializzazione:",
+              selectedTherapist.specialization
+            );
+            setEffectiveTreatmentType({
+              id: 0,
+              name: selectedTherapist.specialization,
+              description: `Trattamento di ${selectedTherapist.specialization}`,
+            });
+          }
+        } catch (error) {
+          console.error("❌ Errore caricamento treatmentType:", error);
+          setEffectiveTreatmentType({
+            id: 0,
+            name: selectedTherapist.specialization,
+            description: `Trattamento di ${selectedTherapist.specialization}`,
+          });
+        } finally {
+          setLoadingTreatmentType(false);
+        }
+      };
+
+      loadTreatmentType();
+    }
+  }, [isOpen, treatmentType, selectedTherapist, isTherapistView]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedTherapist || !patient || !treatmentType) {
-      console.error("❌ Dati mancanti per l'appuntamento privato");
+    if (
+      !selectedTherapist ||
+      !patient ||
+      (!isTherapistView && !effectiveTreatmentType)
+    ) {
+      console.error("❌ Dati mancanti per l'appuntamento privato", {
+        selectedTherapist: !!selectedTherapist,
+        patient: !!patient,
+        effectiveTreatmentType: !!effectiveTreatmentType,
+        isTherapistView,
+      });
       return;
     }
 
     setLoading(true);
 
     try {
-      onConfirm({
-        treatmentTypeId: treatmentType.id,
-        treatmentTypeName: treatmentType.name,
+      const appointmentData: PrivateAppointmentData = {
         duration: formData.duration,
         notes: formData.notes,
         isRecurring: formData.isRecurring,
-      });
+      };
+
+      // Solo nella vista normale aggiungi treatmentTypeId
+      if (!isTherapistView && effectiveTreatmentType) {
+        appointmentData.treatmentTypeId = effectiveTreatmentType.id;
+        appointmentData.treatmentTypeName = effectiveTreatmentType.name;
+      }
+
+      onConfirm(appointmentData);
 
       // Reset form
       setFormData({
@@ -98,6 +179,25 @@ export const PrivateAppointmentModal: React.FC<
   };
 
   if (!isOpen) return null;
+
+  // Mostra loading se sta caricando il treatmentType
+  if (loadingTreatmentType) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Nuovo Appuntamento Privato</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-gray-600">
+              Caricamento tipo di trattamento...
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -128,10 +228,10 @@ export const PrivateAppointmentModal: React.FC<
             </div>
           )}
 
-          {treatmentType && (
+          {effectiveTreatmentType && (
             <div className="p-3 bg-purple-50 rounded-lg">
               <p className="text-sm font-medium text-purple-900">
-                Tipo di trattamento: {treatmentType.name}
+                Tipo di trattamento: {effectiveTreatmentType.name}
               </p>
             </div>
           )}

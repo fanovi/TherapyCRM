@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
+import { PatientSelector } from "@/components/PatientSelector";
 import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
 import { PrivateAppointmentModal } from "@/components/PrivateAppointmentModal";
@@ -31,6 +32,7 @@ const Index = () => {
   const [selectedTreatmentType, setSelectedTreatmentType] =
     useState<TreatmentType | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null); // Nuovo state per paziente selezionato nella vista terapista
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrivateModalOpen, setIsPrivateModalOpen] = useState(false);
@@ -57,6 +59,11 @@ const Index = () => {
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [canCreateNormalAppointments, setCanCreateNormalAppointments] =
+    useState(true);
+  const [planTherapyCheckMessage, setPlanTherapyCheckMessage] = useState<
+    string | null
+  >(null);
 
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
@@ -64,9 +71,11 @@ const Index = () => {
     const year = date.getFullYear();
 
     try {
-      if (patient) {
+      // Carica appuntamenti del paziente (normale o selezionato nella vista terapista)
+      const currentPatient = isTherapistView ? selectedPatient : patient;
+      if (currentPatient) {
         const patientAppointments = await therapyAPI.getPatientAppointments(
-          patient.id,
+          currentPatient.id,
           month,
           year
         );
@@ -111,10 +120,13 @@ const Index = () => {
 
       const appointmentPromises: Promise<any[]>[] = [];
 
+      // Determina quale paziente usare
+      const currentPatient = isTherapistView ? selectedPatient : patient;
+
       for (const { month, year } of monthsToLoad) {
-        if (patient) {
+        if (currentPatient) {
           appointmentPromises.push(
-            therapyAPI.getPatientAppointments(patient.id, month, year)
+            therapyAPI.getPatientAppointments(currentPatient.id, month, year)
           );
         }
         if (selectedTherapist) {
@@ -135,7 +147,7 @@ const Index = () => {
 
       let resultIndex = 0;
       for (const { month, year } of monthsToLoad) {
-        if (patient) {
+        if (currentPatient) {
           patientResults = patientResults.concat(results[resultIndex]);
           resultIndex++;
         }
@@ -145,7 +157,7 @@ const Index = () => {
         }
       }
 
-      if (patient) {
+      if (currentPatient) {
         setAppointments(patientResults);
       }
       if (selectedTherapist) {
@@ -175,6 +187,30 @@ const Index = () => {
   // Gestisce il cambio del range di date visibile nel calendario
   const handleVisibleRangeChange = (start: Date, end: Date) => {
     setCurrentVisibleRange({ start, end });
+  };
+
+  // Verifica se il paziente e il terapista possono creare appuntamenti normali
+  const checkPlanTherapyCompatibility = async (
+    patient: Patient,
+    therapist: Therapist
+  ) => {
+    try {
+      await therapyAPI.getPlanTherapyForTherapist(patient.id, therapist.id);
+      setCanCreateNormalAppointments(true);
+      setPlanTherapyCheckMessage(null);
+      return true;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Errore nella verifica del piano terapeutico";
+      setCanCreateNormalAppointments(false);
+      setPlanTherapyCheckMessage(errorMessage);
+
+      // Se non può creare appuntamenti normali, forza la modalità privata
+      setIsPrivateMode(true);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -317,9 +353,80 @@ const Index = () => {
     loadTherapistAppointments();
   }, [selectedTherapist, isTherapistView]);
 
+  // Ricarica appuntamenti quando cambia il paziente selezionato nella vista terapista
+  useEffect(() => {
+    if (isTherapistView && selectedPatient) {
+      const now = new Date();
+      loadAppointmentsForMonth(now);
+    }
+  }, [selectedPatient, isTherapistView]);
+
+  // Effetto per impostare automaticamente il treatmentType nella vista terapista
+  useEffect(() => {
+    const setTreatmentTypeForTherapist = async () => {
+      if (isTherapistView && selectedTherapist && !selectedTreatmentType) {
+        try {
+          // Carica tutti i tipi di trattamento
+          const treatmentTypes = await therapyAPI.getTreatmentTypes();
+
+          // Trova il tipo di trattamento che corrisponde alla specializzazione del terapista
+          const matchingTreatmentType = treatmentTypes.find(
+            (type) => type.name === selectedTherapist.specialization
+          );
+
+          if (matchingTreatmentType) {
+            setSelectedTreatmentType(matchingTreatmentType);
+            console.log(
+              "🎯 Impostato automaticamente treatmentType per terapista:",
+              matchingTreatmentType
+            );
+          }
+        } catch (error) {
+          console.error("Errore nel caricamento tipi di trattamento:", error);
+        }
+      }
+    };
+
+    setTreatmentTypeForTherapist();
+  }, [isTherapistView, selectedTherapist, selectedTreatmentType]);
+
+  // Verifica compatibilità piano terapeutico quando cambiano paziente e terapista
+  useEffect(() => {
+    const checkCompatibility = async () => {
+      const currentPatient = isTherapistView ? selectedPatient : patient;
+
+      if (currentPatient && selectedTherapist) {
+        await checkPlanTherapyCompatibility(currentPatient, selectedTherapist);
+      } else {
+        // Reset quando non ci sono entrambi selezionati
+        setCanCreateNormalAppointments(true);
+        setPlanTherapyCheckMessage(null);
+        setIsPrivateMode(false);
+      }
+    };
+
+    checkCompatibility();
+  }, [selectedPatient, patient, selectedTherapist, isTherapistView]);
+
   const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
-      return appointments;
+      // Vista terapista: mostra sempre gli appuntamenti del terapista
+      // Se c'è un paziente selezionato, combina con i suoi appuntamenti
+      const combined = [...therapistAppointments];
+
+      if (selectedPatient) {
+        // Aggiungi gli appuntamenti del paziente selezionato che non sono duplicati
+        appointments.forEach((patientApt) => {
+          const isDuplicate = therapistAppointments.some(
+            (therapistApt) => therapistApt.id === patientApt.id
+          );
+          if (!isDuplicate) {
+            combined.push(patientApt);
+          }
+        });
+      }
+
+      return combined;
     } else {
       if (!selectedTherapist) {
         return appointments;
@@ -338,20 +445,22 @@ const Index = () => {
 
       return combined;
     }
-  }, [appointments, therapistAppointments, isTherapistView, selectedTherapist]);
+  }, [
+    appointments,
+    therapistAppointments,
+    isTherapistView,
+    selectedTherapist,
+    selectedPatient,
+  ]);
 
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
 
     try {
-      if (!patient && isTherapistView) {
-        console.warn(
-          "Creazione appuntamento in modalità terapista non ancora implementata"
-        );
-        return;
-      }
+      // Determina quale paziente usare in base alla vista
+      const currentPatient = isTherapistView ? selectedPatient : patient;
 
-      if (!patient) {
+      if (!currentPatient) {
         throw new Error("Dati paziente mancanti");
       }
 
@@ -488,9 +597,16 @@ const Index = () => {
   const handlePrivateAppointmentCreate = async (
     appointmentData: PrivateAppointmentData
   ) => {
-    if (!selectedTherapist || !selectedSlot || !patient) return;
+    if (!selectedTherapist || !selectedSlot) return;
 
     try {
+      // Determina quale paziente usare in base alla vista
+      const currentPatient = isTherapistView ? selectedPatient : patient;
+
+      if (!currentPatient) {
+        throw new Error("Dati paziente mancanti");
+      }
+
       const appointmentDateTime =
         selectedSlot.date.toISOString().split("T")[0] +
         " " +
@@ -501,7 +617,7 @@ const Index = () => {
         // Crea ciclo privato ricorrente
         const dayOfWeek = selectedSlot.date.getDay() || 7;
         const request = {
-          patientId: patient.id,
+          patientId: currentPatient.id,
           therapistId: selectedTherapist.id,
           treatmentTypeId: appointmentData.treatmentTypeId,
           dayOfWeek,
@@ -526,7 +642,7 @@ const Index = () => {
       } else {
         // Crea singolo appuntamento privato
         const request = {
-          patientId: patient.id,
+          patientId: currentPatient.id,
           therapistId: selectedTherapist.id,
           treatmentTypeId: appointmentData.treatmentTypeId,
           appointmentDateTime,
@@ -574,8 +690,19 @@ const Index = () => {
   const handleSlotClick = (date: Date, time: string) => {
     setSelectedSlot({ date, time });
 
+    // Nella vista terapista, dobbiamo prima verificare che sia selezionato un paziente
+    if (isTherapistView && !selectedPatient) {
+      showError(
+        "Paziente non selezionato",
+        "Seleziona prima un paziente per creare un appuntamento"
+      );
+      return;
+    }
+
     if (isPrivateMode) {
-      if (!selectedTreatmentType) {
+      // Nella vista terapista, il treatmentType è automaticamente quello del terapista
+      // Nella vista normale, deve essere selezionato dal TherapistSelector
+      if (!isTherapistView && !selectedTreatmentType) {
         showError(
           "Tipo di trattamento mancante",
           "Seleziona prima un tipo di trattamento per creare un appuntamento privato"
@@ -831,26 +958,48 @@ const Index = () => {
               ) : null}
             </div>
 
-            {/* Private Mode Toggle - Solo in modalità paziente */}
-            {!isTherapistView && patient && (
-              <div className="flex items-center space-x-3">
-                <Label
-                  htmlFor="private-mode"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  {isPrivateMode ? (
-                    <LockOpen className="h-4 w-4 text-purple-600" />
-                  ) : (
-                    <Lock className="h-4 w-4 text-gray-400" />
-                  )}
-                  <span className="text-sm font-medium">Modalità Privata</span>
-                </Label>
-                <Switch
-                  id="private-mode"
-                  checked={isPrivateMode}
-                  onCheckedChange={setIsPrivateMode}
-                  className="data-[state=checked]:bg-purple-600"
-                />
+            {/* Private Mode Toggle - Mostra quando c'è un paziente disponibile */}
+            {((isTherapistView && selectedPatient) ||
+              (!isTherapistView && patient)) && (
+              <div className="flex flex-col items-end space-y-2">
+                <div className="flex items-center space-x-3">
+                  <Label
+                    htmlFor="private-mode"
+                    className={`flex items-center gap-2 ${
+                      canCreateNormalAppointments
+                        ? "cursor-pointer"
+                        : "cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    {isPrivateMode ? (
+                      <LockOpen className="h-4 w-4 text-purple-600" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className="text-sm font-medium">
+                      Modalità Privata
+                    </span>
+                  </Label>
+                  <Switch
+                    id="private-mode"
+                    checked={isPrivateMode}
+                    onCheckedChange={(checked) => {
+                      if (canCreateNormalAppointments || checked) {
+                        setIsPrivateMode(checked);
+                      }
+                    }}
+                    disabled={!canCreateNormalAppointments && !isPrivateMode}
+                    className="data-[state=checked]:bg-purple-600"
+                  />
+                </div>
+                {planTherapyCheckMessage && !canCreateNormalAppointments && (
+                  <div className="text-xs text-orange-600 max-w-sm text-right">
+                    <span className="font-medium">
+                      Solo appuntamenti privati:
+                    </span>{" "}
+                    {planTherapyCheckMessage}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -869,6 +1018,16 @@ const Index = () => {
           </div>
         )}
 
+        {/* Mostra il selettore paziente solo nella vista terapista */}
+        {isTherapistView && (
+          <div className="mb-8">
+            <PatientSelector
+              selectedPatient={selectedPatient}
+              onPatientSelect={setSelectedPatient}
+            />
+          </div>
+        )}
+
         <DualFullCalendarView
           key={refreshKey}
           selectedTherapist={selectedTherapist}
@@ -878,9 +1037,9 @@ const Index = () => {
           onAppointmentMove={handleAppointmentMove}
           viewType={viewType}
           onViewTypeChange={setViewType}
-          hidePatientCalendar={isTherapistView}
+          hidePatientCalendar={isTherapistView && !selectedPatient}
           mode={isTherapistView ? "therapist" : "patient"}
-          currentPatientId={patient?.id}
+          currentPatientId={isTherapistView ? selectedPatient?.id : patient?.id}
           onDateChange={handleDateChange}
           onVisibleRangeChange={handleVisibleRangeChange}
           isPrivateMode={isPrivateMode}
@@ -895,7 +1054,7 @@ const Index = () => {
           onConfirm={handleAppointmentCreate}
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
-          patient={patient}
+          patient={isTherapistView ? selectedPatient : patient}
         />
 
         <PrivateAppointmentModal
@@ -907,7 +1066,7 @@ const Index = () => {
           onConfirm={handlePrivateAppointmentCreate}
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
-          patient={patient}
+          patient={isTherapistView ? selectedPatient : patient}
           treatmentType={selectedTreatmentType}
         />
 

@@ -178,6 +178,19 @@ class TherapeuticPlanManagerAPI {
   // === GESTIONE PAZIENTI ===
 
   /**
+   * Ottiene la lista di tutti i pazienti
+   */
+  async getPatients(): Promise<Patient[]> {
+    const response = await this.get<APIResponse<Patient[]>>("get-patients");
+
+    if (!response.success) {
+      throw new Error(response.error || "Errore nel caricamento pazienti");
+    }
+
+    return response.data || [];
+  }
+
+  /**
    * Ottiene i dati anagrafici di un paziente
    */
   async getPatient(patientId: number): Promise<Patient> {
