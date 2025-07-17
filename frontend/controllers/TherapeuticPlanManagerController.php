@@ -167,7 +167,7 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Verifica conflitti tipologia trattamento
-            $treatmentConflict = $this->checkSameTreatmentTypeConflict(
+            $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
                 $data['planTherapyId'], 
                 $data['appointmentDateTime']
             );
@@ -252,7 +252,7 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Verifica conflitti tipologia trattamento per appuntamenti privati
-            $treatmentConflict = $this->checkPrivateTreatmentTypeConflict(
+            $treatmentConflict = $this->checkSameTreatmentTypeConflict(
                 $data['patientId'],
                 $data['treatmentTypeId'],
                 $data['appointmentDateTime']
@@ -413,50 +413,6 @@ class TherapeuticPlanManagerController extends Controller
         return $appointment;
     }
 
-  /**
- * Controlla conflitti tipologia trattamento per appuntamenti privati
- * 
- * @param int $patientId
- * @param int $treatmentTypeId
- * @param string $appointmentDateTime
- * @param int $excludeAppointmentId
- * @return Appointment|null
- */
-private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
-{
-    $appointmentDate = new DateTime($appointmentDateTime);
-    $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
-    $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
-
-    // Cerca appuntamenti dello stesso tipo di trattamento nello stesso giorno
-    // sia privati che da piano terapeutico
-    $query = Appointment::find()
-        ->alias('a')
-        ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
-        ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
-        ->where(['or',
-            // Appuntamenti privati con lo stesso treatment_type_id
-            ['and',
-                ['a.appointment_source' => Appointment::SOURCE_PRIVATE],
-                ['a.treatment_type_id' => $treatmentTypeId],
-                ['a.patient_id' => $patientId]
-            ],
-            // Appuntamenti da piano terapeutico con lo stesso treatment_type_id
-            ['and',
-                ['a.appointment_source' => Appointment::SOURCE_THERAPEUTIC_PLAN],
-                ['pt.treatment_type_id' => $treatmentTypeId],
-                ['tp.patient_id' => $patientId]
-            ]
-        ])
-        ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
-
-    if ($excludeAppointmentId) {
-        $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
-    }
-
-    return $query->one();
-}
 
     
 
@@ -1205,7 +1161,7 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
         if ($newPlanTherapyId != $appointment->plan_therapy_id) {
             Yii::info("Plan therapy cambiato da {$appointment->plan_therapy_id} a {$newPlanTherapyId}, controllo duplicati", __METHOD__);
             
-            $treatmentConflict = $this->checkSameTreatmentTypeConflict(
+            $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
                 $newPlanTherapyId,
                 $data['appointmentDateTime'],
                 $appointment->id
@@ -1328,7 +1284,7 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
             }
 
             // Verifica conflitti tipologia trattamento
-            $treatmentConflict = $this->checkPrivateTreatmentTypeConflict(
+            $treatmentConflict = $this->checkSameTreatmentTypeConflict(
                 $data['patientId'],
                 $data['treatmentTypeId'],
                 $appointmentDateTime
@@ -1480,7 +1436,7 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
         if ($newTreatmentTypeId != $appointment->treatment_type_id || 
             $data['appointmentDateTime'] != $appointment->appointment_datetime) {
             
-            $treatmentConflict = $this->checkPrivateTreatmentTypeConflict(
+            $treatmentConflict = $this->checkSameTreatmentTypeConflict(
                 $appointment->patient_id,
                 $newTreatmentTypeId,
                 $data['appointmentDateTime'],
@@ -1633,7 +1589,7 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
                     }
 
                     // Verifica conflitti tipologia trattamento
-                    $treatmentConflict = $this->checkSameTreatmentTypeConflict(
+                    $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
                         $appointment->plan_therapy_id,
                         $newDateTime,
                         $appointment->id
@@ -2194,7 +2150,7 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
                 }
 
                 // Verifica conflitti tipologia trattamento
-                $treatmentConflict = $this->checkSameTreatmentTypeConflict($pattern->plan_therapy_id, $appointmentDateTime);
+                $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy($pattern->plan_therapy_id, $appointmentDateTime);
                 
                 if ($treatmentConflict) {
                     Yii::info("Conflitto tipologia trattamento rilevato per {$appointmentDateTime}", __METHOD__);
@@ -2345,24 +2301,16 @@ private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId,
 
   /**
  * Controlla se esiste già un appuntamento dello stesso tipo di trattamento nello stesso giorno
+ * Supporta sia appuntamenti da piano terapeutico che privati
  * 
- * @param int $planTherapyId
+ * @param int $patientId
+ * @param int $treatmentTypeId
  * @param string $appointmentDateTime
  * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
  * @return Appointment|null
  */
-private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDateTime, $excludeAppointmentId = null)
+private function checkSameTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
 {
-    // Ottieni il piano terapia per recuperare il treatment_type_id
-    $planTherapy = PlanTherapy::findOne($planTherapyId);
-    if (!$planTherapy) {
-        Yii::warning("PlanTherapy non trovato: {$planTherapyId}", __METHOD__);
-        return null;
-    }
-
-    $treatmentTypeId = $planTherapy->treatment_type_id;
-    $patientId = $planTherapy->therapeuticPlan->patient_id;
-
     $appointmentDate = new DateTime($appointmentDateTime);
     $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
     $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
@@ -2388,7 +2336,14 @@ private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDate
             ]
         ])
         ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
+        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd])
+        ->with([
+            'planTherapy.treatmentType', 
+            'planTherapy.therapeuticPlan.patient', 
+            'treatmentType', 
+            'patient', 
+            'therapist.user.profile'
+        ]);
 
     if ($excludeAppointmentId) {
         $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
@@ -2401,6 +2356,39 @@ private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDate
     }
 
     return $result;
+}
+
+/**
+ * Wrapper per checkSameTreatmentTypeConflict che accetta planTherapyId
+ * Mantiene compatibilità con codice esistente
+ * 
+ * @param int $planTherapyId
+ * @param string $appointmentDateTime
+ * @param int $excludeAppointmentId
+ * @return Appointment|null
+ */
+private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $appointmentDateTime, $excludeAppointmentId = null)
+{
+    // Ottieni il piano terapia per recuperare il treatment_type_id
+    $planTherapy = PlanTherapy::find()
+        ->where(['id' => $planTherapyId])
+        ->with(['therapeuticPlan'])
+        ->one();
+        
+    if (!$planTherapy) {
+        Yii::warning("PlanTherapy non trovato: {$planTherapyId}", __METHOD__);
+        return null;
+    }
+    
+    if (!$planTherapy->therapeuticPlan) {
+        Yii::warning("TherapeuticPlan non trovato per PlanTherapy: {$planTherapyId}", __METHOD__);
+        return null;
+    }
+
+    $treatmentTypeId = $planTherapy->treatment_type_id;
+    $patientId = $planTherapy->therapeuticPlan->patient_id;
+
+    return $this->checkSameTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId);
 }
 
     /**
@@ -2498,22 +2486,37 @@ private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDate
     private function formatTreatmentTypeConflictInfo($conflict, $date = null, $time = null)
     {
         $appointmentDate = new DateTime($conflict->appointment_datetime);
-        $treatmentType = $conflict->planTherapy->treatmentType;
-        $patient = $conflict->planTherapy->therapeuticPlan->patient;
+        
+        // Gestisci sia appuntamenti da piano terapeutico che privati
+        if ($conflict->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN && 
+            $conflict->planTherapy && 
+            $conflict->planTherapy->therapeuticPlan) {
+            $treatmentType = $conflict->planTherapy->treatmentType;
+            $patient = $conflict->planTherapy->therapeuticPlan->patient;
+            $planTherapyId = $conflict->plan_therapy_id;
+            $conflictType = 'same_plan_therapy';
+        } else {
+            // Gestisci appuntamenti privati o appuntamenti da piano con dati mancanti
+            $treatmentType = $conflict->treatmentType;
+            $patient = $conflict->patient;
+            $planTherapyId = null;
+            $conflictType = 'same_treatment_type_private';
+        }
         
         // Ottieni informazioni sul terapista per fornire più contesto
         $therapist = $conflict->therapist;
         $therapistInfo = $therapist ? $therapist->user->profile->getFullName() : 'Terapista non specificato';
 
         $conflictInfo = [
-            'type' => 'same_plan_therapy',
+            'type' => $conflictType,
             'existingAppointmentId' => $conflict->id,
-            'planTherapyId' => $conflict->plan_therapy_id,
+            'planTherapyId' => $planTherapyId,
             'treatmentType' => $treatmentType->name,
             'patientName' => $patient->getFullName(),
             'existingAppointmentDate' => $appointmentDate->format('Y-m-d'),
             'existingAppointmentTime' => $appointmentDate->format('H:i'),
             'existingTherapistName' => $therapistInfo,
+            'appointmentSource' => $conflict->appointment_source,
             'message' => "Esiste già un appuntamento di {$treatmentType->name} per {$patient->getFullName()} in data {$appointmentDate->format('d/m/Y')} alle ore {$appointmentDate->format('H:i')} con {$therapistInfo}"
         ];
 
