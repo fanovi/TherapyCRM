@@ -8,6 +8,7 @@ export interface Therapist {
   name: string;
   email: string;
   specialization: string;
+  specializationId?: number;
   weeklyHours?: number;
   color?: string;
 }
@@ -56,7 +57,15 @@ export interface Appointment {
   id: number;
   datetime: string; // formato ISO datetime dalla API
   duration: number; // duration_minutes dall'API
-  status: "scheduled" | "completed" | "cancelled" | "confirmed" | "pending";
+  status:
+    | "scheduled"
+    | "completed"
+    | "cancelled"
+    | "confirmed"
+    | "pending"
+    | "therapist_absent"
+    | "absent_justified"
+    | "absent_not_justified";
   notes?: string;
   // Per appointment di paziente
   treatmentType?: string;
@@ -172,16 +181,19 @@ export interface PrivateAppointmentData {
   isRecurring?: boolean;
 }
 
-export interface TreatmentType {
-  id: number;
-  name: string;
-  description?: string;
+export interface TherapistSubstitutionRequest {
+  appointmentId: number;
+  newTherapistId: number;
+  reason?: string;
 }
 
-export interface PrivateAppointmentData {
-  treatmentTypeId: number;
-  treatmentTypeName: string;
-  duration: number;
-  notes?: string;
-  isRecurring?: boolean;
+export interface TherapistSubstitutionResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    appointmentId: number;
+    originalTherapistId: number;
+    newTherapistId: number;
+    substitutionId: number;
+  };
 }

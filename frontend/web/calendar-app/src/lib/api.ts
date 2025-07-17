@@ -8,6 +8,8 @@ import {
   DeletePatternRequest,
   APIResponse,
   CreatePatternResponse,
+  TherapistSubstitutionRequest,
+  TherapistSubstitutionResponse,
 } from "@/types/therapy";
 
 /**
@@ -151,7 +153,7 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
-   * Ottiene la lista dei terapisti filtrati per specializzazione
+   * Ottiene la lista dei terapisti filtrati per specializzazione (per ID)
    */
   async getTherapistsBySpecialization(
     specializationId: number
@@ -388,6 +390,26 @@ class TherapeuticPlanManagerAPI {
         response.error || "Errore nella cancellazione dell'appuntamento"
       );
     }
+  }
+
+  /**
+   * Sostituisce il terapista di un appuntamento
+   */
+  async substituteTherapist(
+    request: TherapistSubstitutionRequest
+  ): Promise<TherapistSubstitutionResponse> {
+    const response = await this.post<TherapistSubstitutionResponse>(
+      "substitute-therapist",
+      request
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.message || "Errore nella sostituzione del terapista"
+      );
+    }
+
+    return response;
   }
 
   /**

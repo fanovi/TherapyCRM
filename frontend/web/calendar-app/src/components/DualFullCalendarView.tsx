@@ -80,8 +80,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         startTime.getTime() + appointment.duration * 60000
       );
 
-      // Determina se l'appuntamento è modificabile
+      // Determina se l'appuntamento è modificabile (solo scheduled può essere spostato)
       const isEditable = appointment.status === "scheduled";
+
+      // Determina se l'appuntamento permette click (scheduled o therapist_absent)
+      const isClickable =
+        appointment.status === "scheduled" ||
+        appointment.status === "therapist_absent";
 
       // Determina colore basato su status
       const getStatusColor = (status: string) => {
@@ -95,6 +100,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             return "#EF4444"; // Rosso
           case "completed":
             return "#6366F1"; // Blu
+          case "therapist_absent":
+            return "#8B5CF6"; // Viola per terapista assente
+          case "absent_justified":
+            return "#F97316"; // Arancione scuro per assenza giustificata
+          case "absent_not_justified":
+            return "#DC2626"; // Rosso scuro per assenza non giustificata
           default:
             return "#6B7280"; // Grigio
         }
@@ -121,6 +132,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           patient_id: appointment.patient?.id || null,
           therapist_id: appointment.therapist?.id || null,
           isEditable: isEditable,
+          isClickable: isClickable,
           appointmentSource: appointment.appointmentSource,
           isPrivate: appointment.isPrivate,
         },

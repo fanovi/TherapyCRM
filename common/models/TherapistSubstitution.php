@@ -10,32 +10,20 @@ use yii\behaviors\TimestampBehavior;
  * This is the model class for table "therapist_substitutions".
  *
  * @property int $id
+ * @property int $appointment_id
  * @property int $original_therapist_id
  * @property int $substitute_therapist_id
- * @property string $start_date
- * @property string $end_date
  * @property string|null $reason
- * @property string $status
- * @property int|null $approved_by
- * @property string|null $approved_at
- * @property string|null $notes
- * @property int $created_by
- * @property string $created_at
- * @property string $updated_at
+ * @property int $substituted_by
+ * @property string $substituted_at
  *
+ * @property Appointment $appointment
  * @property Therapist $originalTherapist
  * @property Therapist $substituteTherapist
- * @property User $approvedBy
- * @property User $createdBy
+ * @property User $substitutedBy
  */
 class TherapistSubstitution extends ActiveRecord
 {
-    const STATUS_PENDING = 'pending';
-    const STATUS_APPROVED = 'approved';
-    const STATUS_REJECTED = 'rejected';
-    const STATUS_ACTIVE = 'active';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_CANCELLED = 'cancelled';
 
     /**
      * {@inheritdoc}
@@ -52,14 +40,8 @@ class TherapistSubstitution extends ActiveRecord
     {
         return [
             [
-                'class' => TimestampBehavior::class,
-                'value' => function() {
-                    return date('Y-m-d H:i:s');
-                },
-            ],
-            [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
-                'excludedAttributes' => ['created_at', 'updated_at'],
+                'excludedAttributes' => ['substituted_at'],
                 'entityNameCallback' => function($model) {
                     return 'Sostituzione Terapista';
                 },
@@ -73,32 +55,16 @@ class TherapistSubstitution extends ActiveRecord
     public function rules()
     {
         return [
-            [['original_therapist_id', 'substitute_therapist_id', 'start_date', 'end_date', 'created_by'], 'required'],
-            [['original_therapist_id', 'substitute_therapist_id', 'approved_by', 'created_by'], 'integer'],
-            [['start_date', 'end_date'], 'date', 'format' => 'php:Y-m-d'],
-            [['approved_at'], 'datetime', 'format' => 'php:Y-m-d H:i:s'],
-            [['reason', 'notes'], 'string'],
-            [['status'], 'string', 'max' => 20],
-            [['status'], 'in', 'range' => [self::STATUS_PENDING, self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_ACTIVE, self::STATUS_COMPLETED, self::STATUS_CANCELLED]],
-            [['end_date'], 'validateEndDate'],
+            [['appointment_id', 'original_therapist_id', 'substitute_therapist_id', 'substituted_by'], 'required'],
+            [['appointment_id', 'original_therapist_id', 'substitute_therapist_id', 'substituted_by'], 'integer'],
+            [['substituted_at'], 'datetime', 'format' => 'php:Y-m-d H:i:s'],
+            [['reason'], 'string'],
             [['substitute_therapist_id'], 'validateDifferentTherapist'],
+            [['appointment_id'], 'exist', 'skipOnError' => true, 'targetClass' => Appointment::class, 'targetAttribute' => ['appointment_id' => 'id']],
             [['original_therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['original_therapist_id' => 'id']],
             [['substitute_therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['substitute_therapist_id' => 'id']],
-            [['approved_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['approved_by' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['substituted_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['substituted_by' => 'id']],
         ];
-    }
-
-    /**
-     * Validates end date
-     */
-    public function validateEndDate($attribute, $params)
-    {
-        if (!empty($this->$attribute) && !empty($this->start_date)) {
-            if ($this->$attribute < $this->start_date) {
-                $this->addError($attribute, 'La data di fine non può essere precedente alla data di inizio');
-            }
-        }
     }
 
     /**
@@ -120,19 +86,23 @@ class TherapistSubstitution extends ActiveRecord
     {
         return [
             'id' => 'ID',
+            'appointment_id' => 'Appuntamento',
             'original_therapist_id' => 'Terapista Originale',
             'substitute_therapist_id' => 'Terapista Sostituto',
-            'start_date' => 'Data Inizio',
-            'end_date' => 'Data Fine',
             'reason' => 'Motivo',
-            'status' => 'Stato',
-            'approved_by' => 'Approvato da',
-            'approved_at' => 'Approvato il',
-            'notes' => 'Note',
-            'created_by' => 'Creato da',
-            'created_at' => 'Creato il',
-            'updated_at' => 'Aggiornato il',
+            'substituted_by' => 'Sostituito da',
+            'substituted_at' => 'Sostituito il',
         ];
+    }
+
+    /**
+     * Gets query for [[Appointment]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAppointment()
+    {
+        return $this->hasOne(Appointment::class, ['id' => 'appointment_id']);
     }
 
     /**
@@ -156,105 +126,65 @@ class TherapistSubstitution extends ActiveRecord
     }
 
     /**
-     * Gets query for [[ApprovedBy]].
+     * Gets query for [[SubstitutedBy]].
      *
      * @return \yii\db\ActiveQuery
      */
-    public function getApprovedBy()
+    public function getSubstitutedBy()
     {
-        return $this->hasOne(User::class, ['id' => 'approved_by']);
+        return $this->hasOne(User::class, ['id' => 'substituted_by']);
     }
 
     /**
-     * Gets query for [[CreatedBy]].
+     * Creates a new substitution record
      *
-     * @return \yii\db\ActiveQuery
+     * @param int $appointmentId
+     * @param int $originalTherapistId
+     * @param int $substituteTherapistId
+     * @param string|null $reason
+     * @param int $substitutedBy
+     * @return static
      */
-    public function getCreatedBy()
+    public static function createSubstitution($appointmentId, $originalTherapistId, $substituteTherapistId, $reason = null, $substitutedBy = null)
     {
-        return $this->hasOne(User::class, ['id' => 'created_by']);
-    }
-
-    /**
-     * Gets status labels
-     *
-     * @return array
-     */
-    public static function getStatusLabels()
-    {
-        return [
-            self::STATUS_PENDING => 'In Attesa',
-            self::STATUS_APPROVED => 'Approvato',
-            self::STATUS_REJECTED => 'Rifiutato',
-            self::STATUS_ACTIVE => 'Attivo',
-            self::STATUS_COMPLETED => 'Completato',
-            self::STATUS_CANCELLED => 'Annullato',
-        ];
-    }
-
-    /**
-     * Gets status label
-     *
-     * @return string
-     */
-    public function getStatusLabel()
-    {
-        $labels = static::getStatusLabels();
-        return $labels[$this->status] ?? $this->status;
-    }
-
-    /**
-     * Gets duration in days
-     *
-     * @return int
-     */
-    public function getDurationDays()
-    {
-        if (!$this->start_date || !$this->end_date) {
-            return 0;
-        }
-
-        $start = new \DateTime($this->start_date);
-        $end = new \DateTime($this->end_date);
+        $substitution = new static();
+        $substitution->appointment_id = $appointmentId;
+        $substitution->original_therapist_id = $originalTherapistId;
+        $substitution->substitute_therapist_id = $substituteTherapistId;
+        $substitution->reason = $reason;
+        $substitution->substituted_by = $substitutedBy ?: Yii::$app->user->id;
+        $substitution->substituted_at = date('Y-m-d H:i:s');
         
-        return $end->diff($start)->days + 1;
+        return $substitution;
     }
 
     /**
-     * Checks if substitution is active
+     * Gets substitution for specific appointment
      *
-     * @return bool
+     * @param int $appointmentId
+     * @return static|null
      */
-    public function isActive()
+    public static function findByAppointment($appointmentId)
     {
-        return $this->status === self::STATUS_ACTIVE && 
-               $this->start_date <= date('Y-m-d') && 
-               $this->end_date >= date('Y-m-d');
+        return static::find()
+            ->where(['appointment_id' => $appointmentId])
+            ->one();
     }
 
     /**
-     * Approves substitution
+     * Gets all substitutions for a therapist
      *
-     * @param int $approvedBy
-     * @return bool
+     * @param int $therapistId
+     * @param bool $asOriginal If true, finds where therapist was original, if false where they were substitute
+     * @return static[]
      */
-    public function approve($approvedBy)
+    public static function findByTherapist($therapistId, $asOriginal = true)
     {
-        $this->status = self::STATUS_APPROVED;
-        $this->approved_by = $approvedBy;
-        $this->approved_at = date('Y-m-d H:i:s');
+        $attribute = $asOriginal ? 'original_therapist_id' : 'substitute_therapist_id';
         
-        return $this->save();
-    }
-
-    /**
-     * Activates substitution
-     *
-     * @return bool
-     */
-    public function activate()
-    {
-        $this->status = self::STATUS_ACTIVE;
-        return $this->save();
+        return static::find()
+            ->where([$attribute => $therapistId])
+            ->orderBy(['substituted_at' => SORT_DESC])
+            ->all();
     }
 } 

@@ -5,6 +5,7 @@ import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
 import { PrivateAppointmentModal } from "@/components/PrivateAppointmentModal";
 import { AppointmentEditModal } from "@/components/AppointmentEditModal";
+import { TherapistSubstitutionModal } from "@/components/TherapistSubstitutionModal";
 import {
   Appointment,
   Therapist,
@@ -34,6 +35,7 @@ const Index = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPrivateModalOpen, setIsPrivateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubstitutionModalOpen, setIsSubstitutionModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
     date: Date;
     time: string;
@@ -592,7 +594,14 @@ const Index = () => {
     );
     if (appointment) {
       setSelectedAppointment(appointment);
-      setIsEditModalOpen(true);
+
+      // Se il terapista è assente, apri la modale di sostituzione
+      if (appointment.status === "therapist_absent") {
+        setIsSubstitutionModalOpen(true);
+      } else {
+        // Altrimenti apri la modale di modifica normale
+        setIsEditModalOpen(true);
+      }
     }
   };
 
@@ -602,6 +611,34 @@ const Index = () => {
 
   const handleAppointmentDelete = async (appointmentId: string) => {
     await handleAppointmentUpdate(appointmentId);
+  };
+
+  const handleTherapistSubstitution = async (substitutionData: {
+    appointmentId: number;
+    newTherapistId: number;
+    reason?: string;
+  }) => {
+    try {
+      console.log("🔄 Sostituzione terapista completata:", substitutionData);
+
+      // La modale ha già chiamato l'API, qui gestiamo solo l'aggiornamento della UI
+      await reloadCurrentVisibleAppointments();
+      setRefreshKey((prev) => prev + 1);
+
+      showSuccess(
+        "Terapista sostituito",
+        "Il terapista è stato sostituito con successo"
+      );
+    } catch (err) {
+      console.error("Errore nella sostituzione del terapista:", err);
+
+      const errorMessage =
+        err instanceof Error ? err.message : "Errore sconosciuto";
+      showError(
+        "Errore sostituzione",
+        `Non è stato possibile sostituire il terapista: ${errorMessage}`
+      );
+    }
   };
 
   const handleAppointmentMove = async (
@@ -884,6 +921,17 @@ const Index = () => {
           therapists={therapists}
           onAppointmentUpdate={handleAppointmentUpdate}
           onAppointmentDelete={handleAppointmentDelete}
+        />
+
+        <TherapistSubstitutionModal
+          isOpen={isSubstitutionModalOpen}
+          onClose={() => {
+            setIsSubstitutionModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          therapists={therapists}
+          onConfirm={handleTherapistSubstitution}
         />
       </div>
     </div>

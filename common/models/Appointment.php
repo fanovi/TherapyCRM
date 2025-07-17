@@ -43,6 +43,7 @@ class Appointment extends ActiveRecord
     const STATUS_ABSENT_JUSTIFIED = 'absent_justified';
     const STATUS_ABSENT_NOT_JUSTIFIED = 'absent_not_justified';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_THERAPIST_ABSENT = 'therapist_absent';
 
     const TYPE_SUPERVISIONE = 'supervisione';
     const TYPE_PARENT_TRAINING = 'parent_training';
@@ -93,7 +94,7 @@ class Appointment extends ActiveRecord
             [['appointment_datetime'], 'validateAppointmentDateTime'],
             [['notes'], 'string'],
             [['status'], 'string', 'max' => 30],
-            [['status'], 'in', 'range' => [self::STATUS_SCHEDULED, self::STATUS_COMPLETED, self::STATUS_ABSENT_JUSTIFIED, self::STATUS_ABSENT_NOT_JUSTIFIED, self::STATUS_CANCELLED]],
+            [['status'], 'in', 'range' => [self::STATUS_SCHEDULED, self::STATUS_COMPLETED, self::STATUS_ABSENT_JUSTIFIED, self::STATUS_ABSENT_NOT_JUSTIFIED, self::STATUS_CANCELLED, self::STATUS_THERAPIST_ABSENT]],
             [['appointment_source'], 'in', 'range' => [self::SOURCE_THERAPEUTIC_PLAN, self::SOURCE_PRIVATE]],
             [['appointment_source'], 'default', 'value' => self::SOURCE_THERAPEUTIC_PLAN],
             [['appointment_type'], 'string', 'max' => 20],
@@ -319,6 +320,16 @@ class Appointment extends ActiveRecord
     }
 
     /**
+     * Gets query for [[TherapistSubstitution]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTherapistSubstitution()
+    {
+        return $this->hasOne(TherapistSubstitution::class, ['appointment_id' => 'id']);
+    }
+
+    /**
      * Gets appointment type labels
      *
      * @return array
@@ -365,6 +376,7 @@ class Appointment extends ActiveRecord
             self::STATUS_ABSENT_JUSTIFIED => 'Assente Giustificato',
             self::STATUS_ABSENT_NOT_JUSTIFIED => 'Assente Non Giustificato',
             self::STATUS_CANCELLED => 'Annullato',
+            self::STATUS_THERAPIST_ABSENT => 'Terapista Assente',
         ];
     }
 
@@ -585,5 +597,55 @@ class Appointment extends ActiveRecord
             ->orderBy('appointment_datetime')
             ->limit($limit)
             ->all();
+    }
+
+    /**
+     * Checks if appointment allows therapist substitution
+     *
+     * @return bool
+     */
+    public function allowsTherapistSubstitution()
+    {
+        return $this->status === self::STATUS_THERAPIST_ABSENT;
+    }
+
+    /**
+     * Checks if appointment is in a non-scheduled status (allows click but not move)
+     *
+     * @return bool
+     */
+    public function isNonScheduled()
+    {
+        return $this->status !== self::STATUS_SCHEDULED;
+    }
+
+    /**
+     * Checks if appointment has therapist absent status
+     *
+     * @return bool
+     */
+    public function isTherapistAbsent()
+    {
+        return $this->status === self::STATUS_THERAPIST_ABSENT;
+    }
+
+    /**
+     * Checks if appointment has been substituted (has substitution record)
+     *
+     * @return bool
+     */
+    public function hasSubstitution()
+    {
+        return $this->therapistSubstitution !== null;
+    }
+
+    /**
+     * Gets substitution info if exists
+     *
+     * @return TherapistSubstitution|null
+     */
+    public function getSubstitutionInfo()
+    {
+        return $this->therapistSubstitution;
     }
 } 
