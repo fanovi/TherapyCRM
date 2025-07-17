@@ -413,39 +413,50 @@ class TherapeuticPlanManagerController extends Controller
         return $appointment;
     }
 
-     /**
-     * Controlla conflitti tipologia trattamento per appuntamenti privati
-     * 
-     * @param int $patientId
-     * @param int $treatmentTypeId
-     * @param string $appointmentDateTime
-     * @param int $excludeAppointmentId
-     * @return Appointment|null
-     */
-    private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
-    {
-        $appointmentDate = new DateTime($appointmentDateTime);
-        $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
-        $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
+  /**
+ * Controlla conflitti tipologia trattamento per appuntamenti privati
+ * 
+ * @param int $patientId
+ * @param int $treatmentTypeId
+ * @param string $appointmentDateTime
+ * @param int $excludeAppointmentId
+ * @return Appointment|null
+ */
+private function checkPrivateTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
+{
+    $appointmentDate = new DateTime($appointmentDateTime);
+    $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
+    $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
 
-        // Cerca appuntamenti dello stesso tipo di trattamento nello stesso giorno
-        $query = Appointment::find()
-            ->alias('a')
-            ->where([
-                'a.patient_id' => $patientId,
-                'a.treatment_type_id' => $treatmentTypeId,
-                'a.appointment_source' => Appointment::SOURCE_PRIVATE
-            ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-            ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd])
-            ->with(['treatmentType', 'patient']);
+    // Cerca appuntamenti dello stesso tipo di trattamento nello stesso giorno
+    // sia privati che da piano terapeutico
+    $query = Appointment::find()
+        ->alias('a')
+        ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+        ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+        ->where(['or',
+            // Appuntamenti privati con lo stesso treatment_type_id
+            ['and',
+                ['a.appointment_source' => Appointment::SOURCE_PRIVATE],
+                ['a.treatment_type_id' => $treatmentTypeId],
+                ['a.patient_id' => $patientId]
+            ],
+            // Appuntamenti da piano terapeutico con lo stesso treatment_type_id
+            ['and',
+                ['a.appointment_source' => Appointment::SOURCE_THERAPEUTIC_PLAN],
+                ['pt.treatment_type_id' => $treatmentTypeId],
+                ['tp.patient_id' => $patientId]
+            ]
+        ])
+        ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
 
-        if ($excludeAppointmentId) {
-            $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
-        }
-
-        return $query->one();
+    if ($excludeAppointmentId) {
+        $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
     }
+
+    return $query->one();
+}
 
     
 
@@ -1851,9 +1862,20 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $therapist = $this->findTherapist($therapistId);
             
-            // Calcola inizio e fine settimana
+            // Calcola inizio e fine settimana in modo deterministico
+            // Se la data passata è domenica, considera la settimana successiva
             $weekStart = new DateTime($startDate);
-            $weekStart->modify('monday this week');
+            $dayOfWeek = $weekStart->format('N'); // 1 = lunedì, 7 = domenica
+            
+            if ($dayOfWeek == 7) {
+                // Se è domenica, considera la settimana che inizia il giorno dopo (lunedì)
+                $weekStart->modify('+1 day');
+            } else {
+                // Per tutti gli altri giorni, calcola il lunedì della settimana corrente
+                $daysToSubtract = ($dayOfWeek - 1);
+                $weekStart->modify("-{$daysToSubtract} days");
+            }
+            
             $weekEnd = (clone $weekStart)->modify('+6 days');
 
             // Trova tutti gli appuntamenti del terapista per quella settimana
@@ -2321,53 +2343,65 @@ class TherapeuticPlanManagerController extends Controller
         return $query->one();
     }
 
-    /**
-     * Controlla se esiste già un appuntamento della stessa terapia specifica nello stesso giorno
-     * 
-     * @param int $planTherapyId
-     * @param string $appointmentDateTime
-     * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
-     * @return Appointment|null
-     */
-    private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDateTime, $excludeAppointmentId = null)
-    {
-        // Ottieni il piano terapia per recuperare le informazioni
-        $planTherapy = PlanTherapy::findOne($planTherapyId);
-        if (!$planTherapy) {
-            Yii::warning("PlanTherapy non trovato: {$planTherapyId}", __METHOD__);
-            return null;
-        }
-
-        $appointmentDate = new DateTime($appointmentDateTime);
-        $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
-        $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
-
-        // CONTROLLO MIGLIORATO: 
-        // Cerca appuntamenti della stessa terapia specifica (plan_therapy_id) nello stesso giorno
-        // Questo è più granulare del precedente controllo che usava solo treatment_type_id
-        $query = Appointment::find()
-            ->alias('a')
-            ->where([
-                'a.plan_therapy_id' => $planTherapyId
-            ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-            ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd])
-            ->with(['planTherapy.treatmentType', 'planTherapy.therapeuticPlan.patient']);
-
-        if ($excludeAppointmentId) {
-            $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
-        }
-
-        $result = $query->one();
-        
-        if ($result) {
-            $treatmentType = $planTherapy->treatmentType;
-            $patient = $planTherapy->therapeuticPlan->patient;
-            Yii::info("Conflitto terapia specifica rilevato: Paziente {$patient->getFullName()}, Terapia {$treatmentType->name} (PlanTherapy ID: {$planTherapyId}), Data {$appointmentDate->format('Y-m-d')}", __METHOD__);
-        }
-
-        return $result;
+  /**
+ * Controlla se esiste già un appuntamento dello stesso tipo di trattamento nello stesso giorno
+ * 
+ * @param int $planTherapyId
+ * @param string $appointmentDateTime
+ * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
+ * @return Appointment|null
+ */
+private function checkSameTreatmentTypeConflict($planTherapyId, $appointmentDateTime, $excludeAppointmentId = null)
+{
+    // Ottieni il piano terapia per recuperare il treatment_type_id
+    $planTherapy = PlanTherapy::findOne($planTherapyId);
+    if (!$planTherapy) {
+        Yii::warning("PlanTherapy non trovato: {$planTherapyId}", __METHOD__);
+        return null;
     }
+
+    $treatmentTypeId = $planTherapy->treatment_type_id;
+    $patientId = $planTherapy->therapeuticPlan->patient_id;
+
+    $appointmentDate = new DateTime($appointmentDateTime);
+    $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
+    $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
+
+    // Cerca appuntamenti dello stesso tipo di trattamento nello stesso giorno
+    // sia da piano terapeutico che privati
+    $query = Appointment::find()
+        ->alias('a')
+        ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+        ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+        ->where(['or',
+            // Appuntamenti da piano terapeutico con lo stesso treatment_type_id
+            ['and',
+                ['a.appointment_source' => Appointment::SOURCE_THERAPEUTIC_PLAN],
+                ['pt.treatment_type_id' => $treatmentTypeId],
+                ['tp.patient_id' => $patientId]
+            ],
+            // Appuntamenti privati con lo stesso treatment_type_id
+            ['and',
+                ['a.appointment_source' => Appointment::SOURCE_PRIVATE],
+                ['a.treatment_type_id' => $treatmentTypeId],
+                ['a.patient_id' => $patientId]
+            ]
+        ])
+        ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
+
+    if ($excludeAppointmentId) {
+        $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
+    }
+
+    $result = $query->one();
+    
+    if ($result) {
+        Yii::info("Conflitto tipo trattamento rilevato: Paziente ID {$patientId}, Treatment Type ID {$treatmentTypeId}, Data {$appointmentDate->format('Y-m-d')}", __METHOD__);
+    }
+
+    return $result;
+}
 
     /**
      * Controlla se lo stesso paziente ha già un appuntamento che si sovrappone temporalmente
@@ -2535,7 +2569,12 @@ class TherapeuticPlanManagerController extends Controller
     {
         $appointmentDate = new DateTime($appointmentDateTime);
         $weekStart = clone $appointmentDate;
-        $weekStart->modify('monday this week');
+        
+        // Calcola inizio settimana in modo deterministico
+        $dayOfWeek = $weekStart->format('N'); // 1 = lunedì, 7 = domenica
+        // Per checkWeeklyLimit usiamo sempre la settimana che contiene la data
+        $daysToSubtract = ($dayOfWeek - 1); // Se lunedì (1), sottrae 0; se domenica (7), sottrae 6
+        $weekStart->modify("-{$daysToSubtract} days");
 
         $currentWeeklyHours = $this->calculateWeeklyHours($therapist->id, $weekStart->format('Y-m-d'));
         $newTotal = $currentWeeklyHours + ($durationMinutes / 60);
