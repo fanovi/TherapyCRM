@@ -25,7 +25,6 @@ $this->params['breadcrumbs'][] = $this->title;
 StatisticsAsset::register($this);
 
 $this->registerJs("
-    Statistics.init();
 ", \yii\web\View::POS_READY);
 
 ?>
@@ -78,7 +77,7 @@ $this->registerJs("
                                 'size' => 6
                             ])->label('Trattamenti') ?>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <?= StatisticsFilter::widget([
                                 'model' => $searchModel,
@@ -94,11 +93,11 @@ $this->registerJs("
                         <div class="col-md-4">
                             <?= $form->field($searchModel, 'dateFrom')->input('date') ?>
                         </div>
-                        
+
                         <div class="col-md-4">
                             <?= $form->field($searchModel, 'dateTo')->input('date') ?>
                         </div>
-                        
+
                         <div class="col-md-4">
                             <?= $form->field($searchModel, 'includeInactive')->checkbox() ?>
                         </div>
@@ -121,52 +120,69 @@ $this->registerJs("
 
     <!-- Search Results -->
     <?php if (!empty($searchResults)): ?>
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow border-left-info">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-info">
-                        <i class="fas fa-chart-bar mr-2"></i>
-                        Risultati Ricerca Combinazioni
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Paziente</th>
-                                    <th class="text-center">N° Trattamenti</th>
-                                    <th>Trattamenti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($searchResults as $result): ?>
-                                <tr>
-                                    <td>
-                                        <strong><?= Html::encode($result['first_name'] . ' ' . $result['last_name']) ?></strong>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-primary"><?= $result['treatment_count'] ?></span>
-                                    </td>
-                                    <td>
-                                        <small><?= Html::encode($result['treatments']) ?></small>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow border-left-info">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-info">
+                            <i class="fas fa-chart-bar mr-2"></i>
+                            Risultati Ricerca Combinazioni
+                        </h6>
                     </div>
-                    
-                    <div class="mt-3">
-                        <span class="badge badge-info">
-                            Trovati <?= count($searchResults) ?> pazienti con la combinazione richiesta
-                        </span>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Paziente</th>
+                                        <th class="text-center">N° Trattamenti</th>
+                                        <th>Trattamenti</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($searchResults as $result): ?>
+                                        <tr>
+                                            <td>
+                                                <strong>
+                                                    <?php
+                                                    // Gestisci diversi formati possibili di dati
+                                                    if (isset($result['first_name']) && isset($result['last_name'])) {
+                                                        echo Html::encode($result['first_name'] . ' ' . $result['last_name']);
+                                                    } elseif (isset($result['patient_name'])) {
+                                                        echo Html::encode($result['patient_name']);
+                                                    } elseif (isset($result['name'])) {
+                                                        echo Html::encode($result['name']);
+                                                    } else {
+                                                        echo 'N/D';
+                                                    }
+                                                    ?>
+                                                </strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-primary">
+                                                    <?= isset($result['treatment_count']) ? $result['treatment_count'] : 0 ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    <?= Html::encode(isset($result['treatments']) ? $result['treatments'] : 'N/D') ?>
+                                                </small>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-3">
+                            <span class="badge badge-info">
+                                Trovati <?= count($searchResults) ?> pazienti con la combinazione richiesta
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     <?php endif; ?>
 
     <!-- Summary Cards -->
@@ -261,7 +277,11 @@ $this->registerJs("
                             'label' => 'Numero Terapie',
                             'data' => array_column($hoursDistribution, 'therapy_count'),
                             'backgroundColor' => [
-                                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'
+                                '#4e73df',
+                                '#1cc88a',
+                                '#36b9cc',
+                                '#f6c23e',
+                                '#e74a3b'
                             ]
                         ]
                     ]
@@ -284,23 +304,23 @@ $this->registerJs("
                 <div class="card-body">
                     <div class="row">
                         <?php foreach ($bySettingType as $setting): ?>
-                        <div class="col-6 text-center">
-                            <div class="p-3 border rounded">
-                                <h4 class="text-primary"><?= $setting['setting_type'] ?></h4>
-                                <p class="mb-1">
-                                    <span class="badge badge-primary badge-lg"><?= $setting['therapy_count'] ?></span>
-                                    <small class="text-muted d-block">Terapie</small>
-                                </p>
-                                <p class="mb-1">
-                                    <span class="badge badge-success badge-lg"><?= $setting['patient_count'] ?></span>
-                                    <small class="text-muted d-block">Pazienti</small>
-                                </p>
-                                <p class="mb-0">
-                                    <span class="badge badge-info"><?= round($setting['avg_hours'], 1) ?>h</span>
-                                    <small class="text-muted d-block">Ore medie</small>
-                                </p>
+                            <div class="col-6 text-center">
+                                <div class="p-3 border rounded">
+                                    <h4 class="text-primary"><?= $setting['setting_type'] ?></h4>
+                                    <p class="mb-1">
+                                        <span class="badge badge-primary badge-lg"><?= $setting['therapy_count'] ?></span>
+                                        <small class="text-muted d-block">Terapie</small>
+                                    </p>
+                                    <p class="mb-1">
+                                        <span class="badge badge-success badge-lg"><?= $setting['patient_count'] ?></span>
+                                        <small class="text-muted d-block">Pazienti</small>
+                                    </p>
+                                    <p class="mb-0">
+                                        <span class="badge badge-info"><?= round($setting['avg_hours'], 1) ?>h</span>
+                                        <small class="text-muted d-block">Ore medie</small>
+                                    </p>
+                                </div>
                             </div>
-                        </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -366,30 +386,30 @@ $this->registerJs("
                             </thead>
                             <tbody>
                                 <?php foreach ($ranking as $index => $treatment): ?>
-                                <tr>
-                                    <td><strong><?= $index + 1 ?></strong></td>
-                                    <td><?= Html::encode($treatment['name']) ?></td>
-                                    <td><span class="badge badge-secondary"><?= Html::encode($treatment['code']) ?></span></td>
-                                    <td class="text-center">
-                                        <span class="badge badge-primary"><?= $treatment['patient_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-info"><?= $treatment['therapy_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <?= round($treatment['total_weekly_hours'] ?? 0, 1) ?>
-                                    </td>
-                                    <td class="text-center">
-                                        <?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php 
-                                        $percentage = $totalPatients > 0 ? round($treatment['patient_count'] / $totalPatients * 100, 1) : 0;
-                                        $badgeClass = $percentage >= 20 ? 'success' : ($percentage >= 10 ? 'warning' : 'secondary');
-                                        ?>
-                                        <span class="badge badge-<?= $badgeClass ?>"><?= $percentage ?>%</span>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td><strong><?= $index + 1 ?></strong></td>
+                                        <td><?= Html::encode($treatment['name']) ?></td>
+                                        <td><span class="badge badge-secondary"><?= Html::encode($treatment['code']) ?></span></td>
+                                        <td class="text-center">
+                                            <span class="badge badge-primary"><?= $treatment['patient_count'] ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-info"><?= $treatment['therapy_count'] ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <?= round($treatment['total_weekly_hours'] ?? 0, 1) ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php
+                                            $percentage = $totalPatients > 0 ? round($treatment['patient_count'] / $totalPatients * 100, 1) : 0;
+                                            $badgeClass = $percentage >= 20 ? 'success' : ($percentage >= 10 ? 'warning' : 'secondary');
+                                            ?>
+                                            <span class="badge badge-<?= $badgeClass ?>"><?= $percentage ?>%</span>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -401,45 +421,45 @@ $this->registerJs("
 
     <!-- Frequent Combinations -->
     <?php if (!empty($combinations)): ?>
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-layer-group mr-2"></i>
-                        Combinazioni di Trattamenti Più Frequenti
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Combinazione Trattamenti</th>
-                                    <th class="text-center">N° Trattamenti</th>
-                                    <th class="text-center">N° Pazienti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($combinations as $index => $combo): ?>
-                                <tr>
-                                    <td><strong><?= $index + 1 ?></strong></td>
-                                    <td><?= Html::encode($combo['combination']) ?></td>
-                                    <td class="text-center">
-                                        <span class="badge badge-info"><?= $combo['treatment_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-primary"><?= $combo['patient_count'] ?></span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            <i class="fas fa-layer-group mr-2"></i>
+                            Combinazioni di Trattamenti Più Frequenti
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Combinazione Trattamenti</th>
+                                        <th class="text-center">N° Trattamenti</th>
+                                        <th class="text-center">N° Pazienti</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($combinations as $index => $combo): ?>
+                                        <tr>
+                                            <td><strong><?= $index + 1 ?></strong></td>
+                                            <td><?= Html::encode($combo['combination']) ?></td>
+                                            <td class="text-center">
+                                                <span class="badge badge-info"><?= $combo['treatment_count'] ?></span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge badge-primary"><?= $combo['patient_count'] ?></span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     <?php endif; ?>
-</div> 
+</div>

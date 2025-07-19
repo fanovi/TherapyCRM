@@ -4,6 +4,7 @@ namespace common\services\statistics;
 
 use Yii;
 use yii\db\Query;
+use yii\db\Expression;
 use yii\caching\TagDependency;
 
 /**
@@ -210,14 +211,17 @@ class StatisticsService
     {
         return (new Query())
             ->select([
-                'CASE 
+                'status' => new Expression('CASE 
                     WHEN end_date >= CURDATE() THEN "active"
                     ELSE "completed"
-                END as status',
-                'COUNT(*) as count'
+                END'),
+                'count' => 'COUNT(*)'
             ])
             ->from('therapeutic_plans')
-            ->groupBy('status')
+            ->groupBy(new Expression('CASE 
+                WHEN end_date >= CURDATE() THEN "active"
+                ELSE "completed"
+            END'))
             ->all();
     }
 
@@ -230,16 +234,20 @@ class StatisticsService
     {
         return (new Query())
             ->select([
-                'CASE 
+                'duration_category' => new Expression('CASE 
                     WHEN duration_days < 90 THEN "short"
                     WHEN duration_days < 365 THEN "medium"
                     ELSE "long"
-                END as duration_category',
-                'COUNT(*) as count',
-                'AVG(duration_days) as avg_duration'
+                END'),
+                'count' => 'COUNT(*)',
+                'avg_duration' => 'AVG(duration_days)'
             ])
             ->from('therapeutic_plans')
-            ->groupBy('duration_category')
+            ->groupBy(new Expression('CASE 
+                WHEN duration_days < 90 THEN "short"
+                WHEN duration_days < 365 THEN "medium"
+                ELSE "long"
+            END'))
             ->all();
     }
 
@@ -252,12 +260,12 @@ class StatisticsService
     {
         return (new Query())
             ->select([
-                'DATE_FORMAT(start_date, "%Y-%m") as month',
-                'COUNT(*) as count'
+                'month' => new Expression('DATE_FORMAT(start_date, "%Y-%m")'),
+                'count' => 'COUNT(*)'
             ])
             ->from('therapeutic_plans')
             ->where(['>=', 'start_date', date('Y-m-d', strtotime('-12 months'))])
-            ->groupBy('month')
+            ->groupBy(new Expression('DATE_FORMAT(start_date, "%Y-%m")'))
             ->orderBy('month')
             ->all();
     }
@@ -272,10 +280,10 @@ class StatisticsService
         return (new Query())
             ->select([
                 'tp.id',
-                'CONCAT(p.first_name, " ", p.last_name) as patient_name',
-                'COUNT(a.id) as total_appointments',
-                'SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) as completed_appointments',
-                'ROUND(SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 1) as completion_rate'
+                'patient_name' => new Expression('CONCAT(p.first_name, " ", p.last_name)'),
+                'total_appointments' => 'COUNT(a.id)',
+                'completed_appointments' => new Expression('SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END)'),
+                'completion_rate' => new Expression('ROUND(SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 1)')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('patients p', 'tp.patient_id = p.id')
@@ -300,8 +308,8 @@ class StatisticsService
             ->select([
                 'tp.id',
                 'tp.end_date',
-                'CONCAT(p.first_name, " ", p.last_name) as patient_name',
-                'DATEDIFF(tp.end_date, CURDATE()) as days_until_expiry'
+                'patient_name' => new Expression('CONCAT(p.first_name, " ", p.last_name)'),
+                'days_until_expiry' => new Expression('DATEDIFF(tp.end_date, CURDATE())')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('patients p', 'tp.patient_id = p.id')
@@ -323,12 +331,12 @@ class StatisticsService
 
         return (new Query())
             ->select([
-                'DATE_FORMAT(created_at, "%Y-%m") as month',
-                'COUNT(*) as new_patients'
+                'month' => new Expression('DATE_FORMAT(created_at, "%Y-%m")'),
+                'new_patients' => 'COUNT(*)'
             ])
             ->from('statistics_patients_mv')
             ->where(['between', 'DATE(created_at)', $dateFrom, $dateTo])
-            ->groupBy('month')
+            ->groupBy(new Expression('DATE_FORMAT(created_at, "%Y-%m")'))
             ->orderBy('month')
             ->all();
     }
@@ -340,4 +348,4 @@ class StatisticsService
     {
         TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
     }
-} 
+}

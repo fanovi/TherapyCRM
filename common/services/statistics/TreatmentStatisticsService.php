@@ -4,6 +4,7 @@ namespace common\services\statistics;
 
 use Yii;
 use yii\db\Query;
+use yii\db\Expression;
 use yii\caching\TagDependency;
 use frontend\models\TreatmentStatisticsSearch;
 
@@ -142,21 +143,27 @@ class TreatmentStatisticsService
     {
         return (new Query())
             ->select([
-                'CASE 
+                'hours_range' => new Expression('CASE 
                     WHEN pt.weekly_hours <= 2 THEN "1-2h"
                     WHEN pt.weekly_hours <= 5 THEN "3-5h"
                     WHEN pt.weekly_hours <= 10 THEN "6-10h"
                     WHEN pt.weekly_hours <= 20 THEN "11-20h"
                     ELSE "20h+"
-                END as hours_range',
-                'COUNT(*) as therapy_count',
-                'COUNT(DISTINCT tp.patient_id) as patient_count',
-                'AVG(pt.weekly_hours) as avg_hours'
+                END'),
+                'therapy_count' => 'COUNT(*)',
+                'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
+                'avg_hours' => 'AVG(pt.weekly_hours)'
             ])
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
             ->where(['>=', 'tp.end_date', date('Y-m-d')])
-            ->groupBy('hours_range')
+            ->groupBy(new Expression('CASE 
+                WHEN pt.weekly_hours <= 2 THEN "1-2h"
+                WHEN pt.weekly_hours <= 5 THEN "3-5h"
+                WHEN pt.weekly_hours <= 10 THEN "6-10h"
+                WHEN pt.weekly_hours <= 20 THEN "11-20h"
+                ELSE "20h+"
+            END'))
             ->orderBy('avg_hours')
             ->all();
     }
@@ -170,11 +177,11 @@ class TreatmentStatisticsService
     {
         return (new Query())
             ->select([
-                'CASE WHEN pt.is_group = 1 THEN "Gruppo" ELSE "Individuale" END as setting_type',
-                'COUNT(*) as therapy_count',
-                'COUNT(DISTINCT tp.patient_id) as patient_count',
-                'SUM(pt.weekly_hours) as total_hours',
-                'AVG(pt.weekly_hours) as avg_hours'
+                'setting_type' => new Expression('CASE WHEN pt.is_group = 1 THEN "Gruppo" ELSE "Individuale" END'),
+                'therapy_count' => 'COUNT(*)',
+                'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
+                'total_hours' => 'SUM(pt.weekly_hours)',
+                'avg_hours' => 'AVG(pt.weekly_hours)'
             ])
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
@@ -193,10 +200,10 @@ class TreatmentStatisticsService
     {
         $query = (new Query())
             ->select([
-                'DATE_FORMAT(tp.start_date, "%Y-%m") as month',
-                'COUNT(DISTINCT pt.id) as new_therapies',
-                'COUNT(DISTINCT tp.patient_id) as new_patients',
-                'SUM(pt.weekly_hours) as total_hours'
+                'month' => new Expression('DATE_FORMAT(tp.start_date, "%Y-%m")'),
+                'new_therapies' => 'COUNT(DISTINCT pt.id)',
+                'new_patients' => 'COUNT(DISTINCT tp.patient_id)',
+                'total_hours' => 'SUM(pt.weekly_hours)'
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
@@ -211,7 +218,7 @@ class TreatmentStatisticsService
             $query->andWhere(['tp.regime_id' => $filters['regimeId']]);
         }
 
-        return $query->groupBy('month')
+        return $query->groupBy(new Expression('DATE_FORMAT(tp.start_date, "%Y-%m")'))
             ->orderBy('month')
             ->all();
     }
@@ -256,15 +263,15 @@ class TreatmentStatisticsService
             $multiTreatmentPatients = (new Query())
                 ->select([
                     'tp.patient_id',
-                    'GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name) as treatment_combination',
-                    'COUNT(DISTINCT pt.treatment_type_id) as treatment_count'
+                    'treatment_combination' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)'),
+                    'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)'
                 ])
                 ->from('therapeutic_plans tp')
                 ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
                 ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
                 ->where(['>=', 'tp.end_date', date('Y-m-d')])
                 ->groupBy('tp.patient_id')
-                ->having(['>', 'treatment_count', 1])
+                ->having(['>', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), 1])
                 ->all();
 
             // Conta frequenza combinazioni
@@ -301,7 +308,7 @@ class TreatmentStatisticsService
         $query = (new Query())
             ->select([
                 't.id as therapist_id',
-                'CONCAT(up.first_name, " ", up.last_name) as therapist_name',
+                'therapist_name' => new Expression('CONCAT(up.first_name, " ", up.last_name)'),
                 'tt.name as treatment_name',
                 'COUNT(DISTINCT a.id) as appointment_count',
                 'COUNT(DISTINCT tp.patient_id) as patient_count',
@@ -336,10 +343,10 @@ class TreatmentStatisticsService
             ->select([
                 'tt.id',
                 'tt.name',
-                'COUNT(a.id) as total_appointments',
-                'SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) as completed_appointments',
-                'SUM(CASE WHEN a.status LIKE "%absent%" THEN 1 ELSE 0 END) as absent_appointments',
-                'ROUND(SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 1) as completion_rate'
+                'total_appointments' => 'COUNT(a.id)',
+                'completed_appointments' => new Expression('SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END)'),
+                'absent_appointments' => new Expression('SUM(CASE WHEN a.status LIKE "%absent%" THEN 1 ELSE 0 END)'),
+                'completion_rate' => new Expression('ROUND(SUM(CASE WHEN a.status = "completed" THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 1)')
             ])
             ->from('treatment_types tt')
             ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
@@ -358,4 +365,4 @@ class TreatmentStatisticsService
     {
         TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
     }
-} 
+}

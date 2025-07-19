@@ -18,7 +18,6 @@ StatisticsAsset::register($this);
 
 $this->registerJs("
     document.body.classList.add('dashboard-page');
-    Statistics.init();
 ", \yii\web\View::POS_READY);
 
 ?>

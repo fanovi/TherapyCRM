@@ -4,6 +4,7 @@ namespace frontend\models;
 
 use yii\base\Model;
 use yii\db\Query;
+use yii\db\Expression;
 use Yii;
 
 /**
@@ -122,8 +123,8 @@ class TreatmentStatisticsSearch extends Model
                 'tp.patient_id',
                 'p.first_name',
                 'p.last_name',
-                'COUNT(DISTINCT pt.treatment_type_id) as treatment_count',
-                'GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name) as treatments'
+                'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)',
+                'treatments' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
@@ -153,8 +154,8 @@ class TreatmentStatisticsSearch extends Model
                 'tp.patient_id',
                 'p.first_name',
                 'p.last_name',
-                'COUNT(DISTINCT pt.treatment_type_id) as treatment_count',
-                'GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name) as treatments'
+                'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)',
+                'treatments' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
@@ -162,7 +163,7 @@ class TreatmentStatisticsSearch extends Model
             ->innerJoin('patients p', 'tp.patient_id = p.id')
             ->where(['in', 'pt.treatment_type_id', $this->treatmentIds])
             ->groupBy(['tp.patient_id', 'p.first_name', 'p.last_name'])
-            ->having(['=', 'treatment_count', $treatmentCount])
+            ->having(['=', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), $treatmentCount])
             ->orderBy(['p.last_name' => SORT_ASC]);
 
         $this->applyDateFilters($query);
@@ -187,7 +188,7 @@ class TreatmentStatisticsSearch extends Model
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
             ->where(['in', 'pt.treatment_type_id', $this->treatmentIds])
             ->groupBy('tp.patient_id')
-            ->having(['=', 'COUNT(DISTINCT pt.treatment_type_id)', $treatmentCount]);
+            ->having(['=', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), $treatmentCount]);
 
         // Applica filtri
         $this->applyDateFilters($patientsWithRequired);
@@ -205,8 +206,8 @@ class TreatmentStatisticsSearch extends Model
                 'tp.patient_id',
                 'p.first_name',
                 'p.last_name',
-                'COUNT(DISTINCT pt.treatment_type_id) as total_treatments',
-                'GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name) as treatments'
+                'total_treatments' => 'COUNT(DISTINCT pt.treatment_type_id)',
+                'treatments' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
@@ -312,4 +313,4 @@ class TreatmentStatisticsSearch extends Model
         
         return $loaded;
     }
-} 
+}

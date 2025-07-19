@@ -24,7 +24,6 @@ $this->params['breadcrumbs'][] = $this->title;
 StatisticsAsset::register($this);
 
 $this->registerJs("
-    Statistics.init();
 ", \yii\web\View::POS_READY);
 
 ?>
@@ -302,34 +301,71 @@ function loadHeatmapData() {
     container.innerHTML = '<div class="text-center py-4"><div class="spinner-border" role="status"><span class="sr-only">Caricamento...</span></div><p class="mt-2 text-muted">Caricamento heatmap...</p></div>';
     
     // Ottieni parametri filtro
-    const formData = $('#absence-filters-form').serialize();
+    const form = document.getElementById('absence-filters-form');
+    const formData = form ? new FormData(form) : new FormData();
     
-    $.ajax({
-        url: '<?= Url::to(['chart-data', 'type' => 'absence-heatmap']) ?>',
-        type: 'GET',
-        data: formData,
-        dataType: 'json',
-        success: function(response) {
-            if (response.success && response.data) {
-                Statistics.createHeatmap('absence-heatmap-container', response.data);
+    // Costruisci URL con parametri
+    const params = new URLSearchParams();
+    for (const pair of formData.entries()) {
+        params.append(pair[0], pair[1]);
+    }
+    
+    const url = '<?= Url::to(['chart-data', 'type' => 'absence-heatmap']) ?>' + 
+                (params.toString() ? '?' + params.toString() : '');
+    
+    // Usa la utility AJAX del modulo Statistics con retry
+    if (window.Statistics && window.Statistics.retryRequest) {
+        window.Statistics.retryRequest(url, {}, 3)
+            .then(function(data) {
+                if (data.success && data.data) {
+                    Statistics.createHeatmap('absence-heatmap-container', data.data);
+                } else {
+                    container.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle mr-2"></i>Nessun dato da visualizzare per i filtri selezionati.</div>';
+                }
+            })
+            .catch(function(error) {
+                console.error('Errore caricamento heatmap:', error);
+                container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-2"></i>Errore nel caricamento dei dati.</div>';
+            });
+    } else {
+        // Fallback se Statistics non è disponibile
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.success && data.data) {
+                Statistics.createHeatmap('absence-heatmap-container', data.data);
             } else {
                 container.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle mr-2"></i>Nessun dato da visualizzare per i filtri selezionati.</div>';
             }
-        },
-        error: function(xhr, status, error) {
+        })
+        .catch(function(error) {
             console.error('Errore caricamento heatmap:', error);
             container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle mr-2"></i>Errore nel caricamento dei dati.</div>';
-        }
-    });
+        });
+    }
 }
 
 // Carica heatmap al caricamento pagina
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     loadHeatmapData();
     
     // Ricarica heatmap quando cambiano i filtri
-    $('#absence-filters-form').on('change', 'select, input', function() {
-        setTimeout(loadHeatmapData, 500);
-    });
+    const form = document.getElementById('absence-filters-form');
+    if (form) {
+        const inputs = form.querySelectorAll('select, input');
+        inputs.forEach(function(input) {
+            input.addEventListener('change', function() {
+                setTimeout(loadHeatmapData, 500);
+            });
+        });
+    }
 });
 </script> 

@@ -192,13 +192,48 @@ class StatisticsController extends BaseController
         $searchModel->load(Yii::$app->request->queryParams);
 
         try {
-            $ranking = $this->treatmentService->getRankingData();
-            $combinations = $this->treatmentService->getMostFrequentCombinations(10);
-            $bySettingType = $this->treatmentService->getBySettingType();
-            $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution();
+            // Debug: prova ogni chiamata singolarmente
+            try {
+                $ranking = $this->treatmentService->getRankingData();
+            } catch (\Exception $e) {
+                Yii::error("Errore in getRankingData: " . $e->getMessage());
+                $ranking = [];
+            }
+
+            try {
+                $combinations = $this->treatmentService->getMostFrequentCombinations(10);
+            } catch (\Exception $e) {
+                Yii::error("Errore in getMostFrequentCombinations: " . $e->getMessage());
+                $combinations = [];
+            }
+
+            try {
+                $bySettingType = $this->treatmentService->getBySettingType();
+            } catch (\Exception $e) {
+                Yii::error("Errore in getBySettingType: " . $e->getMessage());
+                $bySettingType = [];
+            }
+
+            try {
+                $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution();
+            } catch (\Exception $e) {
+                Yii::error("Errore in getWeeklyHoursDistribution: " . $e->getMessage());
+                $hoursDistribution = [];
+            }
 
             // Statistiche specifiche per i filtri del search model
-            $searchResults = $searchModel->getStatistics();
+            try {
+                // Statistiche specifiche per i filtri del search model
+                // Mostra risultati solo se ci sono filtri attivi
+                if (!empty($searchModel->treatmentIds)) {
+                    $searchResults = $searchModel->getStatistics();
+                } else {
+                    $searchResults = [];
+                }
+            } catch (\Exception $e) {
+                Yii::error("Errore in getStatistics: " . $e->getMessage());
+                $searchResults = [];
+            }
 
             // Opzioni per i filtri
             $treatmentOptions = $this->getTreatmentOptions();
@@ -215,7 +250,7 @@ class StatisticsController extends BaseController
                 'regimeOptions' => $regimeOptions,
             ]);
         } catch (\Exception $e) {
-            Yii::error("Errore pagina trattamenti: " . $e->getMessage());
+            Yii::error("Errore pagina trattamenti: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
             throw new NotFoundHttpException('Errore nel caricamento dei dati');
         }
     }
@@ -390,22 +425,73 @@ class StatisticsController extends BaseController
         $searchModel = new PatientStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
-        // Usa createCommand con query SQL corretta
-        $ageGroups = Yii::$app->db->createCommand("
-        SELECT 
-            CASE 
+        // Costruisci la query base
+        $query = (new \yii\db\Query())
+            ->select([
+                'age_group' => new \yii\db\Expression("CASE 
                 WHEN age < 18 THEN '0-17'
                 WHEN age < 30 THEN '18-29'
                 WHEN age < 50 THEN '30-49'
                 WHEN age < 65 THEN '50-64'
                 ELSE '65+'
-            END as age_group,
-            COUNT(*) as count,
-            ROUND(AVG(age), 1) as avg_age
-        FROM statistics_patients_mv
-        GROUP BY age_group
-        ORDER BY age_group
-    ")->queryAll();
+            END"),
+                'count' => 'COUNT(*)',
+                'avg_age' => 'ROUND(AVG(age), 1)'
+            ])
+            ->from('statistics_patients_mv sp');
+
+        // Applica i filtri dal searchModel
+        // Filtro età
+        if ($searchModel->ageFrom !== null && $searchModel->ageFrom !== '') {
+            $query->andWhere(['>=', 'sp.age', $searchModel->ageFrom]);
+        }
+        if ($searchModel->ageTo !== null && $searchModel->ageTo !== '') {
+            $query->andWhere(['<=', 'sp.age', $searchModel->ageTo]);
+        }
+
+        // Filtro genere
+        if ($searchModel->gender && $searchModel->gender !== 'all') {
+            $query->andWhere(['sp.gender' => $searchModel->gender]);
+        }
+
+        // Filtro stato piano terapeutico
+        if ($searchModel->status === 'active') {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        } elseif ($searchModel->status === 'inactive') {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
+        }
+
+        // Filtro tipi di trattamento
+        if (!empty($searchModel->treatmentTypeIds)) {
+            $subQuery = (new \yii\db\Query())
+                ->select('tp.patient_id')
+                ->distinct()
+                ->from('plan_therapies pt')
+                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
+                ->where(['pt.treatment_type_id' => $searchModel->treatmentTypeIds]);
+
+            $query->andWhere(['IN', 'sp.id', $subQuery]);
+        }
+
+        // Filtro date
+        if ($searchModel->dateFrom) {
+            $query->andWhere(['>=', 'sp.created_at', $searchModel->dateFrom . ' 00:00:00']);
+        }
+        if ($searchModel->dateTo) {
+            $query->andWhere(['<=', 'sp.created_at', $searchModel->dateTo . ' 23:59:59']);
+        }
+
+        // Raggruppa e ordina - usa Expression anche qui
+        $query->groupBy(new \yii\db\Expression("CASE 
+        WHEN age < 18 THEN '0-17'
+        WHEN age < 30 THEN '18-29'
+        WHEN age < 50 THEN '30-49'
+        WHEN age < 65 THEN '50-64'
+        ELSE '65+'
+    END"))
+            ->orderBy('age_group');
+
+        $ageGroups = $query->all();
 
         return [
             'success' => true,

@@ -74,11 +74,11 @@ class PatientStatisticsSearch extends Model
             $query->andWhere(['sp.gender' => $this->gender]);
         }
 
-        if ($this->ageFrom !== null) {
+        if ($this->ageFrom !== null && $this->ageFrom !== '') {
             $query->andWhere(['>=', 'sp.age', $this->ageFrom]);
         }
 
-        if ($this->ageTo !== null) {
+        if ($this->ageTo !== null && $this->ageTo !== '') {
             $query->andWhere(['<=', 'sp.age', $this->ageTo]);
         }
 
@@ -110,7 +110,8 @@ class PatientStatisticsSearch extends Model
         // Filtro per tipi di trattamento specifici
         if (!empty($this->treatmentTypeIds) && is_array($this->treatmentTypeIds)) {
             $subQuery = (new Query())
-                ->select('DISTINCT tp.patient_id')
+                ->select('tp.patient_id')
+                ->distinct()
                 ->from('plan_therapies pt')
                 ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
                 ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds]);
@@ -157,21 +158,22 @@ class PatientStatisticsSearch extends Model
      */
     public function getAgeGroupDistribution()
     {
-        return Yii::$app->db->createCommand("
-        SELECT 
-            CASE 
+        $query = $this->getStatisticsQuery();
+        
+        return $query->select([
+            'age_group' => "CASE 
                 WHEN age < 18 THEN '0-17'
                 WHEN age < 30 THEN '18-29'
                 WHEN age < 50 THEN '30-49'
                 WHEN age < 65 THEN '50-64'
                 ELSE '65+'
-            END as age_group,
-            COUNT(*) as count,
-            ROUND(AVG(age), 1) as avg_age
-        FROM statistics_patients_mv
-        GROUP BY age_group
-        ORDER BY age_group
-    ")->queryAll();
+            END",
+            'count' => 'COUNT(*)',
+            'avg_age' => 'ROUND(AVG(age), 1)'
+        ])
+        ->groupBy('age_group')
+        ->orderBy('age_group')
+        ->all();
     }
 
     /**
@@ -183,12 +185,31 @@ class PatientStatisticsSearch extends Model
     {
         $query = $this->getStatisticsQuery();
 
-        return $query->select([
+        $results = $query->select([
             'sp.gender',
             'COUNT(*) as count'
         ])
-            ->groupBy('sp.gender')
-            ->all();
+        ->groupBy('sp.gender')
+        ->all();
+        
+        // Aggiungi label per il genere
+        foreach ($results as &$result) {
+            switch ($result['gender']) {
+                case 'M':
+                    $result['gender_label'] = 'Maschio';
+                    break;
+                case 'F':
+                    $result['gender_label'] = 'Femmina';
+                    break;
+                case 'N':
+                    $result['gender_label'] = 'Non specificato';
+                    break;
+                default:
+                    $result['gender_label'] = 'N/D';
+            }
+        }
+        
+        return $results;
     }
 
     /**
@@ -206,9 +227,9 @@ class PatientStatisticsSearch extends Model
             'sp.last_name',
             'sp.trattamenti_count_no_aba as treatment_count'
         ])
-            ->where(['>', 'sp.trattamenti_count_no_aba', 1])
-            ->orderBy(['sp.trattamenti_count_no_aba' => SORT_DESC, 'sp.last_name' => SORT_ASC])
-            ->all();
+        ->where(['>', 'sp.trattamenti_count_no_aba', 1])
+        ->orderBy(['sp.trattamenti_count_no_aba' => SORT_DESC, 'sp.last_name' => SORT_ASC])
+        ->all();
     }
 
     /**
@@ -226,6 +247,8 @@ class PatientStatisticsSearch extends Model
         if ($this->status === '') $this->status = 'all';
         if ($this->dateFrom === '') $this->dateFrom = null;
         if ($this->dateTo === '') $this->dateTo = null;
+        if ($this->ageFrom === '') $this->ageFrom = null;
+        if ($this->ageTo === '') $this->ageTo = null;
         if (empty($this->treatmentTypeIds)) $this->treatmentTypeIds = [];
 
         return $loaded;

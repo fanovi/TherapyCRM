@@ -16,7 +16,6 @@ $this->params['breadcrumbs'][] = $this->title;
 StatisticsAsset::register($this);
 
 $this->registerJs("
-    Statistics.init();
 ", \yii\web\View::POS_READY);
 
 ?>

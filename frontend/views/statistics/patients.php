@@ -25,9 +25,15 @@ $this->params['breadcrumbs'][] = $this->title;
 StatisticsAsset::register($this);
 
 $this->registerJs("
-    Statistics.init();
 ", \yii\web\View::POS_READY);
 
+// Helper function per calcolo sicuro delle percentuali
+function calculatePercentage($part, $total, $decimals = 1) {
+    return $total > 0 ? round($part / $total * 100, $decimals) : 0;
+}
+
+// Calcola il totale pazienti una volta sola
+$totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
 ?>
 
 <div class="patient-statistics">
@@ -84,6 +90,13 @@ $this->registerJs("
 
     <?php ActiveForm::end(); ?>
 
+    <?php if ($totalPatients == 0): ?>
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        Nessun paziente trovato con i filtri selezionati.
+    </div>
+    <?php endif; ?>
+
     <!-- Demographics Summary -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
@@ -100,7 +113,7 @@ $this->registerJs("
         <div class="col-xl-3 col-md-6 mb-4">
             <?= StatsCard::widget([
                 'title' => 'Totale Pazienti',
-                'value' => $demographics['age_stats']['total_patients'] ?? 0,
+                'value' => $totalPatients,
                 'icon' => 'fas fa-users',
                 'color' => 'success',
                 'footer' => 'Nei filtri selezionati',
@@ -111,8 +124,7 @@ $this->registerJs("
         <div class="col-xl-3 col-md-6 mb-4">
             <?php
             $multiTreatmentCount = count($multiTreatmentStats['patients'] ?? []);
-            $totalPatients = $demographics['age_stats']['total_patients'] ?? 1;
-            $multiTreatmentPerc = round($multiTreatmentCount / $totalPatients * 100, 1);
+            $multiTreatmentPerc = calculatePercentage($multiTreatmentCount, $totalPatients);
             ?>
             <?= StatsCard::widget([
                 'title' => 'Trattamenti Multipli',
@@ -143,11 +155,11 @@ $this->registerJs("
                 'title' => 'Distribuzione per Età',
                 'type' => 'bar',
                 'data' => [
-                    'labels' => array_column($demographics['age_groups'], 'age_group'),
+                    'labels' => array_column($demographics['age_groups'] ?? [], 'age_group'),
                     'datasets' => [
                         [
                             'label' => 'Numero Pazienti',
-                            'data' => array_column($demographics['age_groups'], 'count'),
+                            'data' => array_column($demographics['age_groups'] ?? [], 'count'),
                             'backgroundColor' => '#4e73df'
                         ]
                     ]
@@ -161,11 +173,11 @@ $this->registerJs("
                 'title' => 'Distribuzione per Genere',
                 'type' => 'doughnut',
                 'data' => [
-                    'labels' => array_column($demographics['gender_distribution'], 'gender_label'),
+                    'labels' => array_column($demographics['gender_distribution'] ?? [], 'gender_label'),
                     'datasets' => [
                         [
                             'label' => 'Numero Pazienti',
-                            'data' => array_column($demographics['gender_distribution'], 'count'),
+                            'data' => array_column($demographics['gender_distribution'] ?? [], 'count'),
                             'backgroundColor' => ['#36b9cc', '#e74a3b', '#858796']
                         ]
                     ]
@@ -186,6 +198,7 @@ $this->registerJs("
                     </h6>
                 </div>
                 <div class="card-body">
+                    <?php if (!empty($byTreatment)): ?>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover">
                             <thead>
@@ -197,10 +210,7 @@ $this->registerJs("
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php 
-                                $totalPatients = $demographics['age_stats']['total_patients'] ?? 1;
-                                foreach ($byTreatment as $treatment): 
-                                ?>
+                                <?php foreach ($byTreatment as $treatment): ?>
                                 <tr>
                                     <td><?= Html::encode($treatment['name']) ?></td>
                                     <td><span class="badge badge-secondary"><?= Html::encode($treatment['code']) ?></span></td>
@@ -209,7 +219,7 @@ $this->registerJs("
                                     </td>
                                     <td class="text-center">
                                         <?php 
-                                        $percentage = round($treatment['patient_count'] / $totalPatients * 100, 1);
+                                        $percentage = calculatePercentage($treatment['patient_count'], $totalPatients);
                                         $badgeClass = $percentage >= 20 ? 'success' : ($percentage >= 10 ? 'warning' : 'info');
                                         ?>
                                         <span class="badge badge-<?= $badgeClass ?>"><?= $percentage ?>%</span>
@@ -219,6 +229,12 @@ $this->registerJs("
                             </tbody>
                         </table>
                     </div>
+                    <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Nessun dato disponibile per i trattamenti.
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -228,11 +244,11 @@ $this->registerJs("
                 'title' => 'Top 10 Trattamenti',
                 'type' => 'pie',
                 'data' => [
-                    'labels' => array_slice(array_column($byTreatment, 'name'), 0, 10),
+                    'labels' => array_slice(array_column($byTreatment ?? [], 'name'), 0, 10),
                     'datasets' => [
                         [
                             'label' => 'Pazienti',
-                            'data' => array_slice(array_column($byTreatment, 'patient_count'), 0, 10),
+                            'data' => array_slice(array_column($byTreatment ?? [], 'patient_count'), 0, 10),
                             'backgroundColor' => [
                                 '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
                                 '#858796', '#5a5c69', '#1f2937', '#374151', '#6b7280'
@@ -318,6 +334,7 @@ $this->registerJs("
                     </h6>
                 </div>
                 <div class="card-body">
+                    <?php if (!empty($byRegime)): ?>
                     <div class="row">
                         <?php foreach ($byRegime as $regime): ?>
                         <div class="col-md-4 mb-3">
@@ -327,7 +344,7 @@ $this->registerJs("
                                     <p class="card-text">
                                         <span class="badge badge-primary badge-lg"><?= $regime['patient_count'] ?> pazienti</span>
                                     </p>
-                                    <?php if ($regime['avg_duration']): ?>
+                                    <?php if (!empty($regime['avg_duration']) && $regime['avg_duration'] > 0): ?>
                                     <small class="text-muted">
                                         Durata media: <?= round($regime['avg_duration']) ?> giorni
                                     </small>
@@ -337,8 +354,14 @@ $this->registerJs("
                         </div>
                         <?php endforeach; ?>
                     </div>
+                    <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Nessun dato disponibile per i regimi sanitari.
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
-</div> 
+</div>
