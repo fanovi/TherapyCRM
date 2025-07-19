@@ -29,24 +29,24 @@ $this->registerJs("
 
 ?>
 
-<div class="treatment-statistics">
+<div class="treatment-statistics p-6">
     <!-- Page Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-stethoscope mr-2"></i>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <i class="fas fa-stethoscope text-blue-600"></i>
             Analisi Trattamenti
         </h1>
-        <div class="d-flex gap-2">
+        <div class="flex gap-3">
             <?= Html::a(
-                '<i class="fas fa-arrow-left mr-1"></i> Dashboard',
+                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
                 ['index'],
-                ['class' => 'btn btn-sm btn-secondary']
+                ['class' => 'inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium']
             ) ?>
             <?= Html::a(
-                '<i class="fas fa-download mr-1"></i> Esporta',
+                '<i class="fas fa-download mr-2"></i> Esporta',
                 ['export', 'type' => 'treatments'],
                 [
-                    'class' => 'btn btn-sm btn-success',
+                    'class' => 'inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium',
                     'data-method' => 'post'
                 ]
             ) ?>
@@ -54,131 +54,146 @@ $this->registerJs("
     </div>
 
     <!-- Treatment Search/Filter -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-search mr-2"></i>
-                        Ricerca Combinazioni Trattamenti
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <?php $form = ActiveForm::begin([
-                        'method' => 'get',
-                        'options' => ['id' => 'treatment-search-form']
-                    ]); ?>
+    <div class="mb-8">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-search text-blue-600"></i>
+                    Ricerca Combinazioni Trattamenti
+                </h6>
+            </div>
+            <div class="p-6">
+                <?php $form = ActiveForm::begin([
+                    'method' => 'get',
+                    'options' => ['id' => 'treatment-search-form']
+                ]); ?>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <?= $form->field($searchModel, 'treatmentIds')->dropDownList($treatmentOptions, [
-                                'multiple' => true,
-                                'prompt' => 'Seleziona trattamenti da analizzare...',
-                                'size' => 6
-                            ])->label('Trattamenti') ?>
-                        </div>
-
-                        <div class="col-md-6">
-                            <?= StatisticsFilter::widget([
-                                'model' => $searchModel,
-                                'form' => $form,
-                                'title' => false,
-                                'fields' => ['combinationMode'],
-                                'collapsible' => false
-                            ]) ?>
-                        </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <?= $form->field($searchModel, 'treatmentIds', [
+                            'options' => ['class' => 'mb-0'],
+                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+                        ])->dropDownList($treatmentOptions, [
+                            'multiple' => true,
+                            'prompt' => 'Seleziona trattamenti da analizzare...',
+                            'size' => 8,
+                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[200px] max-h-[300px]'
+                        ])->label('Trattamenti') ?>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-4">
-                            <?= $form->field($searchModel, 'dateFrom')->input('date') ?>
-                        </div>
-
-                        <div class="col-md-4">
-                            <?= $form->field($searchModel, 'dateTo')->input('date') ?>
-                        </div>
-
-                        <div class="col-md-4">
-                            <?= $form->field($searchModel, 'includeInactive')->checkbox() ?>
-                        </div>
-                    </div>
-
-                    <div class="text-center">
-                        <?= Html::submitButton('<i class="fas fa-search mr-1"></i> Analizza', [
-                            'class' => 'btn btn-primary'
-                        ]) ?>
-                        <?= Html::a('<i class="fas fa-eraser mr-1"></i> Pulisci', ['treatments'], [
-                            'class' => 'btn btn-outline-secondary ml-2'
+                    <div>
+                        <?= StatisticsFilter::widget([
+                            'model' => $searchModel,
+                            'form' => $form,
+                            'title' => false,
+                            'fields' => ['combinationMode'],
+                            'collapsible' => false
                         ]) ?>
                     </div>
-
-                    <?php ActiveForm::end(); ?>
                 </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <?= $form->field($searchModel, 'dateFrom', [
+                            'options' => ['class' => 'mb-0'],
+                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+                        ])->input('date', [
+                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                        ])->label('Data da') ?>
+                    </div>
+
+                    <div>
+                        <?= $form->field($searchModel, 'dateTo', [
+                            'options' => ['class' => 'mb-0'],
+                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+                        ])->input('date', [
+                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                        ])->label('Data a') ?>
+                    </div>
+
+                    <div class="flex items-center">
+                        <?= $form->field($searchModel, 'includeInactive', [
+                            'options' => ['class' => 'mb-0'],
+                            'template' => '<div class="flex items-center space-x-2">{input}{label}</div>'
+                        ])->checkbox([
+                            'class' => 'w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500'
+                        ])->label('Includi inattivi') ?>
+                    </div>
+                </div>
+
+                <div class="flex justify-center gap-3">
+                    <?= Html::submitButton('<i class="fas fa-search mr-2"></i> Analizza', [
+                        'class' => 'inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm'
+                    ]) ?>
+                    <?= Html::a('<i class="fas fa-eraser mr-2"></i> Pulisci', ['treatments'], [
+                        'class' => 'inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium shadow-sm'
+                    ]) ?>
+                </div>
+
+                <?php ActiveForm::end(); ?>
             </div>
         </div>
     </div>
 
     <!-- Search Results -->
     <?php if (!empty($searchResults)): ?>
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow border-left-info">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-info">
-                            <i class="fas fa-chart-bar mr-2"></i>
-                            Risultati Ricerca Combinazioni
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Paziente</th>
-                                        <th class="text-center">N° Trattamenti</th>
-                                        <th>Trattamenti</th>
+        <div class="mb-8">
+            <div class="bg-white rounded-lg shadow border-l-4 border-blue-500">
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-blue-600"></i>
+                        Risultati Ricerca Combinazioni
+                    </h6>
+                </div>
+                <div class="p-6">
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Paziente</th>
+                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamenti</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($searchResults as $result): ?>
+                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                        <td class="py-3 px-4">
+                                            <strong class="text-gray-900">
+                                                <?php
+                                                // Gestisci diversi formati possibili di dati
+                                                if (isset($result['first_name']) && isset($result['last_name'])) {
+                                                    echo Html::encode($result['first_name'] . ' ' . $result['last_name']);
+                                                } elseif (isset($result['patient_name'])) {
+                                                    echo Html::encode($result['patient_name']);
+                                                } elseif (isset($result['name'])) {
+                                                    echo Html::encode($result['name']);
+                                                } else {
+                                                    echo 'N/D';
+                                                }
+                                                ?>
+                                            </strong>
+                                        </td>
+                                        <td class="py-3 px-4 text-center">
+                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                <?= isset($result['treatment_count']) ? $result['treatment_count'] : 0 ?>
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <span class="text-sm text-gray-600">
+                                                <?= Html::encode(isset($result['treatments']) ? $result['treatments'] : 'N/D') ?>
+                                            </span>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($searchResults as $result): ?>
-                                        <tr>
-                                            <td>
-                                                <strong>
-                                                    <?php
-                                                    // Gestisci diversi formati possibili di dati
-                                                    if (isset($result['first_name']) && isset($result['last_name'])) {
-                                                        echo Html::encode($result['first_name'] . ' ' . $result['last_name']);
-                                                    } elseif (isset($result['patient_name'])) {
-                                                        echo Html::encode($result['patient_name']);
-                                                    } elseif (isset($result['name'])) {
-                                                        echo Html::encode($result['name']);
-                                                    } else {
-                                                        echo 'N/D';
-                                                    }
-                                                    ?>
-                                                </strong>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge badge-primary">
-                                                    <?= isset($result['treatment_count']) ? $result['treatment_count'] : 0 ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <small>
-                                                    <?= Html::encode(isset($result['treatments']) ? $result['treatments'] : 'N/D') ?>
-                                                </small>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
 
-                        <div class="mt-3">
-                            <span class="badge badge-info">
-                                Trovati <?= count($searchResults) ?> pazienti con la combinazione richiesta
-                            </span>
-                        </div>
+                    <div class="mt-4">
+                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
+                            Trovati <?= count($searchResults) ?> pazienti con la combinazione richiesta
+                        </span>
                     </div>
                 </div>
             </div>
@@ -186,8 +201,8 @@ $this->registerJs("
     <?php endif; ?>
 
     <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div>
             <?= StatsCard::widget([
                 'title' => 'Tipi di Trattamento',
                 'value' => count($ranking),
@@ -198,7 +213,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?php
             $totalPatients = array_sum(array_column($ranking, 'patient_count'));
             ?>
@@ -212,7 +227,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?php
             $totalHours = array_sum(array_column($ranking, 'total_weekly_hours'));
             ?>
@@ -226,7 +241,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?= StatsCard::widget([
                 'title' => 'Combinazioni Frequenti',
                 'value' => count($combinations),
@@ -239,8 +254,8 @@ $this->registerJs("
     </div>
 
     <!-- Charts Row -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2">
             <?= ChartWidget::widget([
                 'title' => 'Ranking Trattamenti per Numero Pazienti',
                 'type' => 'bar',
@@ -266,7 +281,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div>
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione Ore Settimanali',
                 'type' => 'doughnut',
@@ -292,33 +307,39 @@ $this->registerJs("
     </div>
 
     <!-- Setting Type Analysis -->
-    <div class="row mb-4">
-        <div class="col-lg-6">
-            <div class="card shadow h-100">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-users mr-2"></i>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div>
+            <div class="bg-white rounded-lg shadow h-full">
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-users text-blue-600"></i>
                         Terapie Individuali vs Gruppo
                     </h6>
                 </div>
-                <div class="card-body">
-                    <div class="row">
+                <div class="p-6">
+                    <div class="grid grid-cols-2 gap-4">
                         <?php foreach ($bySettingType as $setting): ?>
-                            <div class="col-6 text-center">
-                                <div class="p-3 border rounded">
-                                    <h4 class="text-primary"><?= $setting['setting_type'] ?></h4>
-                                    <p class="mb-1">
-                                        <span class="badge badge-primary badge-lg"><?= $setting['therapy_count'] ?></span>
-                                        <small class="text-muted d-block">Terapie</small>
-                                    </p>
-                                    <p class="mb-1">
-                                        <span class="badge badge-success badge-lg"><?= $setting['patient_count'] ?></span>
-                                        <small class="text-muted d-block">Pazienti</small>
-                                    </p>
-                                    <p class="mb-0">
-                                        <span class="badge badge-info"><?= round($setting['avg_hours'], 1) ?>h</span>
-                                        <small class="text-muted d-block">Ore medie</small>
-                                    </p>
+                            <div class="text-center p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <h4 class="text-lg font-semibold text-blue-600 mb-3"><?= $setting['setting_type'] ?></h4>
+                                <div class="space-y-2">
+                                    <div>
+                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
+                                            <?= $setting['therapy_count'] ?>
+                                        </span>
+                                        <div class="text-xs text-gray-500 mt-1">Terapie</div>
+                                    </div>
+                                    <div>
+                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-green-100 text-green-800 rounded-lg">
+                                            <?= $setting['patient_count'] ?>
+                                        </span>
+                                        <div class="text-xs text-gray-500 mt-1">Pazienti</div>
+                                    </div>
+                                    <div>
+                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
+                                            <?= round($setting['avg_hours'], 1) ?>h
+                                        </span>
+                                        <div class="text-xs text-gray-500 mt-1">Ore medie</div>
+                                    </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -327,7 +348,7 @@ $this->registerJs("
             </div>
         </div>
 
-        <div class="col-lg-6">
+        <div>
             <?= ChartWidget::widget([
                 'title' => 'Confronto Individuale vs Gruppo',
                 'type' => 'bar',
@@ -354,66 +375,80 @@ $this->registerJs("
                         ]
                     ]
                 ],
-                'height' => 300
+                'height' => 350
             ]) ?>
         </div>
     </div>
 
     <!-- Detailed Ranking Table -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-table mr-2"></i>
-                        Ranking Dettagliato Trattamenti
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Trattamento</th>
-                                    <th>Codice</th>
-                                    <th class="text-center">Pazienti</th>
-                                    <th class="text-center">Terapie</th>
-                                    <th class="text-center">Ore Settimanali</th>
-                                    <th class="text-center">Ore Medie</th>
-                                    <th class="text-center">% Pazienti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($ranking as $index => $treatment): ?>
-                                    <tr>
-                                        <td><strong><?= $index + 1 ?></strong></td>
-                                        <td><?= Html::encode($treatment['name']) ?></td>
-                                        <td><span class="badge badge-secondary"><?= Html::encode($treatment['code']) ?></span></td>
-                                        <td class="text-center">
-                                            <span class="badge badge-primary"><?= $treatment['patient_count'] ?></span>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge badge-info"><?= $treatment['therapy_count'] ?></span>
-                                        </td>
-                                        <td class="text-center">
+    <div class="mb-8">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-table text-blue-600"></i>
+                    Ranking Dettagliato Trattamenti
+                </h6>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 px-4 font-semibold text-gray-700">#</th>
+                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamento</th>
+                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Codice</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Pazienti</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Terapie</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Ore Settimanali</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Ore Medie</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">% Pazienti</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ranking as $index => $treatment): ?>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4">
+                                        <strong class="text-gray-900"><?= $index + 1 ?></strong>
+                                    </td>
+                                    <td class="py-3 px-4"><?= Html::encode($treatment['name']) ?></td>
+                                    <td class="py-3 px-4">
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                            <?= Html::encode($treatment['code']) ?>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                            <?= $treatment['patient_count'] ?>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                            <?= $treatment['therapy_count'] ?>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="text-sm text-gray-600">
                                             <?= round($treatment['total_weekly_hours'] ?? 0, 1) ?>
-                                        </td>
-                                        <td class="text-center">
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="text-sm text-gray-600">
                                             <?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?>
-                                        </td>
-                                        <td class="text-center">
-                                            <?php
-                                            $percentage = $totalPatients > 0 ? round($treatment['patient_count'] / $totalPatients * 100, 1) : 0;
-                                            $badgeClass = $percentage >= 20 ? 'success' : ($percentage >= 10 ? 'warning' : 'secondary');
-                                            ?>
-                                            <span class="badge badge-<?= $badgeClass ?>"><?= $percentage ?>%</span>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <?php
+                                        $percentage = $totalPatients > 0 ? round($treatment['patient_count'] / $totalPatients * 100, 1) : 0;
+                                        $badgeClass = $percentage >= 20 ? 'bg-green-100 text-green-800' : ($percentage >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800');
+                                        ?>
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
+                                            <?= $percentage ?>%
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -421,42 +456,46 @@ $this->registerJs("
 
     <!-- Frequent Combinations -->
     <?php if (!empty($combinations)): ?>
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">
-                            <i class="fas fa-layer-group mr-2"></i>
-                            Combinazioni di Trattamenti Più Frequenti
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Combinazione Trattamenti</th>
-                                        <th class="text-center">N° Trattamenti</th>
-                                        <th class="text-center">N° Pazienti</th>
+        <div class="mb-8">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-layer-group text-blue-600"></i>
+                        Combinazioni di Trattamenti Più Frequenti
+                    </h6>
+                </div>
+                <div class="p-6">
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">#</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Combinazione Trattamenti</th>
+                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
+                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Pazienti</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($combinations as $index => $combo): ?>
+                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                        <td class="py-3 px-4">
+                                            <strong class="text-gray-900"><?= $index + 1 ?></strong>
+                                        </td>
+                                        <td class="py-3 px-4"><?= Html::encode($combo['combination']) ?></td>
+                                        <td class="py-3 px-4 text-center">
+                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                <?= $combo['treatment_count'] ?>
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-4 text-center">
+                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                <?= $combo['patient_count'] ?>
+                                            </span>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($combinations as $index => $combo): ?>
-                                        <tr>
-                                            <td><strong><?= $index + 1 ?></strong></td>
-                                            <td><?= Html::encode($combo['combination']) ?></td>
-                                            <td class="text-center">
-                                                <span class="badge badge-info"><?= $combo['treatment_count'] ?></span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge badge-primary"><?= $combo['patient_count'] ?></span>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
