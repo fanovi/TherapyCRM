@@ -54,10 +54,13 @@ return [
                 
                 // Route per le statistiche
                 'statistics' => 'statistics/index',
-                'statistics/absences' => 'statistics/absence-stats',
-                'statistics/patients' => 'statistics/patient-stats',
-                'statistics/treatments' => 'statistics/treatment-stats',
-                'statistics/regimes' => 'statistics/regime-stats',
+                'statistics/dashboard' => 'statistics/index',
+                'statistics/absences' => 'statistics/absences',
+                'statistics/patients' => 'statistics/patients',
+                'statistics/treatments' => 'statistics/treatments',
+                'statistics/plans' => 'statistics/plans',
+                'statistics/chart-data/<type>' => 'statistics/chart-data',
+                'statistics/export/<type>' => 'statistics/export',
                 
                 // API routes
                 'api/therapist/<id:\d+>' => 'api/therapist/view',

@@ -6,21 +6,48 @@ use Yii;
 use yii\web\Controller;
 use yii\filters\AccessControl;
 use yii\web\Response;
-use yii\db\Query;
-use yii\data\Pagination;
+use yii\web\NotFoundHttpException;
+use yii\web\BadRequestHttpException;
+use frontend\models\AbsenceStatisticsSearch;
+use frontend\models\PatientStatisticsSearch;
+use frontend\models\TreatmentStatisticsSearch;
+use common\services\statistics\StatisticsService;
+use common\services\statistics\AbsenceStatisticsService;
+use common\services\statistics\PatientStatisticsService;
+use common\services\statistics\TreatmentStatisticsService;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use yii\helpers\ArrayHelper;
 
 /**
  * Controller per la gestione delle statistiche di TherapyCRM
  * 
- * Gestisce:
- * - Statistiche assenze (orari, terapie, giorni, chi genera l'assenza, recuperi)
- * - Statistiche pazienti (sesso, età, numero pazienti)
- * - Statistiche trattamenti (pazienti per trattamento)
- * - Statistiche regimi (pazienti per regime)
- * - Pazienti con più trattamenti
+ * Gestisce dashboard principale e analisi dettagliate per:
+ * - Assenze (heatmap, trend, motivi)
+ * - Pazienti (demografia, trattamenti multipli)
+ * - Trattamenti (ranking, combinazioni)
+ * - Piani terapeutici (stati, scadenze)
  */
 class StatisticsController extends BaseController
 {
+    protected $statisticsService;
+    protected $absenceService;
+    protected $patientService;
+    protected $treatmentService;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function init()
+    {
+        parent::init();
+
+        $this->statisticsService = new StatisticsService();
+        $this->absenceService = new AbsenceStatisticsService();
+        $this->patientService = new PatientStatisticsService();
+        $this->treatmentService = new TreatmentStatisticsService();
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -31,7 +58,15 @@ class StatisticsController extends BaseController
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'absence-stats', 'patient-stats', 'treatment-stats', 'regime-stats', 'multi-treatment-stats'],
+                        'actions' => [
+                            'index',
+                            'absences',
+                            'patients',
+                            'treatments',
+                            'plans',
+                            'chart-data',
+                            'export'
+                        ],
                         'allow' => true,
                         'matchCallback' => function ($rule, $action) {
                             return Yii::$app->user->can('view_statistics');
@@ -43,467 +78,627 @@ class StatisticsController extends BaseController
     }
 
     /**
-     * Pagina principale delle statistiche
+     * Dashboard principale delle statistiche
      */
     public function actionIndex()
     {
-        // Carica i trattamenti per il filtro
-        $treatments = (new Query())
-            ->select(['id', 'name', 'code'])
-            ->from('treatment_types')
-            ->orderBy('name')
-            ->all();
+        try {
+            $summary = $this->statisticsService->getDashboardSummary();
+            $topTreatments = $this->treatmentService->getTop(5);
+            $patientGrowth = $this->statisticsService->getPatientGrowthData([
+                'dateFrom' => date('Y-m-d', strtotime('-6 months'))
+            ]);
 
-        return $this->render('index', [
-            'treatments' => $treatments,
-        ]);
+            return $this->render('index', [
+                'summary' => $summary,
+                'topTreatments' => $topTreatments,
+                'patientGrowth' => $patientGrowth,
+            ]);
+        } catch (\Exception $e) {
+            Yii::error("Errore dashboard statistiche: " . $e->getMessage());
+
+            // Dati vuoti di fallback
+            $emptySummary = [
+                'patients' => ['active' => 0, 'total' => 0, 'new_this_month' => 0, 'multi_treatment' => 0],
+                'absences' => ['total_this_month' => 0, 'justified_this_month' => 0, 'with_recovery' => 0, 'unjustified_rate' => 0],
+                'treatments' => ['active_types' => 0, 'total_weekly_hours' => 0, 'top_treatment' => 'N/A'],
+                'plans' => ['total' => 0, 'active' => 0, 'expiring_soon' => 0, 'new_this_month' => 0]
+            ];
+
+            return $this->render('index', [
+                'summary' => $emptySummary,
+                'topTreatments' => [],
+                'patientGrowth' => [],
+                'error' => 'Errore nel caricamento dei dati: ' . $e->getMessage()
+            ]);
+        }
     }
 
     /**
-     * AJAX: Statistiche assenze
+     * Pagina analisi dettagliata assenze
      */
-    public function actionAbsenceStats()
+    public function actionAbsences()
+    {
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        try {
+            // Pre-carica alcuni dati per la pagina
+            $monthlyRate = $this->absenceService->getMonthlyRate();
+            $byReason = $this->absenceService->getByReason($searchModel);
+            $byGenerator = $this->absenceService->getByGenerator($searchModel);
+
+            // Opzioni per i filtri
+            $therapistOptions = $this->getTherapistOptions();
+            $patientOptions = $this->getPatientOptions();
+            $treatmentOptions = $this->getTreatmentOptions();
+
+            return $this->render('absences', [
+                'searchModel' => $searchModel,
+                'monthlyRate' => $monthlyRate,
+                'byReason' => $byReason,
+                'byGenerator' => $byGenerator,
+                'therapistOptions' => $therapistOptions,
+                'patientOptions' => $patientOptions,
+                'treatmentOptions' => $treatmentOptions,
+            ]);
+        } catch (\Exception $e) {
+            Yii::error("Errore pagina assenze: " . $e->getMessage());
+            throw new NotFoundHttpException('Errore nel caricamento dei dati');
+        }
+    }
+
+    /**
+     * Pagina analisi dettagliata pazienti
+     */
+    public function actionPatients()
+    {
+        $searchModel = new PatientStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        try {
+            $demographics = $this->patientService->getDemographics($searchModel);
+            $byTreatment = $this->patientService->getByTreatment($searchModel);
+            $byRegime = $this->patientService->getByRegime($searchModel);
+            $multiTreatmentStats = $this->patientService->getMultiTreatmentStats(true);
+
+            // Opzioni per i filtri
+            $treatmentOptions = $this->getTreatmentOptions();
+            $regimeOptions = $this->getRegimeOptions();
+            $districtOptions = $this->getDistrictOptions();
+
+            return $this->render('patients', [
+                'searchModel' => $searchModel,
+                'demographics' => $demographics,
+                'byTreatment' => $byTreatment,
+                'byRegime' => $byRegime,
+                'multiTreatmentStats' => $multiTreatmentStats,
+                'treatmentOptions' => $treatmentOptions,
+                'regimeOptions' => $regimeOptions,
+                'districtOptions' => $districtOptions,
+            ]);
+        } catch (\Exception $e) {
+            Yii::error("Errore pagina pazienti: " . $e->getMessage());
+            throw new NotFoundHttpException('Errore nel caricamento dei dati');
+        }
+    }
+
+    /**
+     * Pagina analisi dettagliata trattamenti
+     */
+    public function actionTreatments()
+    {
+        $searchModel = new TreatmentStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        try {
+            $ranking = $this->treatmentService->getRankingData();
+            $combinations = $this->treatmentService->getMostFrequentCombinations(10);
+            $bySettingType = $this->treatmentService->getBySettingType();
+            $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution();
+
+            // Statistiche specifiche per i filtri del search model
+            $searchResults = $searchModel->getStatistics();
+
+            // Opzioni per i filtri
+            $treatmentOptions = $this->getTreatmentOptions();
+            $regimeOptions = $this->getRegimeOptions();
+
+            return $this->render('treatments', [
+                'searchModel' => $searchModel,
+                'ranking' => $ranking,
+                'combinations' => $combinations,
+                'bySettingType' => $bySettingType,
+                'hoursDistribution' => $hoursDistribution,
+                'searchResults' => $searchResults,
+                'treatmentOptions' => $treatmentOptions,
+                'regimeOptions' => $regimeOptions,
+            ]);
+        } catch (\Exception $e) {
+            Yii::error("Errore pagina trattamenti: " . $e->getMessage());
+            throw new NotFoundHttpException('Errore nel caricamento dei dati');
+        }
+    }
+
+    /**
+     * Pagina analisi piani terapeutici
+     */
+    public function actionPlans()
+    {
+        try {
+            $plansStats = $this->statisticsService->getPlansStatistics();
+
+            return $this->render('plans', [
+                'plansStats' => $plansStats,
+            ]);
+        } catch (\Exception $e) {
+            Yii::error("Errore pagina piani: " . $e->getMessage());
+            throw new NotFoundHttpException('Errore nel caricamento dei dati');
+        }
+    }
+
+    /**
+     * Endpoint AJAX per dati grafici
+     */
+    public function actionChartData($type)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $dateFrom = Yii::$app->request->get('date_from');
-        $dateTo = Yii::$app->request->get('date_to');
-        
+
         try {
-            $query = (new Query())
-                ->from('statistics_absences_mv sa');
-            
-            // Filtri data
-            if ($dateFrom) {
-                $query->andWhere(['>=', 'sa.absence_date', $dateFrom]);
+            switch ($type) {
+                case 'absence-heatmap':
+                    return $this->getAbsenceHeatmapData();
+
+                case 'absence-trend':
+                    return $this->getAbsenceTrendData();
+
+                case 'absence-by-day':
+                    return $this->getAbsenceByDayData();
+
+                case 'patient-age-groups':
+                    return $this->getPatientAgeGroupsData();
+
+                case 'patient-gender':
+                    return $this->getPatientGenderData();
+
+                case 'treatment-ranking':
+                    return $this->getTreatmentRankingData();
+
+                case 'treatment-hours':
+                    return $this->getTreatmentHoursData();
+
+                case 'plans-monthly':
+                    return $this->getPlansMonthlyData();
+
+                default:
+                    throw new BadRequestHttpException('Tipo grafico non supportato');
             }
-            if ($dateTo) {
-                $query->andWhere(['<=', 'sa.absence_date', $dateTo]);
-            }
-
-            // Statistiche semplici per il grafico
-            $totalAbsences = (clone $query)->count();
-            
-            $justifiedCount = (clone $query)
-                ->andWhere(['sa.is_justified' => 1])
-                ->count();
-                
-            $unjustifiedCount = (clone $query)
-                ->andWhere(['sa.is_justified' => 0])
-                ->count();
-
-            $withRecoveryCount = (clone $query)
-                ->andWhere(['sa.has_recovery' => 1])
-                ->count();
-
-            $treatmentCount = (clone $query)
-                ->select('DISTINCT sa.treatment_name')
-                ->where(['not', ['sa.treatment_name' => null]])
-                ->count();
-
-            return [
-                'success' => true,
-                'data' => [
-                    'labels' => ['Assenze Totali', 'Giustificate', 'Non Giustificate', 'Con Recupero', 'Trattamenti Coinvolti'],
-                    'values' => [$totalAbsences, $justifiedCount, $unjustifiedCount, $withRecoveryCount, $treatmentCount]
-                ]
-            ];
-
         } catch (\Exception $e) {
-            Yii::error("Errore statistiche assenze: " . $e->getMessage());
+            Yii::error("Errore chart-data {$type}: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'Errore nel caricamento delle statistiche assenze'
+                'message' => 'Errore nel caricamento dei dati del grafico'
             ];
         }
     }
 
     /**
-     * AJAX: Statistiche pazienti
+     * Export dati in Excel
      */
-    public function actionPatientStats()
+    public function actionExport($type)
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $gender = Yii::$app->request->get('gender');
-        $ageFrom = Yii::$app->request->get('age_from');
-        $ageTo = Yii::$app->request->get('age_to');
-        $treatments = Yii::$app->request->get('treatments', []);
-        $type = Yii::$app->request->get('type', 'gender'); // 'gender' o 'age'
-        
-        // Pulisci i parametri per evitare stringhe 'null'
-        if ($gender === 'null' || $gender === '') $gender = null;
-        if ($ageFrom === 'null' || $ageFrom === '') $ageFrom = null;
-        if ($ageTo === 'null' || $ageTo === '') $ageTo = null;
-        if ($treatments === 'null' || empty($treatments)) $treatments = [];
-        
         try {
-            $query = (new Query())
-                ->from('statistics_patients_mv sp');
-            
-            // Filtri
-            if ($gender) {
-                $query->andWhere(['sp.gender' => $gender]);
-            }
-            if ($ageFrom !== null && $ageFrom !== '') {
-                $query->andWhere(['>=', 'sp.age', (int)$ageFrom]);
-            }
-            if ($ageTo !== null && $ageTo !== '') {
-                $query->andWhere(['<=', 'sp.age', (int)$ageTo]);
-            }
-            
-            // Filtro per trattamenti (se specificato)
-            if (!empty($treatments) && is_array($treatments)) {
-                $subQuery = (new Query())
-                    ->select('DISTINCT tp.patient_id')
-                    ->from('plan_therapies pt')
-                    ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                    ->where(['in', 'pt.treatment_type_id', $treatments]);
-                
-                $query->andWhere(['in', 'sp.id', $subQuery]);
-            }
+            switch ($type) {
+                case 'absences':
+                    return $this->exportAbsences();
 
-            $labels = [];
-            $values = [];
-            
-            if ($type === 'age') {
-                // Distribuzione per fasce d'età - approccio semplificato
-                $allPatients = (clone $query)->all();
-                
-                // Definisci le fasce d'età e inizializza i contatori
-                $ageGroups = [
-                    'Under 18' => 0,
-                    '18-25' => 0,
-                    '26-35' => 0,
-                    '36-45' => 0,
-                    '46-55' => 0,
-                    '56-65' => 0,
-                    'Over 65' => 0
-                ];
-                
-                // Conta i pazienti unici per fascia d'età
-                $seenPatients = [];
-                foreach ($allPatients as $patient) {
-                    // Evita duplicati
-                    if (isset($seenPatients[$patient['id']])) {
-                        continue;
-                    }
-                    $seenPatients[$patient['id']] = true;
-                    
-                    $age = $patient['age'];
-                    if ($age < 18) {
-                        $ageGroups['Under 18']++;
-                    } elseif ($age >= 18 && $age <= 25) {
-                        $ageGroups['18-25']++;
-                    } elseif ($age >= 26 && $age <= 35) {
-                        $ageGroups['26-35']++;
-                    } elseif ($age >= 36 && $age <= 45) {
-                        $ageGroups['36-45']++;
-                    } elseif ($age >= 46 && $age <= 55) {
-                        $ageGroups['46-55']++;
-                    } elseif ($age >= 56 && $age <= 65) {
-                        $ageGroups['56-65']++;
-                    } else {
-                        $ageGroups['Over 65']++;
-                    }
-                }
-                
-                // Prepara i dati per il grafico
-                foreach ($ageGroups as $group => $count) {
-                    $labels[] = $group;
-                    $values[] = $count;
-                }
-            } else {
-                // Distribuzione per genere (default) - approccio semplificato
-                $allPatients = (clone $query)->all();
-                
-                $genderGroups = [
-                    'M' => 0,
-                    'F' => 0,
-                    'N' => 0
-                ];
-                
-                // Conta i pazienti unici per genere
-                $seenPatients = [];
-                foreach ($allPatients as $patient) {
-                    // Evita duplicati
-                    if (isset($seenPatients[$patient['id']])) {
-                        continue;
-                    }
-                    $seenPatients[$patient['id']] = true;
-                    
-                    $gender = $patient['gender'] ?? 'N';
-                    if (isset($genderGroups[$gender])) {
-                        $genderGroups[$gender]++;
-                    } else {
-                        $genderGroups['N']++;
-                    }
-                }
-                
-                // Prepara i dati per il grafico
-                foreach ($genderGroups as $gender => $count) {
-                    if ($count > 0) { // Mostra solo categorie con pazienti
-                        switch($gender) {
-                            case 'M':
-                                $labels[] = 'Maschi';
-                                break;
-                            case 'F':
-                                $labels[] = 'Femmine';
-                                break;
-                            default:
-                                $labels[] = 'Non Specificato';
-                                break;
-                        }
-                        $values[] = $count;
-                    }
-                }
-                
-                // Se non ci sono dati, mostra almeno un placeholder
-                if (empty($labels)) {
-                    $labels[] = 'Nessun Paziente';
-                    $values[] = 0;
-                }
+                case 'patients':
+                    return $this->exportPatients();
+
+                case 'treatments':
+                    return $this->exportTreatments();
+
+                case 'plans':
+                    return $this->exportPlans();
+
+                default:
+                    throw new BadRequestHttpException('Tipo export non supportato');
             }
-
-            // Calcola il totale pazienti
-            $totalPatients = array_sum($values);
-
-            return [
-                'success' => true,
-                'data' => [
-                    'labels' => $labels,
-                    'values' => $values,
-                    'total_patients' => $totalPatients
-                ]
-            ];
-
         } catch (\Exception $e) {
-            Yii::error("Errore statistiche pazienti: " . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Errore nel caricamento delle statistiche pazienti'
-            ];
+            Yii::error("Errore export {$type}: " . $e->getMessage());
+            Yii::$app->session->setFlash('error', 'Errore durante l\'export dei dati');
+            return $this->goBack();
         }
     }
 
-    /**
-     * AJAX: Statistiche trattamenti
-     */
-    public function actionTreatmentStats()
+    // ===== METODI PROTETTI PER DATI GRAFICI =====
+
+    protected function getAbsenceHeatmapData()
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $treatments = Yii::$app->request->get('treatments', []);
-        
-        try {
-            $query = (new Query())
-                ->select([
-                    'st.name',
-                    'st.active_patients_count'
-                ])
-                ->from('statistics_treatments_mv st')
-                ->where(['>', 'st.active_patients_count', 0]);
-                
-            // Filtro per trattamenti specifici se selezionati
-            if (!empty($treatments) && is_array($treatments)) {
-                $query->andWhere(['in', 'st.id', $treatments]);
-            }
-                
-            $treatmentStats = $query
-                ->orderBy('st.active_patients_count DESC')
-                ->limit(10) // Top 10 trattamenti
-                ->all();
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
 
-            $labels = [];
-            $values = [];
-            
-            foreach ($treatmentStats as $stat) {
-                $labels[] = $stat['name'];
-                $values[] = (int)$stat['active_patients_count'];
-            }
+        $data = $this->absenceService->getHeatmapData($searchModel);
 
-            return [
-                'success' => true,
-                'data' => [
-                    'labels' => $labels,
-                    'values' => $values
-                ]
-            ];
-
-        } catch (\Exception $e) {
-            Yii::error("Errore statistiche trattamenti: " . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Errore nel caricamento delle statistiche trattamenti'
-            ];
-        }
+        return [
+            'success' => true,
+            'data' => $data
+        ];
     }
 
-    /**
-     * AJAX: Statistiche pazienti con più trattamenti (ABA escluso)
-     */
-    public function actionMultiTreatmentStats()
+    protected function getAbsenceTrendData()
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $dateFrom = Yii::$app->request->get('date_from');
-        $dateTo = Yii::$app->request->get('date_to');
-        
-        // Pulisci i parametri
-        if ($dateFrom === 'null' || $dateFrom === '') $dateFrom = null;
-        if ($dateTo === 'null' || $dateTo === '') $dateTo = null;
-        
-        try {
-            // Query ottimizzata per performance
-            $sql = "
-                SELECT 
-                    p.id as patient_id,
-                    CONCAT(p.first_name, ' ', p.last_name) as patient_name,
-                    COUNT(DISTINCT pt.treatment_type_id) as treatment_count
-                FROM patients p
-                INNER JOIN therapeutic_plans tp ON p.id = tp.patient_id
-                INNER JOIN plan_therapies pt ON tp.id = pt.therapeutic_plan_id
-                INNER JOIN regime r ON tp.regime_id = r.id
-                WHERE 1=1
-                    AND r.nome != 'ABA'  -- Esclude piani ABA
-                    AND tp.end_date >= CURDATE()  -- Solo piani in corso
-            ";
-            
-            $params = [];
-            
-            // Filtri data - applicati alla data di inizio del piano
-            if ($dateFrom) {
-                $sql .= " AND tp.start_date >= :date_from";
-                $params[':date_from'] = $dateFrom;
-            }
-            if ($dateTo) {
-                $sql .= " AND tp.start_date <= :date_to";
-                $params[':date_to'] = $dateTo;
-            }
-            
-            $sql .= "
-                GROUP BY p.id, p.first_name, p.last_name
-                HAVING treatment_count > 1
-                ORDER BY treatment_count DESC, patient_name ASC
-            ";
-            
-            $multiTreatmentPatients = Yii::$app->db->createCommand($sql, $params)->queryAll();
-            
-            // Statistiche aggregate
-            $totalMultiTreatment = count($multiTreatmentPatients);
-            
-            // Distribuzione per numero di trattamenti
-            $distribution = [];
-            $distributionLabels = [];
-            $distributionValues = [];
-            
-            foreach ($multiTreatmentPatients as $patient) {
-                $count = (int)$patient['treatment_count'];
-                if (!isset($distribution[$count])) {
-                    $distribution[$count] = 0;
-                }
-                $distribution[$count]++;
-            }
-            
-            // Prepara dati per il grafico - raggruppa 4+ trattamenti
-            foreach ($distribution as $treatmentCount => $patientCount) {
-                if ($treatmentCount >= 4) {
-                    if (!in_array('4+ Trattamenti', $distributionLabels)) {
-                        $distributionLabels[] = '4+ Trattamenti';
-                        $distributionValues[] = $patientCount;
-                    } else {
-                        $index = array_search('4+ Trattamenti', $distributionLabels);
-                        $distributionValues[$index] += $patientCount;
-                    }
-                } else {
-                    $distributionLabels[] = $treatmentCount . ' Trattamenti';
-                    $distributionValues[] = $patientCount;
-                }
-            }
-            
-            // Calcola percentuale sul totale pazienti attivi (non ABA)
-            $totalActivePatientsQuery = "
-                SELECT COUNT(DISTINCT p.id) as total
-                FROM patients p
-                INNER JOIN therapeutic_plans tp ON p.id = tp.patient_id
-                INNER JOIN regime r ON tp.regime_id = r.id
-                WHERE r.nome != 'ABA' AND tp.end_date >= CURDATE()
-            ";
-            
-            if ($dateFrom || $dateTo) {
-                $totalActivePatientsQuery .= " AND (1=1";
-                if ($dateFrom) $totalActivePatientsQuery .= " AND tp.start_date >= :date_from";
-                if ($dateTo) $totalActivePatientsQuery .= " AND tp.start_date <= :date_to";
-                $totalActivePatientsQuery .= ")";
-            }
-            
-            $totalActivePatients = Yii::$app->db->createCommand($totalActivePatientsQuery, $params)->queryScalar();
-            $percentage = $totalActivePatients > 0 ? round(($totalMultiTreatment / $totalActivePatients) * 100, 1) : 0;
-            
-            // Top 5 pazienti con più trattamenti per dettagli
-            $topPatients = array_slice($multiTreatmentPatients, 0, 5);
-            
-            return [
-                'success' => true,
-                'data' => [
-                    'total_patients' => $totalMultiTreatment,
-                    'percentage' => $percentage,
-                    'total_active_patients' => $totalActivePatients,
-                    'distribution' => [
-                        'labels' => $distributionLabels,
-                        'values' => $distributionValues
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        $trendData = $this->absenceService->getTrendData($searchModel);
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($trendData, 'month'),
+                'datasets' => [
+                    [
+                        'label' => 'Assenze Totali',
+                        'data' => ArrayHelper::getColumn($trendData, 'total_absences'),
+                        'borderColor' => 'rgb(255, 99, 132)',
+                        'backgroundColor' => 'rgba(255, 99, 132, 0.2)',
                     ],
-                    'top_patients' => $topPatients,
-                    'filters_applied' => [
-                        'date_from' => $dateFrom,
-                        'date_to' => $dateTo,
-                        'excludes_aba' => true
+                    [
+                        'label' => 'Assenze Giustificate',
+                        'data' => ArrayHelper::getColumn($trendData, 'justified_absences'),
+                        'borderColor' => 'rgb(54, 162, 235)',
+                        'backgroundColor' => 'rgba(54, 162, 235, 0.2)',
                     ]
                 ]
-            ];
-
-        } catch (\Exception $e) {
-            Yii::error("Errore statistiche multi-trattamento: " . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Errore nel caricamento delle statistiche multi-trattamento'
-            ];
-        }
+            ]
+        ];
     }
 
-    /**
-     * AJAX: Statistiche regimi
-     */
-    public function actionRegimeStats()
+    protected function getAbsenceByDayData()
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        try {
-            // Conta pazienti con piano attivo vs dimessi
-            $activeCount = (new Query())
-                ->from('statistics_patients_mv')
-                ->where(['piano_terapeutico_attivo' => 'SI'])
-                ->count();
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
 
-            $dismissedCount = (new Query())
-                ->from('statistics_patients_mv')
-                ->where(['dismesso' => 'SI'])
-                ->count();
+        $dayData = $this->absenceService->getByDayOfWeek($searchModel);
 
-            return [
-                'success' => true,
-                'data' => [
-                    'labels' => ['Piani Attivi', 'Pazienti Dimessi'],
-                    'values' => [(int)$activeCount, (int)$dismissedCount]
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($dayData, 'day_label'),
+                'datasets' => [
+                    [
+                        'label' => 'Assenze per Giorno',
+                        'data' => ArrayHelper::getColumn($dayData, 'count'),
+                        'backgroundColor' => [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)',
+                        ]
+                    ]
                 ]
-            ];
-
-        } catch (\Exception $e) {
-            Yii::error("Errore statistiche regimi: " . $e->getMessage());
-            return [
-                'success' => false,
-                'message' => 'Errore nel caricamento delle statistiche regimi'
-            ];
-        }
+            ]
+        ];
     }
-} 
+
+    protected function getPatientAgeGroupsData()
+    {
+        $searchModel = new PatientStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        // Usa createCommand con query SQL corretta
+        $ageGroups = Yii::$app->db->createCommand("
+        SELECT 
+            CASE 
+                WHEN age < 18 THEN '0-17'
+                WHEN age < 30 THEN '18-29'
+                WHEN age < 50 THEN '30-49'
+                WHEN age < 65 THEN '50-64'
+                ELSE '65+'
+            END as age_group,
+            COUNT(*) as count,
+            ROUND(AVG(age), 1) as avg_age
+        FROM statistics_patients_mv
+        GROUP BY age_group
+        ORDER BY age_group
+    ")->queryAll();
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($ageGroups, 'age_group'),
+                'datasets' => [
+                    [
+                        'label' => 'Pazienti per Età',
+                        'data' => ArrayHelper::getColumn($ageGroups, 'count'),
+                        'backgroundColor' => [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                        ]
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    protected function getPatientGenderData()
+    {
+        $searchModel = new PatientStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        $genderData = $searchModel->getGenderDistribution();
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($genderData, 'gender_label'),
+                'datasets' => [
+                    [
+                        'label' => 'Distribuzione Genere',
+                        'data' => ArrayHelper::getColumn($genderData, 'count'),
+                        'backgroundColor' => [
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(201, 203, 207, 0.8)',
+                        ]
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    protected function getTreatmentRankingData()
+    {
+        $filters = Yii::$app->request->queryParams;
+        $ranking = $this->treatmentService->getRankingData($filters);
+
+        // Prende i top 10
+        $topRanking = array_slice($ranking, 0, 10);
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($topRanking, 'name'),
+                'datasets' => [
+                    [
+                        'label' => 'Numero Pazienti',
+                        'data' => ArrayHelper::getColumn($topRanking, 'patient_count'),
+                        'backgroundColor' => 'rgba(75, 192, 192, 0.8)',
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    protected function getTreatmentHoursData()
+    {
+        $hoursData = $this->treatmentService->getWeeklyHoursDistribution();
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($hoursData, 'hours_range'),
+                'datasets' => [
+                    [
+                        'label' => 'Numero Terapie',
+                        'data' => ArrayHelper::getColumn($hoursData, 'therapy_count'),
+                        'backgroundColor' => 'rgba(153, 102, 255, 0.8)',
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    protected function getPlansMonthlyData()
+    {
+        $filters = Yii::$app->request->queryParams;
+        $monthlyData = $this->treatmentService->getMonthlyTrends($filters);
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => ArrayHelper::getColumn($monthlyData, 'month'),
+                'datasets' => [
+                    [
+                        'label' => 'Nuovi Piani',
+                        'data' => ArrayHelper::getColumn($monthlyData, 'new_therapies'),
+                        'borderColor' => 'rgb(255, 99, 132)',
+                        'backgroundColor' => 'rgba(255, 99, 132, 0.2)',
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    // ===== METODI PROTETTI PER EXPORT =====
+
+    protected function exportAbsences()
+    {
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        // Ottieni dati per export
+        $absenceData = $searchModel->getStatisticsQuery()->all();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Headers
+        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Giustificata', 'Recupero'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Dati
+        $row = 2;
+        foreach ($absenceData as $absence) {
+            $sheet->setCellValue("A{$row}", $absence['absence_date']);
+            $sheet->setCellValue("B{$row}", sprintf('%02d:00', $absence['absence_hour']));
+            $sheet->setCellValue("C{$row}", $absence['patient_name'] . ' ' . $absence['patient_surname']);
+            $sheet->setCellValue("D{$row}", $absence['therapist_name'] . ' ' . $absence['therapist_surname']);
+            $sheet->setCellValue("E{$row}", $absence['treatment_name']);
+            $sheet->setCellValue("F{$row}", $absence['reason']);
+            $sheet->setCellValue("G{$row}", $absence['is_justified'] ? 'Sì' : 'No');
+            $sheet->setCellValue("H{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
+            $row++;
+        }
+
+        return $this->sendExcelFile($spreadsheet, 'statistiche_assenze_' . date('Y-m-d') . '.xlsx');
+    }
+
+    protected function exportPatients()
+    {
+        $searchModel = new PatientStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        $patientData = $searchModel->getStatisticsQuery()->all();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Headers
+        $headers = ['Nome', 'Cognome', 'Età', 'Genere', 'Piano Attivo', 'Trattamenti (no ABA)', 'Data Creazione'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Dati
+        $row = 2;
+        foreach ($patientData as $patient) {
+            $sheet->setCellValue("A{$row}", $patient['first_name']);
+            $sheet->setCellValue("B{$row}", $patient['last_name']);
+            $sheet->setCellValue("C{$row}", $patient['age']);
+            $sheet->setCellValue("D{$row}", $patient['gender']);
+            $sheet->setCellValue("E{$row}", $patient['piano_terapeutico_attivo']);
+            $sheet->setCellValue("F{$row}", $patient['trattamenti_count_no_aba']);
+            $sheet->setCellValue("G{$row}", date('d/m/Y', strtotime($patient['created_at'])));
+            $row++;
+        }
+
+        return $this->sendExcelFile($spreadsheet, 'statistiche_pazienti_' . date('Y-m-d') . '.xlsx');
+    }
+
+    protected function exportTreatments()
+    {
+        $ranking = $this->treatmentService->getRankingData();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Headers
+        $headers = ['Trattamento', 'Codice', 'Pazienti', 'Terapie Totali', 'Ore Settimanali', 'Ore Medie'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Dati
+        $row = 2;
+        foreach ($ranking as $treatment) {
+            $sheet->setCellValue("A{$row}", $treatment['name']);
+            $sheet->setCellValue("B{$row}", $treatment['code']);
+            $sheet->setCellValue("C{$row}", $treatment['patient_count']);
+            $sheet->setCellValue("D{$row}", $treatment['therapy_count']);
+            $sheet->setCellValue("E{$row}", $treatment['total_weekly_hours']);
+            $sheet->setCellValue("F{$row}", round($treatment['avg_weekly_hours'], 2));
+            $row++;
+        }
+
+        return $this->sendExcelFile($spreadsheet, 'statistiche_trattamenti_' . date('Y-m-d') . '.xlsx');
+    }
+
+    protected function exportPlans()
+    {
+        $plansStats = $this->statisticsService->getPlansStatistics();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Headers
+        $headers = ['Piano ID', 'Paziente', 'Appuntamenti Totali', 'Completati', 'Tasso Completamento'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Dati
+        $row = 2;
+        foreach ($plansStats['completion_rates'] as $plan) {
+            $sheet->setCellValue("A{$row}", $plan['id']);
+            $sheet->setCellValue("B{$row}", $plan['patient_name']);
+            $sheet->setCellValue("C{$row}", $plan['total_appointments']);
+            $sheet->setCellValue("D{$row}", $plan['completed_appointments']);
+            $sheet->setCellValue("E{$row}", $plan['completion_rate'] . '%');
+            $row++;
+        }
+
+        return $this->sendExcelFile($spreadsheet, 'statistiche_piani_' . date('Y-m-d') . '.xlsx');
+    }
+
+    protected function sendExcelFile($spreadsheet, $filename)
+    {
+        $writer = new Xlsx($spreadsheet);
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer->save('php://output');
+        exit;
+    }
+
+    // ===== METODI PROTETTI PER OPZIONI FILTRI =====
+
+    protected function getTreatmentOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\TreatmentType::find()->orderBy('name')->all(),
+            'id',
+            'name'
+        );
+    }
+
+    protected function getTherapistOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\Therapist::find()
+                ->joinWith('user.profile')
+                ->where(['therapists.is_active' => 1])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                ->all(),
+            'id',
+            function ($model) {
+                return $model->user->profile->first_name . ' ' . $model->user->profile->last_name;
+            }
+        );
+    }
+
+    protected function getPatientOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\Patient::find()
+                ->orderBy('last_name, first_name')
+                ->limit(100) // Limita per performance
+                ->all(),
+            'id',
+            function ($model) {
+                return $model->first_name . ' ' . $model->last_name;
+            }
+        );
+    }
+
+    protected function getRegimeOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\Regime::find()->orderBy('nome')->all(),
+            'id',
+            'nome'
+        );
+    }
+
+    protected function getDistrictOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\District::find()->orderBy('name')->all(),
+            'id',
+            'name'
+        );
+    }
+}
