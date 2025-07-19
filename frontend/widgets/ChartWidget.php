@@ -76,10 +76,23 @@ class ChartWidget extends Widget
             'options' => [
                 'responsive' => true,
                 'maintainAspectRatio' => false,
+                'layout' => [
+                    'padding' => [
+                        'top' => 20,
+                        'right' => 20,
+                        'bottom' => 20,
+                        'left' => 20
+                    ]
+                ],
                 'plugins' => [
                     'legend' => [
                         'display' => true,
-                        'position' => 'top'
+                        'position' => 'top',
+                        'labels' => [
+                            'padding' => 20,
+                            'usePointStyle' => true,
+                            'pointStyle' => 'circle'
+                        ]
                     ],
                     'title' => [
                         'display' => false
@@ -91,15 +104,31 @@ class ChartWidget extends Widget
             case 'line':
             case 'bar':
                 $defaultOptions['options']['scales'] = [
+                    'x' => [
+                        'ticks' => [
+                            'padding' => 10
+                        ],
+                        'grid' => [
+                            'display' => false
+                        ]
+                    ],
                     'y' => [
                         'beginAtZero' => true,
-                        'ticks' => ['precision' => 0]
+                        'ticks' => [
+                            'precision' => 0,
+                            'padding' => 10
+                        ],
+                        'grid' => [
+                            'color' => 'rgba(0, 0, 0, 0.1)',
+                            'drawBorder' => false
+                        ]
                     ]
                 ];
                 break;
             case 'pie':
             case 'doughnut':
                 $defaultOptions['options']['plugins']['legend']['position'] = 'right';
+                $defaultOptions['options']['plugins']['legend']['labels']['padding'] = 15;
                 break;
             case 'heatmap':
                 $defaultOptions['type'] = 'matrix';

@@ -36,24 +36,24 @@ function calculatePercentage($part, $total, $decimals = 1) {
 $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
 ?>
 
-<div class="patient-statistics">
+<div class="patient-statistics p-6">
     <!-- Page Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-users mr-2"></i>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <i class="fas fa-users text-blue-600"></i>
             Analisi Pazienti
         </h1>
-        <div class="d-flex gap-2">
+        <div class="flex gap-3">
             <?= Html::a(
-                '<i class="fas fa-arrow-left mr-1"></i> Dashboard',
+                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
                 ['index'],
-                ['class' => 'btn btn-sm btn-secondary']
+                ['class' => 'inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium']
             ) ?>
             <?= Html::a(
-                '<i class="fas fa-download mr-1"></i> Esporta',
+                '<i class="fas fa-download mr-2"></i> Esporta',
                 ['export', 'type' => 'patients'],
                 [
-                    'class' => 'btn btn-sm btn-success',
+                    'class' => 'inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium',
                     'data-method' => 'post'
                 ]
             ) ?>
@@ -98,8 +98,8 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
     <?php endif; ?>
 
     <!-- Demographics Summary -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div>
             <?= StatsCard::widget([
                 'title' => 'Età Media',
                 'value' => round($demographics['age_stats']['avg_age'] ?? 0, 1),
@@ -110,7 +110,7 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?= StatsCard::widget([
                 'title' => 'Totale Pazienti',
                 'value' => $totalPatients,
@@ -121,7 +121,7 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?php
             $multiTreatmentCount = count($multiTreatmentStats['patients'] ?? []);
             $multiTreatmentPerc = calculatePercentage($multiTreatmentCount, $totalPatients);
@@ -136,7 +136,7 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div>
             <?= StatsCard::widget([
                 'title' => 'Media Trattamenti',
                 'value' => round($multiTreatmentStats['stats']['avg_treatments'] ?? 0, 1),
@@ -149,8 +149,8 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
     </div>
 
     <!-- Demographics Charts -->
-    <div class="row">
-        <div class="col-lg-6 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div>
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione per Età',
                 'type' => 'bar',
@@ -164,11 +164,11 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
                         ]
                     ]
                 ],
-                'height' => 300
+                'height' => 350
             ]) ?>
         </div>
 
-        <div class="col-lg-6 mb-4">
+        <div>
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione per Genere',
                 'type' => 'doughnut',
@@ -182,47 +182,55 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
                         ]
                     ]
                 ],
-                'height' => 300
+                'height' => 350
             ]) ?>
         </div>
     </div>
 
     <!-- Treatment Analysis -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-stethoscope mr-2"></i>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <i class="fas fa-stethoscope text-blue-600"></i>
                         Pazienti per Trattamento
                     </h6>
                 </div>
-                <div class="card-body">
+                <div class="p-6">
                     <?php if (!empty($byTreatment)): ?>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
                             <thead>
-                                <tr>
-                                    <th>Trattamento</th>
-                                    <th>Codice</th>
-                                    <th class="text-center">Pazienti</th>
-                                    <th class="text-center">% del Totale</th>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamento</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Codice</th>
+                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">Pazienti</th>
+                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">% del Totale</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($byTreatment as $treatment): ?>
-                                <tr>
-                                    <td><?= Html::encode($treatment['name']) ?></td>
-                                    <td><span class="badge badge-secondary"><?= Html::encode($treatment['code']) ?></span></td>
-                                    <td class="text-center">
-                                        <span class="badge badge-primary"><?= $treatment['patient_count'] ?></span>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4"><?= Html::encode($treatment['name']) ?></td>
+                                    <td class="py-3 px-4">
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                            <?= Html::encode($treatment['code']) ?>
+                                        </span>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                            <?= $treatment['patient_count'] ?>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
                                         <?php 
                                         $percentage = calculatePercentage($treatment['patient_count'], $totalPatients);
-                                        $badgeClass = $percentage >= 20 ? 'success' : ($percentage >= 10 ? 'warning' : 'info');
+                                        $badgeClass = $percentage >= 20 ? 'bg-green-100 text-green-800' : ($percentage >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800');
                                         ?>
-                                        <span class="badge badge-<?= $badgeClass ?>"><?= $percentage ?>%</span>
+                                        <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
+                                            <?= $percentage ?>%
+                                        </span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -230,8 +238,8 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
                         </table>
                     </div>
                     <?php else: ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle mr-2"></i>
+                    <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
+                        <i class="fas fa-info-circle mr-3"></i>
                         Nessun dato disponibile per i trattamenti.
                     </div>
                     <?php endif; ?>
@@ -239,7 +247,7 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
             </div>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div>
             <?= ChartWidget::widget([
                 'title' => 'Top 10 Trattamenti',
                 'type' => 'pie',
@@ -262,105 +270,101 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
     </div>
 
     <!-- Multi-Treatment Analysis -->
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-layer-group mr-2"></i>
-                        Pazienti con Trattamenti Multipli (escluso ABA)
-                    </h6>
+    <div class="mb-8">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-layer-group text-blue-600"></i>
+                    Pazienti con Trattamenti Multipli (escluso ABA)
+                </h6>
+            </div>
+            <div class="p-6">
+                <?php if (!empty($multiTreatmentStats['patients'])): ?>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Paziente</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
+                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamenti</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach (array_slice($multiTreatmentStats['patients'], 0, 20) as $patient): ?>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-4">
+                                    <strong class="text-gray-900"><?= Html::encode($patient['patient_name']) ?></strong>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <?php 
+                                    $count = $patient['treatment_count'];
+                                    $badgeClass = $count >= 4 ? 'bg-red-100 text-red-800' : ($count >= 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
+                                    ?>
+                                    <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
+                                        <?= $count ?>
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span class="text-sm text-gray-600"><?= Html::encode($patient['treatments']) ?></span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="card-body">
-                    <?php if (!empty($multiTreatmentStats['patients'])): ?>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Paziente</th>
-                                    <th class="text-center">N° Trattamenti</th>
-                                    <th>Trattamenti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach (array_slice($multiTreatmentStats['patients'], 0, 20) as $patient): ?>
-                                <tr>
-                                    <td>
-                                        <strong><?= Html::encode($patient['patient_name']) ?></strong>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php 
-                                        $count = $patient['treatment_count'];
-                                        $badgeClass = $count >= 4 ? 'danger' : ($count >= 3 ? 'warning' : 'success');
-                                        ?>
-                                        <span class="badge badge-<?= $badgeClass ?>"><?= $count ?></span>
-                                    </td>
-                                    <td>
-                                        <small><?= Html::encode($patient['treatments']) ?></small>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <?php if (count($multiTreatmentStats['patients']) > 20): ?>
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            Mostrati i primi 20 di <?= count($multiTreatmentStats['patients']) ?> pazienti con trattamenti multipli
-                        </small>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <?php else: ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Nessun paziente con trattamenti multipli trovato con i filtri selezionati.
-                    </div>
-                    <?php endif; ?>
+                
+                <?php if (count($multiTreatmentStats['patients']) > 20): ?>
+                <div class="text-center mt-4">
+                    <span class="text-sm text-gray-500">
+                        Mostrati i primi 20 di <?= count($multiTreatmentStats['patients']) ?> pazienti con trattamenti multipli
+                    </span>
                 </div>
+                <?php endif; ?>
+                
+                <?php else: ?>
+                <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
+                    <i class="fas fa-info-circle mr-3"></i>
+                    Nessun paziente con trattamenti multipli trovato con i filtri selezionati.
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
     <!-- Regime Analysis -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-clipboard-list mr-2"></i>
-                        Distribuzione per Regime Sanitario
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <?php if (!empty($byRegime)): ?>
-                    <div class="row">
-                        <?php foreach ($byRegime as $regime): ?>
-                        <div class="col-md-4 mb-3">
-                            <div class="card border-left-primary h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title"><?= Html::encode($regime['regime_name']) ?></h5>
-                                    <p class="card-text">
-                                        <span class="badge badge-primary badge-lg"><?= $regime['patient_count'] ?> pazienti</span>
-                                    </p>
-                                    <?php if (!empty($regime['avg_duration']) && $regime['avg_duration'] > 0): ?>
-                                    <small class="text-muted">
-                                        Durata media: <?= round($regime['avg_duration']) ?> giorni
-                                    </small>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
+    <div class="mb-8">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-clipboard-list text-blue-600"></i>
+                    Distribuzione per Regime Sanitario
+                </h6>
+            </div>
+            <div class="p-6">
+                <?php if (!empty($byRegime)): ?>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <?php foreach ($byRegime as $regime): ?>
+                    <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-blue-500">
+                        <h5 class="text-lg font-semibold text-gray-900 mb-3"><?= Html::encode($regime['regime_name']) ?></h5>
+                        <div class="mb-3">
+                            <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
+                                <?= $regime['patient_count'] ?> pazienti
+                            </span>
                         </div>
-                        <?php endforeach; ?>
+                        <?php if (!empty($regime['avg_duration']) && $regime['avg_duration'] > 0): ?>
+                        <div class="text-sm text-gray-600">
+                            Durata media: <?= round($regime['avg_duration']) ?> giorni
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    <?php else: ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Nessun dato disponibile per i regimi sanitari.
-                    </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
+                <?php else: ?>
+                <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
+                    <i class="fas fa-info-circle mr-3"></i>
+                    Nessun dato disponibile per i regimi sanitari.
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

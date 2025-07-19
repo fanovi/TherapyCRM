@@ -128,7 +128,12 @@ class StatisticsFilter extends Widget
      */
     protected function renderDateFromField()
     {
-        return $this->form->field($this->model, 'dateFrom')->input('date', ['class' => 'form-input rounded border-gray-300']);
+        return $this->form->field($this->model, 'dateFrom', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->input('date', [
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Data Creazione da');
     }
 
     /**
@@ -138,7 +143,12 @@ class StatisticsFilter extends Widget
      */
     protected function renderDateToField()
     {
-        return $this->form->field($this->model, 'dateTo')->input('date', ['class' => 'form-input rounded border-gray-300']);
+        return $this->form->field($this->model, 'dateTo', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->input('date', [
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Data Creazione a');
     }
 
     /**
@@ -150,7 +160,15 @@ class StatisticsFilter extends Widget
     {
         $treatmentOptions = $this->options['treatments'] ?? [];
         
-        return $this->form->field($this->model, 'treatmentTypeIds')->dropDownList($treatmentOptions, ['multiple' => true, 'prompt' => 'Seleziona trattamenti...', 'size' => 6, 'class' => 'form-multiselect rounded border-gray-300']);
+        return $this->form->field($this->model, 'treatmentTypeIds', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->dropDownList($treatmentOptions, [
+            'multiple' => true, 
+            'prompt' => 'Seleziona trattamenti...', 
+            'size' => 8, 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[200px] max-h-[300px]'
+        ])->label('Tipi di Trattamento');
     }
 
     /**
@@ -162,7 +180,13 @@ class StatisticsFilter extends Widget
     {
         $genderOptions = ['all' => 'Tutti', 'M' => 'Maschio', 'F' => 'Femmina', 'N' => 'Non specificato',];
         
-        return $this->form->field($this->model, 'gender')->dropDownList($genderOptions, ['prompt' => 'Seleziona genere...', 'class' => 'form-select rounded border-gray-300']);
+        return $this->form->field($this->model, 'gender', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->dropDownList($genderOptions, [
+            'prompt' => 'Seleziona genere...', 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Genere');
     }
 
     /**
@@ -172,7 +196,16 @@ class StatisticsFilter extends Widget
      */
     protected function renderAgeFromField()
     {
-        return $this->form->field($this->model, 'ageFrom')->textInput(['type' => 'number', 'min' => 0, 'max' => 120, 'placeholder' => 'Età minima', 'class' => 'form-input rounded border-gray-300']);
+        return $this->form->field($this->model, 'ageFrom', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->textInput([
+            'type' => 'number', 
+            'min' => 0, 
+            'max' => 120, 
+            'placeholder' => 'Età minima', 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Età da');
     }
 
     /**
@@ -182,7 +215,16 @@ class StatisticsFilter extends Widget
      */
     protected function renderAgeToField()
     {
-        return $this->form->field($this->model, 'ageTo')->textInput(['type' => 'number', 'min' => 0, 'max' => 120, 'placeholder' => 'Età massima', 'class' => 'form-input rounded border-gray-300']);
+        return $this->form->field($this->model, 'ageTo', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->textInput([
+            'type' => 'number', 
+            'min' => 0, 
+            'max' => 120, 
+            'placeholder' => 'Età massima', 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Età a');
     }
 
     /**
@@ -194,7 +236,13 @@ class StatisticsFilter extends Widget
     {
         $therapistOptions = $this->options['therapists'] ?? [];
         
-        return $this->form->field($this->model, 'therapistId')->dropDownList($therapistOptions, ['prompt' => 'Seleziona terapista...', 'class' => 'form-select rounded border-gray-300']);
+        return $this->form->field($this->model, 'therapistId', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->dropDownList($therapistOptions, [
+            'prompt' => 'Seleziona terapista...', 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Terapista');
     }
 
     /**
@@ -206,7 +254,13 @@ class StatisticsFilter extends Widget
     {
         $patientOptions = $this->options['patients'] ?? [];
         
-        return $this->form->field($this->model, 'patientId')->dropDownList($patientOptions, ['prompt' => 'Seleziona paziente...', 'class' => 'form-select rounded border-gray-300']);
+        return $this->form->field($this->model, 'patientId', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->dropDownList($patientOptions, [
+            'prompt' => 'Seleziona paziente...', 
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Paziente');
     }
 
     /**
@@ -282,7 +336,12 @@ class StatisticsFilter extends Widget
     {
         $statusOptions = ['all' => 'Tutti', 'active' => 'Attivi', 'dismissed' => 'Dimessi',];
         
-        return $this->form->field($this->model, 'status')->dropDownList($statusOptions, ['class' => 'form-select rounded border-gray-300']);
+        return $this->form->field($this->model, 'status', [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->dropDownList($statusOptions, [
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ])->label('Stato');
     }
 
     /**
@@ -307,11 +366,22 @@ class StatisticsFilter extends Widget
     {
         // Se il campo ha opzioni specifiche, usa dropDownList
         if (isset($this->options[$fieldName])) {
-            return $this->form->field($this->model, $fieldName)->dropDownList($this->options[$fieldName], ['prompt' => 'Seleziona...', 'class' => 'form-select rounded border-gray-300']);
+            return $this->form->field($this->model, $fieldName, [
+                'options' => ['class' => 'mb-0'],
+                'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+            ])->dropDownList($this->options[$fieldName], [
+                'prompt' => 'Seleziona...', 
+                'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            ]);
         }
         
         // Altrimenti campo di testo
-        return $this->form->field($this->model, $fieldName)->textInput(['class' => 'form-input rounded border-gray-300']);
+        return $this->form->field($this->model, $fieldName, [
+            'options' => ['class' => 'mb-0'],
+            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
+        ])->textInput([
+            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        ]);
     }
 
     /**
