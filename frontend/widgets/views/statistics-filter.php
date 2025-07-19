@@ -24,15 +24,15 @@ use yii\helpers\Url;
         <div class="flex flex-wrap items-center justify-between mt-6 gap-4">
             <div class="flex gap-3">
                 <?= Html::submitButton('<i class="fas fa-search mr-2"></i> Filtra', [
-                    'class' => 'inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm',
+                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
                 ]) ?>
                 <?= Html::a('<i class="fas fa-eraser mr-2"></i> Pulisci', Url::current(), [
-                    'class' => 'inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium shadow-sm',
+                    'class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50',
                 ]) ?>
             </div>
             <div>
                 <?= Html::button('<i class="fas fa-download mr-2"></i> Esporta', [
-                    'class' => 'inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm',
+                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
                     'onclick' => 'exportData("excel"); return false;'
                 ]) ?>
             </div>

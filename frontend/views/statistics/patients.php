@@ -47,13 +47,13 @@ $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
             <?= Html::a(
                 '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
                 ['index'],
-                ['class' => 'inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium']
+                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
             ) ?>
             <?= Html::a(
                 '<i class="fas fa-download mr-2"></i> Esporta',
                 ['export', 'type' => 'patients'],
                 [
-                    'class' => 'inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium',
+                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
                     'data-method' => 'post'
                 ]
             ) ?>
