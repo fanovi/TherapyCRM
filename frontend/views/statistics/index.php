@@ -22,46 +22,66 @@ $this->registerJs("
 
 ?>
 
-<div class="dashboard-statistics">
+<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+  <div class="space-y-4 md:space-y-6">
+    
     <!-- Page Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
             <i class="fas fa-chart-bar mr-2"></i>
             Dashboard Statistiche
         </h1>
-        <div class="d-flex gap-2">
+        <div class="flex gap-3">
             <?= Html::a(
-                '<i class="fas fa-sync-alt mr-1"></i> Aggiorna',
+                '<i class="fas fa-sync-alt mr-2"></i> Aggiorna',
                 ['index'],
-                ['class' => 'btn btn-sm btn-primary']
+                ['class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600']
             ) ?>
-            <?= Html::a(
-                '<i class="fas fa-chart-line mr-1"></i> Analisi Dettagliate',
-                '#',
-                [
-                    'class' => 'btn btn-sm btn-outline-primary dropdown-toggle',
-                    'data-toggle' => 'dropdown'
-                ]
-            ) ?>
-            <div class="dropdown-menu">
-                <?= Html::a('Analisi Assenze', ['absences'], ['class' => 'dropdown-item']) ?>
-                <?= Html::a('Analisi Pazienti', ['patients'], ['class' => 'dropdown-item']) ?>
-                <?= Html::a('Analisi Trattamenti', ['treatments'], ['class' => 'dropdown-item']) ?>
-                <?= Html::a('Analisi Piani', ['plans'], ['class' => 'dropdown-item']) ?>
+            <div class="relative" x-data="{ open: false }">
+                <?= Html::a(
+                    '<i class="fas fa-chart-line mr-2"></i> Analisi Dettagliate',
+                    '#',
+                    [
+                        'class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50',
+                        '@click.prevent' => 'open = !open',
+                        '@click.away' => 'open = false'
+                    ]
+                ) ?>
+                <div x-show="open" 
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="transform opacity-0 scale-95"
+                     x-transition:enter-end="transform opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="transform opacity-100 scale-100"
+                     x-transition:leave-end="transform opacity-0 scale-95"
+                     class="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                    <div class="py-1">
+                        <?= Html::a('Analisi Assenze', ['absences'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
+                        <?= Html::a('Analisi Pazienti', ['patients'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
+                        <?= Html::a('Analisi Trattamenti', ['treatments'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
+                        <?= Html::a('Analisi Piani', ['plans'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <?php if (isset($error)): ?>
-    <div class="alert alert-danger" role="alert">
-        <i class="fas fa-exclamation-triangle mr-2"></i>
-        <?= Html::encode($error) ?>
+    <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-red-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-red-700"><?= Html::encode($error) ?></p>
+            </div>
+        </div>
     </div>
     <?php else: ?>
 
     <!-- Summary Cards Row -->
-    <div class="row dashboard-summary">
-        <div class="col-xl-3 col-md-6 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Pazienti Attivi',
                 'value' => $summary['patients']['active'] ?? 0,
@@ -73,7 +93,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Assenze Questo Mese',
                 'value' => $summary['absences']['total_this_month'] ?? 0,
@@ -85,7 +105,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Trattamenti Attivi',
                 'value' => $summary['treatments']['active_types'] ?? 0,
@@ -97,7 +117,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Piani in Scadenza',
                 'value' => $summary['plans']['expiring_soon'] ?? 0,
@@ -111,8 +131,8 @@ $this->registerJs("
     </div>
 
     <!-- Charts Row -->
-    <div class="row dashboard-charts">
-        <div class="col-lg-8 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="lg:col-span-2">
             <?= ChartWidget::widget([
                 'title' => 'Crescita Pazienti (Ultimi 6 Mesi)',
                 'type' => 'line',
@@ -141,7 +161,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div class="lg:col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Top 5 Trattamenti',
                 'type' => 'doughnut',
@@ -174,8 +194,8 @@ $this->registerJs("
     </div>
 
     <!-- Dynamic Charts Row -->
-    <div class="row">
-        <div class="col-lg-6 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Trend Assenze per Giorno Settimana',
                 'type' => 'bar',
@@ -184,7 +204,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-6 mb-4">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione Età Pazienti',
                 'type' => 'pie',
@@ -195,16 +215,15 @@ $this->registerJs("
     </div>
 
     <!-- Quick Links Section -->
-    <div class="mb-6">
-        <div class="bg-white rounded-lg shadow-md">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h6 class="text-lg font-semibold text-blue-light-500 m-0">
-                    <i class="fas fa-link mr-2"></i>
-                    Accesso Rapido alle Analisi
-                </h6>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h6 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-link mr-2"></i>
+                Accesso Rapido alle Analisi
+            </h6>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
                     <div class="bg-blue-light-500 text-white rounded-lg p-6 h-full">
                         <div class="text-center">
                             <i class="fas fa-calendar-times text-4xl mb-3 block"></i>
@@ -254,4 +273,5 @@ $this->registerJs("
     </div>
 
     <?php endif; ?>
+  </div>
 </div> 

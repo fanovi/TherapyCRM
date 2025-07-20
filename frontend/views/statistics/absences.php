@@ -28,24 +28,26 @@ $this->registerJs("
 
 ?>
 
-<div class="absence-statistics">
+<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+  <div class="space-y-4 md:space-y-6">
+    
     <!-- Page Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
             <i class="fas fa-calendar-times mr-2"></i>
             Analisi Assenze
         </h1>
-        <div class="d-flex gap-2">
+        <div class="flex gap-3">
             <?= Html::a(
-                '<i class="fas fa-arrow-left mr-1"></i> Dashboard',
+                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
                 ['index'],
-                ['class' => 'btn btn-sm btn-secondary']
+                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
             ) ?>
             <?= Html::a(
-                '<i class="fas fa-download mr-1"></i> Esporta',
+                '<i class="fas fa-download mr-2"></i> Esporta',
                 ['export', 'type' => 'absences'],
                 [
-                    'class' => 'btn btn-sm btn-success',
+                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
                     'data-method' => 'post'
                 ]
             ) ?>
@@ -55,7 +57,7 @@ $this->registerJs("
     <!-- Filters -->
     <?php $form = ActiveForm::begin([
         'method' => 'get',
-        'options' => ['class' => 'mb-4', 'id' => 'absence-filters-form']
+        'options' => ['class' => 'mb-6', 'id' => 'absence-filters-form']
     ]); ?>
 
     <?= StatisticsFilter::widget([
@@ -84,8 +86,8 @@ $this->registerJs("
     <?php ActiveForm::end(); ?>
 
     <!-- Monthly Rate Summary -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Tasso Assenze Mensile',
                 'value' => $monthlyRate['absence_rate'] ?? 0,
@@ -96,7 +98,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Assenze Totali',
                 'value' => $monthlyRate['total_absences'] ?? 0,
@@ -107,7 +109,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Assenze Giustificate',
                 'value' => $monthlyRate['justified_absences'] ?? 0,
@@ -118,7 +120,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'Tasso Ingiustificate',
                 'value' => $monthlyRate['unjustified_rate'] ?? 0,
@@ -131,26 +133,24 @@ $this->registerJs("
     </div>
 
     <!-- Heatmap Row -->
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="card shadow">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-th mr-2"></i>
-                        Heatmap Assenze (Orari x Giorni Settimana)
-                    </h6>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadHeatmapData()">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-                <div class="card-body">
-                    <div id="absence-heatmap-container" class="heatmap-container">
-                        <div class="text-center py-4">
-                            <div class="spinner-border" role="status">
-                                <span class="sr-only">Caricamento...</span>
-                            </div>
-                            <p class="mt-2 text-muted">Caricamento heatmap...</p>
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h6 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-th mr-2"></i>
+                    Heatmap Assenze (Orari x Giorni Settimana)
+                </h6>
+                <button class="inline-flex items-center p-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" onclick="loadHeatmapData()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="absence-heatmap-container" class="heatmap-container">
+                    <div class="text-center py-4">
+                        <div class="inline-flex items-center justify-center w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" role="status">
+                            <span class="sr-only">Caricamento...</span>
                         </div>
+                        <p class="mt-2 text-gray-500">Caricamento heatmap...</p>
                     </div>
                 </div>
             </div>
@@ -158,8 +158,8 @@ $this->registerJs("
     </div>
 
     <!-- Charts Row -->
-    <div class="row">
-        <div class="col-lg-6 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Assenze per Motivo',
                 'type' => 'pie',
@@ -180,7 +180,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-6 mb-4">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Chi Genera l\'Assenza',
                 'type' => 'bar',
@@ -205,8 +205,8 @@ $this->registerJs("
     </div>
 
     <!-- Trend Charts Row -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="lg:col-span-2">
             <?= ChartWidget::widget([
                 'title' => 'Trend Assenze nel Tempo',
                 'type' => 'line',
@@ -222,7 +222,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div class="lg:col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Assenze per Giorno Settimana',
                 'type' => 'doughnut',
@@ -233,64 +233,65 @@ $this->registerJs("
     </div>
 
     <!-- Detailed Table -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-table mr-2"></i>
-                        Dettaglio Assenze per Motivo
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Motivo</th>
-                                    <th class="text-center">Totale</th>
-                                    <th class="text-center">Giustificate</th>
-                                    <th class="text-center">Con Recupero</th>
-                                    <th class="text-center">% Giustificate</th>
-                                    <th class="text-center">% Con Recupero</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($byReason as $reason): ?>
-                                <tr>
-                                    <td><?= Html::encode($reason['reason']) ?></td>
-                                    <td class="text-center">
-                                        <span class="badge badge-primary"><?= $reason['count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-success"><?= $reason['justified_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-info"><?= $reason['with_recovery_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php 
-                                        $justifiedPerc = $reason['count'] > 0 ? round($reason['justified_count'] / $reason['count'] * 100, 1) : 0;
-                                        $badgeClass = $justifiedPerc >= 70 ? 'success' : ($justifiedPerc >= 40 ? 'warning' : 'danger');
-                                        ?>
-                                        <span class="badge badge-<?= $badgeClass ?>"><?= $justifiedPerc ?>%</span>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php 
-                                        $recoveryPerc = $reason['count'] > 0 ? round($reason['with_recovery_count'] / $reason['count'] * 100, 1) : 0;
-                                        $recoveryBadgeClass = $recoveryPerc >= 50 ? 'success' : ($recoveryPerc >= 25 ? 'warning' : 'danger');
-                                        ?>
-                                        <span class="badge badge-<?= $recoveryBadgeClass ?>"><?= $recoveryPerc ?>%</span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h6 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-table mr-2"></i>
+                    Dettaglio Assenze per Motivo
+                </h6>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivo</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Totale</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Giustificate</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Con Recupero</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">% Giustificate</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">% Con Recupero</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($byReason as $reason): ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900"><?= Html::encode($reason['reason']) ?></div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><?= $reason['count'] ?></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><?= $reason['justified_count'] ?></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><?= $reason['with_recovery_count'] ?></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <?php 
+                                    $justifiedPerc = $reason['count'] > 0 ? round($reason['justified_count'] / $reason['count'] * 100, 1) : 0;
+                                    $badgeClass = $justifiedPerc >= 70 ? 'bg-green-100 text-green-800' : ($justifiedPerc >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+                                    ?>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $badgeClass ?>"><?= $justifiedPerc ?>%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <?php 
+                                    $recoveryPerc = $reason['count'] > 0 ? round($reason['with_recovery_count'] / $reason['count'] * 100, 1) : 0;
+                                    $recoveryBadgeClass = $recoveryPerc >= 50 ? 'bg-green-100 text-green-800' : ($recoveryPerc >= 25 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+                                    ?>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $recoveryBadgeClass ?>"><?= $recoveryPerc ?>%</span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+  </div>
 </div>
 
 <script>

@@ -20,7 +20,9 @@ $this->registerJs("
 
 ?>
 
-<div class="plans-statistics">
+<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+  <div class="space-y-4 md:space-y-6">
+    
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
