@@ -22,22 +22,22 @@ $this->registerJs("
 
 <div class="plans-statistics">
     <!-- Page Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
             <i class="fas fa-clipboard-list mr-2"></i>
             Analisi Piani Terapeutici
         </h1>
-        <div class="d-flex gap-2">
+        <div class="flex gap-3">
             <?= Html::a(
-                '<i class="fas fa-arrow-left mr-1"></i> Dashboard',
+                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
                 ['index'],
-                ['class' => 'btn btn-sm btn-secondary']
+                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
             ) ?>
             <?= Html::a(
-                '<i class="fas fa-download mr-1"></i> Esporta',
+                '<i class="fas fa-download mr-2"></i> Esporta',
                 ['export', 'type' => 'plans'],
                 [
-                    'class' => 'btn btn-sm btn-success',
+                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
                     'data-method' => 'post'
                 ]
             ) ?>
@@ -45,8 +45,8 @@ $this->registerJs("
     </div>
 
     <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div class="col-span-1">
             <?php
             $activeCount = array_sum(array_filter(array_column($plansStats['by_status'], 'count'), function($item, $key) use ($plansStats) {
                 return $plansStats['by_status'][$key]['status'] === 'active';
@@ -62,7 +62,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?php
             $completedCount = array_sum(array_filter(array_column($plansStats['by_status'], 'count'), function($item, $key) use ($plansStats) {
                 return $plansStats['by_status'][$key]['status'] === 'completed';
@@ -78,7 +78,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?= StatsCard::widget([
                 'title' => 'In Scadenza',
                 'value' => count($plansStats['expiring_list']),
@@ -89,7 +89,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-span-1">
             <?php
             $avgCompletion = count($plansStats['completion_rates']) > 0 
                 ? round(array_sum(array_column($plansStats['completion_rates'], 'completion_rate')) / count($plansStats['completion_rates']), 1)
@@ -107,8 +107,8 @@ $this->registerJs("
     </div>
 
     <!-- Charts Row -->
-    <div class="row">
-        <div class="col-lg-4 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione per Stato',
                 'type' => 'doughnut',
@@ -128,7 +128,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Distribuzione per Durata',
                 'type' => 'bar',
@@ -153,7 +153,7 @@ $this->registerJs("
             ]) ?>
         </div>
 
-        <div class="col-lg-4 mb-4">
+        <div class="col-span-1">
             <?= ChartWidget::widget([
                 'title' => 'Trend Creazione Mensile',
                 'type' => 'line',
@@ -182,49 +182,49 @@ $this->registerJs("
     </div>
 
     <!-- Completion Rates Table -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h6 class="text-lg font-semibold text-gray-900">
                         <i class="fas fa-percentage mr-2"></i>
                         Top 10 Piani per Tasso di Completamento
                     </h6>
                 </div>
-                <div class="card-body">
+                <div class="p-6">
                     <?php if (!empty($plansStats['completion_rates'])): ?>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th>Piano ID</th>
-                                    <th>Paziente</th>
-                                    <th class="text-center">Appuntamenti Totali</th>
-                                    <th class="text-center">Completati</th>
-                                    <th class="text-center">Tasso</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Piano ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paziente</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Appuntamenti Totali</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Completati</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tasso</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="bg-white divide-y divide-gray-200">
                                 <?php foreach ($plansStats['completion_rates'] as $plan): ?>
-                                <tr>
-                                    <td>
-                                        <span class="badge badge-secondary"><?= $plan['id'] ?></span>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"><?= $plan['id'] ?></span>
                                     </td>
-                                    <td>
-                                        <strong><?= Html::encode($plan['patient_name']) ?></strong>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900"><?= Html::encode($plan['patient_name']) ?></div>
                                     </td>
-                                    <td class="text-center">
-                                        <?= $plan['total_appointments'] ?>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm text-gray-900"><?= $plan['total_appointments'] ?></div>
                                     </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-success"><?= $plan['completed_appointments'] ?></span>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><?= $plan['completed_appointments'] ?></span>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
                                         <?php 
                                         $rate = $plan['completion_rate'];
-                                        $badgeClass = $rate >= 80 ? 'success' : ($rate >= 60 ? 'warning' : 'danger');
+                                        $badgeClass = $rate >= 80 ? 'bg-green-100 text-green-800' : ($rate >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
                                         ?>
-                                        <span class="badge badge-<?= $badgeClass ?>"><?= $rate ?>%</span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $badgeClass ?>"><?= $rate ?>%</span>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -232,27 +232,33 @@ $this->registerJs("
                         </table>
                     </div>
                     <?php else: ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Nessun dato di completamento disponibile.
+                    <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-blue-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">Nessun dato di completamento disponibile.</p>
+                            </div>
+                        </div>
                     </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h6 class="text-lg font-semibold text-gray-900">
                         <i class="fas fa-info-circle mr-2"></i>
                         Statistiche Durata
                     </h6>
                 </div>
-                <div class="card-body">
+                <div class="p-6">
                     <?php foreach ($plansStats['by_duration'] as $duration): ?>
-                    <div class="mb-3 p-3 border rounded">
-                        <h6 class="text-primary mb-2">
+                    <div class="mb-4 p-4 border border-gray-200 rounded-lg">
+                        <h6 class="text-blue-600 font-medium mb-2">
                             <?php
                             switch($duration['duration_category']) {
                                 case 'short': echo 'Piani Brevi (<90 giorni)'; break;
@@ -262,14 +268,12 @@ $this->registerJs("
                             }
                             ?>
                         </h6>
-                        <p class="mb-1">
-                            <span class="badge badge-primary"><?= $duration['count'] ?></span>
-                            <small class="text-muted">piani</small>
+                        <p class="mb-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><?= $duration['count'] ?></span>
+                            <span class="text-sm text-gray-500 ml-2">piani</span>
                         </p>
-                        <p class="mb-0">
-                            <small class="text-muted">
-                                Durata media: <strong><?= round($duration['avg_duration']) ?> giorni</strong>
-                            </small>
+                        <p class="text-sm text-gray-600">
+                            Durata media: <span class="font-medium text-gray-900"><?= round($duration['avg_duration']) ?> giorni</span>
                         </p>
                     </div>
                     <?php endforeach; ?>
@@ -279,132 +283,119 @@ $this->registerJs("
     </div>
 
     <!-- Expiring Plans -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-warning">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>
-                        Piani in Scadenza (Prossimi 60 Giorni)
-                    </h6>
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h6 class="text-lg font-semibold text-yellow-600">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Piani in Scadenza (Prossimi 60 Giorni)
+                </h6>
+            </div>
+            <div class="p-6">
+                <?php if (!empty($plansStats['expiring_list'])): ?>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Piano ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paziente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Scadenza</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Giorni Rimanenti</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Urgenza</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($plansStats['expiring_list'] as $plan): ?>
+                            <?php
+                            $daysLeft = $plan['days_until_expiry'];
+                            $urgencyClass = $daysLeft <= 7 ? 'bg-red-100 text-red-800' : ($daysLeft <= 30 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800');
+                            $urgencyText = $daysLeft <= 7 ? 'Critica' : ($daysLeft <= 30 ? 'Alta' : 'Media');
+                            ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"><?= $plan['id'] ?></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900"><?= Html::encode($plan['patient_name']) ?></div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900"><?= date('d/m/Y', strtotime($plan['end_date'])) ?></div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $urgencyClass ?>"><?= $daysLeft ?></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $urgencyClass ?>"><?= $urgencyText ?></span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="card-body">
-                    <?php if (!empty($plansStats['expiring_list'])): ?>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Piano ID</th>
-                                    <th>Paziente</th>
-                                    <th>Data Scadenza</th>
-                                    <th class="text-center">Giorni Rimanenti</th>
-                                    <th class="text-center">Urgenza</th>
-                                    <th class="text-center">Azioni</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($plansStats['expiring_list'] as $plan): ?>
-                                <?php
-                                $daysLeft = $plan['days_until_expiry'];
-                                $urgencyClass = $daysLeft <= 7 ? 'danger' : ($daysLeft <= 30 ? 'warning' : 'info');
-                                $urgencyText = $daysLeft <= 7 ? 'Critica' : ($daysLeft <= 30 ? 'Alta' : 'Media');
-                                ?>
-                                <tr>
-                                    <td>
-                                        <span class="badge badge-secondary"><?= $plan['id'] ?></span>
-                                    </td>
-                                    <td>
-                                        <strong><?= Html::encode($plan['patient_name']) ?></strong>
-                                    </td>
-                                    <td>
-                                        <?= date('d/m/Y', strtotime($plan['end_date'])) ?>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-<?= $urgencyClass ?>"><?= $daysLeft ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge badge-<?= $urgencyClass ?>"><?= $urgencyText ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <?= Html::a(
-                                                '<i class="fas fa-eye"></i>',
-                                                ['therapeutic-plan/view', 'id' => $plan['id']],
-                                                [
-                                                    'class' => 'btn btn-outline-primary',
-                                                    'title' => 'Visualizza piano',
-                                                    'data-toggle' => 'tooltip'
-                                                ]
-                                            ) ?>
-                                            <?= Html::a(
-                                                '<i class="fas fa-edit"></i>',
-                                                ['therapeutic-plan/update', 'id' => $plan['id']],
-                                                [
-                                                    'class' => 'btn btn-outline-secondary',
-                                                    'title' => 'Modifica piano',
-                                                    'data-toggle' => 'tooltip'
-                                                ]
-                                            ) ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="mt-3">
-                        <div class="alert alert-warning">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            <strong>Attenzione:</strong> I piani in scadenza necessitano di attenzione. 
-                            Considerare il rinnovo o la conclusione dei trattamenti.
+                
+                <div class="mt-6">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-yellow-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    <span class="font-medium">Attenzione:</span> I piani in scadenza necessitano di attenzione. 
+                                    Considerare il rinnovo o la conclusione dei trattamenti.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    
-                    <?php else: ?>
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle mr-2"></i>
-                        Nessun piano in scadenza nei prossimi 60 giorni.
-                    </div>
-                    <?php endif; ?>
                 </div>
+                
+                <?php else: ?>
+                <div class="bg-green-50 border border-green-200 rounded-md p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-green-700">Nessun piano in scadenza nei prossimi 60 giorni.</p>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
     <!-- Monthly Trends Chart -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-chart-line mr-2"></i>
-                        Trend Creazione Piani Mensile (Ultimi 12 Mesi)
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <?= ChartWidget::widget([
-                        'title' => false,
-                        'type' => 'line',
-                        'ajaxUrl' => Url::to(['chart-data', 'type' => 'plans-monthly']),
-                        'height' => 350,
-                        'options' => [
-                            'scales' => [
-                                'y' => [
-                                    'beginAtZero' => true,
-                                    'ticks' => [
-                                        'precision' => 0
-                                    ]
-                                ]
-                            ],
-                            'plugins' => [
-                                'legend' => [
-                                    'display' => true
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h6 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Trend Creazione Piani Mensile (Ultimi 12 Mesi)
+                </h6>
+            </div>
+            <div class="p-6">
+                <?= ChartWidget::widget([
+                    'title' => false,
+                    'type' => 'line',
+                    'ajaxUrl' => Url::to(['chart-data', 'type' => 'plans-monthly']),
+                    'height' => 350,
+                    'options' => [
+                        'scales' => [
+                            'y' => [
+                                'beginAtZero' => true,
+                                'ticks' => [
+                                    'precision' => 0
                                 ]
                             ]
+                        ],
+                        'plugins' => [
+                            'legend' => [
+                                'display' => true
+                            ]
                         ]
-                    ]) ?>
-                </div>
+                    ]
+                ]) ?>
             </div>
         </div>
     </div>
