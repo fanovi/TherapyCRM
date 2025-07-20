@@ -195,75 +195,57 @@ $this->registerJs("
     </div>
 
     <!-- Quick Links Section -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-link mr-2"></i>
-                        Accesso Rapido alle Analisi
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <div class="card bg-primary text-white h-100">
-                                <div class="card-body">
-                                    <div class="text-center">
-                                        <i class="fas fa-calendar-times fa-2x mb-3"></i>
-                                        <h5>Assenze</h5>
-                                        <p class="small">Analisi dettagliata pattern assenze</p>
-                                        <?= Html::a('Vai all\'analisi', ['absences'], [
-                                            'class' => 'btn btn-light btn-sm'
-                                        ]) ?>
-                                    </div>
-                                </div>
-                            </div>
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h6 class="text-lg font-semibold text-blue-light-500 m-0">
+                    <i class="fas fa-link mr-2"></i>
+                    Accesso Rapido alle Analisi
+                </h6>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="bg-blue-light-500 text-white rounded-lg p-6 h-full">
+                        <div class="text-center">
+                            <i class="fas fa-calendar-times text-4xl mb-3 block"></i>
+                            <h5 class="text-lg font-semibold mb-2">Assenze</h5>
+                            <p class="text-sm opacity-75 mb-4">Analisi dettagliata pattern assenze</p>
+                            <?= Html::a('Vai all\'analisi', ['absences'], [
+                                'class' => 'inline-block bg-white text-blue-light-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
+                            ]) ?>
                         </div>
+                    </div>
 
-                        <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white h-100">
-                                <div class="card-body">
-                                    <div class="text-center">
-                                        <i class="fas fa-users fa-2x mb-3"></i>
-                                        <h5>Pazienti</h5>
-                                        <p class="small">Demografia e trattamenti multipli</p>
-                                        <?= Html::a('Vai all\'analisi', ['patients'], [
-                                            'class' => 'btn btn-light btn-sm'
-                                        ]) ?>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="bg-success-500 text-white rounded-lg p-6 h-full">
+                        <div class="text-center">
+                            <i class="fas fa-users text-4xl mb-3 block"></i>
+                            <h5 class="text-lg font-semibold mb-2">Pazienti</h5>
+                            <p class="text-sm opacity-75 mb-4">Demografia e trattamenti multipli</p>
+                            <?= Html::a('Vai all\'analisi', ['patients'], [
+                                'class' => 'inline-block bg-white text-success-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
+                            ]) ?>
                         </div>
+                    </div>
 
-                        <div class="col-md-3 mb-3">
-                            <div class="card bg-info text-white h-100">
-                                <div class="card-body">
-                                    <div class="text-center">
-                                        <i class="fas fa-stethoscope fa-2x mb-3"></i>
-                                        <h5>Trattamenti</h5>
-                                        <p class="small">Ranking e combinazioni</p>
-                                        <?= Html::a('Vai all\'analisi', ['treatments'], [
-                                            'class' => 'btn btn-light btn-sm'
-                                        ]) ?>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="bg-brand-500 text-white rounded-lg p-6 h-full">
+                        <div class="text-center">
+                            <i class="fas fa-stethoscope text-4xl mb-3 block"></i>
+                            <h5 class="text-lg font-semibold mb-2">Trattamenti</h5>
+                            <p class="text-sm opacity-75 mb-4">Ranking e combinazioni</p>
+                            <?= Html::a('Vai all\'analisi', ['treatments'], [
+                                'class' => 'inline-block bg-white text-brand-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
+                            ]) ?>
                         </div>
+                    </div>
 
-                        <div class="col-md-3 mb-3">
-                            <div class="card bg-warning text-white h-100">
-                                <div class="card-body">
-                                    <div class="text-center">
-                                        <i class="fas fa-clipboard-list fa-2x mb-3"></i>
-                                        <h5>Piani</h5>
-                                        <p class="small">Stati e scadenze</p>
-                                        <?= Html::a('Vai all\'analisi', ['plans'], [
-                                            'class' => 'btn btn-light btn-sm'
-                                        ]) ?>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="bg-warning-500 text-white rounded-lg p-6 h-full">
+                        <div class="text-center">
+                            <i class="fas fa-clipboard-list text-4xl mb-3 block"></i>
+                            <h5 class="text-lg font-semibold mb-2">Piani</h5>
+                            <p class="text-sm opacity-75 mb-4">Stati e scadenze</p>
+                            <?= Html::a('Vai all\'analisi', ['plans'], [
+                                'class' => 'inline-block bg-white text-warning-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
+                            ]) ?>
                         </div>
                     </div>
                 </div>
