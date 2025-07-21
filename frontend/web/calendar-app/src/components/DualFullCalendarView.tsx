@@ -25,6 +25,7 @@ interface DualFullCalendarViewProps {
   onDateChange?: (date: Date) => void;
   onVisibleRangeChange?: (start: Date, end: Date) => void;
   isPrivateMode?: boolean; // Nuova prop
+  selectedDate?: Date; // AGGIUNGI QUESTA RIGA
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -41,8 +42,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   onDateChange,
   onVisibleRangeChange,
   isPrivateMode = false,
+  selectedDate: externalSelectedDate, // AGGIUNGI QUESTA RIGA
 }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(
+    externalSelectedDate || new Date()
+  );
+
   const [sharedEvents, setSharedEvents] = useState<any[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     return moment().startOf("isoWeek").toDate(); // Lunedì della settimana corrente
@@ -141,6 +146,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
     setSharedEvents(formattedEvents);
   }, [appointments]);
+
+  // Sincronizza con la data esterna quando cambia
+  useEffect(() => {
+    if (externalSelectedDate) {
+      setSelectedDate(externalSelectedDate);
+    }
+  }, [externalSelectedDate]);
 
   // Filtri per appuntamenti specifici
   const therapistAppointments = selectedTherapist
@@ -449,7 +461,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             readOnly={true}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
-            onNavigate={onDateChange}
+            onNavigate={undefined} // CAMBIA da onDateChange a undefined
             onVisibleRangeChange={handlePatientVisibleRangeChange}
             onRef={(ref) => {
               patientCalendarRef.current = ref;

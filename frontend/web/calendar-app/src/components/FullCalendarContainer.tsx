@@ -286,6 +286,16 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     }
   }, [externalCurrentView]);
 
+  // Naviga alla data selezionata quando cambia
+  // Naviga alla data selezionata solo quando il componente si monta
+  useEffect(() => {
+    if (selectedDate && calendarRef.current && loading === false) {
+      const calendarApi = calendarRef.current.getApi();
+      console.log("📅 FullCalendar: navigazione iniziale a:", selectedDate);
+      calendarApi.gotoDate(selectedDate);
+    }
+  }, [loading]); // Dipende solo da loading, non da selectedDate
+
   // Usa eventi esterni se forniti
   const displayEvents = externalEvents || events;
 
@@ -568,37 +578,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           dayHeaderClassNames="bg-gray-50 font-medium text-gray-700 py-2"
           eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"
           datesSet={(dateInfo) => {
-            // Ottieni l'API del calendario
-            const calendarApi = calendarRef.current?.getApi();
-
-            if (calendarApi && onNavigate) {
-              const view = calendarApi.view;
-
-              // Per la vista settimana, estrai la data dal titolo
-              if (view.type === "timeGridWeek") {
-                // Il titolo contiene "13 – 19 lug 2025"
-                const title = view.title;
-                console.log("📅 Titolo vista settimana:", title);
-
-                // Estrai il primo numero (giorno iniziale)
-                const match = title.match(/(\d+)/);
-                if (match) {
-                  const startDay = parseInt(match[1]);
-                  // Usa l'anno e il mese dalla vista corrente
-                  const viewDate = new Date(view.currentStart);
-                  const firstDayOfWeek = new Date(
-                    viewDate.getFullYear(),
-                    viewDate.getMonth(),
-                    startDay
-                  );
-
-                  console.log("📅 Data estratta dal titolo:", firstDayOfWeek);
-                  onNavigate(firstDayOfWeek);
-                } else {
-                  // Fallback
-                  onNavigate(view.currentStart);
-                }
-              } else {
+            // Notifica la navigazione se definita
+            if (onNavigate) {
+              const calendarApi = calendarRef.current?.getApi();
+              if (calendarApi) {
+                const view = calendarApi.view;
+                // Chiama onNavigate con la data corrente
                 onNavigate(view.currentStart);
               }
             }
@@ -608,12 +593,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               onVisibleRangeChange(dateInfo.start, dateInfo.end);
             }
 
-            // Ricarica gli appuntamenti solo se è cambiato il range di date e non stiamo usando eventi esterni
+            // Ricarica gli appuntamenti solo se è cambiato il range di date
             if (!externalEvents || externalEvents.length === 0) {
               const start = moment(dateInfo.start);
               const end = moment(dateInfo.end);
 
-              // Determina tutti i mesi visibili nel range corrente
               const monthsVisible = new Set<string>();
               let current = start.clone().startOf("month");
               const endMonth = end.clone().endOf("month");
@@ -625,7 +609,6 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
               const newRangeKey = Array.from(monthsVisible).sort().join("|");
 
-              // Ricarica solo se è cambiato il range di date
               if (newRangeKey !== currentDateRange && !isLoadingAppointments) {
                 loadAppointments(dateInfo.start, dateInfo.end);
               }

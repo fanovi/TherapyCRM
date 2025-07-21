@@ -45,7 +45,13 @@ const Index = () => {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [viewType, setViewType] = useState<CalendarViewType>("week");
+  const [viewType, setViewType] = useState<CalendarViewType>(() => {
+    const storageKey = `calendar_view_${
+      params.id_therapist || params.id_patient
+    }`;
+    const savedView = sessionStorage.getItem(storageKey);
+    return (savedView as CalendarViewType) || "week";
+  });
   const [isTherapistView, setIsTherapistView] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +70,13 @@ const Index = () => {
   const [planTherapyCheckMessage, setPlanTherapyCheckMessage] = useState<
     string | null
   >(null);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(() => {
+    const storageKey = `calendar_date_${
+      params.id_therapist || params.id_patient
+    }`;
+    const savedDate = sessionStorage.getItem(storageKey);
+    return savedDate ? new Date(savedDate) : new Date();
+  });
 
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
@@ -173,8 +186,25 @@ const Index = () => {
 
   // Gestisce il cambio di mese/data nel calendario
   const handleDateChange = (date: Date) => {
-    const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    // Previeni aggiornamenti inutili confrontando con la data salvata
+    const storageKey = `calendar_date_${
+      params.id_therapist || params.id_patient
+    }`;
+    const savedDateStr = sessionStorage.getItem(storageKey);
+    const savedDate = savedDateStr ? new Date(savedDateStr) : null;
 
+    // Confronta solo se la data è diversa (ignora ore/minuti/secondi)
+    const dateChanged =
+      !savedDate || date.toDateString() !== savedDate.toDateString();
+
+    if (dateChanged) {
+      console.log("🔄 handleDateChange salvando nuova data:", date);
+      setCurrentCalendarDate(date);
+      sessionStorage.setItem(storageKey, date.toISOString());
+    }
+
+    // Gestisci sempre il cambio mese per caricare appuntamenti
+    const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
     if (
       newMonth.getTime() !==
       new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getTime()
@@ -407,6 +437,13 @@ const Index = () => {
 
     checkCompatibility();
   }, [selectedPatient, patient, selectedTherapist, isTherapistView]);
+
+  useEffect(() => {
+    const storageKey = `calendar_view_${
+      params.id_therapist || params.id_patient
+    }`;
+    sessionStorage.setItem(storageKey, viewType);
+  }, [viewType, params.id_therapist, params.id_patient]);
 
   const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
@@ -1036,6 +1073,7 @@ const Index = () => {
           onDateChange={handleDateChange}
           onVisibleRangeChange={handleVisibleRangeChange}
           isPrivateMode={isPrivateMode}
+          selectedDate={currentCalendarDate} // AGGIUNGI QUESTA RIGA
         />
 
         <AppointmentModal
