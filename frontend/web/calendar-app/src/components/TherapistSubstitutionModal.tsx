@@ -155,7 +155,9 @@ export const TherapistSubstitutionModal: React.FC<
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle className="h-4 w-4 text-purple-600" />
               <span className="font-medium text-purple-800">
-                Terapista Assente
+                {appointment.status === "therapist_absent"
+                  ? "Terapista Assente"
+                  : "Sostituzione Terapista"}
               </span>
             </div>
             <div className="space-y-1 text-sm text-purple-700">

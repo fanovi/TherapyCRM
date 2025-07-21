@@ -1145,6 +1145,7 @@ const Index = () => {
           therapists={therapists}
           onAppointmentUpdate={handleAppointmentUpdate}
           onAppointmentDelete={handleAppointmentDelete}
+          onTherapistSubstitution={handleTherapistSubstitution}
         />
 
         <TherapistSubstitutionModal

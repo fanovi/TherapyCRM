@@ -3066,9 +3066,9 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
                 return $this->errorResponse('Appuntamento non trovato');
             }
 
-            // Verifica che l'appuntamento sia in stato therapist_absent
-            if ($appointment->status !== Appointment::STATUS_THERAPIST_ABSENT) {
-                return $this->errorResponse('La sostituzione è possibile solo per appuntamenti con terapista assente');
+            // Verifica che l'appuntamento sia in uno stato che permette la sostituzione
+            if (!in_array($appointment->status, [Appointment::STATUS_SCHEDULED, Appointment::STATUS_THERAPIST_ABSENT])) {
+                return $this->errorResponse('La sostituzione è possibile solo per appuntamenti programmati o con terapista assente');
             }
 
             // Trova il nuovo terapista
@@ -3085,12 +3085,33 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
             $transaction = Yii::$app->db->beginTransaction();
             
             try {
+                // TODO: Se l'appuntamento era in status 'scheduled', creare anche un record Absence
+                // per tracciare l'assenza del terapista originale. Questo permetterà di:
+                // 1. Tenere traccia delle assenze improvvise/non pianificate
+                // 2. Generare statistiche sulle assenze dei terapisti
+                // 3. Eventualmente calcolare ore da recuperare o penalità
+                // 
+                // Esempio implementazione:
+                // if ($appointment->status === Appointment::STATUS_SCHEDULED) {
+                //     $absence = new Absence();
+                //     $absence->therapist_id = $appointment->therapist_id;
+                //     $absence->start_date = date('Y-m-d', strtotime($appointment->appointment_datetime));
+                //     $absence->end_date = $absence->start_date;
+                //     $absence->type = Absence::TYPE_OTHER;
+                //     $absence->reason = $reason ?: 'Assenza comunicata tramite sostituzione';
+                //     $absence->status = Absence::STATUS_APPROVED; // Auto-approvata perché già gestita
+                //     $absence->approved_by = Yii::$app->user->id ?: 1;
+                //     $absence->approved_at = date('Y-m-d H:i:s');
+                //     $absence->created_by = Yii::$app->user->id ?: 1;
+                //     $absence->save();
+                // }
+
                 // Salva il terapista originale se non è già stato salvato
                 if (!$appointment->original_therapist_id) {
                     $appointment->original_therapist_id = $appointment->therapist_id;
                 }
 
-                $originalTherapistId = $appointment->original_therapist_id ?: $appointment->therapist_id;
+                $originalTherapistId = $appointment->therapist_id;
 
                 // Aggiorna l'appuntamento con il nuovo terapista
                 $appointment->therapist_id = $newTherapistId;

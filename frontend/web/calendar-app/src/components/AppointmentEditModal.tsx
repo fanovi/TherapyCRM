@@ -10,10 +10,12 @@ import {
   Repeat,
   Lock,
   Stethoscope,
+  UserX,
 } from "lucide-react";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { useToast } from "@/components/Toast";
+import { TherapistSubstitutionModal } from "./TherapistSubstitutionModal";
 
 interface AppointmentEditModalProps {
   isOpen: boolean;
@@ -22,6 +24,11 @@ interface AppointmentEditModalProps {
   therapists: Therapist[];
   onAppointmentUpdate: (appointmentId: string) => void;
   onAppointmentDelete: (appointmentId: string) => void;
+  onTherapistSubstitution?: (substitutionData: {
+    appointmentId: number;
+    newTherapistId: number;
+    reason?: string;
+  }) => void;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -31,10 +38,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   therapists,
   onAppointmentUpdate,
   onAppointmentDelete,
+  onTherapistSubstitution,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteAllFuture, setDeleteAllFuture] = useState(false);
+  const [isSubstitutionMode, setIsSubstitutionMode] = useState(false);
   const [formData, setFormData] = useState({
     therapistId: 0,
     date: "",
@@ -61,8 +70,23 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         duration: appointment.duration,
         notes: appointment.notes || "",
       });
+
+      // Reset substitution mode when appointment changes
+      setIsSubstitutionMode(false);
     }
   }, [appointment]);
+
+  const handleTherapistSubstitution = async (substitutionData: {
+    appointmentId: number;
+    newTherapistId: number;
+    reason?: string;
+  }) => {
+    if (onTherapistSubstitution) {
+      await onTherapistSubstitution(substitutionData);
+      setIsSubstitutionMode(false);
+      onClose();
+    }
+  };
 
   const handleSave = async () => {
     if (!appointment) return;
@@ -531,6 +555,18 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 </button>
               )}
 
+              {!isEditing &&
+                appointment.status === "scheduled" &&
+                onTherapistSubstitution && (
+                  <button
+                    onClick={() => setIsSubstitutionMode(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-200 font-medium"
+                  >
+                    <UserX className="w-4 h-4" />
+                    Sostituisci Terapista
+                  </button>
+                )}
+
               {!isEditing && appointment.status === "scheduled" && (
                 <button
                   onClick={handleDelete}
@@ -581,6 +617,15 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modale per sostituzione terapista */}
+      <TherapistSubstitutionModal
+        isOpen={isSubstitutionMode}
+        onClose={() => setIsSubstitutionMode(false)}
+        onConfirm={handleTherapistSubstitution}
+        appointment={appointment}
+        therapists={therapists}
+      />
     </div>
   );
 };
