@@ -9,6 +9,7 @@ import {
   Save,
   Repeat,
   Lock,
+  Stethoscope,
 } from "lucide-react";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
@@ -145,9 +146,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
     // Determina il messaggio di conferma
     let confirmMessage = "Sei sicuro di voler eliminare questo appuntamento?";
-    if (deleteAllFuture && appointment.isRecurring && appointment.patternId) {
-      confirmMessage =
-        "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
+    if (deleteAllFuture) {
+      if (appointment.isRecurring && appointment.patternId) {
+        confirmMessage =
+          "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
+      } else if (appointment.isPrivate && appointment.privateCycleId) {
+        confirmMessage =
+          "Sei sicuro di voler eliminare tutti gli appuntamenti del ciclo privato?";
+      }
     }
 
     if (!confirm(confirmMessage)) {
@@ -156,13 +162,20 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
     setLoading(true);
     try {
-      if (deleteAllFuture && appointment.isRecurring && appointment.patternId) {
-        // Cancella tutti gli appuntamenti futuri del pattern
-        const appointmentDate = appointment.datetime.split(" ")[0]; // Estrae solo la data
-        await therapyAPI.deletePatternAppointments({
-          patternId: appointment.patternId,
-          fromDate: appointmentDate,
-        });
+      if (deleteAllFuture) {
+        if (appointment.isRecurring && appointment.patternId) {
+          // Cancella tutti gli appuntamenti futuri del pattern
+          const appointmentDate = appointment.datetime.split(" ")[0]; // Estrae solo la data
+          await therapyAPI.deletePatternAppointments({
+            patternId: appointment.patternId,
+            fromDate: appointmentDate,
+          });
+        } else if (appointment.isPrivate && appointment.privateCycleId) {
+          // Cancella tutti gli appuntamenti del ciclo privato
+          await therapyAPI.deletePrivateCycleAppointments(
+            appointment.privateCycleId
+          );
+        }
       } else {
         // Cancella solo questo appuntamento
         await therapyAPI.deleteAppointment(appointment.id);
@@ -259,7 +272,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         {/* Content */}
         <div className="p-6 overflow-y-auto">
           {/* Avviso per appuntamenti privati */}
-          {isPrivateAppointment && !isEditing && (
+          {/* {isPrivateAppointment && !isEditing && (
             <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <p className="text-sm text-purple-800 flex items-center gap-2">
                 <Lock className="h-4 w-4" />
@@ -267,7 +280,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 terapeutico
               </p>
             </div>
-          )}
+          )} */}
 
           {!isEditing ? (
             /* Vista dettagli */
@@ -284,25 +297,13 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 >
                   {getStatusText(appointment.status)}
                 </span>
-                {appointment.isRecurring && (
+                {(appointment.isRecurring || appointment.privateCycleId) && (
                   <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                     <Repeat className="w-3 h-3" />
                     Ricorrente
                   </span>
                 )}
               </div>
-
-              {/* Tipo di trattamento - Mostra per appuntamenti privati */}
-              {isPrivateAppointment && appointment.treatmentType && (
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <div className="text-sm font-semibold text-gray-700 mb-1">
-                    Tipo di trattamento
-                  </div>
-                  <div className="font-semibold text-gray-900">
-                    {appointment.treatmentType}
-                  </div>
-                </div>
-              )}
 
               {/* Paziente */}
               <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg">
@@ -320,18 +321,35 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
               </div>
 
               {/* Terapista */}
-              <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg">
-                <div className="flex-shrink-0">
-                  <User className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">
-                    {appointment.therapist?.name || "Terapista sconosciuto"}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-lg">
+                  <div className="flex-shrink-0">
+                    <User className="w-6 h-6 text-green-600" />
                   </div>
-                  <div className="text-sm text-green-600 font-medium">
-                    Terapista
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {appointment.therapist?.name || "Terapista sconosciuto"}
+                    </div>
+                    <div className="text-sm text-green-600 font-medium">
+                      Terapista
+                    </div>
                   </div>
                 </div>
+                {appointment.treatmentType && (
+                  <div className="flex items-center gap-4 p-4 bg-indigo-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      <Stethoscope className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        {appointment.treatmentType}
+                      </div>
+                      <div className="text-sm text-indigo-600 font-medium">
+                        Tipo di trattamento
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Data e ora */}
@@ -486,11 +504,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-col gap-3">
-            {/* Checkbox per cancellazione pattern - mostra solo se l'appuntamento è ricorrente e scheduled */}
+            {/* Checkbox per cancellazione pattern/ciclo - mostra per appuntamenti ricorrenti o privati con ciclo */}
             {!isEditing &&
-              appointment?.isRecurring &&
-              appointment?.patternId &&
-              appointment.status === "scheduled" && (
+              appointment.status === "scheduled" &&
+              ((appointment?.isRecurring && appointment?.patternId) ||
+                (appointment?.isPrivate && appointment?.privateCycleId)) && (
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -504,7 +522,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
                   >
                     <Repeat className="h-4 w-4" />
-                    Cancella tutti gli appuntamenti futuri
+                    {appointment?.isPrivate
+                      ? "Cancella tutti gli appuntamenti del ciclo privato"
+                      : "Cancella tutti gli appuntamenti futuri"}
                   </label>
                 </div>
               )}

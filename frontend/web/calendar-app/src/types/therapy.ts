@@ -82,6 +82,9 @@ export interface Appointment {
   patternId?: number;
   isRecurring?: boolean;
 
+  // Informazioni sui cicli privati
+  privateCycleId?: number;
+
   appointmentSource?: "therapeutic_plan" | "private";
 
   isPrivate?: boolean;
@@ -111,7 +114,7 @@ export interface CreatePatternRequest {
   startTime: string; // HH:mm
   durationMinutes: number;
   validFrom: string; // YYYY-MM-DD
-  validTo: string; // YYYY-MM-DD
+  validTo?: string; // YYYY-MM-DD - opzionale, verrà ricavato dal backend se non fornito
 }
 
 export interface UpdateAppointmentRequest {

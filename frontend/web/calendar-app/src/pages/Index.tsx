@@ -483,11 +483,6 @@ const Index = () => {
         const dayOfWeek = selectedSlot.date.getDay() || 7;
         const startTime = selectedSlot.time;
         const validFrom = selectedSlot.date.toISOString().split("T")[0];
-        const validTo = appointmentData.planTherapy?.endDate;
-
-        if (!validTo) {
-          throw new Error("Data fine piano terapeutico non disponibile");
-        }
 
         const patternRequest = {
           planTherapyId,
@@ -496,7 +491,7 @@ const Index = () => {
           startTime,
           durationMinutes: appointmentData.duration,
           validFrom,
-          validTo,
+          // validTo verrà ricavato dal backend dal piano terapeutico
         };
 
         const patternResult = await therapyAPI.createPattern(patternRequest);
@@ -532,10 +527,7 @@ const Index = () => {
       if (appointmentData.isRecurring) {
         showSuccess(
           "Pattern ricorrente creato",
-          `${appointmentsCreated} appuntamenti sono stati creati con successo fino al ${format(
-            new Date(appointmentData.planTherapy?.endDate || ""),
-            "dd/MM/yyyy"
-          )}`
+          `${appointmentsCreated} appuntamenti sono stati creati con successo`
         );
       } else {
         showSuccess(

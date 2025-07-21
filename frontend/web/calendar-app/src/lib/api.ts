@@ -447,6 +447,26 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
+   * Cancella tutti gli appuntamenti di un ciclo privato
+   */
+  async deletePrivateCycleAppointments(privateCycleId: number): Promise<{
+    deletedCount: number;
+  }> {
+    const response = await this.post<any>("delete-private-cycle-appointments", {
+      privateCycleId,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Errore nella cancellazione degli appuntamenti del ciclo privato"
+      );
+    }
+
+    return response.data;
+  }
+
+  /**
    * Calcola le ore settimanali del terapista per una settimana specifica
    */
   async getTherapistWeeklyHours(

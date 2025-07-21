@@ -83,8 +83,14 @@ class TherapeuticPlanManagerController extends Controller
             $this->validateTherapeuticPlan($planTherapy->therapeuticPlan);
             $therapist = $this->findTherapist($data['therapistId']);
 
+            // Se validTo non è fornito, usa la data fine del piano terapeutico
+            if (!isset($data['validTo']) || empty($data['validTo'])) {
+                $data['validTo'] = $planTherapy->therapeuticPlan->getCalculatedEndDate();
+                Yii::info("ValidTo non fornito, usata data fine piano terapeutico: {$data['validTo']}", __METHOD__);
+            }
+
             // Verifica date
-            $this->validateDates($data['validFrom'], $data['validTo'], planTherapy->therapeuticPlan);
+            $this->validateDates($data['validFrom'], $data['validTo'], $planTherapy->therapeuticPlan);
 
             // Inizia transazione
             $transaction = Yii::$app->db->beginTransaction();
@@ -369,9 +375,78 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error("Errore creazione ciclo privato: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+        }
+
+    /**
+     * Cancella tutti gli appuntamenti di un ciclo privato
+     * 
+     * @return array
+     */
+    public function actionDeletePrivateCycleAppointments()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $data = $this->getRequestData();
+            
+            if (!isset($data['privateCycleId']) || empty($data['privateCycleId'])) {
+                throw new BadRequestHttpException('privateCycleId è obbligatorio');
+            }
+
+            $privateCycleId = (int)$data['privateCycleId'];
+
+            // Verifica che il ciclo privato esista
+            $privateCycle = PrivateCycle::findOne($privateCycleId);
+            if (!$privateCycle) {
+                throw new NotFoundHttpException('Ciclo privato non trovato');
+            }
+
+            // Inizia transazione
+            $transaction = Yii::$app->db->beginTransaction();
+
+            try {
+                // Trova tutti gli appuntamenti del ciclo privato
+                $appointments = Appointment::find()
+                    ->where(['private_cycle_id' => $privateCycleId])
+                    ->andWhere(['status' => Appointment::STATUS_SCHEDULED])
+                    ->all();
+
+                $deletedCount = 0;
+                foreach ($appointments as $appointment) {
+                    if ($appointment->delete()) {
+                        $deletedCount++;
+                        Yii::info("Appuntamento privato eliminato: ID {$appointment->id}", __METHOD__);
+                    }
+                }
+
+                // Elimina anche il ciclo privato
+                if ($privateCycle->delete()) {
+                    Yii::info("Ciclo privato eliminato: ID {$privateCycle->id}", __METHOD__);
+                }
+
+                $transaction->commit();
+
+                return [
+                    'success' => true,
+                    'message' => "Eliminati {$deletedCount} appuntamenti e il ciclo privato",
+                    'data' => [
+                        'deletedCount' => $deletedCount,
+                        'privateCycleDeleted' => true
+                    ]
+                ];
+
+            } catch (Exception $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+
+        } catch (Exception $e) {
+            Yii::error("Errore eliminazione ciclo privato: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
     }
 
-      /**
+     /**
      * Trova e valida TreatmentType
      * 
      * @param int $id
@@ -1038,6 +1113,7 @@ class TherapeuticPlanManagerController extends Controller
                     ],
                     'patternId' => $appointment->pattern_id,
                     'isRecurring' => $appointment->pattern_id !== null,
+                    'privateCycleId' => $appointment->private_cycle_id,
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
                 ];
             }
@@ -1119,6 +1195,7 @@ class TherapeuticPlanManagerController extends Controller
                     ],
                     'patternId' => $appointment->pattern_id,
                     'isRecurring' => $appointment->pattern_id !== null,
+                    'privateCycleId' => $appointment->private_cycle_id,
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
                 ];
             }
@@ -2028,7 +2105,8 @@ class TherapeuticPlanManagerController extends Controller
      */
     private function validateRequiredFields($data)
     {
-        $requiredFields = ['planTherapyId', 'therapistId', 'dayOfWeek', 'startTime', 'durationMinutes', 'validFrom', 'validTo'];
+        // validTo è opzionale, verrà ricavato dal piano terapeutico se non fornito
+        $requiredFields = ['planTherapyId', 'therapistId', 'dayOfWeek', 'startTime', 'durationMinutes', 'validFrom'];
         
         foreach ($requiredFields as $field) {
             if (!isset($data[$field]) || $data[$field] === '') {
