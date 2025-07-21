@@ -1,0 +1,284 @@
+/* Statistiche CSS */
+
+/* Stats Cards */
+.stats-card {
+    transition: all 0.3s ease-in-out;
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
+}
+
+.stats-card.clickable {
+    cursor: pointer;
+}
+
+/* Border colors for stats cards */
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+
+.border-left-secondary {
+    border-left: 0.25rem solid #858796 !important;
+}
+
+/* Chart Widgets */
+.chart-widget {
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.chart-widget .card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.chart-container {
+    position: relative;
+}
+
+.chart-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+}
+
+/* Statistics Filter */
+.statistics-filter {
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    margin-bottom: 1.5rem;
+}
+
+.statistics-filter .card-header {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    color: white;
+    border-bottom: none;
+}
+
+.statistics-filter .card-header h6 {
+    color: white;
+}
+
+.statistics-filter .card-header .fa-chevron-up,
+.statistics-filter .card-header .fa-chevron-down {
+    transition: transform 0.3s ease;
+}
+
+/* Heatmap Styles */
+.heatmap-container {
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.heatmap-cell {
+    min-width: 30px;
+    min-height: 30px;
+    border: 1px solid #e3e6f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.1);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Heatmap color scales */
+.heatmap-low {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.heatmap-medium-low {
+    background-color: #fff3e0;
+    color: #ef6c00;
+}
+
+.heatmap-medium {
+    background-color: #fff8e1;
+    color: #f57f17;
+}
+
+.heatmap-medium-high {
+    background-color: #ffebee;
+    color: #d32f2f;
+}
+
+.heatmap-high {
+    background-color: #ffcdd2;
+    color: #b71c1c;
+}
+
+.heatmap-very-high {
+    background-color: #f44336;
+    color: white;
+}
+
+/* Tables */
+.statistics-table {
+    background: white;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.statistics-table .table {
+    margin-bottom: 0;
+}
+
+.statistics-table .table th {
+    background-color: #f8f9fc;
+    border-top: none;
+    font-weight: 600;
+    color: #5a5c69;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.statistics-table .table td {
+    border-top: 1px solid #e3e6f0;
+    vertical-align: middle;
+}
+
+/* Badges in tables */
+.badge-justified {
+    background-color: #1cc88a;
+}
+
+.badge-unjustified {
+    background-color: #e74a3b;
+}
+
+.badge-with-recovery {
+    background-color: #36b9cc;
+}
+
+.badge-no-recovery {
+    background-color: #858796;
+}
+
+/* Loading States */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-card .card-body {
+        padding: 1rem 0.75rem;
+    }
+    
+    .chart-widget .card-body {
+        padding: 0.75rem;
+    }
+    
+    .statistics-filter .row .col-md-3,
+    .statistics-filter .row .col-md-4,
+    .statistics-filter .row .col-md-6 {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Dashboard specific styles */
+.dashboard-summary .row {
+    margin-bottom: 2rem;
+}
+
+.dashboard-charts .card {
+    height: 400px;
+}
+
+.dashboard-charts .card-body {
+    height: calc(100% - 60px);
+}
+
+/* Animation for number counters */
+.counter-animation {
+    animation: countUp 1s ease-out;
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Export buttons */
+.export-buttons {
+    margin-top: 1rem;
+    text-align: right;
+}
+
+.export-buttons .btn {
+    margin-left: 0.5rem;
+}
+
+/* Tooltips customization */
+.tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+}
+
+/* Print styles */
+@media print {
+    .statistics-filter,
+    .export-buttons,
+    .btn,
+    .no-print {
+        display: none !important;
+    }
+    
+    .stats-card,
+    .chart-widget,
+    .statistics-table {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        page-break-inside: avoid;
+        margin-bottom: 1rem;
+    }
+}

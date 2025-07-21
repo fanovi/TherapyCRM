@@ -52,6 +52,16 @@ return [
                 'calendar/<id_patient:\d+>' => 'calendar/index',
                 'calendar/therapist/<id_therapist:\d+>' => 'calendar/index',
                 
+                // Route per le statistiche
+                'statistics' => 'statistics/index',
+                'statistics/dashboard' => 'statistics/index',
+                'statistics/absences' => 'statistics/absences',
+                'statistics/patients' => 'statistics/patients',
+                'statistics/treatments' => 'statistics/treatments',
+                'statistics/plans' => 'statistics/plans',
+                'statistics/chart-data/<type>' => 'statistics/chart-data',
+                'statistics/export/<type>' => 'statistics/export',
+                
                 // API routes
                 'api/therapist/<id:\d+>' => 'api/therapist/view',
                 'api/patient/<id:\d+>' => 'api/patient/view',
