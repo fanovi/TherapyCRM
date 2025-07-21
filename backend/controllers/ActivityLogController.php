@@ -247,6 +247,7 @@ class ActivityLogController extends Controller
             ->groupBy('user_id')
             ->orderBy('count DESC')
             ->limit(10)
+            ->asArray()
             ->all();
 
         // Attività per giorno
