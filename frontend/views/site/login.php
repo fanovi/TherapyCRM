@@ -117,14 +117,14 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
 
         <!-- Footer Links -->
-        <div class="text-center">
+        <!-- <div class="text-center">
             <p class="text-sm text-gray-600 dark:text-gray-400">
                 Hai problemi ad accedere?
                 <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
                     Contatta l'amministratore
                 </a>
             </p>
-        </div>
+        </div> -->
     </div>
 </div>
 
