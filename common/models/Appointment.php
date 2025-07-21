@@ -193,6 +193,7 @@ class Appointment extends ActiveRecord
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) + ($this->duration_minutes * 60) + 300)
                 ])
                 ->andWhere(['!=', 'status', self::STATUS_CANCELLED])
+                ->andWhere(['!=', 'status', self::STATUS_COMPLETED])
                 ->andWhere(['!=', 'id', $this->id ?: 0])
                 ->exists();
 
