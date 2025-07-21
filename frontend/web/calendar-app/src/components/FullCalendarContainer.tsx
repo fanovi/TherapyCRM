@@ -535,6 +535,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             interactionPlugin,
             listPlugin,
           ]}
+          firstDay={1} // AGGIUNGI QUESTA RIGA - 1 = lunedì
           initialView={currentView}
           height="auto"
           headerToolbar={{

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Clock, AlertTriangle, CheckCircle } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
 import { Therapist } from "@/types/therapy";
-
+import moment from "moment";
 interface TherapistWeeklyHoursProps {
   therapist: Therapist;
   currentDate: Date;
@@ -43,13 +43,12 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
       try {
         // Passa la domenica precedente al lunedì corrente
         // Così il backend calcolerà "monday this week" correttamente
-        const sundayDate = new Date(currentDate);
-        sundayDate.setDate(sundayDate.getDate() - 1); // Sottrai 1 giorno per ottenere la domenica
+        const startDate = moment(currentDate).format("YYYY-MM-DD");
 
-        const year = sundayDate.getFullYear();
-        const month = String(sundayDate.getMonth() + 1).padStart(2, "0");
-        const day = String(sundayDate.getDate()).padStart(2, "0");
-        const startDate = `${year}-${month}-${day}`;
+        console.log("🔧 TherapistWeeklyHours - Date formatting:", {
+          originalDate: moment(currentDate).format("DD/MM/YYYY"),
+          startDateString: startDate,
+        });
 
         const data = await therapyAPI.getTherapistWeeklyHours(
           therapist.id,
@@ -184,14 +183,8 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
 
         {/* Periodo */}
         <div className="text-xs text-gray-500 pt-2 border-t">
-          Settimana:{" "}
-          {new Date(
-            currentDate.getTime() - 24 * 60 * 60 * 1000
-          ).toLocaleDateString("it-IT")}{" "}
-          -{" "}
-          {new Date(
-            currentDate.getTime() + 5 * 24 * 60 * 60 * 1000
-          ).toLocaleDateString("it-IT")}
+          Settimana: {moment(weeklyHours.weekStart).format("DD/MM/YYYY")} -{" "}
+          {moment(weeklyHours.weekEnd).format("DD/MM/YYYY")}
         </div>
       </div>
     </div>
