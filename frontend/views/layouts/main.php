@@ -25,8 +25,13 @@ AppAsset::register($this);
     <?php $this->head() ?>
 </head>
 
+<?php
+// Determina se la sidebar deve iniziare chiusa (es. nel calendario)
+$currentController = Yii::$app->controller->id;
+$sidebarClosed = ($currentController === 'calendar');
+?>
 <body
-    x-data="{ page: 'ecommerce', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-data="{ page: 'ecommerce', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': <?= $sidebarClosed ? 'true' : 'false' ?>, 'scrollTop': false }"
     x-init="
          darkMode = JSON.parse(localStorage.getItem('darkMode'));
          $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"

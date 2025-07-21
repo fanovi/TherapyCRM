@@ -1,6 +1,38 @@
 <?php
 
 use yii\helpers\Url;
+
+// Ottieni informazioni sulla pagina corrente
+$currentController = Yii::$app->controller->id;
+$currentAction = Yii::$app->controller->action->id;
+$currentRoute = $currentController . '/' . $currentAction;
+
+// Definisci le mappature dei menu
+$menuMappings = [
+    'Dashboard' => ['site/index'],
+    'Calendar' => ['calendar/index'],
+    'Statistics' => ['statistics/index'],
+    'Communications' => ['communication/index', 'communication/view'],
+    'Administrators' => ['user/administrators', 'user/create-administrator', 'user/view-administrator', 'user/update-administrator'],
+    'Coordinators' => ['user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator'],
+    'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
+    'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
+    'MyTherapists' => ['therapist/my-group'],
+    'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update'],
+    'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
+    'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
+];
+
+// Funzione per controllare se un menu è attivo
+function isMenuActive($menuKey, $currentRoute, $mappings) {
+    if (!isset($mappings[$menuKey])) return false;
+    return in_array($currentRoute, $mappings[$menuKey]);
+}
+
+// Funzione per controllare se un sottomenu è attivo
+function isSubmenuActive($routes, $currentRoute) {
+    return in_array($currentRoute, $routes);
+}
 ?>
 <!-- ===== Sidebar Start ===== -->
 <aside
@@ -31,7 +63,7 @@ use yii\helpers\Url;
     <div
         class="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <!-- Sidebar Menu -->
-        <nav x-data="{selected: $persist('Dashboard')}">
+        <nav x-data="{selected: $persist('<?= isMenuActive('Dashboard', $currentRoute, $menuMappings) ? 'Dashboard' : (isMenuActive('Calendar', $currentRoute, $menuMappings) ? 'Calendar' : (isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'Statistics' : (isMenuActive('Communications', $currentRoute, $menuMappings) ? 'Communications' : (isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'Administrators' : (isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'Coordinators' : (isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'CoordinatorGroups' : (isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'Therapists' : (isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'MyTherapists' : (isMenuActive('Patients', $currentRoute, $menuMappings) ? 'Patients' : (isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'TherapeuticPlans' : (isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'DocumentRequests' : 'Dashboard'))))))))))) ?>')}">
             <!-- Menu Group -->
             <div>
                 <h3 class="mb-4 text-xs uppercase leading-[20px] text-gray-400">
@@ -61,12 +93,11 @@ use yii\helpers\Url;
                     <!-- Menu Item Dashboard -->
                     <li>
                         <a
-                            href="#"
-                            @click.prevent="selected = (selected === 'Dashboard' ? '':'Dashboard')"
+                            href="<?= Url::to(['site/index']) ?>"
                             class="menu-item group"
-                            :class=" (selected === 'Dashboard') || (page === 'ecommerce' || page === 'analytics' || page === 'marketing' || page === 'crm' || page === 'stocks') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Dashboard') || <?= isMenuActive('Dashboard', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Dashboard') || (page === 'ecommerce' || page === 'analytics' || page === 'marketing' || page === 'crm' || page === 'stocks') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Dashboard') || <?= isMenuActive('Dashboard', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -98,36 +129,6 @@ use yii\helpers\Url;
                     </li>
                     <!-- Menu Item Dashboard -->
 
-                    <!-- Menu Item Calendar -->
-                    <li>
-                        <a
-                            href="calendar.html"
-                            @click="selected = (selected === 'Calendar' ? '':'Calendar')"
-                            class="menu-item group"
-                            :class=" (selected === 'Calendar') && (page === 'calendar') ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'Calendar') && (page === 'calendar') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M8 2C8.41421 2 8.75 2.33579 8.75 2.75V3.75H15.25V2.75C15.25 2.33579 15.5858 2 16 2C16.4142 2 16.75 2.33579 16.75 2.75V3.75H18.5C19.7426 3.75 20.75 4.75736 20.75 6V9V19C20.75 20.2426 19.7426 21.25 18.5 21.25H5.5C4.25736 21.25 3.25 20.2426 3.25 19V9V6C3.25 4.75736 4.25736 3.75 5.5 3.75H7.25V2.75C7.25 2.33579 7.58579 2 8 2ZM8 5.25H5.5C5.08579 5.25 4.75 5.58579 4.75 6V8.25H19.25V6C19.25 5.58579 18.9142 5.25 18.5 5.25H16H8ZM19.25 9.75H4.75V19C4.75 19.4142 5.08579 19.75 5.5 19.75H18.5C18.9142 19.75 19.25 19.4142 19.25 19V9.75Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Calendar
-                            </span>
-                        </a>
-                    </li>
-                    <!-- Menu Item Calendar -->
-
                     <!-- Menu Item Statistics -->
                     <?php if (Yii::$app->user->can('view_statistics')): ?>
                     <li>
@@ -135,9 +136,9 @@ use yii\helpers\Url;
                             href="<?= Url::to(['statistics/index']) ?>"
                             @click="selected = (selected === 'Statistics' ? '':'Statistics')"
                             class="menu-item group"
-                            :class=" (selected === 'Statistics') && (page === 'statistics') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Statistics') || <?= isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Statistics') && (page === 'statistics') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Statistics') || <?= isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -167,9 +168,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'Administrators' ? '':'Administrators')"
                             class="menu-item group"
-                            :class="(selected === 'Administratcleaors') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Administrators') || <?= isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Administrators') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Administrators') || <?= isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -190,7 +191,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'Administrators') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'Administrators') || <?= isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -208,21 +209,21 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'Administrators') ? 'block' :'hidden'">
+                            :class="(selected === 'Administrators') || <?= isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/user/administrators']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/administrators'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Amministratori
                                     </a>
                                 </li>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/user/create-administrator']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/create-administrator'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Amministratore
                                     </a>
                                 </li>
@@ -240,9 +241,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'Coordinators' ? '':'Coordinators')"
                             class="menu-item group"
-                            :class="(selected === 'Coordinators') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Coordinators') || <?= isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Coordinators') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Coordinators') || <?= isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -263,7 +264,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'Coordinators') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'Coordinators') || <?= isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -281,21 +282,21 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'Coordinators') ? 'block' :'hidden'">
+                            :class="(selected === 'Coordinators') || <?= isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/user/coordinators']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/coordinators'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Coordinatori
                                     </a>
                                 </li>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/user/create-coordinator']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/create-coordinator'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Coordinatore
                                     </a>
                                 </li>
@@ -313,9 +314,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'CoordinatorGroups' ? '':'CoordinatorGroups')"
                             class="menu-item group"
-                            :class="(selected === 'CoordinatorGroups') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'CoordinatorGroups') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -340,7 +341,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'CoordinatorGroups') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -358,14 +359,14 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'CoordinatorGroups') ? 'block' :'hidden'">
+                            :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/coordinator-group/index']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Gruppi
                                     </a>
                                 </li>
@@ -373,7 +374,7 @@ use yii\helpers\Url;
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/coordinator-group/create']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Gruppo
                                     </a>
                                 </li>
@@ -392,9 +393,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'Therapists' ? '':'Therapists')"
                             class="menu-item group"
-                            :class="(selected === 'Therapists') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Therapists') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -415,7 +416,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'Therapists') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -433,21 +434,21 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'Therapists') ? 'block' :'hidden'">
+                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Terapisti
                                     </a>
                                 </li>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapist/create']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Terapista
                                     </a>
                                 </li>
@@ -455,7 +456,7 @@ use yii\helpers\Url;
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/my-group'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         I Miei Terapisti
                                     </a>
                                 </li>
@@ -471,9 +472,9 @@ use yii\helpers\Url;
                             href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
                             @click="selected = (selected === 'MyTherapists' ? '':'MyTherapists')"
                             class="menu-item group"
-                            :class="(selected === 'MyTherapists') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'MyTherapists') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -507,9 +508,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'Patients' ? '':'Patients')"
                             class="menu-item group"
-                            :class="(selected === 'Patients') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'Patients') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -530,7 +531,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'Patients') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -548,21 +549,21 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'Patients') ? 'block' :'hidden'">
+                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/patient/index']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Pazienti
                                     </a>
                                 </li>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/patient/create']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Paziente
                                     </a>
                                 </li>
@@ -580,9 +581,9 @@ use yii\helpers\Url;
                             href="#"
                             @click.prevent="selected = (selected === 'TherapeuticPlans' ? '':'TherapeuticPlans')"
                             class="menu-item group"
-                            :class="(selected === 'TherapeuticPlans') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'TherapeuticPlans') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -612,7 +613,7 @@ use yii\helpers\Url;
 
                             <svg
                                 class="menu-item-arrow"
-                                :class="[(selected === 'TherapeuticPlans') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                :class="[(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
                                 width="20"
                                 height="20"
                                 viewBox="0 0 20 20"
@@ -630,14 +631,14 @@ use yii\helpers\Url;
                         <!-- Dropdown Menu Start -->
                         <div
                             class="overflow-hidden transform translate"
-                            :class="(selected === 'TherapeuticPlans') ? 'block' :'hidden'">
+                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapeutic-plan/index']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Visualizza Piani
                                     </a>
                                 </li>
@@ -645,7 +646,7 @@ use yii\helpers\Url;
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapeutic-plan/create']) ?>"
-                                        class="menu-dropdown-item group">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Piano
                                     </a>
                                 </li>
@@ -664,9 +665,9 @@ use yii\helpers\Url;
                             href="<?= \yii\helpers\Url::to(['/document-request/index']) ?>"
                             @click="selected = (selected === 'DocumentRequests' ? '':'DocumentRequests')"
                             class="menu-item group"
-                            :class="(selected === 'DocumentRequests') ? 'menu-item-active' : 'menu-item-inactive'">
+                            :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
-                                :class="(selected === 'DocumentRequests') ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"

@@ -135,22 +135,22 @@ $this->params['breadcrumbs'][] = $this->title;
                             ]
                         ),
                     ],
-                    [
-                        'attribute' => 'calendar_color',
-                        'label' => 'Colore',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-1 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => '#000000'],
-                        'format' => 'raw',
-                        'content' => function($model) {
-                            $color = $model->calendar_color ?: '#6B7280';
-                            return '<div class="flex items-center justify-center gap-2">
-                                <div class="w-6 h-6 rounded-full border-2 border-gray-300" style="background-color: ' . Html::encode($color) . '"></div>
-                                <span class="text-xs text-gray-500">' . Html::encode($color) . '</span>
-                            </div>';
-                        }
-                    ],
+                    // [
+                    //     'attribute' => 'calendar_color',
+                    //     'label' => 'Colore',
+                    //     'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
+                    //     'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
+                    //     'filterOptions' => ['class' => 'px-2 py-2'],
+                    //     'filterInputOptions' => ['class' => 'w-full px-1 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => '#000000'],
+                    //     'format' => 'raw',
+                    //     'content' => function($model) {
+                    //         $color = $model->calendar_color ?: '#6B7280';
+                    //         return '<div class="flex items-center justify-center gap-2">
+                    //             <div class="w-6 h-6 rounded-full border-2 border-gray-300" style="background-color: ' . Html::encode($color) . '"></div>
+                    //             <span class="text-xs text-gray-500">' . Html::encode($color) . '</span>
+                    //         </div>';
+                    //     }
+                    // ],
                     [
                         'attribute' => 'is_active',
                         'label' => 'Stato',
@@ -177,7 +177,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'template' => '{view} {update} {reset-password} {toggle-status}',
+                        'template' => '{view} {update} {reset-password} {toggle-status} {calendar-link}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             return [$action, 'id' => $model->id];
                         },
@@ -245,6 +245,17 @@ $this->params['breadcrumbs'][] = $this->title;
                                         ],
                                     ]);
                                 }
+                            },
+                            'calendar-link' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('manage_calendar')) return '';
+                                $url = ['calendar/therapist/' . $model->id];
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+</svg>', 
+                                    $url, [
+                                    'title' => 'Link al calendario',
+                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                ]);
                             },
                         ],
                     ],

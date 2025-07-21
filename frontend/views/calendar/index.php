@@ -9,7 +9,18 @@ use yii\helpers\Url;
 $this->title = 'Gestione Terapie';
 $this->params['breadcrumbs'][] = $this->title;
 
-// Costruisci i parametri GET per React
+// Modalità iframe per sviluppo
+$useIframe = true; // Cambia a false per usare la versione integrata
+
+// Costruisci l'URL dell'iframe con i parametri come rotta React
+$iframeSrc = 'http://localhost:8080/';
+if ($idTherapist) {
+    $iframeSrc .= 'therapist/' . $idTherapist;
+} elseif ($idPatient) {
+    $iframeSrc .= $idPatient;
+}
+
+// Costruisci i parametri GET per la modalità integrata (se useIframe = false)
 $queryParams = [];
 if ($idPatient) {
     $queryParams['id_patient'] = $idPatient;
@@ -18,15 +29,6 @@ if ($idTherapist) {
     $queryParams['id_therapist'] = $idTherapist;
 }
 $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
-
-// Registra il CSS di React isolato e il JS
-$this->registerCssFile('@web/calendar-app/dist/index.css', [
-    'depends' => [\yii\web\YiiAsset::class],
-]);
-$this->registerJsFile('@web/calendar-app/dist/index.js', [
-    'depends' => [\yii\web\YiiAsset::class],
-    'position' => \yii\web\View::POS_END,
-]);
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
@@ -44,39 +46,133 @@ $this->registerJsFile('@web/calendar-app/dist/index.js', [
                     Vista Terapista: ID <?= Html::encode($idTherapist) ?>
                 </div>
             <?php endif; ?>
+            
+            <div class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                <?= $useIframe ? 'Modalità Iframe (Dev)' : 'Modalità Integrata (Prod)' ?>
+                <?php if ($useIframe): ?>
+                    <br>URL: <?= Html::encode($iframeSrc) ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
     <!-- Breadcrumb End -->
 
     <!-- Content Start -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5">
+        <!-- <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
                 Sistema di Gestione Terapie
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Pianifica e gestisci gli appuntamenti terapeutici.
             </p>
-        </div>
+        </div> -->
         
         <!-- React App Container -->
         <div class="border-t border-gray-100 dark:border-gray-800">
-            <div class="calendar-app-wrapper">
-                <div id="root" data-query-params="<?= Html::encode($queryString) ?>"></div>
-            </div>
+            <?php if ($useIframe): ?>
+                <!-- Modalità Iframe per sviluppo -->
+                <div class="calendar-iframe-wrapper">
+                    <iframe 
+                        src="<?= Html::encode($iframeSrc) ?>" 
+                        frameborder="0" 
+                        style="width: 100%; height: 80vh; min-height: 600px;"
+                        title="Calendar App"
+                        allowfullscreen>
+                        <p>Il tuo browser non supporta gli iframe. 
+                           <a href="<?= Html::encode($iframeSrc) ?>" target="_blank">Apri l'app in una nuova finestra</a>
+                        </p>
+                    </iframe>
+                </div>
+            <?php else: ?>
+                <!-- Modalità integrata per produzione -->
+                <div class="calendar-app-wrapper">
+                    <div id="root" data-query-params="<?= Html::encode($queryString) ?>"></div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
     <!-- Content End -->
 </div>
 
-<?php
-// Con PostCSS prefix non serve più CSS personalizzato per isolare gli stili
+<?php if (!$useIframe): ?>
+    <?php
+    // Registra il CSS di React isolato e il JS solo se non usiamo iframe
+    $this->registerCssFile('@web/calendar-app/dist/style.css', [
+        'depends' => [\yii\web\YiiAsset::class],
+    ]);
+    $this->registerJsFile('@web/calendar-app/dist/index.js', [
+        'depends' => [\yii\web\YiiAsset::class],
+        'position' => \yii\web\View::POS_END,
+    ]);
 
-// Script per passare i parametri a React tramite data attributes
-$script = <<<JS
+    // Script per passare i parametri a React tramite data attributes
+    $script = <<<JS
 // I parametri sono già disponibili tramite data-query-params
 // React li leggerà direttamente senza modificare l'URL
 console.log('Calendar app loaded with params:', document.getElementById('root').dataset.queryParams);
 JS;
-$this->registerJs($script, \yii\web\View::POS_END);
-?> 
+    $this->registerJs($script, \yii\web\View::POS_END);
+    ?>
+<?php else: ?>
+    <?php
+    // Script per comunicazione con l'iframe se necessario
+    $script = <<<JS
+console.log('Calendar app loaded in iframe mode');
+console.log('Iframe URL: <?= Html::encode($iframeSrc) ?>');
+
+// Funzione per ridimensionare l'iframe se necessario
+function resizeIframe() {
+    const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
+    if (iframe) {
+        // Puoi aggiungere logica per ridimensionamento dinamico se necessario
+        console.log('Iframe loaded:', iframe.src);
+    }
+}
+
+// Ascolta eventi dall'iframe se necessario (per comunicazione cross-frame)
+window.addEventListener('message', function(event) {
+    // Verifica l'origine per sicurezza
+    if (event.origin !== 'http://localhost:8080') return;
+    
+    console.log('Message from iframe:', event.data);
+    
+    // Gestisci messaggi specifici dall'iframe
+    if (event.data.type === 'resize') {
+        const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
+        if (iframe && event.data.height) {
+            iframe.style.height = event.data.height + 'px';
+        }
+    }
+});
+
+// Carica iframe
+document.addEventListener('DOMContentLoaded', resizeIframe);
+JS;
+    $this->registerJs($script, \yii\web\View::POS_END);
+    ?>
+<?php endif; ?>
+
+<style>
+.calendar-iframe-wrapper {
+    position: relative;
+    overflow: hidden;
+}
+
+.calendar-iframe-wrapper iframe {
+    border: none;
+    border-radius: 0 0 1rem 1rem;
+}
+
+/* Stili per migliorare l'integrazione dell'iframe */
+.calendar-iframe-wrapper::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+    z-index: 1;
+}
+</style> 

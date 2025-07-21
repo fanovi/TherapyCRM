@@ -9,15 +9,18 @@ import "./styles/fullcalendar.css";
 
 const queryClient = new QueryClient();
 
-// Modalità di sviluppo standalone (porta 5173 di Vite) o compilata (integrata in Yii2)
+// Modalità di sviluppo standalone (porta 5173 di Vite, 3000, o 8080) o compilata (integrata in Yii2)
 const isStandalone =
-  window.location.port === "5173" || window.location.port === "3000";
+  window.location.port === "5173" ||
+  window.location.port === "3000" ||
+  window.location.port === "8080";
 const basename = isStandalone ? "" : "/TherapyCRM/calendar";
 
 // Debug info in console
 if (isStandalone) {
   console.log("🚀 Running in STANDALONE mode (dev server)");
   console.log("Router basename:", basename || "(empty)");
+  console.log("Current port:", window.location.port);
 } else {
   console.log("📦 Running in COMPILED mode (integrated in Yii2)");
   console.log("Router basename:", basename);

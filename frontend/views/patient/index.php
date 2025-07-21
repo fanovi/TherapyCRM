@@ -148,21 +148,17 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                             }
                         ],
                         [
-                            'attribute' => 'birth_date',
-                            'label' => 'Data di Nascita',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[130px]'],
+                            'label' => 'Data di Nascita (Età)',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
-                            'filterOptions' => ['class' => 'px-2 py-2'],
                             'filter' => false, // No filter for birth date
-                            'format' => ['date', 'php:d/m/Y'],
-                        ],
-                        [
-                            'label' => 'Età',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[80px]'],
-                            'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-center'],
-                            'filter' => false, // No filter for age
                             'value' => function($model) {
-                                return $model->age ? $model->age . ' anni' : '-';
+                                if (!$model->birth_date) {
+                                    return '-';
+                                }
+                                $birthDate = Yii::$app->formatter->asDate($model->birth_date, 'php:d/m/Y');
+                                $age = $model->age ? " ({$model->age} anni)" : '';
+                                return $birthDate . $age;
                             }
                         ],
                         [
@@ -207,7 +203,7 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                             'header' => 'Azioni',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
-                            'template' => '{view} {update} {credentials} {delete}',
+                            'template' => '{view} {update} {credentials} {delete} {calendar-link}',
                             'buttons' => [
                                 'view' => function ($url, $model, $key) {
                                     return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', 
@@ -242,6 +238,17 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                                             'confirm' => 'Sei sicuro di voler eliminare questo paziente?',
                                             'method' => 'post',
                                         ],
+                                    ]);
+                                },
+                                'calendar-link' => function ($url, $model, $key) {
+                                    if (!Yii::$app->user->can('manage_calendar')) return '';
+                                    $url = ['calendar/' . $model->id];
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+</svg>', 
+                                        $url, [
+                                        'title' => 'Link al calendario',
+                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                     ]);
                                 },
                             ],
