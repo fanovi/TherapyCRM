@@ -21,6 +21,7 @@ $menuMappings = [
     'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update'],
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
+    'Absences' => ['absence/index', 'absence/create', 'absence/view', 'absence/update'],
 ];
 
 // Funzione per controllare se un menu è attivo
@@ -465,6 +466,78 @@ function isSubmenuActive($routes, $currentRoute) {
                         </div>
                         <!-- Dropdown Menu End -->
                     </li>
+                    <?php if (Yii::$app->user->can('create_absence')): ?>
+<li>
+    <a
+        href="#"
+        @click.prevent="selected = (selected === 'Absences' ? '':'Absences')"
+        class="menu-item group"
+        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+        <svg
+            :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"
+                fill="" />
+        </svg>
+
+        <span
+            class="menu-item-text"
+            :class="sidebarToggle ? 'lg:hidden' : ''">
+            Assenze
+        </span>
+
+        <svg
+            class="menu-item-arrow"
+            :class="[(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+                d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                stroke=""
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+    </a>
+
+    <!-- Dropdown Menu Start -->
+    <div
+        class="overflow-hidden transform translate"
+        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+        <ul
+            :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+            class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+            <?php if (Yii::$app->user->can('view_absence')): ?>
+            <li>
+                <a
+                    href="<?= \yii\helpers\Url::to(['/absence/index']) ?>"
+                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                    Visualizza Assenze
+                </a>
+            </li>
+            <?php endif; ?>
+            <li>
+                <a
+                    href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
+                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                    Nuova Assenza
+                </a>
+            </li>
+        </ul>
+    </div>
+    <!-- Dropdown Menu End -->
+</li>
+<?php endif; ?>
                     <?php elseif (Yii::$app->user->can('view_own_group_therapists')): ?>
                     <!-- Menu Item My Therapists (for coordinators only) -->
                     <li>
