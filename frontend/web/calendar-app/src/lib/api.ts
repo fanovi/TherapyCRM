@@ -270,6 +270,30 @@ class TherapeuticPlanManagerAPI {
     return response.data || [];
   }
 
+  /**
+   * Ottiene i dettagli di un singolo appuntamento
+   */
+  async getAppointmentDetails(appointmentId: number): Promise<Appointment> {
+    const response = await this.get<APIResponse<Appointment>>(
+      "get-appointment-details",
+      {
+        appointmentId,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento dettagli appuntamento"
+      );
+    }
+
+    if (!response.data) {
+      throw new Error("Appuntamento non trovato");
+    }
+
+    return response.data;
+  }
+
   // === GESTIONE APPUNTAMENTI - CREAZIONE ===
 
   /**

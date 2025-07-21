@@ -110,15 +110,27 @@ const Index = () => {
 
   // Funzione per ricaricare gli appuntamenti per il range attualmente visibile
   const reloadCurrentVisibleAppointments = async () => {
+    console.log("🔄 Ricaricando appuntamenti per range:", currentVisibleRange);
+
     if (!currentVisibleRange) {
-      const now = new Date();
-      await loadAppointmentsForMonth(now);
+      const dateToLoad = currentCalendarDate || new Date();
+      console.log(
+        "📅 Nessun range, carico mese da currentCalendarDate:",
+        dateToLoad.getMonth() + 1,
+        dateToLoad.getFullYear()
+      );
+      await loadAppointmentsForMonth(dateToLoad);
       return;
     }
 
     try {
       const startDate = new Date(currentVisibleRange.start);
       const endDate = new Date(currentVisibleRange.end);
+
+      console.log("📅 Range visibile:", {
+        start: startDate.toLocaleDateString(),
+        end: endDate.toLocaleDateString(),
+      });
 
       const monthsToLoad = new Set<{ month: number; year: number }>();
       const current = new Date(startDate);
@@ -131,50 +143,48 @@ const Index = () => {
         current.setMonth(current.getMonth() + 1);
       }
 
-      const appointmentPromises: Promise<any[]>[] = [];
+      // Carica tutti gli appuntamenti per tutti i mesi nel range
+      const allPatientAppointments: any[] = [];
+      const allTherapistAppointments: any[] = [];
 
-      // Determina quale paziente usare
       const currentPatient = isTherapistView ? selectedPatient : patient;
 
       for (const { month, year } of monthsToLoad) {
+        console.log(`📅 Caricando appuntamenti per ${month}/${year}`);
+
         if (currentPatient) {
-          appointmentPromises.push(
-            therapyAPI.getPatientAppointments(currentPatient.id, month, year)
+          const patientAppts = await therapyAPI.getPatientAppointments(
+            currentPatient.id,
+            month,
+            year
           );
+          allPatientAppointments.push(...patientAppts);
         }
+
         if (selectedTherapist) {
-          appointmentPromises.push(
-            therapyAPI.getTherapistAppointments(
-              selectedTherapist.id,
-              month,
-              year
-            )
+          const therapistAppts = await therapyAPI.getTherapistAppointments(
+            selectedTherapist.id,
+            month,
+            year
           );
+          allTherapistAppointments.push(...therapistAppts);
         }
       }
 
-      const results = await Promise.all(appointmentPromises);
-
-      let patientResults: any[] = [];
-      let therapistResults: any[] = [];
-
-      let resultIndex = 0;
-      for (const { month, year } of monthsToLoad) {
-        if (currentPatient) {
-          patientResults = patientResults.concat(results[resultIndex]);
-          resultIndex++;
-        }
-        if (selectedTherapist) {
-          therapistResults = therapistResults.concat(results[resultIndex]);
-          resultIndex++;
-        }
-      }
-
+      // Imposta tutti gli appuntamenti combinati
       if (currentPatient) {
-        setAppointments(patientResults);
+        console.log(
+          "📅 Appuntamenti paziente totali:",
+          allPatientAppointments.map((a) => a.id)
+        );
+        setAppointments(allPatientAppointments);
       }
       if (selectedTherapist) {
-        setTherapistAppointments(therapistResults);
+        console.log(
+          "📅 Appuntamenti terapista totali:",
+          allTherapistAppointments.map((a) => a.id)
+        );
+        setTherapistAppointments(allTherapistAppointments);
       }
     } catch (error) {
       console.error(
@@ -488,6 +498,7 @@ const Index = () => {
     isTherapistView,
     selectedTherapist,
     selectedPatient,
+    refreshKey, // AGGIUNGI QUESTA RIGA
   ]);
 
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
@@ -744,18 +755,41 @@ const Index = () => {
     }
   };
 
-  const handleAppointmentClick = (appointmentId: string) => {
-    const appointment = combinedAppointments.find(
+  const handleAppointmentClick = async (appointmentId: string) => {
+    console.log("🔍 Click su appuntamento:", appointmentId);
+
+    // Prima prova a trovarlo localmente
+    let appointment = combinedAppointments.find(
       (apt) => apt.id.toString() === appointmentId
     );
+
+    // Se non lo trova, recuperalo dal backend
+    if (!appointment) {
+      console.log(
+        "🔍 Appuntamento non trovato localmente, recupero dal backend"
+      );
+      try {
+        // Assumendo che creerai un endpoint tipo: /get-appointment-details?appointmentId=X
+        appointment = await therapyAPI.getAppointmentDetails(
+          parseInt(appointmentId)
+        );
+        console.log("🔍 Appuntamento recuperato dal backend:", appointment);
+      } catch (error) {
+        console.error("Errore recupero dettagli appuntamento:", error);
+        showError(
+          "Errore",
+          "Impossibile recuperare i dettagli dell'appuntamento"
+        );
+        return;
+      }
+    }
+
     if (appointment) {
       setSelectedAppointment(appointment);
 
-      // Se il terapista è assente, apri la modale di sostituzione
       if (appointment.status === "therapist_absent") {
         setIsSubstitutionModalOpen(true);
       } else {
-        // Altrimenti apri la modale di modifica normale
         setIsEditModalOpen(true);
       }
     }

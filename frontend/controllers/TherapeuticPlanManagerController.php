@@ -881,6 +881,83 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+ * Ottiene i dettagli di un singolo appuntamento
+ * 
+ * @return array
+ */
+public function actionGetAppointmentDetails($appointmentId)
+{
+    Yii::$app->response->format = Response::FORMAT_JSON;
+
+    try {
+        if (!$appointmentId) {
+            return $this->errorResponse('ID appuntamento mancante');
+        }
+
+        $appointment = Appointment::find()
+            ->alias('a')
+            ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+            ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+            ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+            ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+            ->leftJoin('therapists t', 't.id = a.therapist_id')
+            ->leftJoin('users u', 'u.id = t.user_id')
+            ->leftJoin('user_profiles up', 'up.user_id = u.id')
+            ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile'])
+            ->where(['a.id' => $appointmentId])
+            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+            ->one();
+
+        if (!$appointment) {
+            return $this->errorResponse('Appuntamento non trovato');
+        }
+
+        // Ottieni il paziente e il tipo di trattamento corretti basato sul tipo di appuntamento
+        if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+            $patient = $appointment->planTherapy->therapeuticPlan->patient;
+            $treatmentType = $appointment->planTherapy->treatmentType;
+        } else {
+            $patient = $appointment->patient;
+            $treatmentType = $appointment->treatmentType;
+        }
+
+        $therapist = $appointment->therapist;
+        $profile = $therapist->user->profile;
+
+        $result = [
+            'id' => $appointment->id,
+            'datetime' => $appointment->appointment_datetime,
+            'duration' => $appointment->duration_minutes,
+            'status' => $appointment->status,
+            'notes' => $appointment->notes,
+            'appointmentSource' => $appointment->appointment_source,
+            'treatmentType' => $treatmentType ? $treatmentType->name : 'Non specificato',
+            'patient' => [
+                'id' => $patient->id,
+                'name' => $patient->getFullName()
+            ],
+            'therapist' => [
+                'id' => $therapist->id,
+                'name' => $profile->getFullName()
+            ],
+            'patternId' => $appointment->pattern_id,
+            'isRecurring' => $appointment->pattern_id !== null,
+            'privateCycleId' => $appointment->private_cycle_id,
+            'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
+        ];
+
+        return [
+            'success' => true,
+            'data' => $result
+        ];
+
+    } catch (Exception $e) {
+        Yii::error("Errore recupero dettagli appuntamento: " . $e->getMessage(), __METHOD__);
+        return $this->errorResponse($e->getMessage());
+    }
+}
+
+    /**
      * Ottiene i dati anagrafici di un paziente con tutte le terapie disponibili
      * 
      * @return array
