@@ -154,15 +154,34 @@ class TherapeuticPlanManagerAPI {
 
   /**
    * Ottiene la lista dei terapisti filtrati per specializzazione (per ID)
+   * con controllo opzionale di disponibilità
    */
   async getTherapistsBySpecialization(
-    specializationId: number
+    specializationId: number,
+    availabilityCheck?: {
+      date: string; // Y-m-d
+      time: string; // H:i
+      duration: number; // minuti
+      appointmentId?: number; // ID appuntamento per escludere terapista originale
+    }
   ): Promise<Therapist[]> {
+    const params: Record<string, string | number> = {
+      specializationId,
+    };
+
+    // Aggiungi parametri per controllo disponibilità se forniti
+    if (availabilityCheck) {
+      params.date = availabilityCheck.date;
+      params.time = availabilityCheck.time;
+      params.duration = availabilityCheck.duration;
+      if (availabilityCheck.appointmentId) {
+        params.appointmentId = availabilityCheck.appointmentId;
+      }
+    }
+
     const response = await this.get<APIResponse<Therapist[]>>(
       "get-therapists-by-specialization",
-      {
-        specializationId,
-      }
+      params
     );
 
     if (!response.success) {

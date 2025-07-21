@@ -11,6 +11,8 @@ export interface Therapist {
   specializationId?: number;
   weeklyHours?: number;
   color?: string;
+  isAvailable?: boolean;
+  unavailabilityReason?: string;
 }
 
 export interface Patient {

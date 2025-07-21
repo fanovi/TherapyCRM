@@ -81,18 +81,24 @@ export const TherapistSubstitutionModal: React.FC<
 
       setOriginalTherapist(originalTherapistData);
 
-      // Usa l'API esistente per ottenere i terapisti della stessa specializzazione
+      // Estrai data e ora dall'appuntamento per il controllo disponibilità
+      const appointmentDate = new Date(appointment.datetime);
+      const dateString = appointmentDate.toISOString().split("T")[0]; // Y-m-d
+      const timeString = appointmentDate.toTimeString().slice(0, 5); // H:i
+
+      // Usa l'API con controllo disponibilità (il backend escluderà automaticamente il terapista originale)
       const therapistsBySpecialization =
         await therapyAPI.getTherapistsBySpecialization(
-          originalTherapistData.specializationId
+          originalTherapistData.specializationId,
+          {
+            date: dateString,
+            time: timeString,
+            duration: appointment.duration,
+            appointmentId: appointment.id, // Backend userà questo per escludere il terapista originale
+          }
         );
 
-      // Filtra escludendo il terapista originale
-      const filtered = therapistsBySpecialization.filter(
-        (therapist) => therapist.id !== appointment.therapist?.id
-      );
-
-      setAvailableTherapists(filtered);
+      setAvailableTherapists(therapistsBySpecialization);
     } catch (error) {
       console.error("Errore nel caricamento terapisti:", error);
       setAvailableTherapists([]);
@@ -222,6 +228,32 @@ export const TherapistSubstitutionModal: React.FC<
                 </p>
               </div>
 
+              {/* Contatore disponibilità */}
+              {(() => {
+                const available = availableTherapists.filter(
+                  (t) => t.isAvailable
+                ).length;
+                const total = availableTherapists.length;
+                const unavailable = total - available;
+
+                return (
+                  total > 0 && (
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-700">
+                        <strong>Disponibilità:</strong> {available} disponibili,{" "}
+                        {unavailable} non disponibili su {total} totali
+                      </p>
+                      {unavailable > 0 && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          I terapisti non disponibili sono mostrati ma non
+                          selezionabili
+                        </p>
+                      )}
+                    </div>
+                  )
+                );
+              })()}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Selezione nuovo terapista */}
                 <div className="space-y-2">
@@ -239,13 +271,30 @@ export const TherapistSubstitutionModal: React.FC<
                         <SelectItem
                           key={therapist.id}
                           value={therapist.id.toString()}
+                          disabled={!therapist.isAvailable}
                         >
                           <div className="flex items-center gap-2">
-                            <UserCheck className="h-4 w-4 text-green-600" />
-                            <span>{therapist.name}</span>
+                            {therapist.isAvailable ? (
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <UserX className="h-4 w-4 text-red-600" />
+                            )}
+                            <span
+                              className={
+                                therapist.isAvailable ? "" : "text-gray-500"
+                              }
+                            >
+                              {therapist.name}
+                            </span>
                             <span className="text-sm text-gray-500">
                               ({therapist.specialization})
                             </span>
+                            {!therapist.isAvailable &&
+                              therapist.unavailabilityReason && (
+                                <span className="text-xs text-red-600 ml-2">
+                                  - {therapist.unavailabilityReason}
+                                </span>
+                              )}
                           </div>
                         </SelectItem>
                       ))}

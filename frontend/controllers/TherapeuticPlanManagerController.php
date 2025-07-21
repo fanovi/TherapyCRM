@@ -18,6 +18,7 @@ use common\models\TherapistSubstitution;
 use common\models\Patient;
 use common\models\TreatmentType;
 use common\models\PrivateCycle;
+use common\models\Absence;
 use DateTime;
 use Exception;
 use yii\filters\Cors;
@@ -795,9 +796,13 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Ottiene i terapisti per una specializzazione specifica
+     * Ottiene i terapisti per una specializzazione specifica con controlli di disponibilità
      * 
      * @param int $specializationId
+     * @param string $date Data dell'appuntamento (Y-m-d) - opzionale
+     * @param string $time Orario dell'appuntamento (H:i) - opzionale  
+     * @param int $duration Durata in minuti - opzionale
+     * @param int $appointmentId ID appuntamento per escludere il terapista originale - opzionale
      * @return array
      */
     public function actionGetTherapistsBySpecialization($specializationId)
@@ -805,25 +810,58 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
+            // Parametri opzionali per controllo disponibilità
+            $request = Yii::$app->request;
+            $checkDate = $request->get('date'); // Y-m-d
+            $checkTime = $request->get('time'); // H:i
+            $checkDuration = (int)$request->get('duration', 60); // minuti
+            $appointmentId = (int)$request->get('appointmentId'); // ID appuntamento per escludere terapista originale
+
             $therapists = Therapist::find()
                 ->alias('t')
                 ->innerJoin('{{%users}} u', 'u.id = t.user_id')
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
                 ->where(['t.is_active' => true])
-                ->andWhere(['t.specialization_id' => $specializationId])
-                ->orderBy(['up.last_name' => SORT_ASC])
-                ->all();
+                ->andWhere(['t.specialization_id' => $specializationId]);
+            
+            // Se è fornito appointmentId, escludi il terapista originale dell'appuntamento
+            if ($appointmentId > 0) {
+                $appointment = Appointment::findOne($appointmentId);
+                if ($appointment) {
+                    $therapists->andWhere(['!=', 't.id', $appointment->therapist_id]);
+                }
+            }
+            
+            $therapists = $therapists->orderBy(['up.last_name' => SORT_ASC])->all();
 
             $result = [];
             foreach ($therapists as $therapist) {
                 $profile = $therapist->user->profile;
-                $result[] = [
+                
+                $therapistData = [
                     'id' => $therapist->id,
                     'name' => $profile->getFullName(),
                     'email' => $therapist->user->email,
                     'specialization' => $therapist->specialization->name ?? 'Non specificata',
-                    'weeklyHours' => $therapist->weekly_hours_contract
+                    'weeklyHours' => $therapist->weekly_hours_contract,
+                    'isAvailable' => true,
+                    'unavailabilityReason' => null
                 ];
+
+                // Se sono forniti data/ora, controlla disponibilità
+                if ($checkDate && $checkTime) {
+                    $availability = $this->checkTherapistAvailabilityForSubstitution(
+                        $therapist->id, 
+                        $checkDate, 
+                        $checkTime, 
+                        $checkDuration
+                    );
+                    
+                    $therapistData['isAvailable'] = $availability['isAvailable'];
+                    $therapistData['unavailabilityReason'] = $availability['reason'];
+                }
+
+                $result[] = $therapistData;
             }
 
             return [
@@ -3085,26 +3123,26 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
             $transaction = Yii::$app->db->beginTransaction();
             
             try {
-                // TODO: Se l'appuntamento era in status 'scheduled', creare anche un record Absence
-                // per tracciare l'assenza del terapista originale. Questo permetterà di:
-                // 1. Tenere traccia delle assenze improvvise/non pianificate
-                // 2. Generare statistiche sulle assenze dei terapisti
-                // 3. Eventualmente calcolare ore da recuperare o penalità
-                // 
-                // Esempio implementazione:
-                // if ($appointment->status === Appointment::STATUS_SCHEDULED) {
-                //     $absence = new Absence();
-                //     $absence->therapist_id = $appointment->therapist_id;
-                //     $absence->start_date = date('Y-m-d', strtotime($appointment->appointment_datetime));
-                //     $absence->end_date = $absence->start_date;
-                //     $absence->type = Absence::TYPE_OTHER;
-                //     $absence->reason = $reason ?: 'Assenza comunicata tramite sostituzione';
-                //     $absence->status = Absence::STATUS_APPROVED; // Auto-approvata perché già gestita
-                //     $absence->approved_by = Yii::$app->user->id ?: 1;
-                //     $absence->approved_at = date('Y-m-d H:i:s');
-                //     $absence->created_by = Yii::$app->user->id ?: 1;
-                //     $absence->save();
-                // }
+                // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista
+                if ($appointment->status === Appointment::STATUS_SCHEDULED) {
+                    $absence = new Absence();
+                    $absence->therapist_id = $appointment->therapist_id;
+                    $absence->start_date = date('Y-m-d', strtotime($appointment->appointment_datetime));
+                    $absence->end_date = $absence->start_date;
+                    $absence->type = Absence::TYPE_OTHER;
+                    $absence->reason = $reason ?: 'Assenza comunicata tramite sostituzione';
+                    $absence->status = Absence::STATUS_APPROVED; // Auto-approvata perché già gestita
+                    $absence->approved_by = Yii::$app->user->id ?: 1;
+                    $absence->approved_at = date('Y-m-d H:i:s');
+                    $absence->created_by = Yii::$app->user->id ?: 1;
+                    
+                    if (!$absence->save()) {
+                        Yii::warning("Errore nel salvataggio dell'assenza per il terapista {$appointment->therapist_id}: " . json_encode($absence->errors), __METHOD__);
+                        // Non blocchiamo la sostituzione se il salvataggio dell'assenza fallisce
+                    } else {
+                        Yii::info("Creata assenza automatica per terapista {$appointment->therapist_id} in data {$absence->start_date}", __METHOD__);
+                    }
+                }
 
                 // Salva il terapista originale se non è già stato salvato
                 if (!$appointment->original_therapist_id) {
@@ -3162,6 +3200,99 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
         } catch (Exception $e) {
             Yii::error("Errore nella sostituzione terapista: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Controlla la disponibilità di un terapista per una sostituzione
+     * 
+     * @param int $therapistId
+     * @param string $date Data in formato Y-m-d
+     * @param string $time Orario in formato H:i
+     * @param int $duration Durata in minuti
+     * @return array
+     */
+    private function checkTherapistAvailabilityForSubstitution($therapistId, $date, $time, $duration)
+    {
+        try {
+            // 1. Controlla se il terapista ha un'assenza approvata per quella data
+            $absence = Absence::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['status' => Absence::STATUS_APPROVED])
+                ->andWhere(['<=', 'start_date', $date])
+                ->andWhere(['>=', 'end_date', $date])
+                ->one();
+
+            if ($absence) {
+                $startDate = date('d/m', strtotime($absence->start_date));
+                $endDate = date('d/m', strtotime($absence->end_date));
+                $period = ($absence->start_date === $absence->end_date) ? $startDate : "{$startDate} - {$endDate}";
+                
+                return [
+                    'isAvailable' => false,
+                    'reason' => "Assenza: {$absence->getTypeLabel()} ({$period})"
+                ];
+            }
+
+            // 2. Controlla conflitti di appuntamenti nello stesso slot temporale
+            $appointmentDateTime = "{$date} {$time}:00";
+            $endDateTime = date('Y-m-d H:i:s', strtotime($appointmentDateTime) + ($duration * 60));
+
+            $conflictingAppointment = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->andWhere(['!=', 'status', Appointment::STATUS_COMPLETED])
+                ->andWhere([
+                    'or',
+                    // L'appuntamento inizia durante il nuovo slot
+                    ['and', 
+                        ['>=', 'appointment_datetime', $appointmentDateTime],
+                        ['<', 'appointment_datetime', $endDateTime]
+                    ],
+                    // L'appuntamento finisce durante il nuovo slot
+                    ['and',
+                        ['>', "DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)", $appointmentDateTime],
+                        ['<=', "DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)", $endDateTime]
+                    ],
+                    // L'appuntamento contiene completamente il nuovo slot
+                    ['and',
+                        ['<=', 'appointment_datetime', $appointmentDateTime],
+                        ['>=', "DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)", $endDateTime]
+                    ]
+                ])
+                ->with(['patient.user.profile'])
+                ->one();
+
+            if ($conflictingAppointment) {
+                $conflictTime = date('H:i', strtotime($conflictingAppointment->appointment_datetime));
+                
+                // Gestisci il nome del paziente con controlli di sicurezza
+                $patientName = 'Paziente';
+                if ($conflictingAppointment->patient && 
+                    $conflictingAppointment->patient->user && 
+                    $conflictingAppointment->patient->user->profile) {
+                    $patientName = $conflictingAppointment->patient->user->profile->getFullName();
+                }
+                
+                return [
+                    'isAvailable' => false,
+                    'reason' => "Appuntamento: {$patientName} alle {$conflictTime}"
+                ];
+            }
+
+            // Terapista disponibile
+            return [
+                'isAvailable' => true,
+                'reason' => null
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore controllo disponibilità terapista {$therapistId}: " . $e->getMessage(), __METHOD__);
+            
+            return [
+                'isAvailable' => false,
+                'reason' => "Errore nel controllo disponibilità"
+            ];
         }
     }
 
