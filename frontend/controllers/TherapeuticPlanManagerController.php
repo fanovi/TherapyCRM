@@ -3049,10 +3049,12 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $request = Yii::$app->request;
-            $appointmentId = $request->post('appointmentId');
-            $newTherapistId = $request->post('newTherapistId');
-            $reason = $request->post('reason');
+            $data = $this->getRequestData();
+            $appointmentId = $data['appointmentId'] ?? null;
+            $newTherapistId = $data['newTherapistId'] ?? null;
+            $reason = $data['reason'] ?? null;
+
+            Yii::info("Dati ricevuti per sostituzione terapista: " . json_encode($data), __METHOD__);
 
             if (!$appointmentId || !$newTherapistId) {
                 return $this->errorResponse('Parametri mancanti: appointmentId e newTherapistId sono obbligatori');
