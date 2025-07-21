@@ -157,6 +157,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       )
     : appointments;
 
+  // Estrai il nome del paziente corrente
+  const currentPatientName = currentPatientId
+    ? patientAppointments.find((apt) => apt.patient?.id === currentPatientId)
+        ?.patient?.name
+    : null;
+
   // Gestione selezione data
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -429,6 +435,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
             <div className="w-4 h-4 rounded-full bg-green-500" />
             Calendario Paziente
+            {currentPatientId && (
+              <span className="text-lg font-medium text-gray-600">
+                - {currentPatientName || "Nome non disponibile"} (ID:{" "}
+                {currentPatientId})
+              </span>
+            )}
           </h2>
           <FullCalendarContainer
             patientId={currentPatientId?.toString()}

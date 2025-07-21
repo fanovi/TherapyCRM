@@ -35,6 +35,12 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
     ? appointments.filter((apt) => apt.therapist?.id === selectedTherapist.id)
     : [];
 
+  // Estrai il nome del paziente corrente
+  const currentPatientName = currentPatientId
+    ? appointments.find((apt) => apt.patient?.id === currentPatientId)?.patient
+        ?.name
+    : null;
+
   // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
   if (hidePatientCalendar && selectedTherapist) {
     return (
@@ -92,7 +98,16 @@ export const DualCalendarView: React.FC<DualCalendarViewProps> = ({
           )}
         </Card>
         <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Calendario Paziente</h2>
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-green-500" />
+            Calendario Paziente
+            {currentPatientId && (
+              <span className="text-lg font-medium text-gray-600">
+                - {currentPatientName || "Nome non disponibile"} (ID:{" "}
+                {currentPatientId})
+              </span>
+            )}
+          </h2>
           <CalendarView
             viewType={viewType}
             appointments={appointments}
