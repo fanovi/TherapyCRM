@@ -218,9 +218,10 @@ class AuthController extends Controller
         // Cerca l'utente nel database usando i modelli reali
         $userData = $this->findAndValidateUser($email, $password);
 
+       
         if ($userData) {
             // TODO: Gestire correttamente il first_login invece di metterlo sempre true
-            $requiresPasswordChange = false; // Per ora sempre true come richiesto
+            $requiresPasswordChange = $userData['first_login']; // Per ora sempre true come richiesto
             
             // Se è primo login, non genera il token completo
             if ($requiresPasswordChange) {
@@ -229,7 +230,7 @@ class AuthController extends Controller
                     'message' => 'Login effettuato. È necessario cambiare la password.',
                     'data' => [
                         'user' => $userData,
-                        'requires_password_change' => true,
+                        'requires_password_change' => 1,
                         'temp_token' => $this->generateTempToken($userData) // Token temporaneo per cambio password
                     ]
                 ];
@@ -249,7 +250,7 @@ class AuthController extends Controller
                     'access_token' => $accessToken,
                     'token_type' => 'Bearer',
                     'expires_in' => 3600, // 1 ora
-                    'requires_password_change' => false
+                    'requires_password_change' => 0
                 ]
             ];
         } else {
@@ -616,7 +617,7 @@ class AuthController extends Controller
             'user_type' => 'terapista',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
             'specializzazione' => $specialization ? $specialization->name : null,
-            'first_login' => true // TODO: Gestire correttamente
+            'first_login' => $user->requires_password_change // TODO: Gestire correttamente
         ];
         
         // Decodifica i dati sensibili se necessario
@@ -651,7 +652,7 @@ class AuthController extends Controller
                     'patient_name' => $patient->fullName,
                     'relationship' => $ap->relationship_type ?? 'self',
                     'has_parental_authority' => (bool) $ap->has_parental_authority,
-                    'account_patient_id' => $ap->id
+                    'account_patient_id' => $ap->id,
                 ];
             }
         }
@@ -672,7 +673,7 @@ class AuthController extends Controller
             'user_type' => 'paziente',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
             'patients' => $patients, // Array di tutti i pazienti collegati
-            'first_login' => true // TODO: Gestire correttamente
+            'first_login' => $user->requires_password_change // TODO: Gestire correttamente
         ];
         
         // Decodifica i dati sensibili se necessario
@@ -722,101 +723,6 @@ class AuthController extends Controller
         return $userData;
     }
 
-    /**
-     * @deprecated Metodo di simulazione - sostituito con buildUserData()
-     */
-    private function searchInPazientiTable($email, $password)
-    {
-        // Dati simulati per pazienti
-        $pazienti = [
-            [
-                'id' => 1,
-                'email' => 'paziente1@example.com',
-                'password' => 'password123', // In produzione sarà hashata
-                'nome' => 'Marco',
-                'cognome' => 'Rossi',
-                'codice_fiscale' => 'RSSMRC80A01H501Z',
-                'telefono' => '123456789',
-                'data_nascita' => '1980-01-01',
-                'indirizzo' => 'Via Roma 123, Milano',
-                'user_type' => 'paziente',
-                'status' => 'attivo',
-                'first_login' => true
-            ],
-            [
-                'id' => 2,
-                'email' => 'paziente2@example.com',
-                'password' => 'password123',
-                'nome' => 'Laura',
-                'cognome' => 'Bianchi',
-                'codice_fiscale' => 'BNCLAURA85B02F205W',
-                'telefono' => '987654321',
-                'data_nascita' => '1985-02-15',
-                'indirizzo' => 'Via Napoli 456, Roma',
-                'user_type' => 'paziente',
-                'status' => 'attivo',
-                'first_login' => false
-            ]
-        ];
-
-        foreach ($pazienti as $paziente) {
-            if ($paziente['email'] === $email && $paziente['password'] === $password) {
-                // Rimuovi la password dalla risposta
-                unset($paziente['password']);
-                return $paziente;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Simula la ricerca nella tabella terapisti
-     */
-    private function searchInTerapistiTable($email, $password)
-    {
-        // Dati simulati per terapisti
-        $terapisti = [
-            [
-                'id' => 1,
-                'email' => 'terapista1@example.com',
-                'password' => 'password789',
-                'nome' => 'Dr. Giuseppe',
-                'cognome' => 'Verdi',
-                'codice_fiscale' => 'VRDGPP75C03L219X',
-                'telefono' => '555123456',
-                'specializzazione' => 'Fisioterapia',
-                'numero_albo' => 'FT12345',
-                'user_type' => 'terapista',
-                'status' => 'attivo',
-                'first_login' => true
-            ],
-            [
-                'id' => 2,
-                'email' => 'terapista2@example.com',
-                'password' => 'password000',
-                'nome' => 'Dr.ssa Anna',
-                'cognome' => 'Neri',
-                'codice_fiscale' => 'NRANNA82D04M123Y',
-                'telefono' => '555789012',
-                'specializzazione' => 'Psicoterapia',
-                'numero_albo' => 'PSI67890',
-                'user_type' => 'terapista',
-                'status' => 'attivo',
-                'first_login' => false
-            ]
-        ];
-
-        foreach ($terapisti as $terapista) {
-            if ($terapista['email'] === $email && $terapista['password'] === $password) {
-                // Rimuovi la password dalla risposta
-                unset($terapista['password']);
-                return $terapista;
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Genera un token di accesso usando JWT e lo salva nel database
@@ -1260,7 +1166,7 @@ class AuthController extends Controller
             $user->setPassword($newPassword);
             
             // TODO: Aggiungere campo first_login alla tabella users e gestirlo qui
-            // $user->first_login = 0;
+            $user->requires_password_change = 0;
             
             // Salva le modifiche
             if ($user->save()) {
