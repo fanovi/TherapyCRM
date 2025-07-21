@@ -730,6 +730,7 @@ const Index = () => {
 
   const handleAppointmentDelete = async (appointmentId: string) => {
     await handleAppointmentUpdate(appointmentId);
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleTherapistSubstitution = async (substitutionData: {
