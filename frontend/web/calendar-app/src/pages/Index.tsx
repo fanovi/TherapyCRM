@@ -14,6 +14,7 @@ import {
   AppointmentData,
   PrivateAppointmentData,
   TreatmentType,
+  Specialization,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
@@ -78,7 +79,8 @@ const Index = () => {
     return savedDate ? new Date(savedDate) : new Date();
   });
 
-  console.log(patient);
+  const [selectedSpecialization, setSelectedSpecialization] =
+    useState<Specialization | null>(null);
 
   const planId = patient?.planTherapy?.therapeuticPlanId;
   // Funzione per ricaricare gli appuntamenti per un mese specifico
@@ -559,7 +561,7 @@ const Index = () => {
         }
       } else {
         const request = {
-          planTherapyId,
+          planTherapyId: selectedSpecialization.id,
           therapistId: selectedTherapist.id,
           appointmentDateTime,
           durationMinutes: appointmentData.duration,
@@ -798,6 +800,7 @@ const Index = () => {
       }
     }
   };
+  console.log("this is the selected specialization", selectedSpecialization);
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
     await reloadCurrentVisibleAppointments();
@@ -1077,6 +1080,8 @@ const Index = () => {
         {!isTherapistView && (
           <div className="mb-8">
             <TherapistSelector
+              selectedSpecialization={selectedSpecialization}
+              setSelectedSpecialization={setSelectedSpecialization}
               selectedTherapist={selectedTherapist}
               onTherapistSelect={setSelectedTherapist}
               patientId={patient?.id}

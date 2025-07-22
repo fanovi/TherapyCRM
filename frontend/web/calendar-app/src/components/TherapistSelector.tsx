@@ -28,9 +28,9 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   isPrivateMode = false,
   onTreatmentTypeSelect,
   planId,
+  selectedSpecialization,
+  setSelectedSpecialization,
 }) => {
-  const [selectedSpecialization, setSelectedSpecialization] =
-    useState<Specialization | null>(null);
   const [selectedTreatmentType, setSelectedTreatmentType] =
     useState<TreatmentType | null>(null);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -105,7 +105,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
         } else if (selectedSpecialization) {
           // In modalità normale, carica terapisti per specializzazione
           data = await therapyAPI.getTherapistsBySpecialization(
-            selectedSpecialization.id
+            selectedSpecialization.specialization_id
           );
         } else {
           data = [];
