@@ -625,6 +625,49 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    public function actionGetPlanTretments($id_plan)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            if (!$id_plan) {
+                return $this->errorResponse('ID piano terapeutico mancante');
+            }
+
+            // Valida il piano terapeutico
+            $plan = TherapeuticPlan::findOne($id_plan);
+            if (!$this->validateTherapeuticPlan($plan)) {
+                return $this->errorResponse('Piano terapeutico non valido o non trovato');
+            }
+
+            // Recupera i trattamenti con eager loading
+            $planTherapies = PlanTherapy::find()
+                ->select(['id', 'treatment_type_id'])
+                ->with(['treatmentType' => function ($query) {
+                    $query->select(['id', 'name']);
+                }])
+                ->where(['therapeutic_plan_id' => $id_plan])
+                ->all();
+
+            $result = [];
+            foreach ($planTherapies as $therapy) {
+                $result[] = [
+                    'id' => $therapy->id,
+                    'name' => $therapy->treatmentType->name
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore recupero trattamenti piano: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
     /**
      * Ottiene i dati del piano terapeutico per un paziente
      * 
