@@ -538,7 +538,7 @@ const Index = () => {
         const validFrom = selectedSlot.date.toISOString().split("T")[0];
 
         const patternRequest = {
-          planTherapyId,
+          planTherapyId: selectedSpecialization.id,
           therapistId: selectedTherapist.id,
           patientId: currentPatient.id, // AGGIUNGI QUESTA RIGA
           dayOfWeek,
