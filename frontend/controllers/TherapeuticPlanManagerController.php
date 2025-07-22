@@ -636,12 +636,8 @@ class TherapeuticPlanManagerController extends Controller
 
             // Valida il piano terapeutico
             $plan = TherapeuticPlan::findOne($planId);
-
-           
-           
+            
             $this->validateTherapeuticPlan($plan);
-            
-            
             
             // Recupera i trattamenti con eager loading
             $planTherapies = PlanTherapy::find()
@@ -656,6 +652,7 @@ class TherapeuticPlanManagerController extends Controller
             foreach ($planTherapies as $therapy) {
                 $result[] = [
                     'id' => $therapy->id,
+                    'treatment_type_id' => $therapy->treatment_type_id,
                     'name' => $therapy->treatmentType->name
                 ];
             }
