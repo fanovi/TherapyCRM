@@ -63,79 +63,107 @@ class CalendarController extends ActiveController
      *   "date": "2024-01-15"
      * }
      */
-    public function actionPatientAppointments()
-    {
-        $request = Yii::$app->request;
-        $data = $request->getBodyParams();
-        
-        $patientId = $data['patient_id'] ?? null;
-        $date = $data['date'] ?? null;
+    /**
+ * POST /api/calendar/patient-appointments
+ * Recupera appuntamenti di un paziente per una data specifica
+ * 
+ * Body:
+ * {
+ *   "patient_id": 123,
+ *   "date": "2024-01-15"
+ * }
+ */
+public function actionPatientAppointments()
+{
+    $request = Yii::$app->request;
+    $data = $request->getBodyParams();
+    
+    $patientId = $data['patient_id'] ?? null;
+    $date = $data['date'] ?? null;
 
-        if (!$patientId || !$date) {
-            throw new BadRequestHttpException('Parametri patient_id e date sono obbligatori');
+    if (!$patientId || !$date) {
+        throw new BadRequestHttpException('Parametri patient_id e date sono obbligatori');
+    }
+
+    try {
+        // Verifica che la data sia valida
+        $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
+        if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
+            throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
         }
 
-        try {
-            // Verifica che la data sia valida
-            $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
-            if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
-                throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
+        // Metodo più efficiente usando ActiveRecord relationships
+        $appointments = $this->getPatientAppointmentsOptimized($patientId, $date);
+
+        // Formatta i dati per l'app mobile
+        $formattedAppointments = [];
+        foreach ($appointments as $appointment) {
+            $datetime = new \DateTime($appointment->appointment_datetime);
+            
+            // Determina il tipo di trattamento
+            $treatmentName = 'Terapia';
+            $treatmentCode = null;
+            
+            // Determina il tipo di trattamento
+            $treatmentName = 'Terapia';
+            $treatmentCode = null;
+            
+            if ($appointment->appointment_type === 'private' && $appointment->treatmentType) {
+                // Per appuntamenti privati usa direttamente treatment_type_id
+                $treatmentName = $appointment->treatmentType->name;
+                $treatmentCode = $appointment->treatmentType->code;
+            } elseif ($appointment->planTherapy && $appointment->planTherapy->treatmentType) {
+                // Per appuntamenti normali usa planTherapy
+                $treatmentName = $appointment->planTherapy->treatmentType->name;
+                $treatmentCode = $appointment->planTherapy->treatmentType->code;
             }
-
-            // Metodo più efficiente usando ActiveRecord relationships
-            $appointments = $this->getPatientAppointmentsOptimized($patientId, $date);
-
-            // Formatta i dati per l'app mobile
-            $formattedAppointments = [];
-            foreach ($appointments as $appointment) {
-                $datetime = new \DateTime($appointment->appointment_datetime);
-                
-                $formattedAppointments[] = [
-                    'id' => $appointment->id,
-                    'date' => $date,
-                    'time' => $datetime->format('H:i'),
-                    'datetime' => $appointment->appointment_datetime,
-                    'duration_minutes' => $appointment->duration_minutes,
-                    'status' => $this->mapStatusToApp($appointment->status),
-                    'type' => $appointment->planTherapy->treatmentType->name ?? 'Terapia',
-                    'appointment_type' => $appointment->appointment_type,
-                    'treatment_code' => $appointment->planTherapy->treatmentType->code ?? null,
-                    'notes' => $appointment->notes,
-                    'location' => 'Centro Terapeutico', // TODO: Aggiungere campo location se necessario
-                    'therapist' => [
-                        'id' => $appointment->therapist->id,
-                        'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
-                        'first_name' => $appointment->therapist->user->profile->first_name,
-                        'last_name' => $appointment->therapist->user->profile->last_name,
-                        'specialization' => $appointment->therapist->specialization->name ?? null,
-                        'avatar' => $this->getTherapistAvatar($appointment->therapist->id),
-                    ],
-                    'patient' => [
-                        'name' => $appointment->planTherapy->therapeuticPlan->patient->first_name . ' ' . $appointment->planTherapy->therapeuticPlan->patient->last_name,
-                        'first_name' => $appointment->planTherapy->therapeuticPlan->patient->first_name,
-                        'last_name' => $appointment->planTherapy->therapeuticPlan->patient->last_name,
-                    ]
-                ];
-            }
-
-            return [
-                'success' => true,
-                'data' => $formattedAppointments,
-                'meta' => [
-                    'patient_id' => $patientId,
-                    'date' => $date,
-                    'count' => count($formattedAppointments)
+            
+            $formattedAppointments[] = [
+                'id' => $appointment->id,
+                'date' => $date,
+                'time' => $datetime->format('H:i'),
+                'datetime' => $appointment->appointment_datetime,
+                'duration_minutes' => $appointment->duration_minutes,
+                'status' => $this->mapStatusToApp($appointment->status),
+                'type' => $treatmentName,
+                'appointment_type' => $appointment->appointment_type,
+                'treatment_code' => $treatmentCode,
+                'notes' => $appointment->notes,
+                'location' => 'Centro Terapeutico',
+                'therapist' => [
+                    'id' => $appointment->therapist->id,
+                    'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
+                    'first_name' => $appointment->therapist->user->profile->first_name,
+                    'last_name' => $appointment->therapist->user->profile->last_name,
+                    'specialization' => $appointment->therapist->specialization->name ?? null,
+                    'avatar' => $this->getTherapistAvatar($appointment->therapist->id),
+                ],
+                'patient' => [
+                    'name' => $appointment->patient->first_name . ' ' . $appointment->patient->last_name,
+                    'first_name' => $appointment->patient->first_name,
+                    'last_name' => $appointment->patient->last_name,
                 ]
             ];
-
-        } catch (\Exception $e) {
-            Yii::error('Errore recupero appuntamenti paziente: ' . $e->getMessage(), __METHOD__);
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
         }
+
+        return [
+            'success' => true,
+            'data' => $formattedAppointments,
+            'meta' => [
+                'patient_id' => $patientId,
+                'date' => $date,
+                'count' => count($formattedAppointments)
+            ]
+        ];
+
+    } catch (\Exception $e) {
+        Yii::error('Errore recupero appuntamenti paziente: ' . $e->getMessage(), __METHOD__);
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
     }
+}
 
     /**
      * POST /api/calendar/patient-marked-dates
@@ -300,86 +328,106 @@ class CalendarController extends ActiveController
      *   "date": "2024-01-15"
      * }
      */
-    public function actionTherapistAppointments()
-    {
-        $request = Yii::$app->request;
-        $data = $request->getBodyParams();
-        
-        $date = $data['date'] ?? null;
+    /**
+ * POST /api/calendar/therapist-appointments
+ * Recupera appuntamenti del terapista autenticato per una data specifica
+ * 
+ * Body:
+ * {
+ *   "date": "2024-01-15"
+ * }
+ */
+public function actionTherapistAppointments()
+{
+    $request = Yii::$app->request;
+    $data = $request->getBodyParams();
+    
+    $date = $data['date'] ?? null;
 
-        if (!$date) {
-            throw new BadRequestHttpException('Parametro date è obbligatorio');
+    if (!$date) {
+        throw new BadRequestHttpException('Parametro date è obbligatorio');
+    }
+
+    // Recupera il terapista dall'utente autenticato
+    $therapistId = $this->getAuthenticatedTherapistId();
+    if (!$therapistId) {
+        throw new BadRequestHttpException('Utente non associato a nessun terapista');
+    }
+
+    try {
+        // Verifica che la data sia valida
+        $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
+        if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
+            throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
         }
 
-        // Recupera il terapista dall'utente autenticato
-        $therapistId = $this->getAuthenticatedTherapistId();
-        if (!$therapistId) {
-            throw new BadRequestHttpException('Utente non associato a nessun terapista');
-        }
+        // Recupera appuntamenti del terapista
+        $appointments = $this->getTherapistAppointmentsOptimized($therapistId, $date);
 
-        try {
-            // Verifica che la data sia valida
-            $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
-            if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
-                throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
+        // Formatta i dati per l'app mobile
+        $formattedAppointments = [];
+        foreach ($appointments as $appointment) {
+            $datetime = new \DateTime($appointment->appointment_datetime);
+            
+            // Determina il tipo di trattamento
+            $treatmentName = 'Terapia';
+            $treatmentCode = null;
+            
+            if ($appointment->appointment_type === 'private') {
+                $treatmentName = 'Appuntamento Privato';
+            } elseif ($appointment->planTherapy && $appointment->planTherapy->treatmentType) {
+                $treatmentName = $appointment->planTherapy->treatmentType->name;
+                $treatmentCode = $appointment->planTherapy->treatmentType->code;
             }
-
-            // Recupera appuntamenti del terapista
-            $appointments = $this->getTherapistAppointmentsOptimized($therapistId, $date);
-
-            // Formatta i dati per l'app mobile
-            $formattedAppointments = [];
-            foreach ($appointments as $appointment) {
-                $datetime = new \DateTime($appointment->appointment_datetime);
-                
-                $formattedAppointments[] = [
-                    'id' => $appointment->id,
-                    'date' => $date,
-                    'time' => $datetime->format('H:i'),
-                    'datetime' => $appointment->appointment_datetime,
-                    'duration_minutes' => $appointment->duration_minutes,
-                    'status' => $this->mapStatusToApp($appointment->status),
-                    'type' => $appointment->planTherapy->treatmentType->name ?? 'Terapia',
-                    'appointment_type' => $appointment->appointment_type,
-                    'treatment_code' => $appointment->planTherapy->treatmentType->code ?? null,
-                    'notes' => $appointment->notes,
-                    'location' => 'Centro Terapeutico',
-                    'patient' => [
-                        'id' => $appointment->planTherapy->therapeuticPlan->patient->id,
-                        'name' => $appointment->planTherapy->therapeuticPlan->patient->first_name . ' ' . $appointment->planTherapy->therapeuticPlan->patient->last_name,
-                        'first_name' => $appointment->planTherapy->therapeuticPlan->patient->first_name,
-                        'last_name' => $appointment->planTherapy->therapeuticPlan->patient->last_name,
-                        'phone' => $appointment->planTherapy->therapeuticPlan->patient->phone ?? null,
-                        'avatar' => $this->getPatientAvatar($appointment->planTherapy->therapeuticPlan->patient->id),
-                    ],
-                    'therapist' => [
-                        'id' => $appointment->therapist->id,
-                        'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
-                        'first_name' => $appointment->therapist->user->profile->first_name,
-                        'last_name' => $appointment->therapist->user->profile->last_name,
-                        'specialization' => $appointment->therapist->specialization->name ?? null,
-                    ]
-                ];
-            }
-
-            return [
-                'success' => true,
-                'data' => $formattedAppointments,
-                'meta' => [
-                    'date' => $date,
-                    'count' => count($formattedAppointments),
-                    'therapist_id' => $therapistId // Per debug, ma non necessario
+            
+            $formattedAppointments[] = [
+                'id' => $appointment->id,
+                'date' => $date,
+                'time' => $datetime->format('H:i'),
+                'datetime' => $appointment->appointment_datetime,
+                'duration_minutes' => $appointment->duration_minutes,
+                'status' => $this->mapStatusToApp($appointment->status),
+                'type' => $treatmentName,
+                'appointment_type' => $appointment->appointment_type,
+                'treatment_code' => $treatmentCode,
+                'notes' => $appointment->notes,
+                'location' => 'Centro Terapeutico',
+                'patient' => [
+                    'id' => $appointment->patient->id,
+                    'name' => $appointment->patient->first_name . ' ' . $appointment->patient->last_name,
+                    'first_name' => $appointment->patient->first_name,
+                    'last_name' => $appointment->patient->last_name,
+                    'phone' => $appointment->patient->phone ?? null,
+                    'avatar' => $this->getPatientAvatar($appointment->patient->id),
+                ],
+                'therapist' => [
+                    'id' => $appointment->therapist->id,
+                    'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
+                    'first_name' => $appointment->therapist->user->profile->first_name,
+                    'last_name' => $appointment->therapist->user->profile->last_name,
+                    'specialization' => $appointment->therapist->specialization->name ?? null,
                 ]
             ];
-
-        } catch (\Exception $e) {
-            Yii::error('Errore recupero appuntamenti terapista: ' . $e->getMessage(), __METHOD__);
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
         }
+
+        return [
+            'success' => true,
+            'data' => $formattedAppointments,
+            'meta' => [
+                'date' => $date,
+                'count' => count($formattedAppointments),
+                'therapist_id' => $therapistId
+            ]
+        ];
+
+    } catch (\Exception $e) {
+        Yii::error('Errore recupero appuntamenti terapista: ' . $e->getMessage(), __METHOD__);
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
     }
+}
 
     /**
      * POST /api/calendar/therapist-marked-dates
@@ -1263,4 +1311,113 @@ class CalendarController extends ActiveController
         return $slots;
     }
     */
+
+    /**
+ * POST /api/calendar/complete-appointment
+ * Segna un appuntamento come completato da parte del terapista
+ * 
+ * Body:
+ * {
+ *   "appointment_id": 123
+ * }
+ */
+public function actionCompleteAppointment()
+{
+    $request = Yii::$app->request;
+    $data = $request->getBodyParams();
+    
+    $appointmentId = $data['appointment_id'] ?? null;
+
+    if (!$appointmentId) {
+        throw new BadRequestHttpException('Parametro appointment_id è obbligatorio');
+    }
+
+    // Recupera il terapista dall'utente autenticato
+    $therapistId = $this->getAuthenticatedTherapistId();
+    if (!$therapistId) {
+        throw new BadRequestHttpException('Utente non associato a nessun terapista');
+    }
+
+    try {
+        // Trova l'appuntamento
+        $appointment = Appointment::findOne($appointmentId);
+        if (!$appointment) {
+            throw new NotFoundHttpException('Appuntamento non trovato');
+        }
+
+        // Verifica che l'appuntamento appartenga al terapista autenticato
+        if ($appointment->therapist_id != $therapistId) {
+            throw new BadRequestHttpException('Non sei autorizzato a modificare questo appuntamento');
+        }
+
+        // Verifica che l'appuntamento sia in stato scheduled
+        if ($appointment->status !== Appointment::STATUS_SCHEDULED) {
+            throw new BadRequestHttpException('Solo gli appuntamenti confermati possono essere completati');
+        }
+
+        // Verifica che l'appuntamento non sia troppo nel passato
+        $appointmentEndTime = new \DateTime($appointment->appointment_datetime);
+        $appointmentEndTime->modify('+' . $appointment->duration_minutes . ' minutes');
+        $now = new \DateTime();
+        
+        // Se sono passati più di 15 minuti dalla fine dell'appuntamento, non può essere completato manualmente
+        $fifteenMinutesAfterEnd = clone $appointmentEndTime;
+        $fifteenMinutesAfterEnd->modify('+15 minutes');
+        
+        if ($now > $fifteenMinutesAfterEnd) {
+            throw new BadRequestHttpException('Non è possibile completare un appuntamento terminato da più di 15 minuti');
+        }
+
+        // Verifica che l'appuntamento sia già iniziato
+        $appointmentStartTime = new \DateTime($appointment->appointment_datetime);
+        if ($now < $appointmentStartTime) {
+            throw new BadRequestHttpException('Non è possibile completare un appuntamento non ancora iniziato');
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+
+        try {
+            // Aggiorna lo stato dell'appuntamento
+            $appointment->status = Appointment::STATUS_COMPLETED;
+            
+            // Aggiungi una nota di completamento
+            $completionNote = "COMPLETATO MANUALMENTE DAL TERAPISTA - Data completamento: " . date('Y-m-d H:i:s');
+            
+            if (!empty($appointment->notes)) {
+                $appointment->notes .= "\n\n" . $completionNote;
+            } else {
+                $appointment->notes = $completionNote;
+            }
+
+            if (!$appointment->save()) {
+                throw new \Exception('Errore nel salvataggio dell\'appuntamento: ' . json_encode($appointment->errors));
+            }
+
+            $transaction->commit();
+
+            Yii::info("Appuntamento {$appointmentId} completato manualmente dal terapista {$therapistId}", __METHOD__);
+
+            return [
+                'success' => true,
+                'message' => 'Appuntamento completato con successo',
+                'data' => [
+                    'appointment_id' => $appointment->id,
+                    'new_status' => $this->mapStatusToApp($appointment->status),
+                    'completed_at' => date('Y-m-d H:i:s')
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            throw $e;
+        }
+
+    } catch (\Exception $e) {
+        Yii::error('Errore completamento appuntamento: ' . $e->getMessage(), __METHOD__);
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
+    }
+}
 } 

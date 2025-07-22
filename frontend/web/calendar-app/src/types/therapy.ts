@@ -112,6 +112,7 @@ export interface CreateAppointmentRequest {
 export interface CreatePatternRequest {
   planTherapyId: number;
   therapistId: number;
+  patientId: number; // AGGIUNGI QUESTA RIGA
   dayOfWeek: number; // 1=Lunedì, 7=Domenica
   startTime: string; // HH:mm
   durationMinutes: number;

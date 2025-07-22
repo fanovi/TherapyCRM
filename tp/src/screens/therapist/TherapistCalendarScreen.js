@@ -324,130 +324,170 @@ const TherapistCalendarScreen = () => {
     setActionDialog({visible: false, appointment: null, action: null});
   };
 
-  const renderAppointmentItem = ({item: appointment}) => (
-    <Card style={styles.appointmentCard}>
-      <Card.Content>
-        <View style={styles.appointmentHeader}>
-          <View style={styles.timeSection}>
-            <Text
-              style={[styles.appointmentTime, {color: theme.colors.onSurface}]}>
-              {appointment.time}
-            </Text>
-            <Chip
-              style={[
-                styles.statusChip,
-                {
-                  backgroundColor: `${getAppointmentStatusColor(
-                    appointment.status,
-                  )}20`,
-                },
-              ]}
-              textStyle={{
-                color: getAppointmentStatusColor(appointment.status),
-                fontSize: 12,
-              }}>
-              {getAppointmentStatusLabel(appointment.status)}
-            </Chip>
-          </View>
-          <View style={styles.headerActions}>
-            <Avatar.Image
-              size={48}
-              source={{uri: appointment.patient.avatar}}
-              style={styles.patientAvatar}
-            />
-            <Menu
-              visible={menuVisible[appointment.id] || false}
-              onDismiss={() => toggleMenu(appointment.id)}
-              anchor={
-                <IconButton
-                  icon="dots-vertical"
-                  size={20}
-                  onPress={() => toggleMenu(appointment.id)}
-                />
-              }>
-              {appointment.status === 'confermato' &&
-                !moment(appointment.datetime).isBefore(moment()) && (
+  const renderAppointmentItem = ({item: appointment}) => {
+    // Calcola se l'appuntamento può essere completato
+    const now = moment();
+    const appointmentStart = moment(appointment.datetime);
+    const appointmentEnd = moment(appointment.datetime).add(
+      appointment.duration_minutes,
+      'minutes',
+    );
+    const fifteenMinutesAfterEnd = moment(appointmentEnd).add(15, 'minutes');
+
+    // Può essere completato se:
+    // 1. È in stato confermato
+    // 2. È già iniziato
+    // 3. Non sono passati più di 15 minuti dalla fine
+    const canComplete =
+      appointment.status === 'confermato' &&
+      now.isAfter(appointmentStart) &&
+      now.isBefore(fifteenMinutesAfterEnd);
+
+    // Può segnare assente se:
+    // 1. È in stato confermato
+    // 2. Non è nel passato (l'appuntamento non è ancora iniziato)
+    const canMarkAbsent =
+      appointment.status === 'confermato' &&
+      !moment(appointment.datetime).isBefore(moment());
+
+    // Mostra il menu solo se almeno un'azione è disponibile
+    const showMenu = canMarkAbsent;
+
+    return (
+      <Card style={styles.appointmentCard}>
+        <Card.Content>
+          <View style={styles.appointmentHeader}>
+            <View style={styles.timeSection}>
+              <Text
+                style={[
+                  styles.appointmentTime,
+                  {color: theme.colors.onSurface},
+                ]}>
+                {appointment.time}
+              </Text>
+              <Chip
+                style={[
+                  styles.statusChip,
+                  {
+                    backgroundColor: `${getAppointmentStatusColor(
+                      appointment.status,
+                    )}20`,
+                  },
+                ]}
+                textStyle={{
+                  color: getAppointmentStatusColor(appointment.status),
+                  fontSize: 12,
+                }}>
+                {getAppointmentStatusLabel(appointment.status)}
+              </Chip>
+            </View>
+            <View style={styles.headerActions}>
+              <Avatar.Image
+                size={48}
+                source={{uri: appointment.patient.avatar}}
+                style={styles.patientAvatar}
+              />
+              {showMenu && (
+                <Menu
+                  visible={menuVisible[appointment.id] || false}
+                  onDismiss={() => toggleMenu(appointment.id)}
+                  anchor={
+                    <IconButton
+                      icon="dots-vertical"
+                      size={20}
+                      onPress={() => toggleMenu(appointment.id)}
+                    />
+                  }>
+                  {canMarkAbsent && (
+                    <Menu.Item
+                      onPress={() => handleMarkAbsent(appointment)}
+                      title="Segna Assente"
+                      leadingIcon="account-remove"
+                    />
+                  )}
+                  {/* Commento le azioni non richieste
                   <Menu.Item
-                    onPress={() => handleMarkAbsent(appointment)}
-                    title="Segna Assente"
-                    leadingIcon="account-remove"
+                    onPress={() => openActionDialog(appointment, 'reschedule')}
+                    title="Riprogramma"
+                    leadingIcon="calendar-edit"
                   />
-                )}
-              <Menu.Item
-                onPress={() => openActionDialog(appointment, 'reschedule')}
-                title="Riprogramma"
-                leadingIcon="calendar-edit"
-              />
-              <Menu.Item
-                onPress={() => openActionDialog(appointment, 'cancel')}
-                title="Cancella"
-                leadingIcon="cancel"
-              />
-            </Menu>
+                  <Menu.Item
+                    onPress={() => openActionDialog(appointment, 'cancel')}
+                    title="Cancella"
+                    leadingIcon="cancel"
+                  />
+                  */}
+                </Menu>
+              )}
+            </View>
           </View>
-        </View>
 
-        <View style={styles.appointmentDetails}>
-          <Text style={[styles.patientName, {color: theme.colors.onSurface}]}>
-            {appointment.patient.name}
-          </Text>
-          <Text
-            style={[styles.appointmentType, {color: theme.colors.secondary}]}>
-            {appointment.type}
-          </Text>
-          <Text
-            style={[
-              styles.patientPhone,
-              {color: theme.colors.onSurfaceVariant},
-            ]}>
-            {appointment.patient.phone}
-          </Text>
-        </View>
-
-        {appointment.notes && (
-          <View style={styles.notesSection}>
+          <View style={styles.appointmentDetails}>
+            <Text style={[styles.patientName, {color: theme.colors.onSurface}]}>
+              {appointment.patient.name}
+            </Text>
             <Text
-              style={[
-                styles.notesLabel,
-                {color: theme.colors.onSurfaceVariant},
-              ]}>
-              Note:
+              style={[styles.appointmentType, {color: theme.colors.secondary}]}>
+              {appointment.type}
             </Text>
-            <Text style={[styles.notesText, {color: theme.colors.onSurface}]}>
-              {appointment.notes}
-            </Text>
+            {appointment.patient.phone && (
+              <Text
+                style={[
+                  styles.patientPhone,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                {appointment.patient.phone}
+              </Text>
+            )}
           </View>
-        )}
 
-        <View style={styles.appointmentActions}>
-          <Button
-            mode="outlined"
-            style={styles.actionButton}
-            icon="phone"
-            compact>
-            Chiama
-          </Button>
-          <Button
-            mode="outlined"
-            style={styles.actionButton}
-            icon="folder-open"
-            compact>
-            Cartella
-          </Button>
-          <Button
-            mode="contained"
-            style={[
-              styles.actionButton,
-              {backgroundColor: theme.colors.secondary},
-            ]}
-            icon="check"
-            compact>
-            Completa
-          </Button>
-        </View>
-      </Card.Content>
-    </Card>
-  );
+          {appointment.notes && (
+            <View style={styles.notesSection}>
+              <Text
+                style={[
+                  styles.notesLabel,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Note:
+              </Text>
+              <Text style={[styles.notesText, {color: theme.colors.onSurface}]}>
+                {appointment.notes}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.appointmentActions}>
+            {appointment.patient.phone && (
+              <Button
+                mode="outlined"
+                style={styles.actionButton}
+                icon="phone"
+                compact
+                onPress={() =>
+                  Linking.openURL(`tel:${appointment.patient.phone}`)
+                }>
+                Chiama
+              </Button>
+            )}
+
+            {canComplete && (
+              <Button
+                mode="contained"
+                style={[
+                  styles.actionButton,
+                  {backgroundColor: theme.colors.secondary},
+                ]}
+                icon="check"
+                compact
+                onPress={() => handleCompleteAppointment(appointment)}>
+                Completa
+              </Button>
+            )}
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  };
 
   const renderEmptyState = () => (
     <Card style={styles.emptyCard}>

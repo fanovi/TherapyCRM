@@ -83,6 +83,7 @@ class TherapeuticPlanManagerController extends Controller
             $planTherapy = $this->findPlanTherapy($data['planTherapyId']);
             $this->validateTherapeuticPlan($planTherapy->therapeuticPlan);
             $therapist = $this->findTherapist($data['therapistId']);
+            $patient = $this->findPatient($data['patientId']);  // AGGIUNGI QUESTA RIGA
 
             // Se validTo non è fornito, usa la data fine del piano terapeutico
             if (!isset($data['validTo']) || empty($data['validTo'])) {
@@ -101,7 +102,7 @@ class TherapeuticPlanManagerController extends Controller
                 $pattern = $this->createAppointmentPattern($data);
                 
                 // Genera appuntamenti
-                $result = $this->generateAppointments($pattern, $therapist, $planTherapy);
+                $result = $this->generateAppointments($pattern, $therapist, $planTherapy, $patient);
                 
                 $response = array_merge($response, $result);
                 $response['success'] = true;
@@ -2327,6 +2328,8 @@ public function actionGetAppointmentDetails($appointmentId)
         return $therapist;
     }
 
+  
+
     /**
      * Valida il piano terapeutico
      * 
@@ -2392,6 +2395,7 @@ public function actionGetAppointmentDetails($appointmentId)
         $pattern->duration_minutes = $data['durationMinutes'];
         $pattern->valid_from = $data['validFrom'];
         $pattern->valid_to = $data['validTo'];
+      
         $pattern->created_by = $this->getCurrentUserId();
 
         if (!$pattern->save()) {
@@ -2409,7 +2413,7 @@ public function actionGetAppointmentDetails($appointmentId)
      * @param PlanTherapy $planTherapy
      * @return array
      */
-    private function generateAppointments($pattern, $therapist, $planTherapy)
+    private function generateAppointments($pattern, $therapist, $planTherapy, $patient)
     {
         $result = [
             'appointmentsCreated' => 0,
@@ -2483,7 +2487,7 @@ public function actionGetAppointmentDetails($appointmentId)
 
                 // Crea appuntamento
                 try {
-                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy);
+                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient);
                     $result['appointmentsCreated']++;
                     Yii::info("Appuntamento creato con successo: ID {$appointment->id}, DateTime: {$appointmentDateTime}", __METHOD__);
                 } catch (Exception $e) {
@@ -2508,7 +2512,7 @@ public function actionGetAppointmentDetails($appointmentId)
      * @return Appointment
      * @throws Exception
      */
-    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy)
+    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
         
@@ -2517,6 +2521,7 @@ public function actionGetAppointmentDetails($appointmentId)
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
         $appointment->plan_therapy_id = $pattern->plan_therapy_id;
         $appointment->therapist_id = $pattern->therapist_id;
+        $appointment->patient_id = $patient->id;
         $appointment->appointment_datetime = $appointmentDateTime;
         $appointment->duration_minutes = $pattern->duration_minutes;
         $appointment->status = Appointment::STATUS_SCHEDULED; // Imposta status di default

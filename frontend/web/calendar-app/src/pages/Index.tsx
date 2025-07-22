@@ -535,6 +535,7 @@ const Index = () => {
         const patternRequest = {
           planTherapyId,
           therapistId: selectedTherapist.id,
+          patientId: currentPatient.id, // AGGIUNGI QUESTA RIGA
           dayOfWeek,
           startTime,
           durationMinutes: appointmentData.duration,
