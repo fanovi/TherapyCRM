@@ -643,17 +643,27 @@ class TherapeuticPlanManagerController extends Controller
             $planTherapies = PlanTherapy::find()
                 ->select(['id', 'treatment_type_id'])
                 ->with(['treatmentType' => function ($query) {
-                    $query->select(['id', 'name']);
+                    $query->select(['id', 'name'])
+                        ->with(['specializationTreatments' => function($q) {
+                            $q->select(['treatment_type_id', 'specialization_id']);
+                        }]);
                 }])
                 ->where(['therapeutic_plan_id' => $planId])
                 ->all();
 
             $result = [];
             foreach ($planTherapies as $therapy) {
+                // Prendi il primo specialization_id disponibile per questo treatment_type
+                $specializationId = null;
+                if (!empty($therapy->treatmentType->specializationTreatments)) {
+                    $specializationId = $therapy->treatmentType->specializationTreatments[0]->specialization_id;
+                }
+
                 $result[] = [
                     'id' => $therapy->id,
                     'treatment_type_id' => $therapy->treatment_type_id,
-                    'name' => $therapy->treatmentType->name
+                    'name' => $therapy->treatmentType->name,
+                    'specialization_id' => $specializationId
                 ];
             }
 
