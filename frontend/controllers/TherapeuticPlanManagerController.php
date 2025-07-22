@@ -625,28 +625,31 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
-    public function actionGetPlanTretments($id_plan)
+    public function actionGetPlanTreatments($planId)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            if (!$id_plan) {
+            if (!$planId) {
                 return $this->errorResponse('ID piano terapeutico mancante');
             }
 
             // Valida il piano terapeutico
-            $plan = TherapeuticPlan::findOne($id_plan);
-            if (!$this->validateTherapeuticPlan($plan)) {
-                return $this->errorResponse('Piano terapeutico non valido o non trovato');
-            }
+            $plan = TherapeuticPlan::findOne($planId);
 
+           
+           
+            $this->validateTherapeuticPlan($plan);
+            
+            
+            
             // Recupera i trattamenti con eager loading
             $planTherapies = PlanTherapy::find()
                 ->select(['id', 'treatment_type_id'])
                 ->with(['treatmentType' => function ($query) {
                     $query->select(['id', 'name']);
                 }])
-                ->where(['therapeutic_plan_id' => $id_plan])
+                ->where(['therapeutic_plan_id' => $planId])
                 ->all();
 
             $result = [];
@@ -2381,6 +2384,7 @@ public function actionGetAppointmentDetails($appointmentId)
      */
     private function validateTherapeuticPlan($plan)
     {
+        
         if (!$plan) {
             throw new BadRequestHttpException('Piano terapeutico non trovato');
         }
@@ -2388,6 +2392,8 @@ public function actionGetAppointmentDetails($appointmentId)
         if ($plan->isExpired()) {
             throw new BadRequestHttpException('Piano terapeutico scaduto');
         }
+
+
     }
 
     /**

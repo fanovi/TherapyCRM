@@ -126,7 +126,7 @@ class TherapeuticPlanManagerAPI {
   /**
    * Ottiene le specializzazioni disponibili per un paziente basate sul suo piano terapeutico
    */
-  async getPatientSpecializations(patientId: number): Promise<
+  async getPlanTreatments(planId: number): Promise<
     {
       id: number;
       name: string;
@@ -139,8 +139,8 @@ class TherapeuticPlanManagerAPI {
           name: string;
         }[]
       >
-    >("get-patient-specializations", {
-      patientId,
+    >("get-plan-treatments", {
+      planId,
     });
 
     if (!response.success) {

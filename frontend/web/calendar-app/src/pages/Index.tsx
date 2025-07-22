@@ -78,6 +78,9 @@ const Index = () => {
     return savedDate ? new Date(savedDate) : new Date();
   });
 
+  console.log(patient);
+
+  const planId = patient?.planTherapy?.therapeuticPlanId;
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
     const month = date.getMonth() + 1;
@@ -1078,6 +1081,7 @@ const Index = () => {
               onTherapistSelect={setSelectedTherapist}
               patientId={patient?.id}
               isPrivateMode={isPrivateMode}
+              planId={planId}
               onTreatmentTypeSelect={setSelectedTreatmentType}
             />
           </div>

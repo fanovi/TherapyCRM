@@ -18,6 +18,7 @@ interface TherapistSelectorProps {
   patientId?: number;
   isPrivateMode?: boolean;
   onTreatmentTypeSelect?: (treatmentType: TreatmentType | null) => void;
+  planId?: number;
 }
 
 export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
@@ -26,6 +27,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   patientId,
   isPrivateMode = false,
   onTreatmentTypeSelect,
+  planId,
 }) => {
   const [selectedSpecialization, setSelectedSpecialization] =
     useState<Specialization | null>(null);
@@ -53,11 +55,11 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
           setTreatmentTypes(types);
         } else {
           // In modalità normale, carica le specializzazioni del paziente
-          if (!patientId) {
+          if (!planId) {
             setLoading(false);
             return;
           }
-          const data = await therapyAPI.getPatientSpecializations(patientId);
+          const data = await therapyAPI.getPlanTreatments(planId);
           setAvailableSpecializations(data);
         }
       } catch (err) {
