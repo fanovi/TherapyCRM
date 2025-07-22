@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import {
   Text,
@@ -21,6 +22,7 @@ import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import {clearError} from '../../slices/authSlice';
 import {loginService} from '../../services/loginService';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 const ResetPasswordScreen = () => {
   const navigation = useNavigation();
@@ -80,209 +82,212 @@ const ResetPasswordScreen = () => {
   };
 
   return (
-    <LinearGradient
-      colors={[theme.colors.primary, theme.colors.primaryContainer]}
-      style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.colors.primary}
-      />
+    <ScrollView style={styles.container}>
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.primaryContainer]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={theme.colors.primary}
+        />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}>
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Text style={styles.iconText}>🔐</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}>
+          <View style={styles.content}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.iconContainer}>
+                <Text style={styles.iconText}>🔐</Text>
+              </View>
+              <Text style={styles.title}>Cambia Password</Text>
+              <Text style={styles.subtitle}>
+                Per la tua sicurezza, devi cambiare la password al primo accesso
+              </Text>
             </View>
-            <Text style={styles.title}>Cambia Password</Text>
-            <Text style={styles.subtitle}>
-              Per la tua sicurezza, devi cambiare la password al primo accesso
-            </Text>
-          </View>
 
-          {/* Form Card */}
-          <Card style={styles.card}>
-            <Card.Content style={styles.cardContent}>
-              <View
-                style={[
-                  styles.userInfo,
-                  {backgroundColor: theme.colors.surface},
-                ]}>
-                <Text
+            {/* Form Card */}
+            <Card style={styles.card}>
+              <Card.Content style={styles.cardContent}>
+                <View
                   style={[
-                    styles.userLabel,
-                    {color: theme.colors.onSurfaceVariant},
+                    styles.userInfo,
+                    {backgroundColor: theme.colors.surface},
                   ]}>
-                  Utente:
-                </Text>
-                <Text
-                  style={[styles.userName, {color: theme.colors.onSurface}]}>
-                  {user?.firstName && user?.lastName
-                    ? `${user.firstName} ${user.lastName}`
-                    : user?.fullName || 'Utente'}
-                </Text>
-                <Text
-                  style={[
-                    styles.userEmail,
-                    {color: theme.colors.onSurfaceVariant},
-                  ]}>
-                  {user?.email || 'Email non disponibile'}
-                </Text>
-              </View>
+                  <Text
+                    style={[
+                      styles.userLabel,
+                      {color: theme.colors.onSurfaceVariant},
+                    ]}>
+                    Utente:
+                  </Text>
+                  <Text
+                    style={[styles.userName, {color: theme.colors.onSurface}]}>
+                    {user?.firstName && user?.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : user?.fullName || 'Utente'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.userEmail,
+                      {color: theme.colors.onSurfaceVariant},
+                    ]}>
+                    {user?.email || 'Email non disponibile'}
+                  </Text>
+                </View>
 
-              <TextInput
-                label="Nuova Password"
-                value={password}
-                onChangeText={setPassword}
-                mode="outlined"
-                style={styles.input}
-                secureTextEntry={!showPassword}
-                right={
-                  <TextInput.Icon
-                    icon={showPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowPassword(!showPassword)}
-                  />
-                }
-                left={<TextInput.Icon icon="lock" />}
-                error={password.length > 0 && !passwordValid}
-              />
-
-              <HelperText
-                type="error"
-                visible={password.length > 0 && !passwordValid}>
-                La password deve essere di almeno 8 caratteri e contenere almeno
-                una lettera maiuscola, una minuscola e un numero
-              </HelperText>
-
-              <TextInput
-                label="Conferma Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                mode="outlined"
-                style={styles.input}
-                secureTextEntry={!showConfirmPassword}
-                right={
-                  <TextInput.Icon
-                    icon={showConfirmPassword ? 'eye-off' : 'eye'}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  />
-                }
-                left={<TextInput.Icon icon="lock-check" />}
-                error={confirmPassword.length > 0 && !passwordsMatch}
-              />
-
-              <HelperText
-                type="error"
-                visible={confirmPassword.length > 0 && !passwordsMatch}>
-                Le password non coincidono
-              </HelperText>
-
-              <Button
-                mode="contained"
-                onPress={handleResetPassword}
-                style={[
-                  styles.resetButton,
-                  {
-                    backgroundColor: theme.colors.primary,
-                    opacity: isFormValid ? 1 : 0.6,
-                  },
-                ]}
-                contentStyle={styles.buttonContent}
-                disabled={!isFormValid || isLoading}
-                icon={isLoading ? undefined : 'check'}>
-                {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  'Conferma Nuova Password'
+                <TextInput
+                  label="Nuova Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  mode="outlined"
+                  style={styles.input}
+                  secureTextEntry={!showPassword}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? 'eye-off' : 'eye'}
+                      onPress={() => setShowPassword(!showPassword)}
+                    />
+                  }
+                  left={<TextInput.Icon icon="lock" />}
+                  error={password.length > 0 && !passwordValid}
+                />
+                {password.length > 0 && !passwordValid && (
+                  <HelperText
+                    type="error"
+                    visible={password.length > 0 && !passwordValid}>
+                    La password deve essere di almeno 8 caratteri e contenere
+                    almeno una lettera maiuscola, una minuscola e un numero
+                  </HelperText>
                 )}
-              </Button>
+                <TextInput
+                  label="Conferma Password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  mode="outlined"
+                  style={styles.input}
+                  secureTextEntry={!showConfirmPassword}
+                  right={
+                    <TextInput.Icon
+                      icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                      onPress={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                    />
+                  }
+                  left={<TextInput.Icon icon="lock-check" />}
+                  error={confirmPassword.length > 0 && !passwordsMatch}
+                />
 
-              <View
-                style={[
-                  styles.requirements,
-                  {backgroundColor: theme.colors.surfaceVariant},
-                ]}>
-                <Text
+                <HelperText
+                  type="error"
+                  visible={confirmPassword.length > 0 && !passwordsMatch}>
+                  Le password non coincidono
+                </HelperText>
+
+                <Button
+                  mode="contained"
+                  onPress={handleResetPassword}
                   style={[
-                    styles.requirementsTitle,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  Requisiti password:
-                </Text>
-                <Text
-                  style={[
-                    styles.requirement,
+                    styles.resetButton,
                     {
-                      color:
-                        password.length >= 8
+                      backgroundColor: theme.colors.primary,
+                      opacity: isFormValid ? 1 : 0.6,
+                    },
+                  ]}
+                  contentStyle={styles.buttonContent}
+                  disabled={!isFormValid || isLoading}
+                  icon={isLoading ? undefined : 'check'}>
+                  {isLoading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    'Conferma Nuova Password'
+                  )}
+                </Button>
+
+                <View
+                  style={[
+                    styles.requirements,
+                    {backgroundColor: theme.colors.surfaceVariant},
+                  ]}>
+                  <Text
+                    style={[
+                      styles.requirementsTitle,
+                      {color: theme.colors.onSurface},
+                    ]}>
+                    Requisiti password:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirement,
+                      {
+                        color:
+                          password.length >= 8
+                            ? theme.colors.primary
+                            : theme.colors.onSurfaceVariant,
+                      },
+                    ]}>
+                    • Almeno 8 caratteri
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirement,
+                      {
+                        color: /[A-Z]/.test(password)
                           ? theme.colors.primary
                           : theme.colors.onSurfaceVariant,
-                    },
-                  ]}>
-                  • Almeno 8 caratteri
-                </Text>
-                <Text
-                  style={[
-                    styles.requirement,
-                    {
-                      color: /[A-Z]/.test(password)
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant,
-                    },
-                  ]}>
-                  • Almeno una lettera maiuscola
-                </Text>
-                <Text
-                  style={[
-                    styles.requirement,
-                    {
-                      color: /[a-z]/.test(password)
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant,
-                    },
-                  ]}>
-                  • Almeno una lettera minuscola
-                </Text>
-                <Text
-                  style={[
-                    styles.requirement,
-                    {
-                      color: /[0-9]/.test(password)
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant,
-                    },
-                  ]}>
-                  • Almeno un numero
-                </Text>
-                <Text
-                  style={[
-                    styles.requirement,
-                    {
-                      color:
-                        passwordsMatch && confirmPassword
+                      },
+                    ]}>
+                    • Almeno una lettera maiuscola
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirement,
+                      {
+                        color: /[a-z]/.test(password)
                           ? theme.colors.primary
                           : theme.colors.onSurfaceVariant,
-                    },
-                  ]}>
-                  • Le password devono coincidere
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
-        </View>
-      </KeyboardAvoidingView>
+                      },
+                    ]}>
+                    • Almeno una lettera minuscola
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirement,
+                      {
+                        color: /[0-9]/.test(password)
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant,
+                      },
+                    ]}>
+                    • Almeno un numero
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requirement,
+                      {
+                        color:
+                          passwordsMatch && confirmPassword
+                            ? theme.colors.primary
+                            : theme.colors.onSurfaceVariant,
+                      },
+                    ]}>
+                    • Le password devono coincidere
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+          </View>
+        </KeyboardAvoidingView>
 
-      <Snackbar
-        visible={!!error}
-        onDismiss={handleClearError}
-        duration={4000}
-        style={styles.snackbar}>
-        {error}
-      </Snackbar>
-    </LinearGradient>
+        <Snackbar
+          visible={!!error}
+          onDismiss={handleClearError}
+          duration={3000}
+          style={styles.snackbar}>
+          {error}
+        </Snackbar>
+      </LinearGradient>
+    </ScrollView>
   );
 };
 
@@ -294,13 +299,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
+    marginTop: 20,
   },
   iconContainer: {
     width: 80,
@@ -337,6 +342,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    marginBottom: 20,
   },
   cardContent: {
     padding: 24,
