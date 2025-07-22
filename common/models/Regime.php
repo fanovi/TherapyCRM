@@ -12,6 +12,7 @@ use yii\helpers\ArrayHelper;
  * @property int $id
  * @property string $nome
  * @property string|null $descrizione
+ * @property string $conteggio_ore
  *
  * @property TherapeuticPlan[] $therapeuticPlans
  * @property RegimeSetting[] $regimeSettings
@@ -19,6 +20,9 @@ use yii\helpers\ArrayHelper;
  */
 class Regime extends ActiveRecord
 {
+    const CONTEGGIO_ORE_WEEKLY = 'weekly';
+    const CONTEGGIO_ORE_MONTHLY = 'monthly';
+
     /**
      * {@inheritdoc}
      */
@@ -37,6 +41,8 @@ class Regime extends ActiveRecord
             [['descrizione'], 'string'],
             [['nome'], 'string', 'max' => 255],
             [['nome'], 'unique'],
+            [['conteggio_ore'], 'string'],
+            [['conteggio_ore'], 'in', 'range' => [self::CONTEGGIO_ORE_WEEKLY, self::CONTEGGIO_ORE_MONTHLY]],
         ];
     }
 
@@ -49,6 +55,7 @@ class Regime extends ActiveRecord
             'id' => 'ID',
             'nome' => 'Nome',
             'descrizione' => 'Descrizione',
+            'conteggio_ore' => 'Conteggio Ore',
         ];
     }
 
