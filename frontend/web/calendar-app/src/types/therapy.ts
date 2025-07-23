@@ -31,6 +31,18 @@ export interface Patient {
   fiscalCode?: string;
   email?: string;
   hasActiveTherapeuticPlans?: boolean;
+  therapeuticPlan?: {
+    id: number;
+    startDate: string;
+    endDate: string;
+    durationDays: number;
+    regime?: {
+      id: number;
+      nome: string;
+      descrizione: string;
+      conteggio_ore: string;
+    };
+  };
   planTherapy?: {
     planTherapyId: number;
     therapeuticPlanId: number;

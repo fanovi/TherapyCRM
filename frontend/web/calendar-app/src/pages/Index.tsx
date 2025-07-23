@@ -1027,6 +1027,13 @@ const Index = () => {
                   <p className="text-sm text-gray-600">
                     {patient.email}
                     {patient.fiscalCode && ` • ${patient.fiscalCode}`}
+                    {patient.therapeuticPlan &&
+                      patient.therapeuticPlan.regime &&
+                      patient.therapeuticPlan.regime.nome && (
+                        <span className="font-medium">
+                          {" • "}Regime: {patient.therapeuticPlan.regime.nome}
+                        </span>
+                      )}
                   </p>
                 </div>
               ) : null}

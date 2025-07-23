@@ -1086,8 +1086,9 @@ public function actionGetAppointmentDetails($appointmentId)
                 'canCreatePrivateAppointments' => true // Sempre true, tutti possono creare appuntamenti privati
             ];
 
-            // Cerca il piano terapeutico attivo più recente
+            // Cerca il piano terapeutico attivo più recente con il regime
             $therapeuticPlan = TherapeuticPlan::find()
+                ->with(['regime']) // Aggiungi questa riga
                 ->where(['patient_id' => $patient->id])
                 ->andWhere(['<=', 'start_date', date('Y-m-d')])
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
@@ -1096,6 +1097,27 @@ public function actionGetAppointmentDetails($appointmentId)
 
             if ($therapeuticPlan) {
                 $responseData['hasActiveTherapeuticPlans'] = true;
+
+                // Aggiungi questa sezione per includere i dati del regime
+                $responseData['therapeuticPlan'] = [
+                    'id' => $therapeuticPlan->id,
+                    'startDate' => $therapeuticPlan->start_date,
+                    'endDate' => $therapeuticPlan->getCalculatedEndDate(),
+                    'durationDays' => $therapeuticPlan->duration_days,
+                    'regime' => null
+                ];
+
+                // Includi i dati del regime se presente
+                if ($therapeuticPlan->regime && 
+                    isset($therapeuticPlan->regime->id) && 
+                    isset($therapeuticPlan->regime->nome)) {
+                    $responseData['therapeuticPlan']['regime'] = [
+                        'id' => $therapeuticPlan->regime->id,
+                        'nome' => $therapeuticPlan->regime->nome,
+                        'descrizione' => $therapeuticPlan->regime->descrizione ?? '',
+                        'conteggio_ore' => $therapeuticPlan->regime->conteggio_ore ?? ''
+                    ];
+                }
 
                 // Trova TUTTE le terapie correlate al piano terapeutico
                 $planTherapies = PlanTherapy::find()
