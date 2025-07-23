@@ -23,6 +23,7 @@ use common\models\SpecializationTreatment;
 use DateTime;
 use Exception;
 use yii\filters\Cors;
+use common\models\Regime;
 
 /**
  * TherapeuticPlanManagerController gestisce la creazione di pattern e appuntamenti
@@ -188,6 +189,21 @@ class TherapeuticPlanManagerController extends Controller
                     'success' => false,
                     'error' => 'Conflitto tipologia trattamento rilevato',
                     'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
+                ];
+            }
+
+            // Verifica limite ore per tipologia trattamento
+            $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                $data['planTherapyId'], 
+                $data['appointmentDateTime'], 
+                $data['durationMinutes']
+            );
+
+            if ($hoursLimitCheck) {
+                return [
+                    'success' => false,
+                    'error' => $hoursLimitCheck['message'],
+                    'code' => $hoursLimitCheck['code']
                 ];
             }
 
@@ -1530,6 +1546,27 @@ public function actionGetAppointmentDetails($appointmentId)
                     'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
                 ];
             }
+
+            // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
+            if ($data['appointmentDateTime'] != $appointment->appointment_datetime || 
+                $data['durationMinutes'] != $appointment->duration_minutes ||
+                $newPlanTherapyId != $appointment->plan_therapy_id) {
+                
+                $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                    $newPlanTherapyId,
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes'],
+                    $appointment->id
+                );
+
+                if ($hoursLimitCheck) {
+                    return [
+                        'success' => false,
+                        'error' => $hoursLimitCheck['message'],
+                        'code' => $hoursLimitCheck['code']
+                    ];
+                }
+            }
         }
 
         // Inizia transazione
@@ -1994,6 +2031,24 @@ public function actionGetAppointmentDetails($appointmentId)
                             $appointmentDate->format('Y-m-d'),
                             $data['startTime']
                         );
+                        continue;
+                    }
+
+                    // Verifica limite ore per tipologia trattamento
+                    $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                        $appointment->plan_therapy_id,
+                        $newDateTime,
+                        $data['durationMinutes'],
+                        $appointment->id
+                    );
+
+                    if ($hoursLimitCheck) {
+                        $errors[] = [
+                            'message' => $hoursLimitCheck['message'],
+                            'code' => $hoursLimitCheck['code'],
+                            'date' => $appointmentDate->format('Y-m-d'),
+                            'time' => $data['startTime']
+                        ];
                         continue;
                     }
 
@@ -2555,6 +2610,25 @@ public function actionGetAppointmentDetails($appointmentId)
                 if ($treatmentConflict) {
                     Yii::info("Conflitto tipologia trattamento rilevato per {$appointmentDateTime}", __METHOD__);
                     $result['conflicts'][] = $this->formatTreatmentTypeConflictInfo($treatmentConflict, $currentDate->format('Y-m-d'), $startTime);
+                    $currentDate->modify('+1 day');
+                    continue;
+                }
+
+                // Verifica limite ore per tipologia trattamento
+                $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                    $pattern->plan_therapy_id,
+                    $appointmentDateTime,
+                    $pattern->duration_minutes
+                );
+
+                if ($hoursLimitCheck) {
+                    Yii::info("Limite ore superato per {$appointmentDateTime}: {$hoursLimitCheck['message']}", __METHOD__);
+                    $result['conflicts'][] = [
+                        'message' => $hoursLimitCheck['message'],
+                        'code' => $hoursLimitCheck['code'],
+                        'date' => $currentDate->format('Y-m-d'),
+                        'time' => $startTime
+                    ];
                     $currentDate->modify('+1 day');
                     continue;
                 }
@@ -3778,5 +3852,91 @@ private function formatABAConflictInfo($conflict)
         'existingTherapistName' => $therapistInfo,
         'message' => "Esiste già un appuntamento di tipo '{$conflict->appointment_type}' per {$patient->getFullName()} in data {$appointmentDate->format('d/m/Y')} alle ore {$appointmentDate->format('H:i')} con {$therapistInfo}"
     ];
+}
+
+/**
+ * Controlla se l'appuntamento supererebbe il limite di ore previsto per il tipo di terapia nel periodo di riferimento
+ * 
+ * @param int $planTherapyId
+ * @param string $appointmentDateTime
+ * @param int $durationMinutes
+ * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal calcolo (per modifiche)
+ * @return array|null Array con errore se supera il limite, null se ok
+ */
+private function checkPlanTherapyHoursLimit($planTherapyId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
+{
+    // 1. Recupero informazioni base
+    $planTherapy = PlanTherapy::find()
+        ->where(['id' => $planTherapyId])
+        ->with(['therapeuticPlan.regime', 'treatmentType'])
+        ->one();
+
+    if (!$planTherapy) {
+        Yii::warning("PlanTherapy non trovato: {$planTherapyId}", __METHOD__);
+        return [
+            'error' => true,
+            'message' => 'Piano terapia non trovato',
+            'code' => 'HOURS_LIMIT_EXCEEDED'
+        ];
+    }
+
+    if (!$planTherapy->therapeuticPlan || !$planTherapy->therapeuticPlan->regime) {
+        Yii::warning("TherapeuticPlan o Regime non trovato per PlanTherapy: {$planTherapyId}", __METHOD__);
+        return [
+            'error' => true,
+            'message' => 'Piano terapeutico o regime non trovato',
+            'code' => 'HOURS_LIMIT_EXCEEDED'
+        ];
+    }
+
+    // 2. Determina il periodo di riferimento
+    $appointmentDate = new \DateTime($appointmentDateTime);
+    $regime = $planTherapy->therapeuticPlan->regime;
+    
+    if ($regime->conteggio_ore === Regime::CONTEGGIO_ORE_WEEKLY) {
+        $periodoInizio = clone $appointmentDate;
+        $periodoInizio->modify('monday this week')->setTime(0, 0, 0);
+        $periodoFine = clone $periodoInizio;
+        $periodoFine->modify('sunday this week')->setTime(23, 59, 59);
+        $tipoPeriodo = 'settimanale';
+    } else { // monthly
+        $periodoInizio = clone $appointmentDate;
+        $periodoInizio->modify('first day of this month')->setTime(0, 0, 0);
+        $periodoFine = clone $periodoInizio;
+        $periodoFine->modify('last day of this month')->setTime(23, 59, 59);
+        $tipoPeriodo = 'mensile';
+    }
+
+    // 3. Calcola minuti già assegnati nel periodo per lo stesso tipo di terapia e paziente
+    $query = Appointment::find()
+        ->where(['treatment_type_id' => $planTherapy->treatment_type_id])
+        ->andWhere(['patient_id' => $planTherapy->therapeuticPlan->patient_id])
+        ->andWhere(['between', 'appointment_datetime', $periodoInizio->format('Y-m-d H:i:s'), $periodoFine->format('Y-m-d H:i:s')])
+        ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_THERAPIST_ABSENT]]);
+    
+    if ($excludeAppointmentId) {
+        $query->andWhere(['!=', 'id', $excludeAppointmentId]);
+    }
+    
+    $minutiAssegnati = $query->sum('duration_minutes') ?: 0;
+
+    // 4. Converti weekly_hours in minuti per il confronto
+    $minutiMassimi = $planTherapy->weekly_hours * 60;
+
+    // 5. Verifica se con il nuovo appuntamento si supera il limite
+    if (($minutiAssegnati + $durationMinutes) > $minutiMassimi) {
+        $oreAssegnate = number_format($minutiAssegnati / 60, 1);
+        $oreMassime = number_format($planTherapy->weekly_hours, 1);
+        $nuoveOre = number_format($durationMinutes / 60, 1);
+        
+        return [
+            'error' => true,
+            'message' => "Superato il limite di ore {$tipoPeriodo} per il trattamento {$planTherapy->treatmentType->name}. " .
+                        "Ore già assegnate: {$oreAssegnate}h, Ore da aggiungere: {$nuoveOre}h, Limite massimo: {$oreMassime}h",
+            'code' => 'HOURS_LIMIT_EXCEEDED'
+        ];
+    }
+
+    return null; // Nessun conflitto
 }
 } 
