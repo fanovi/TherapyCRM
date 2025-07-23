@@ -573,7 +573,9 @@ class TherapeuticPlanManagerAPI {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || "Errore nel recupero piano terapia");
+      throw new Error(
+        data.message || data.error || "Errore nel recupero piano terapia"
+      );
     }
 
     return data.data;

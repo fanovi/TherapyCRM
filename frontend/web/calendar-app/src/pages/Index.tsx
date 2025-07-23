@@ -242,6 +242,7 @@ const Index = () => {
     try {
       await therapyAPI.getPlanTherapyForTherapist(patient.id, therapist.id);
       setCanCreateNormalAppointments(true);
+
       setPlanTherapyCheckMessage(null);
       return true;
     } catch (error) {
