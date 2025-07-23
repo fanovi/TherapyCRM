@@ -231,9 +231,6 @@ $this->params['breadcrumbs'][] = $this->title;
                                     </h4>
                                     <div class="mt-2 space-y-1">
                                         <p class="text-sm text-gray-600 dark:text-gray-400">
-                                            <span class="font-medium">Ore settimanali:</span> <?= Html::encode($therapy->weekly_hours) ?>
-                                        </p>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">
                                             <span class="font-medium">Setting:</span> <?= Html::encode($therapy->setting->nome) ?>
                                         </p>
                                         <?php if ($therapy->notes): ?>
@@ -244,14 +241,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="ml-4">
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                        <?php
-                                            $totalHours = $therapy->weekly_hours * ($model->duration_days / 7);
-                                            echo sprintf("%.1f ore totali", $totalHours);
-                                        ?>
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                     <?php endforeach; ?>

@@ -99,16 +99,19 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
 
         let data: Therapist[];
 
-        if (isPrivateMode && selectedTreatmentType) {
+        if (selectedTreatmentType || selectedSpecialization) {
           // In Private Mode, carica terapisti per tipo di trattamento
           data = await therapyAPI.getTherapistsByTreatment(
-            selectedTreatmentType.id
+            isPrivateMode
+              ? selectedTreatmentType.id
+              : selectedSpecialization.treatment_type_id
           );
-        } else if (selectedSpecialization) {
-          // In modalità normale, carica terapisti per specializzazione
-          data = await therapyAPI.getTherapistsBySpecialization(
-            selectedSpecialization.specialization_id
-          );
+          // } else if (selectedSpecialization) {
+          //   // In modalità normale, carica terapisti per specializzazione
+          //   data = await therapyAPI.getTherapistsBySpecialization(
+          //     selectedSpecialization.specialization_id
+          //   );
+          // }
         } else {
           data = [];
         }
