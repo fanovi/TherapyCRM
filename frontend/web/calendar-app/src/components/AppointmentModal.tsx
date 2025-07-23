@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AppointmentData, Therapist, Patient } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 
@@ -20,6 +27,8 @@ interface AppointmentModalProps {
   selectedSlot: { date: Date; time: string } | null;
   selectedTherapist: Therapist | null;
   patient: Patient | null;
+  isABARegime?: boolean;
+  existingAppointmentTypes?: string[];
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -29,6 +38,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   selectedSlot,
   selectedTherapist,
   patient,
+  isABARegime = false,
+  existingAppointmentTypes = [],
 }) => {
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
@@ -37,6 +48,9 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     isRecurring: false,
   });
 
+  const [appointmentType, setAppointmentType] = useState<
+    "terapia" | "parent_training" | "supervisione"
+  >("terapia");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,11 +64,49 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     setLoading(true);
 
     try {
-      // Ottieni il planTherapyId corretto per il terapista selezionato
-      const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
-        patient.id,
-        selectedTherapist.id
-      );
+      let planTherapyData;
+
+      // Se siamo in modalità ABA e abbiamo selezionato parent_training o supervisione
+      if (isABARegime && appointmentType !== "terapia") {
+        console.log(
+          "🔍 Debug - patient.availableTherapies:",
+          patient.availableTherapies
+        );
+        console.log(
+          "🔍 Debug - cercando treatmentTypeId:",
+          appointmentType === "parent_training" ? 8 : 9
+        );
+        // Usa i treatmentTypeId fissi per parent_training (8) e supervisione (9)
+        const treatmentTypeId = appointmentType === "parent_training" ? 24 : 25;
+
+        // Cerca il planTherapy corretto tra quelli disponibili del paziente
+        const matchingTherapy = patient.availableTherapies?.find(
+          (therapy) => therapy.treatmentTypeId === treatmentTypeId
+        );
+
+        if (matchingTherapy) {
+          // Costruisci l'oggetto planTherapyData manualmente
+          planTherapyData = {
+            planTherapyId: matchingTherapy.planTherapyId,
+            therapeuticPlanId:
+              patient.planTherapy?.therapeuticPlanId ||
+              patient.therapeuticPlan?.id,
+            treatmentTypeId: treatmentTypeId,
+            treatmentTypeName: matchingTherapy.treatmentTypeName,
+            weeklyHours: matchingTherapy.weeklyHours,
+          };
+        } else {
+          throw new Error(
+            `Piano terapeutico per ${appointmentType} non trovato`
+          );
+        }
+      } else {
+        // Comportamento normale: usa il terapista selezionato
+        planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
+          patient.id,
+          selectedTherapist.id
+        );
+      }
 
       console.log(
         "🔍 Debug AppointmentModal - planTherapyData:",
@@ -68,6 +120,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       onConfirm({
         ...formData,
         therapyType,
+        appointmentType: isABARegime ? appointmentType : "terapia",
         planTherapy: {
           planTherapyId: planTherapyData.planTherapyId,
           therapeuticPlanId: planTherapyData.therapeuticPlanId,
@@ -153,6 +206,37 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               step="15"
             />
           </div>
+
+          {/* {isABARegime && (
+            <div className="space-y-2">
+              <Label htmlFor="appointment-type">Tipo Appuntamento</Label>
+              <Select
+                value={appointmentType}
+                onValueChange={(value) =>
+                  setAppointmentType(
+                    value as "terapia" | "parent_training" | "supervisione"
+                  )
+                }
+              >
+                <SelectTrigger id="appointment-type">
+                  <SelectValue placeholder="Seleziona tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!existingAppointmentTypes.includes("terapia") && (
+                    <SelectItem value="terapia">Terapia</SelectItem>
+                  )}
+                  {!existingAppointmentTypes.includes("parent_training") && (
+                    <SelectItem value="parent_training">
+                      Parent Training
+                    </SelectItem>
+                  )}
+                  {!existingAppointmentTypes.includes("supervisione") && (
+                    <SelectItem value="supervisione">Supervisione</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )} */}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Note (opzionale)</Label>

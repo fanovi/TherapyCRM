@@ -3560,4 +3560,223 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
             return $this->errorResponse($e->getMessage());
         }
     }
+
+    // ***** ABA  ********
+
+    // In TherapeuticPlanManagerController.php
+
+/**
+ * Crea un appuntamento in modalità ABA
+ * Permette appointment_type diversi nello stesso slot
+ */
+public function actionCreateAbaAppointment()
+{
+    Yii::$app->response->format = Response::FORMAT_JSON;
+
+    try {
+        $data = $this->getRequestData();
+        $this->validateABAAppointmentFields($data);
+
+        $treatmentTypeId = $data['treatmentTypeId'];
+
+        // Mappa treatmentTypeId → appointmentType
+        switch ($treatmentTypeId) {
+            case 25:
+                $appointmentType = 'supervisione';
+                break;
+            case 24:
+                $appointmentType = 'parent_training';
+                break;
+            default:
+                $appointmentType = 'terapia';
+        }
+
+        // Verifica che siamo in regime ABA
+        $planTherapy = $this->findPlanTherapy($data['planTherapyId']);
+        $therapeuticPlan = $planTherapy->therapeuticPlan;
+        
+        if (!$this->isABARegime($therapeuticPlan)) {
+            throw new BadRequestHttpException('Questa funzionalità è disponibile solo per regime ABA');
+        }
+
+        // Crea appuntamento PRIMA di modificare plan_therapy_id
+        $appointment = new Appointment();
+        
+        // Se è parent_training o supervisione, trova il plan_therapy_id corretto
+        $actualPlanTherapyId = $data['planTherapyId'];
+        
+        if ($appointmentType === 'parent_training' || $appointmentType === 'supervisione') {
+            $correctTreatmentTypeId = $appointmentType === 'parent_training' ? 24 : 25;
+            
+            $correctPlanTherapy = PlanTherapy::find()
+                ->where([
+                    'therapeutic_plan_id' => $planTherapy->therapeutic_plan_id,
+                    'treatment_type_id' => $correctTreatmentTypeId
+                ])
+                ->one();
+            
+            if ($correctPlanTherapy) {
+                $actualPlanTherapyId = $correctPlanTherapy->id;
+                Yii::info("Cambiato plan_therapy_id da {$data['planTherapyId']} a {$actualPlanTherapyId} per {$appointmentType}", __METHOD__);
+            }
+        }
+
+        // Verifica conflitti specifici ABA
+        $conflict = $this->checkABAConflicts(
+            $data['patientId'],
+            $data['therapistId'],
+            $data['appointmentDateTime'],
+            $appointmentType,
+            $planTherapy->treatment_type_id
+        );
+
+        if ($conflict) {
+            return [
+                'success' => false,
+                'error' => 'Conflitto rilevato',
+                'conflict' => $this->formatABAConflictInfo($conflict)
+            ];
+        }
+
+        // Assegna tutti i valori all'appuntamento
+        $appointment->plan_therapy_id = $actualPlanTherapyId;
+        $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
+        $appointment->therapist_id = $data['therapistId'];
+        $appointment->appointment_datetime = $data['appointmentDateTime'];
+        $appointment->duration_minutes = $data['durationMinutes'];
+        $appointment->appointment_type = $appointmentType;
+        $appointment->notes = $data['notes'] ?? null;
+        $appointment->status = Appointment::STATUS_SCHEDULED;
+        $appointment->created_by = $this->getCurrentUserId();
+
+        if (!$appointment->save()) {
+            throw new Exception('Errore nel salvataggio: ' . json_encode($appointment->errors));
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Appuntamento ABA creato con successo',
+            'data' => [
+                'appointmentId' => $appointment->id
+            ]
+        ];
+
+    } catch (Exception $e) {
+        Yii::error("Errore creazione appuntamento ABA: " . $e->getMessage(), __METHOD__);
+        return $this->errorResponse($e->getMessage());
+    }
+}
+
+/**
+ * Valida i campi per la creazione di un appuntamento ABA
+ * 
+ * @param array $data
+ * @throws BadRequestHttpException
+ */
+private function validateABAAppointmentFields($data)
+{
+    // Rimuovi 'appointmentType' dai campi obbligatori poiché lo mappiamo noi
+    $requiredFields = ['planTherapyId', 'therapistId', 'patientId', 'appointmentDateTime', 'durationMinutes', 'treatmentTypeId'];
+    
+    foreach ($requiredFields as $field) {
+        if (!isset($data[$field]) || $data[$field] === '') {
+            throw new BadRequestHttpException("Campo obbligatorio mancante: {$field}");
+        }
+    }
+
+    if ($data['durationMinutes'] < 15 || $data['durationMinutes'] > 180) {
+        throw new BadRequestHttpException('Durata non valida (15-180 minuti)');
+    }
+}
+
+/**
+ * Verifica se il piano terapeutico è in regime ABA
+ */
+private function isABARegime($therapeuticPlan)
+{
+    return $therapeuticPlan->regime && stripos($therapeuticPlan->regime->nome, 'ABA') !== false;
+}
+
+/**
+ * Verifica conflitti specifici per modalità ABA
+ */
+private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId)
+{
+    $appointmentDate = new DateTime($appointmentDateTime);
+    $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
+    $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
+    
+    // 1. Verifica conflitti terapista nello stesso slot orario
+    $therapistConflict = $this->checkTherapistConflict(
+        $therapistId, 
+        $appointmentDateTime, 
+        60 // assumiamo durata standard, puoi passarla come parametro
+    );
+    
+    if ($therapistConflict) {
+        return $therapistConflict;
+    }
+    
+    // 2. Verifica stesso tipo appuntamento + stessa specializzazione nello stesso giorno
+    $specializationTreatment = SpecializationTreatment::find()
+        ->where(['treatment_type_id' => $treatmentTypeId])
+        ->one();
+    
+    if (!$specializationTreatment) {
+        return null;
+    }
+    
+    $specializationId = $specializationTreatment->specialization_id;
+
+    $query = Appointment::find()
+        ->alias('a')
+        ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+        ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+        ->leftJoin('specialization_treatments st', 'st.treatment_type_id = pt.treatment_type_id')
+        ->where([
+            'a.appointment_type' => $appointmentType,
+            'st.specialization_id' => $specializationId,
+            'tp.patient_id' => $patientId
+        ])
+        ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+        ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
+
+    return $query->one();
+}
+
+/**
+ * Formatta le informazioni del conflitto ABA
+ * 
+ * @param Appointment $conflict
+ * @return array
+ */
+private function formatABAConflictInfo($conflict)
+{
+    $appointmentDate = new DateTime($conflict->appointment_datetime);
+    
+    // Gestisci i dati del paziente e del trattamento
+    if ($conflict->planTherapy && $conflict->planTherapy->therapeuticPlan) {
+        $patient = $conflict->planTherapy->therapeuticPlan->patient;
+        $treatmentType = $conflict->planTherapy->treatmentType;
+    } else {
+        $patient = $conflict->patient;
+        $treatmentType = $conflict->treatmentType;
+    }
+    
+    // Ottieni informazioni sul terapista
+    $therapist = $conflict->therapist;
+    $therapistInfo = $therapist ? $therapist->user->profile->getFullName() : 'Terapista non specificato';
+
+    return [
+        'type' => 'aba_appointment_type_conflict',
+        'existingAppointmentId' => $conflict->id,
+        'appointmentType' => $conflict->appointment_type,
+        'treatmentType' => $treatmentType->name,
+        'patientName' => $patient->getFullName(),
+        'existingAppointmentDate' => $appointmentDate->format('Y-m-d'),
+        'existingAppointmentTime' => $appointmentDate->format('H:i'),
+        'existingTherapistName' => $therapistInfo,
+        'message' => "Esiste già un appuntamento di tipo '{$conflict->appointment_type}' per {$patient->getFullName()} in data {$appointmentDate->format('d/m/Y')} alle ore {$appointmentDate->format('H:i')} con {$therapistInfo}"
+    ];
+}
 } 

@@ -30,6 +30,7 @@ interface AppointmentEditModalProps {
     reason?: string;
   }) => void;
   isTherapistView?: boolean; // Nuova prop per distinguere vista terapista
+  onAddTherapyInSlot?: (appointment: Appointment) => void;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -41,6 +42,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   onAppointmentDelete,
   onTherapistSubstitution,
   isTherapistView = false,
+  onAddTherapyInSlot,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -568,6 +570,22 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   >
                     <UserX className="w-4 h-4" />
                     Sostituisci Terapista
+                  </button>
+                )}
+
+              {!isEditing &&
+                appointment.status === "scheduled" &&
+                appointment.appointmentSource === "therapeutic_plan" &&
+                onAddTherapyInSlot && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onAddTherapyInSlot(appointment);
+                    }}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 font-medium"
+                  >
+                    <Stethoscope className="w-4 h-4" />
+                    Aggiungi terapia
                   </button>
                 )}
 

@@ -138,6 +138,10 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           duration: appointment.duration,
           patient_id: appointment.patient?.id || null,
           therapist_id: appointment.therapist?.id || null,
+          notes: appointment.notes,
+          type: appointment.treatmentType,
+
+          appointmentType: appointment.appointmentType,
           isEditable: isEditable,
           isClickable: isClickable,
           appointmentSource: appointment.appointmentSource,

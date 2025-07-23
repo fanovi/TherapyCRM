@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Clock, List, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
 import { Appointment } from "@/types/therapy";
+import { getTreatmentColor } from "@/lib/treatmentColors";
 import moment from "moment";
 
 interface FullCalendarContainerProps {
@@ -181,6 +182,34 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               }
             }
 
+            // Per appuntamenti ABA, usa colori specifici per tipo
+            if (appointment.appointmentType) {
+              const baseColors: Record<string, string> = {
+                parent_training: "#8B5CF6", // Viola per Parent Training
+                supervisione: "#F59E0B", // Arancione per Supervisione
+                terapia: "#3B82F6", // Blu per Terapia (default)
+              };
+
+              const baseColor =
+                baseColors[appointment.appointmentType] ||
+                baseColors["terapia"];
+
+              // Modifica la saturazione in base allo status
+              switch (appointment.status) {
+                case "confirmed":
+                case "scheduled":
+                  return baseColor;
+                case "pending":
+                  return baseColor + "CC"; // Aggiungi trasparenza
+                case "cancelled":
+                  return "#9CA3AF"; // Grigio per cancellati
+                case "completed":
+                  return baseColor;
+                default:
+                  return baseColor;
+              }
+            }
+
             // Colori normali per appuntamenti da piano terapeutico
             switch (appointment.status) {
               case "confirmed":
@@ -202,9 +231,21 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           // Determina se l'evento è modificabile
           const isEditable = appointment.status === "scheduled";
 
+          // Mappa per le abbreviazioni dei tipi di appuntamento ABA
+          const typeAbbreviations: Record<string, string> = {
+            terapia: "", // Nessuna abbreviazione per terapia (default)
+            parent_training: " (PT)",
+            supervisione: " (S)",
+          };
+
+          const typeAbbr =
+            typeAbbreviations[appointment.appointmentType || "terapia"];
+          const title =
+            (appointment.therapist?.name || "Appuntamento") + typeAbbr;
+
           return {
             id: appointment.id.toString(),
-            title: appointment.therapist?.name || "Appuntamento",
+            title: title,
             start: startTime.toISOString(),
             end: endTime.toISOString(),
             backgroundColor,
@@ -224,6 +265,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               type: appointment.treatmentType,
               duration: appointment.duration,
               appointmentSource: appointment.appointmentSource,
+              appointmentType: appointment.appointmentType, // Aggiungi il tipo di appuntamento
               isPrivate:
                 appointment.isPrivate ||
                 appointment.appointmentSource === "private",
@@ -336,15 +378,40 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     if (onAppointmentClick) {
       onAppointmentClick(event.id);
     } else {
+      const appointmentTypeLabel =
+        props.appointmentType === "parent_training"
+          ? "Parent Training"
+          : props.appointmentType === "supervisione"
+          ? "Supervisione"
+          : "Terapia";
       // Fallback: mostra toast con informazioni
       toast({
         title: event.title,
-        description: `
-          Paziente: ${props.patient_name || "N/A"}
-          Terapista: ${props.therapist_name || "N/A"}
-          Status: ${props.status || "N/A"}
-          Orario: ${event.start?.toLocaleTimeString()} - ${event.end?.toLocaleTimeString()}
-        `,
+        description: (
+          <div className="space-y-1">
+            <div>Paziente: {props.patient_name || "N/A"}</div>
+            <div>Terapista: {props.therapist_name || "N/A"}</div>
+            <div>Trattamento: {props.type || "Non specificato"}</div>
+            {props.appointmentType && props.appointmentType !== "terapia" && (
+              <div>Tipo: {appointmentTypeLabel}</div>
+            )}
+            <div>Stato: {props.status || "N/A"}</div>
+            <div>
+              Orario:{" "}
+              {event.start?.toLocaleTimeString("it-IT", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              -{" "}
+              {event.end?.toLocaleTimeString("it-IT", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+            {props.notes && <div>Note: {props.notes}</div>}
+          </div>
+        ),
+        duration: 5000, // Mostra il toast per 5 secondi
       });
     }
   };
@@ -353,6 +420,28 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     // Se è readOnly, non permettere selezione
     if (readOnly) {
+      return;
+    }
+
+    // Verifica se c'è già un evento in questo slot
+    const selectedStart = selectInfo.start.getTime();
+    const selectedEnd = selectInfo.end.getTime();
+
+    const hasConflict = displayEvents.some((event) => {
+      const eventStart = new Date(event.start as string).getTime();
+      const eventEnd = new Date(event.end as string).getTime();
+
+      return selectedStart < eventEnd && selectedEnd > eventStart;
+    });
+
+    if (hasConflict && currentView !== "dayGridMonth") {
+      toast({
+        title: "Slot occupato",
+        description:
+          "Questo slot orario è già occupato. Clicca sull'appuntamento per vedere i dettagli.",
+        variant: "destructive",
+      });
+      calendarApi?.unselect();
       return;
     }
 
@@ -425,28 +514,55 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   };
 
   // Personalizza rendering eventi
+  // Aggiungi questo import all'inizio del file:
+
+  // Modifica la funzione eventContent per includere più dettagli e colori:
+  // Personalizza rendering eventi
   const eventContent = (eventInfo: any) => {
     const props = eventInfo.event.extendedProps;
     const isPrivate = props.isPrivate || props.appointmentSource === "private";
     const isEditable = props.isEditable !== false;
+    const treatmentType = props.type || "Non specificato";
+
+    // Ottieni il colore basato sul tipo di trattamento
+    const treatmentColor = getTreatmentColor(treatmentType);
+
+    // Imposta il colore dell'evento solo se l'elemento DOM esiste
+    if (eventInfo.el) {
+      eventInfo.el.style.backgroundColor = treatmentColor;
+      eventInfo.el.style.borderColor = treatmentColor;
+    }
 
     if (currentView === "timeGridDay" || currentView === "timeGridWeek") {
       return (
-        <div className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}>
+        <div
+          className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}
+          title={`${treatmentType}\nPaziente: ${
+            props.patient_name
+          }\nTerapista: ${props.therapist_name}\nDurata: ${props.duration} min${
+            props.notes ? "\nNote: " + props.notes : ""
+          }`}
+        >
           <div className="font-semibold truncate flex items-center gap-1">
             {isPrivate && <span className="text-purple-200">🔒</span>}
             {eventInfo.event.title}
+            {props.appointmentType === "parent_training" && " (PT)"}
+            {props.appointmentType === "supervisione" && " (S)"}
             {!isEditable && <span className="text-xs">✓</span>}
           </div>
-          {props.therapist_name && (
-            <div className="truncate opacity-80">{props.therapist_name}</div>
+          <div className="truncate opacity-90 text-[10px]">{treatmentType}</div>
+          {props.patient_name && (
+            <div className="truncate opacity-80">{props.patient_name}</div>
           )}
         </div>
       );
     }
 
     return (
-      <div className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}>
+      <div
+        className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}
+        title={`${treatmentType}\nPaziente: ${props.patient_name}\nDurata: ${props.duration} min`}
+      >
         <div className="font-semibold truncate flex items-center gap-1">
           {isPrivate && <span>🔒</span>}
           {eventInfo.event.title}
@@ -514,19 +630,33 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       {/* FullCalendar */}
       <div className="fullcalendar-container">
         <style>{`
-          .fc-event.non-editable-event {
-            opacity: 0.7;
-            cursor: default !important;
-          }
+  .fc-event.non-editable-event {
+    opacity: 0.7;
+    cursor: default !important;
+  }
 
-          .fc-event.non-editable-event:hover {
-            opacity: 0.8;
-          }
+  .fc-event.non-editable-event:hover {
+    opacity: 0.8;
+  }
 
-          .fc-event.non-editable-event .fc-event-main {
-            cursor: default !important;
-          }
-        `}</style>
+  .fc-event.non-editable-event .fc-event-main {
+    cursor: default !important;
+  }
+  
+  .fc-event:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 999 !important;
+  }
+
+  .fc-timegrid-event {
+    overflow: visible !important;
+  }
+
+  .fc-event-title {
+    white-space: normal;
+  }
+`}</style>
         <FullCalendar
           ref={calendarRef}
           plugins={[
@@ -549,6 +679,14 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           selectMirror={!readOnly}
           select={handleDateSelect}
           eventContent={eventContent}
+          eventDidMount={(info: any) => {
+            const props = info.event.extendedProps;
+            const treatmentType = props.type || "Non specificato";
+            const treatmentColor = getTreatmentColor(treatmentType);
+
+            info.el.style.backgroundColor = treatmentColor;
+            info.el.style.borderColor = treatmentColor;
+          }}
           eventDrop={handleEventDrop}
           dayMaxEvents={true}
           weekends={true}
@@ -568,7 +706,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           }}
           slotMinTime="08:00:00"
           slotMaxTime="20:00:00"
-          slotDuration="00:30:00"
+          slotDuration="00:15:00"
           allDaySlot={false}
           nowIndicator={true}
           eventDisplay="block"

@@ -697,6 +697,41 @@ class TherapeuticPlanManagerAPI {
 
     return response.data;
   }
+
+  /**
+   * Crea un appuntamento in modalità ABA
+   * Permette appointment_type diversi nello stesso slot
+   */
+  async createABAAppointment(request: {
+    planTherapyId: number;
+    therapistId: number;
+    patientId: number;
+    appointmentDateTime: string;
+    durationMinutes: number;
+    treatmentTypeId: number; // 🔥 AGGIUNTO
+    appointmentType: "terapia" | "parent_training" | "supervisione";
+    notes?: string;
+  }): Promise<{
+    appointmentId: number;
+  }> {
+    const response = await this.post<any>("create-aba-appointment", request);
+
+    if (!response.success) {
+      if (response.conflict) {
+        const error = new Error(
+          response.error || "Conflitto appuntamento ABA rilevato"
+        ) as any;
+        error.conflict = response.conflict;
+        throw error;
+      }
+
+      throw new Error(
+        response.error || "Errore nella creazione dell'appuntamento ABA"
+      );
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton

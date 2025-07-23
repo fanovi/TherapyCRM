@@ -1,4 +1,5 @@
 export interface Specialization {
+  treatment_type_id: any;
   id: number;
   name: string;
 }
@@ -111,6 +112,7 @@ export interface Appointment {
   appointmentSource?: "therapeutic_plan" | "private";
 
   isPrivate?: boolean;
+  appointmentType?: "terapia" | "parent_training" | "supervisione";
 }
 
 export interface AppointmentData {
@@ -119,6 +121,7 @@ export interface AppointmentData {
   notes?: string;
   isRecurring?: boolean;
   planTherapy?: PlanTherapy;
+  appointmentType?: "terapia" | "parent_training" | "supervisione";
 }
 
 // Tipi per le richieste API

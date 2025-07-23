@@ -73,6 +73,11 @@ const Index = () => {
   const [planTherapyCheckMessage, setPlanTherapyCheckMessage] = useState<
     string | null
   >(null);
+  // Stati per modalità ABA
+  const [isABARegime, setIsABARegime] = useState(false);
+  const [existingSlotAppointments, setExistingSlotAppointments] = useState<
+    Appointment[]
+  >([]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(() => {
     const storageKey = `calendar_date_${
       params.id_therapist || params.id_patient
@@ -416,6 +421,16 @@ const Index = () => {
     fetchData();
   }, [params]);
 
+  // useEffect per rilevare regime ABA
+  useEffect(() => {
+    if (patient?.therapeuticPlan?.regime?.nome) {
+      const regimeName = patient.therapeuticPlan.regime.nome.toUpperCase();
+      setIsABARegime(regimeName.includes("ABA"));
+    } else {
+      setIsABARegime(false);
+    }
+  }, [patient?.therapeuticPlan?.regime]);
+
   useEffect(() => {
     const loadTherapistAppointments = async () => {
       if (!selectedTherapist || isTherapistView) return;
@@ -534,9 +549,7 @@ const Index = () => {
         const validFrom = selectedSlot.date.toISOString().split("T")[0];
 
         const patternRequest = {
-          planTherapyId: isTherapistView
-            ? selectedTreatment?.specialization_id
-            : selectedSpecialization?.id,
+          planTherapyId: selectedSpecialization.id,
           therapistId: selectedTherapist.id,
           patientId: currentPatient.id, // AGGIUNGI QUESTA RIGA
           dayOfWeek,
@@ -558,25 +571,41 @@ const Index = () => {
           );
         }
       } else {
-        const request = {
-          planTherapyId: isTherapistView
-            ? selectedTreatment?.id
-            : selectedSpecialization?.id,
-          therapistId: selectedTherapist.id,
-          appointmentDateTime,
-          durationMinutes: appointmentData.duration,
-          notes: appointmentData.notes,
-        };
+        // Usa endpoint ABA se siamo in regime ABA e non è ricorrente
+        if (isABARegime && !appointmentData.isRecurring) {
+          const request = {
+            planTherapyId: selectedSpecialization?.id,
+            therapistId: selectedTherapist.id,
+            treatmentTypeId: selectedSpecialization?.treatment_type_id,
+            patientId: currentPatient.id,
+            appointmentDateTime,
+            durationMinutes: appointmentData.duration,
+            appointmentType: appointmentData.appointmentType || "terapia",
+            notes: appointmentData.notes,
+          };
 
-        const singleResult = await therapyAPI.createAppointment(request);
-        result = singleResult;
-        weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
+          result = await therapyAPI.createABAAppointment(request);
+        } else {
+          const request = {
+            planTherapyId: selectedSpecialization?.id,
+            treatmentTypeId: selectedSpecialization?.treatment_type_id,
+            therapistId: selectedTherapist.id,
+            appointmentDateTime,
+            durationMinutes: appointmentData.duration,
+            notes: appointmentData.notes,
+          };
+
+          const singleResult = await therapyAPI.createAppointment(request);
+          result = singleResult;
+          weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
+        }
       }
 
       await reloadCurrentVisibleAppointments();
       setRefreshKey((prev) => prev + 1);
       setIsModalOpen(false);
       setSelectedSlot(null);
+      setExistingSlotAppointments([]);
 
       if (appointmentData.isRecurring) {
         showSuccess(
@@ -745,6 +774,43 @@ const Index = () => {
 
     setSelectedSlot({ date, time });
 
+    // In modalità ABA, verifica appuntamenti esistenti nello slot
+    if (isABARegime && !isPrivateMode) {
+      const slotDateTime = new Date(date);
+      const [hours, minutes] = time.split(":");
+      slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      // Trova appuntamenti esistenti in questo slot
+      const existingInSlot = combinedAppointments.filter((apt) => {
+        const aptDate = new Date(apt.datetime);
+        return aptDate.getTime() === slotDateTime.getTime();
+      });
+
+      if (existingInSlot.length > 0) {
+        // Estrai i tipi già presenti
+        const existingTypes = existingInSlot.map(
+          (apt) => apt.appointmentType || "terapia"
+        );
+
+        // Se tutti e 3 i tipi sono presenti, non permettere ulteriori aggiunte
+        if (
+          existingTypes.includes("terapia") &&
+          existingTypes.includes("parent_training") &&
+          existingTypes.includes("supervisione")
+        ) {
+          showInfo(
+            "Slot completo",
+            "Tutti i tipi di appuntamento sono già presenti in questo slot orario."
+          );
+          return;
+        }
+
+        setExistingSlotAppointments(existingInSlot);
+      } else {
+        setExistingSlotAppointments([]);
+      }
+    }
+
     if (isPrivateMode) {
       // Nella vista normale, deve essere selezionato dal TherapistSelector
       if (!selectedTreatmentType) {
@@ -800,13 +866,30 @@ const Index = () => {
     }
   };
   console.log("this is the selected specialization", selectedSpecialization);
-  console.log(
-    "this is the selected treatment specialization_id",
-    selectedTreatment?.specialization_id
-  );
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
     await reloadCurrentVisibleAppointments();
+  };
+
+  // Dopo handleAppointmentUpdate, aggiungi:
+  const handleAddTherapyInSlot = (appointment: Appointment) => {
+    const date = new Date(appointment.datetime);
+    const time = format(date, "HH:mm");
+
+    setSelectedSlot({ date, time });
+
+    // Trova tutti gli appuntamenti esistenti nello stesso slot
+    const slotDateTime = new Date(date);
+    const [hours, minutes] = time.split(":");
+    slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    const existingInSlot = combinedAppointments.filter((apt) => {
+      const aptDate = new Date(apt.datetime);
+      return aptDate.getTime() === slotDateTime.getTime();
+    });
+
+    setExistingSlotAppointments(existingInSlot);
+    setIsModalOpen(true);
   };
 
   const handleAppointmentDelete = async (appointmentId: string) => {
@@ -1146,11 +1229,16 @@ const Index = () => {
           onClose={() => {
             setIsModalOpen(false);
             setSelectedSlot(null);
+            setExistingSlotAppointments([]);
           }}
           onConfirm={handleAppointmentCreate}
           selectedSlot={selectedSlot}
           selectedTherapist={selectedTherapist}
           patient={isTherapistView ? selectedPatient : patient}
+          isABARegime={isABARegime}
+          existingAppointmentTypes={existingSlotAppointments.map(
+            (apt) => apt.appointmentType || "terapia"
+          )}
         />
 
         <PrivateAppointmentModal
@@ -1167,6 +1255,7 @@ const Index = () => {
         />
 
         <AppointmentEditModal
+          onAddTherapyInSlot={isABARegime ? handleAddTherapyInSlot : undefined}
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
