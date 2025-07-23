@@ -1170,6 +1170,7 @@ const Index = () => {
           onAppointmentUpdate={handleAppointmentUpdate}
           onAppointmentDelete={handleAppointmentDelete}
           onTherapistSubstitution={handleTherapistSubstitution}
+          isTherapistView={isTherapistView}
         />
 
         <TherapistSubstitutionModal

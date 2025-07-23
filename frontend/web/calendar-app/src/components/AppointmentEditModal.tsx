@@ -29,6 +29,7 @@ interface AppointmentEditModalProps {
     newTherapistId: number;
     reason?: string;
   }) => void;
+  isTherapistView?: boolean; // Nuova prop per distinguere vista terapista
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -39,6 +40,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   onAppointmentUpdate,
   onAppointmentDelete,
   onTherapistSubstitution,
+  isTherapistView = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -545,15 +547,17 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
               )}
 
             <div className="flex gap-3">
-              {!isEditing && appointment.status === "scheduled" && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium"
-                >
-                  <Edit className="w-4 h-4" />
-                  Modifica
-                </button>
-              )}
+              {!isEditing &&
+                appointment.status === "scheduled" &&
+                !isTherapistView && ( // Nasconde il pulsante Modifica in vista terapista
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Modifica
+                  </button>
+                )}
 
               {!isEditing &&
                 appointment.status === "scheduled" &&
