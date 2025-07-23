@@ -413,7 +413,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
                     backgroundColor: selectedTherapist.color || "#3b82f6",
                   }}
                 />
-                Calendario di {selectedTherapist.name}
+                Calendario di{" "}
+                {selectedTherapist && (
+                  <span className="text-lg font-medium text-gray-600">
+                    - {selectedTherapist.name || "Nome non disponibile"}
+                  </span>
+                )}
               </>
             ) : (
               "Seleziona un terapista"
@@ -455,8 +460,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             Calendario Paziente
             {currentPatientId && (
               <span className="text-lg font-medium text-gray-600">
-                - {currentPatientName || "Nome non disponibile"} (ID:{" "}
-                {currentPatientId})
+                - {currentPatientName || "Nome non disponibile"}
               </span>
             )}
           </h2>
