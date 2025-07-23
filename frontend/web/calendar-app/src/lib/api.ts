@@ -10,6 +10,7 @@ import {
   CreatePatternResponse,
   TherapistSubstitutionRequest,
   TherapistSubstitutionResponse,
+  SpecializationTreatment,
 } from "@/types/therapy";
 
 /**
@@ -188,6 +189,28 @@ class TherapeuticPlanManagerAPI {
       throw new Error(
         response.error ||
           "Errore nel caricamento terapisti per specializzazione"
+      );
+    }
+
+    return response.data || [];
+  }
+
+  /**
+   * Ottiene i specialization_treatments disponibili per un terapista basati sulla sua specializzazione
+   */
+  async getTherapistSpecializationTreatments(
+    therapistId: number
+  ): Promise<SpecializationTreatment[]> {
+    const response = await this.get<APIResponse<SpecializationTreatment[]>>(
+      "get-therapist-specialization-treatments",
+      {
+        therapistId,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento trattamenti specializzati"
       );
     }
 

@@ -1635,7 +1635,7 @@ public function actionGetAppointmentDetails($appointmentId)
             );
 
             if ($patientSlotConflict) {
-                Yii::info("Conflitto slot paziente trovato per {$appointmentDateTime}: " . json_encode($patientSlotConflict), __METHOD__);
+                Yii::info("Conflitto slot temporale paziente rilevato per {$appointmentDateTime}: " . json_encode($patientSlotConflict), __METHOD__);
                 $result['conflicts'][] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
                 $startDate->modify('+7 days');
                 continue;
@@ -3488,6 +3488,53 @@ private function checkSameTreatmentTypeConflictByPlanTherapy($planTherapyId, $ap
 
         } catch (Exception $e) {
             Yii::error("Errore recupero pazienti: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Ottiene i specialization_treatments disponibili per un terapista basati sulla sua specializzazione
+     * 
+     * @param int $therapistId
+     * @return array
+     */
+    public function actionGetTherapistSpecializationTreatments($therapistId)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $therapist = Therapist::find()
+                ->with(['specialization.specializationTreatments.treatmentType'])
+                ->where(['id' => $therapistId])
+                ->one();
+
+            if (!$therapist) {
+                return $this->errorResponse('Terapista non trovato');
+            }
+
+            if (!$therapist->specialization) {
+                return $this->errorResponse('Specializzazione terapista non trovata');
+            }
+
+            $result = [];
+            foreach ($therapist->specialization->specializationTreatments as $specializationTreatment) {
+                $result[] = [
+                    'id' => $specializationTreatment->id,
+                    'specialization_id' => $specializationTreatment->specialization_id,
+                    'treatment_type_id' => $specializationTreatment->treatment_type_id,
+                    'treatment_type_name' => $specializationTreatment->treatmentType->name,
+                    'specialization_name' => $therapist->specialization->name,
+                    'full_name' => $specializationTreatment->getFullName()
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (Exception $e) {
+            Yii::error("Errore recupero specialization_treatments terapista: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }

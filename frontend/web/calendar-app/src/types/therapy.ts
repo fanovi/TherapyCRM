@@ -3,6 +3,15 @@ export interface Specialization {
   name: string;
 }
 
+export interface SpecializationTreatment {
+  id: number;
+  specialization_id: number;
+  treatment_type_id: number;
+  treatment_type_name: string;
+  specialization_name: string;
+  full_name: string;
+}
+
 export interface Therapist {
   id: number;
   name: string;

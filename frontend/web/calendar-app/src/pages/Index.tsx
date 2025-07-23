@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { PatientSelector } from "@/components/PatientSelector";
+import { SpecializationTreatmentSelector } from "@/components/SpecializationTreatmentSelector";
 import { DualFullCalendarView } from "@/components/DualFullCalendarView";
 import { AppointmentModal } from "@/components/AppointmentModal";
 import { PrivateAppointmentModal } from "@/components/PrivateAppointmentModal";
@@ -15,6 +16,7 @@ import {
   PrivateAppointmentData,
   TreatmentType,
   Specialization,
+  SpecializationTreatment,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
@@ -81,6 +83,23 @@ const Index = () => {
 
   const [selectedSpecialization, setSelectedSpecialization] =
     useState<Specialization | null>(null);
+  const [selectedTreatment, setSelectedTreatment] =
+    useState<SpecializationTreatment | null>(null);
+
+  // Reset selezioni quando cambia il terapista nella vista terapista
+  useEffect(() => {
+    if (isTherapistView && selectedTherapist) {
+      setSelectedTreatment(null);
+      setSelectedPatient(null);
+    }
+  }, [selectedTherapist, isTherapistView]);
+
+  // Reset paziente quando cambia il trattamento
+  useEffect(() => {
+    if (isTherapistView && selectedTreatment) {
+      setSelectedPatient(null);
+    }
+  }, [selectedTreatment, isTherapistView]);
 
   const planId = patient?.planTherapy?.therapeuticPlanId;
   // Funzione per ricaricare gli appuntamenti per un mese specifico
@@ -1081,8 +1100,6 @@ const Index = () => {
         {!isTherapistView && (
           <div className="mb-8">
             <TherapistSelector
-              selectedSpecialization={selectedSpecialization}
-              setSelectedSpecialization={setSelectedSpecialization}
               selectedTherapist={selectedTherapist}
               onTherapistSelect={setSelectedTherapist}
               patientId={patient?.id}
@@ -1095,11 +1112,33 @@ const Index = () => {
 
         {/* Mostra il selettore paziente solo nella vista terapista */}
         {isTherapistView && (
-          <div className="mb-8">
-            <PatientSelector
-              selectedPatient={selectedPatient}
-              onPatientSelect={setSelectedPatient}
+          <div className="space-y-6 mb-8">
+            {/* Selettore trattamento specializzato - DEVE essere selezionato prima del paziente */}
+            <SpecializationTreatmentSelector
+              therapistId={selectedTherapist?.id || null}
+              selectedTreatment={selectedTreatment}
+              onTreatmentSelect={setSelectedTreatment}
             />
+
+            {/* Selettore paziente - abilitato solo se è stato selezionato un trattamento */}
+            {selectedTreatment ? (
+              <PatientSelector
+                selectedPatient={selectedPatient}
+                onPatientSelect={setSelectedPatient}
+              />
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                <div className="text-center text-gray-500">
+                  <p className="font-medium">
+                    Seleziona prima un trattamento specializzato
+                  </p>
+                  <p className="text-sm mt-1">
+                    È necessario scegliere il tipo di trattamento prima di poter
+                    selezionare un paziente
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

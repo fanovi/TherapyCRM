@@ -12,9 +12,6 @@ use yii\behaviors\TimestampBehavior;
  * @property int $id
  * @property int $specialization_id
  * @property int $treatment_type_id
- * @property int|null $duration_minutes
- * @property int|null $max_sessions_per_week
- * @property string|null $notes
  *
  * @property Specialization $specialization
  * @property TreatmentType $treatmentType
@@ -36,10 +33,7 @@ class SpecializationTreatment extends ActiveRecord
     {
         return [
             [['specialization_id', 'treatment_type_id'], 'required'],
-            [['specialization_id', 'treatment_type_id', 'duration_minutes', 'max_sessions_per_week'], 'integer'],
-            [['notes'], 'string'],
-            [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
-            [['max_sessions_per_week'], 'integer', 'min' => 1, 'max' => 10],
+            [['specialization_id', 'treatment_type_id'], 'integer'],
             [['specialization_id', 'treatment_type_id'], 'unique', 'targetAttribute' => ['specialization_id', 'treatment_type_id']],
             [['specialization_id'], 'exist', 'skipOnError' => true, 'targetClass' => Specialization::class, 'targetAttribute' => ['specialization_id' => 'id']],
             [['treatment_type_id'], 'exist', 'skipOnError' => true, 'targetClass' => TreatmentType::class, 'targetAttribute' => ['treatment_type_id' => 'id']],
@@ -55,9 +49,6 @@ class SpecializationTreatment extends ActiveRecord
             'id' => 'ID',
             'specialization_id' => 'Specializzazione',
             'treatment_type_id' => 'Tipo Trattamento',
-            'duration_minutes' => 'Durata (minuti)',
-            'max_sessions_per_week' => 'Max Sedute/Settimana',
-            'notes' => 'Note',
         ];
     }
 
