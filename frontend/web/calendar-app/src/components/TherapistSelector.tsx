@@ -19,6 +19,8 @@ interface TherapistSelectorProps {
   isPrivateMode?: boolean;
   onTreatmentTypeSelect?: (treatmentType: TreatmentType | null) => void;
   planId?: number;
+  selectedSpecialization?: Specialization | null;
+  setSelectedSpecialization?: (specialization: Specialization | null) => void;
 }
 
 export const TherapistSelector: React.FC<TherapistSelectorProps> = ({

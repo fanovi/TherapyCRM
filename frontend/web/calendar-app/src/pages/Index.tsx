@@ -558,7 +558,9 @@ const Index = () => {
         const validFrom = selectedSlot.date.toISOString().split("T")[0];
 
         const patternRequest = {
-          planTherapyId: selectedSpecialization.id,
+          planTherapyId: isTherapistView
+            ? selectedTreatment?.specialization_id
+            : selectedSpecialization?.id,
           therapistId: selectedTherapist.id,
           patientId: currentPatient.id, // AGGIUNGI QUESTA RIGA
           dayOfWeek,
@@ -581,7 +583,9 @@ const Index = () => {
         }
       } else {
         const request = {
-          planTherapyId: selectedSpecialization.id,
+          planTherapyId: isTherapistView
+            ? selectedTreatment?.specialization_id
+            : selectedSpecialization?.id,
           therapistId: selectedTherapist.id,
           appointmentDateTime,
           durationMinutes: appointmentData.duration,
@@ -821,6 +825,10 @@ const Index = () => {
     }
   };
   console.log("this is the selected specialization", selectedSpecialization);
+  console.log(
+    "this is the selected treatment specialization_id",
+    selectedTreatment?.specialization_id
+  );
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
     await reloadCurrentVisibleAppointments();
@@ -1100,6 +1108,8 @@ const Index = () => {
         {!isTherapistView && (
           <div className="mb-8">
             <TherapistSelector
+              selectedSpecialization={selectedSpecialization}
+              setSelectedSpecialization={setSelectedSpecialization}
               selectedTherapist={selectedTherapist}
               onTherapistSelect={setSelectedTherapist}
               patientId={patient?.id}
