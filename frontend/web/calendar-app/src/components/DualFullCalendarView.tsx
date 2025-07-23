@@ -25,7 +25,8 @@ interface DualFullCalendarViewProps {
   onDateChange?: (date: Date) => void;
   onVisibleRangeChange?: (start: Date, end: Date) => void;
   isPrivateMode?: boolean; // Nuova prop
-  selectedDate?: Date; // AGGIUNGI QUESTA RIGA
+  selectedDate?: Date;
+  readOnly?: boolean; // Nuova prop per disabilitare modifiche
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -42,7 +43,8 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   onDateChange,
   onVisibleRangeChange,
   isPrivateMode = false,
-  selectedDate: externalSelectedDate, // AGGIUNGI QUESTA RIGA
+  selectedDate: externalSelectedDate,
+  readOnly = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState(
     externalSelectedDate || new Date()
@@ -363,7 +365,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             onSlotClick={onSlotClick}
             onAppointmentClick={onAppointmentClick}
             onAppointmentMove={handleAppointmentMoveWithSync}
-            readOnly={false}
+            readOnly={readOnly}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
             onNavigate={handleTherapistNavigate}
@@ -421,7 +423,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               onSlotClick={onSlotClick}
               onAppointmentClick={onAppointmentClick}
               onAppointmentMove={handleAppointmentMoveWithSync}
-              readOnly={false}
+              readOnly={readOnly}
               currentView={currentFullCalendarView}
               onViewChange={handleViewChange}
               onNavigate={handleTherapistNavigate}

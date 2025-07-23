@@ -86,20 +86,7 @@ const Index = () => {
   const [selectedTreatment, setSelectedTreatment] =
     useState<SpecializationTreatment | null>(null);
 
-  // Reset selezioni quando cambia il terapista nella vista terapista
-  useEffect(() => {
-    if (isTherapistView && selectedTherapist) {
-      setSelectedTreatment(null);
-      setSelectedPatient(null);
-    }
-  }, [selectedTherapist, isTherapistView]);
-
-  // Reset paziente quando cambia il trattamento
-  useEffect(() => {
-    if (isTherapistView && selectedTreatment) {
-      setSelectedPatient(null);
-    }
-  }, [selectedTreatment, isTherapistView]);
+  // Vista terapista: non ci sono selezioni da gestire, solo visualizzazione
 
   const planId = patient?.planTherapy?.therapeuticPlanId;
   // Funzione per ricaricare gli appuntamenti per un mese specifico
@@ -108,24 +95,37 @@ const Index = () => {
     const year = date.getFullYear();
 
     try {
-      // Carica appuntamenti del paziente (normale o selezionato nella vista terapista)
-      const currentPatient = isTherapistView ? selectedPatient : patient;
-      if (currentPatient) {
-        const patientAppointments = await therapyAPI.getPatientAppointments(
-          currentPatient.id,
-          month,
-          year
-        );
-        setAppointments(patientAppointments);
-      }
+      if (isTherapistView) {
+        // Vista terapista: carica solo appuntamenti del terapista
+        if (selectedTherapist) {
+          const therapistAppointments =
+            await therapyAPI.getTherapistAppointments(
+              selectedTherapist.id,
+              month,
+              year
+            );
+          setTherapistAppointments(therapistAppointments);
+        }
+      } else {
+        // Vista paziente: carica appuntamenti del paziente e opzionalmente del terapista
+        if (patient) {
+          const patientAppointments = await therapyAPI.getPatientAppointments(
+            patient.id,
+            month,
+            year
+          );
+          setAppointments(patientAppointments);
+        }
 
-      if (selectedTherapist) {
-        const therapistAppointments = await therapyAPI.getTherapistAppointments(
-          selectedTherapist.id,
-          month,
-          year
-        );
-        setTherapistAppointments(therapistAppointments);
+        if (selectedTherapist) {
+          const therapistAppointments =
+            await therapyAPI.getTherapistAppointments(
+              selectedTherapist.id,
+              month,
+              year
+            );
+          setTherapistAppointments(therapistAppointments);
+        }
       }
     } catch (error) {
       console.error("Errore nel caricamento appuntamenti per il mese:", error);
@@ -171,44 +171,63 @@ const Index = () => {
       const allPatientAppointments: any[] = [];
       const allTherapistAppointments: any[] = [];
 
-      const currentPatient = isTherapistView ? selectedPatient : patient;
-
       for (const { month, year } of monthsToLoad) {
         console.log(`📅 Caricando appuntamenti per ${month}/${year}`);
 
-        if (currentPatient) {
-          const patientAppts = await therapyAPI.getPatientAppointments(
-            currentPatient.id,
-            month,
-            year
-          );
-          allPatientAppointments.push(...patientAppts);
-        }
+        if (isTherapistView) {
+          // Vista terapista: carica solo appuntamenti del terapista
+          if (selectedTherapist) {
+            const therapistAppts = await therapyAPI.getTherapistAppointments(
+              selectedTherapist.id,
+              month,
+              year
+            );
+            allTherapistAppointments.push(...therapistAppts);
+          }
+        } else {
+          // Vista paziente: carica appuntamenti del paziente e opzionalmente del terapista
+          if (patient) {
+            const patientAppts = await therapyAPI.getPatientAppointments(
+              patient.id,
+              month,
+              year
+            );
+            allPatientAppointments.push(...patientAppts);
+          }
 
-        if (selectedTherapist) {
-          const therapistAppts = await therapyAPI.getTherapistAppointments(
-            selectedTherapist.id,
-            month,
-            year
-          );
-          allTherapistAppointments.push(...therapistAppts);
+          if (selectedTherapist) {
+            const therapistAppts = await therapyAPI.getTherapistAppointments(
+              selectedTherapist.id,
+              month,
+              year
+            );
+            allTherapistAppointments.push(...therapistAppts);
+          }
         }
       }
 
       // Imposta tutti gli appuntamenti combinati
-      if (currentPatient) {
-        console.log(
-          "📅 Appuntamenti paziente totali:",
-          allPatientAppointments.map((a) => a.id)
-        );
-        setAppointments(allPatientAppointments);
-      }
-      if (selectedTherapist) {
+      if (isTherapistView && selectedTherapist) {
         console.log(
           "📅 Appuntamenti terapista totali:",
           allTherapistAppointments.map((a) => a.id)
         );
         setTherapistAppointments(allTherapistAppointments);
+      } else if (!isTherapistView) {
+        if (patient) {
+          console.log(
+            "📅 Appuntamenti paziente totali:",
+            allPatientAppointments.map((a) => a.id)
+          );
+          setAppointments(allPatientAppointments);
+        }
+        if (selectedTherapist) {
+          console.log(
+            "📅 Appuntamenti terapista totali:",
+            allTherapistAppointments.map((a) => a.id)
+          );
+          setTherapistAppointments(allTherapistAppointments);
+        }
       }
     } catch (error) {
       console.error(
@@ -325,7 +344,7 @@ const Index = () => {
                 now.getFullYear()
               );
 
-            setAppointments(therapistAppointments);
+            setTherapistAppointments(therapistAppointments);
           } catch (err) {
             console.error("Errore caricamento dati terapista:", err);
             setError(
@@ -418,50 +437,21 @@ const Index = () => {
     loadTherapistAppointments();
   }, [selectedTherapist, isTherapistView]);
 
-  // Ricarica appuntamenti quando cambia il paziente selezionato nella vista terapista
+  // Nella vista terapista non serve ricaricare in base al paziente selezionato
+  // Gli appuntamenti del terapista vengono caricati automaticamente
+
+  // Vista terapista: non serve impostare automaticamente treatmentType
+
+  // Verifica compatibilità piano terapeutico - solo per vista paziente
   useEffect(() => {
-    if (isTherapistView && selectedPatient) {
-      const now = new Date();
-      loadAppointmentsForMonth(now);
+    if (isTherapistView) {
+      // Vista terapista: nessuna verifica necessaria
+      return;
     }
-  }, [selectedPatient, isTherapistView]);
 
-  // Effetto per impostare automaticamente il treatmentType nella vista terapista
-  useEffect(() => {
-    const setTreatmentTypeForTherapist = async () => {
-      if (isTherapistView && selectedTherapist && !selectedTreatmentType) {
-        try {
-          // Carica tutti i tipi di trattamento
-          const treatmentTypes = await therapyAPI.getTreatmentTypes();
-
-          // Trova il tipo di trattamento che corrisponde alla specializzazione del terapista
-          const matchingTreatmentType = treatmentTypes.find(
-            (type) => type.name === selectedTherapist.specialization
-          );
-
-          if (matchingTreatmentType) {
-            setSelectedTreatmentType(matchingTreatmentType);
-            console.log(
-              "🎯 Impostato automaticamente treatmentType per terapista:",
-              matchingTreatmentType
-            );
-          }
-        } catch (error) {
-          console.error("Errore nel caricamento tipi di trattamento:", error);
-        }
-      }
-    };
-
-    setTreatmentTypeForTherapist();
-  }, [isTherapistView, selectedTherapist, selectedTreatmentType]);
-
-  // Verifica compatibilità piano terapeutico quando cambiano paziente e terapista
-  useEffect(() => {
     const checkCompatibility = async () => {
-      const currentPatient = isTherapistView ? selectedPatient : patient;
-
-      if (currentPatient && selectedTherapist) {
-        await checkPlanTherapyCompatibility(currentPatient, selectedTherapist);
+      if (patient && selectedTherapist) {
+        await checkPlanTherapyCompatibility(patient, selectedTherapist);
       } else {
         // Reset quando non ci sono entrambi selezionati
         setCanCreateNormalAppointments(true);
@@ -471,7 +461,7 @@ const Index = () => {
     };
 
     checkCompatibility();
-  }, [selectedPatient, patient, selectedTherapist, isTherapistView]);
+  }, [patient, selectedTherapist, isTherapistView]);
 
   useEffect(() => {
     const storageKey = `calendar_view_${
@@ -482,23 +472,8 @@ const Index = () => {
 
   const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
-      // Vista terapista: mostra sempre gli appuntamenti del terapista
-      // Se c'è un paziente selezionato, combina con i suoi appuntamenti
-      const combined = [...therapistAppointments];
-
-      if (selectedPatient) {
-        // Aggiungi gli appuntamenti del paziente selezionato che non sono duplicati
-        appointments.forEach((patientApt) => {
-          const isDuplicate = therapistAppointments.some(
-            (therapistApt) => therapistApt.id === patientApt.id
-          );
-          if (!isDuplicate) {
-            combined.push(patientApt);
-          }
-        });
-      }
-
-      return combined;
+      // Vista terapista: mostra solo gli appuntamenti del terapista
+      return [...therapistAppointments];
     } else {
       if (!selectedTherapist) {
         return appointments;
@@ -522,9 +497,10 @@ const Index = () => {
     therapistAppointments,
     isTherapistView,
     selectedTherapist,
-    selectedPatient,
-    refreshKey, // AGGIUNGI QUESTA RIGA
+    refreshKey,
   ]);
+
+  console.log("this is the selected treatment", selectedTreatment);
 
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
@@ -584,7 +560,7 @@ const Index = () => {
       } else {
         const request = {
           planTherapyId: isTherapistView
-            ? selectedTreatment?.specialization_id
+            ? selectedTreatment?.id
             : selectedSpecialization?.id,
           therapistId: selectedTherapist.id,
           appointmentDateTime,
@@ -758,21 +734,20 @@ const Index = () => {
   };
 
   const handleSlotClick = (date: Date, time: string) => {
-    setSelectedSlot({ date, time });
-
-    // Nella vista terapista, dobbiamo prima verificare che sia selezionato un paziente
-    if (isTherapistView && !selectedPatient) {
-      showError(
-        "Paziente non selezionato",
-        "Seleziona prima un paziente per creare un appuntamento"
+    // Nella vista terapista, non è possibile creare appuntamenti - solo visualizzazione
+    if (isTherapistView) {
+      showInfo(
+        "Modalità Visualizzazione",
+        "In questa vista puoi solo consultare gli appuntamenti esistenti. La creazione di nuovi appuntamenti non è disponibile."
       );
       return;
     }
 
+    setSelectedSlot({ date, time });
+
     if (isPrivateMode) {
-      // Nella vista terapista, il treatmentType è automaticamente quello del terapista
       // Nella vista normale, deve essere selezionato dal TherapistSelector
-      if (!isTherapistView && !selectedTreatmentType) {
+      if (!selectedTreatmentType) {
         showError(
           "Tipo di trattamento mancante",
           "Seleziona prima un tipo di trattamento per creare un appuntamento privato"
@@ -1057,9 +1032,8 @@ const Index = () => {
               ) : null}
             </div>
 
-            {/* Private Mode Toggle - Mostra quando c'è un paziente disponibile */}
-            {((isTherapistView && selectedPatient) ||
-              (!isTherapistView && patient)) && (
+            {/* Private Mode Toggle - Solo per vista paziente */}
+            {!isTherapistView && patient && (
               <div className="flex flex-col items-end space-y-2">
                 <div className="flex items-center space-x-3">
                   <Label
@@ -1120,35 +1094,22 @@ const Index = () => {
           </div>
         )}
 
-        {/* Mostra il selettore paziente solo nella vista terapista */}
+        {/* Vista terapista: solo visualizzazione, nessun selettore */}
         {isTherapistView && (
-          <div className="space-y-6 mb-8">
-            {/* Selettore trattamento specializzato - DEVE essere selezionato prima del paziente */}
-            <SpecializationTreatmentSelector
-              therapistId={selectedTherapist?.id || null}
-              selectedTreatment={selectedTreatment}
-              onTreatmentSelect={setSelectedTreatment}
-            />
-
-            {/* Selettore paziente - abilitato solo se è stato selezionato un trattamento */}
-            {selectedTreatment ? (
-              <PatientSelector
-                selectedPatient={selectedPatient}
-                onPatientSelect={setSelectedPatient}
-              />
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <div className="text-center text-gray-500">
-                  <p className="font-medium">
-                    Seleziona prima un trattamento specializzato
-                  </p>
-                  <p className="text-sm mt-1">
-                    È necessario scegliere il tipo di trattamento prima di poter
-                    selezionare un paziente
-                  </p>
-                </div>
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="text-blue-600">👁️</div>
+              <div>
+                <p className="font-medium text-blue-900">
+                  Modalità Visualizzazione
+                </p>
+                <p className="text-sm text-blue-700">
+                  In questa vista puoi visualizzare e consultare gli
+                  appuntamenti del terapista. Clicca su un appuntamento per
+                  vederne i dettagli.
+                </p>
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -1158,16 +1119,19 @@ const Index = () => {
           appointments={combinedAppointments}
           onSlotClick={handleSlotClick}
           onAppointmentClick={handleAppointmentClick}
-          onAppointmentMove={handleAppointmentMove}
+          onAppointmentMove={
+            isTherapistView ? undefined : handleAppointmentMove
+          } // Disabilita spostamento in vista terapista
           viewType={viewType}
           onViewTypeChange={setViewType}
-          hidePatientCalendar={isTherapistView && !selectedPatient}
+          hidePatientCalendar={isTherapistView} // Nasconde sempre il calendario paziente in vista terapista
           mode={isTherapistView ? "therapist" : "patient"}
-          currentPatientId={isTherapistView ? selectedPatient?.id : patient?.id}
+          currentPatientId={isTherapistView ? undefined : patient?.id} // Nessun paziente corrente in vista terapista
           onDateChange={handleDateChange}
           onVisibleRangeChange={handleVisibleRangeChange}
-          isPrivateMode={isPrivateMode}
-          selectedDate={currentCalendarDate} // AGGIUNGI QUESTA RIGA
+          isPrivateMode={false} // Sempre false in vista terapista
+          selectedDate={currentCalendarDate}
+          readOnly={isTherapistView} // Disabilita tutte le modifiche in vista terapista
         />
 
         <AppointmentModal
