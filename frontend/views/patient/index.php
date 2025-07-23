@@ -113,13 +113,13 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                                 ]);
                             },
                         ],
-                        [
-                            'attribute' => 'id',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[80px]'],
-                            'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
-                            'filterOptions' => ['class' => 'px-2 py-2'],
-                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'ID...'],
-                        ],
+                        // [
+                        //     'attribute' => 'id',
+                        //     'headerOptions' => ['class' => 'px-6 py-3 min-w-[80px]'],
+                        //     'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
+                        //     'filterOptions' => ['class' => 'px-2 py-2'],
+                        //     'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'ID...'],
+                        // ],
                         [
                             'attribute' => 'first_name',
                             'label' => 'Nome',
@@ -180,24 +180,24 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                                 return $model->district ? $model->district->name : '-';
                             }
                         ],
-                        [
-                            'attribute' => 'notes',
-                            'label' => 'Note',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
-                            'contentOptions' => ['class' => 'px-6 py-4 max-w-xs truncate'],
-                            'filter' => false, // No filter for notes
-                            'value' => function($model) {
-                                return $model->notes ? (strlen($model->notes) > 50 ? substr($model->notes, 0, 50) . '...' : $model->notes) : '-';
-                            },
-                        ],
-                        [
-                            'attribute' => 'created_at',
-                            'label' => 'Creato il',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[130px]'],
-                            'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-xs text-gray-500'],
-                            'filter' => false, // No filter for created date
-                            'format' => ['date', 'php:d/m/Y'],
-                        ],
+                        // [
+                        //     'attribute' => 'notes',
+                        //     'label' => 'Note',
+                        //     'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
+                        //     'contentOptions' => ['class' => 'px-6 py-4 max-w-xs truncate'],
+                        //     'filter' => false, // No filter for notes
+                        //     'value' => function($model) {
+                        //         return $model->notes ? (strlen($model->notes) > 50 ? substr($model->notes, 0, 50) . '...' : $model->notes) : '-';
+                        //     },
+                        // ],
+                        // [
+                        //     'attribute' => 'created_at',
+                        //     'label' => 'Creato il',
+                        //     'headerOptions' => ['class' => 'px-6 py-3 min-w-[130px]'],
+                        //     'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-xs text-gray-500'],
+                        //     'filter' => false, // No filter for created date
+                        //     'format' => ['date', 'php:d/m/Y'],
+                        // ],
                         [
                             'class' => 'yii\grid\ActionColumn',
                             'header' => 'Azioni',
