@@ -12,7 +12,32 @@ use yii\widgets\ActiveForm;
 /* @var $treatmentTypes array */
 /* @var $settings array */
 /* @var $postedTherapies array */
+
+// Aggiungi CSS per gli errori
+$this->registerCss("
+    .has-error .help-block {
+        color: #dc2626 !important;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    .has-error .form-control,
+    .has-error select,
+    .has-error input {
+        border-color: #dc2626 !important;
+    }
+    .dark .has-error .help-block {
+        color: #f87171 !important;
+    }
+    .dark .has-error .form-control,
+    .dark .has-error select,
+    .dark .has-error input {
+        border-color: #dc2626 !important;
+    }
+");
 ?>
+
+
+
 
 <div class="therapeutic-plan-form">
 
@@ -87,8 +112,14 @@ use yii\widgets\ActiveForm;
                         [
                             'prompt' => 'Seleziona un regime...',
                             'class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200',
+                            'id' => 'regime-select',
                         ]
                     )->label('Regime <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                    <?php if ($model->hasErrors('regime_id')): ?>
+                        <div class="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <p class="text-sm text-red-700 dark:text-red-300"><?= Html::encode($model->getFirstError('regime_id')) ?></p>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -123,6 +154,26 @@ use yii\widgets\ActiveForm;
                     'class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 resize-none',
                     'placeholder' => 'Inserisci eventuali note aggiuntive per il piano terapeutico...',
                 ])->label('Note') ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avviso ABA -->
+    <div id="aba-notice" class="rounded-2xl border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-4 hidden">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Regime ABA selezionato</h3>
+                <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>È obbligatorio inserire ore di <strong>SUPERVISIONE</strong> e <strong>PARENT TRAINING</strong></li>
+                        <li>Le ore inserite saranno considerate come ore <strong>mensili</strong></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -179,10 +230,10 @@ use yii\widgets\ActiveForm;
                             </select>
                         </div>
                         
-                        <!-- Ore Settimanali -->
+                        <!-- Ore Settimanali/Mensili -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Ore Settimanali <span class="text-red-500">*</span>
+                                <span class="hours-label">Ore Settimanali</span> <span class="text-red-500">*</span>
                             </label>
                             <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" min="0.5" max="50" step="0.5" required>
                         </div>
@@ -225,37 +276,77 @@ use yii\widgets\ActiveForm;
             <?php
             // Aggiungi script per inizializzare le terapie esistenti
             $this->registerJs("
-                // Debug flag
-                const DEBUG = true;
+                // Store per i tipi di trattamento selezionati
+                let selectedTreatmentTypes = new Set();
                 
-                function log(message, data = null) {
-                    if (DEBUG) {
-                        console.log(message, data || '');
+                // Funzione per aggiornare le opzioni disponibili nei select dei tipi di trattamento
+                function updateAvailableTreatmentTypes() {
+                    const allSelects = document.querySelectorAll('.treatment-type');
+                    
+                    allSelects.forEach(select => {
+                        const currentValue = select.value;
+                        const options = select.querySelectorAll('option');
+                        
+                        options.forEach(option => {
+                            if (option.value && option.value !== currentValue) {
+                                if (selectedTreatmentTypes.has(option.value)) {
+                                    option.style.display = 'none';
+                                    option.disabled = true;
+                                } else {
+                                    option.style.display = '';
+                                    option.disabled = false;
+                                }
+                            }
+                        });
+                    });
+                }
+
+                // Funzione per ricostruire il set dei tipi di trattamento selezionati
+                function rebuildSelectedTreatmentTypes() {
+                    selectedTreatmentTypes.clear();
+                    document.querySelectorAll('.treatment-type').forEach(select => {
+                        if (select.value) {
+                            selectedTreatmentTypes.add(select.value);
+                        }
+                    });
+                    updateAvailableTreatmentTypes();
+                }
+
+                // Funzione per aggiornare le label delle ore
+                function updateHoursLabels() {
+                    const regimeSelect = document.getElementById('regime-select');
+                    if (!regimeSelect || !regimeSelect.value) return;
+                    
+                    const selectedOption = regimeSelect.options[regimeSelect.selectedIndex];
+                    const regimeText = selectedOption ? selectedOption.text : '';
+                    const isABA = regimeText.toUpperCase().includes('ABA');
+                    
+                    document.querySelectorAll('.hours-label').forEach(label => {
+                        label.textContent = isABA ? 'Ore Mensili' : 'Ore Settimanali';
+                    });
+                    
+                    const abaNotice = document.getElementById('aba-notice');
+                    if (isABA) {
+                        abaNotice.classList.remove('hidden');
+                    } else {
+                        abaNotice.classList.add('hidden');
                     }
                 }
 
                 // Funzione per aggiungere una terapia con dati
                 function addTherapyWithData(data) {
-                    log('Aggiunta terapia con dati:', data);
-                    
                     const container = document.getElementById('therapies-container');
                     const template = document.getElementById('therapy-template');
                     const clone = template.content.cloneNode(true);
                     const index = container.children.length;
                     
-                    log('Indice nuova terapia:', index);
-                    
-                    // Aggiorna numero terapia
                     clone.querySelector('.therapy-number').textContent = index + 1;
                     
-                    // Aggiorna gli attributi name con l'indice corretto
                     clone.querySelectorAll('[name*=\"{index}\"]').forEach(el => {
                         const newName = el.name.replace('{index}', index);
-                        log('Aggiornamento nome campo:', { old: el.name, new: newName });
                         el.name = newName;
                     });
                     
-                    // Imposta i valori se presenti
                     if (data) {
                         const treatmentTypeSelect = clone.querySelector('.treatment-type');
                         const weeklyHoursInput = clone.querySelector('.weekly-hours');
@@ -265,67 +356,72 @@ use yii\widgets\ActiveForm;
                         
                         if (treatmentTypeSelect && data.treatment_type_id) {
                             treatmentTypeSelect.value = data.treatment_type_id;
-                            log('Impostato tipo trattamento:', data.treatment_type_id);
                         }
                         
                         if (weeklyHoursInput && data.weekly_hours) {
                             weeklyHoursInput.value = data.weekly_hours;
-                            log('Impostate ore settimanali:', data.weekly_hours);
                         }
                         
                         if (settingSelect && data.setting_id) {
                             settingSelect.value = data.setting_id;
-                            log('Impostato setting:', data.setting_id);
                         }
                         
                         if (isGroupCheckbox && data.is_group !== undefined) {
-                            // Gestione checkbox per is_group
                             isGroupCheckbox.checked = data.is_group == 1 || data.is_group === true || data.is_group === 'true';
-                            log('Impostato is_group:', data.is_group);
                         }
                         
                         if (notesTextarea && data.notes) {
                             notesTextarea.value = data.notes;
-                            log('Impostate note:', data.notes);
                         }
                     }
                     
-                    // Aggiungi evento per rimuovere la terapia
+                    const treatmentTypeSelect = clone.querySelector('.treatment-type');
+                    if (treatmentTypeSelect) {
+                        treatmentTypeSelect.addEventListener('change', function() {
+                            rebuildSelectedTreatmentTypes();
+                        });
+                    }
+                    
                     const removeButton = clone.querySelector('.remove-therapy');
                     if (removeButton) {
                         removeButton.addEventListener('click', function() {
-                            log('Rimozione terapia');
                             this.closest('.therapy-item').remove();
-                            // Aggiorna i numeri delle terapie
                             document.querySelectorAll('.therapy-number').forEach((el, i) => {
                                 el.textContent = i + 1;
                             });
                             updateTherapyIndexes();
+                            rebuildSelectedTreatmentTypes();
                         });
                     }
                     
                     container.appendChild(clone);
-                    log('Terapia aggiunta al container');
+                    updateHoursLabels();
+                    rebuildSelectedTreatmentTypes();
                 }
 
                 // Funzione per aggiornare gli indici delle terapie
                 function updateTherapyIndexes() {
-                    log('Aggiornamento indici terapie');
                     const container = document.getElementById('therapies-container');
                     const items = container.querySelectorAll('.therapy-item');
                     
                     items.forEach((item, index) => {
                         item.querySelectorAll('[name*=\"PlanTherapy[\"]').forEach(el => {
                             const newName = el.name.replace(/PlanTherapy\[\d+\]/, `PlanTherapy[\${index}]`);
-                            log('Aggiornamento nome campo:', { old: el.name, new: newName });
                             el.name = newName;
                         });
                     });
                 }
 
+                // Gestione cambio regime
+                document.getElementById('regime-select').addEventListener('change', function() {
+                    updateHoursLabels();
+                });
+
+                // Inizializza il regime corrente se già selezionato
+                updateHoursLabels();
+
                 // Inizializza le terapie esistenti
                 const postedTherapies = " . json_encode($postedTherapies ?? []) . ";
-                log('Terapie da inizializzare:', postedTherapies);
                 
                 if (postedTherapies && postedTherapies.length > 0) {
                     postedTherapies.forEach(therapy => addTherapyWithData(therapy));
@@ -333,20 +429,16 @@ use yii\widgets\ActiveForm;
 
                 // Evento per aggiungere nuova terapia
                 document.getElementById('add-therapy').addEventListener('click', function() {
-                    log('Click su aggiungi terapia');
                     addTherapyWithData();
                 });
 
                 // Aggiungi almeno una terapia se non ce ne sono
                 if (document.getElementById('therapies-container').children.length === 0) {
-                    log('Nessuna terapia presente, ne aggiungo una vuota');
                     addTherapyWithData();
                 }
 
-                // Aggiungi validazione al form
+                // Validazione base al submit del form
                 document.getElementById('therapeutic-plan-form').addEventListener('submit', function(e) {
-                    log('Submit del form');
-                    
                     const container = document.getElementById('therapies-container');
                     const therapies = container.querySelectorAll('.therapy-item');
                     
@@ -357,38 +449,22 @@ use yii\widgets\ActiveForm;
                     }
                     
                     let isValid = true;
-                    const treatmentTypes = new Set();
                     
                     therapies.forEach((therapy, index) => {
                         const treatmentType = therapy.querySelector('.treatment-type').value;
                         const weeklyHours = therapy.querySelector('.weekly-hours').value;
                         const setting = therapy.querySelector('.setting').value;
                         
-                        log('Validazione terapia ' + (index + 1), {
-                            treatmentType,
-                            weeklyHours,
-                            setting
-                        });
-                        
                         if (!treatmentType || !weeklyHours || !setting) {
                             isValid = false;
                             alert('Tutti i campi della terapia ' + (index + 1) + ' sono obbligatori.');
                         }
-                        
-                        if (treatmentType && treatmentTypes.has(treatmentType)) {
-                            isValid = false;
-                            alert('Non è possibile assegnare lo stesso tipo di trattamento più volte.');
-                        }
-                        
-                        treatmentTypes.add(treatmentType);
                     });
                     
                     if (!isValid) {
                         e.preventDefault();
                         return false;
                     }
-                    
-                    log('Form valido, procedo con il submit');
                     
                     // Disable submit button to prevent double submission
                     const submitBtn = document.getElementById('submit-btn');
@@ -613,7 +689,7 @@ $this->registerJs("
             $('#patient-error').addClass('hidden');
         }
         
-        if (!$('#therapeuticplan-regime_id').val()) {
+        if (!$('#regime-select').val()) {
             errors.push('Seleziona un regime');
             isValid = false;
         }
@@ -635,20 +711,6 @@ $this->registerJs("
             errors.push('Aggiungi almeno una terapia');
             isValid = false;
         }
-        
-        // Check for duplicate treatment types
-        var treatmentTypes = [];
-        $('.treatment-type').each(function() {
-            var type = $(this).val();
-            if (type && treatmentTypes.includes(type)) {
-                errors.push('Non puoi assegnare lo stesso tipo di trattamento più volte');
-                isValid = false;
-                return false;
-            }
-            if (type) {
-                treatmentTypes.push(type);
-            }
-        });
         
         if (!isValid) {
             alert('Errori di validazione:\\n\\n' + errors.join('\\n'));

@@ -515,8 +515,6 @@ const Index = () => {
     refreshKey,
   ]);
 
-  console.log("this is the selected treatment", selectedTreatment);
-
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
 

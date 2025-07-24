@@ -168,30 +168,33 @@ class TherapeuticPlanController extends BaseController
         $model = new TherapeuticPlan();
         $model->created_by = Yii::$app->user->id;
         $therapyModel = new \common\models\PlanTherapy();
-
+    
         if ($this->request->isPost) {
             Yii::info('Inizio processo di creazione piano terapeutico', __METHOD__);
-
+    
             // Carica i dati del form
             if ($model->load($this->request->post())) {
                 Yii::info('Dati del modello caricati: ' . json_encode($model->attributes), __METHOD__);
             } else {
                 Yii::error('Errore nel caricamento dei dati del modello', __METHOD__);
             }
-
+    
             // Valida le terapie
             $therapies = Yii::$app->request->post('PlanTherapy', []);
             Yii::info('Terapie ricevute: ' . json_encode($therapies), __METHOD__);
-
+    
+            // Passa le terapie al modello per la validazione ABA
+            $model->setTherapiesForValidation($therapies);
+    
             $isValid = true;
             $error = null;
-
+    
             try {
                 if (empty($therapies)) {
                     Yii::error('Nessuna terapia ricevuta', __METHOD__);
                     throw new \Exception('È necessario inserire almeno una terapia.');
                 }
-
+    
                 // Verifica duplicati
                 $treatmentTypes = [];
                 foreach ($therapies as $therapy) {
@@ -203,20 +206,20 @@ class TherapeuticPlanController extends BaseController
                         $treatmentTypes[] = $therapy['treatment_type_id'];
                     }
                 }
-
-                // Se il modello principale è valido, procedi con il salvataggio
+    
+                // Se il modello principale è valido (include validazione ABA), procedi con il salvataggio
                 if ($model->validate()) {
                     Yii::info('Validazione modello principale superata', __METHOD__);
-
+    
                     $transaction = Yii::$app->db->beginTransaction();
                     try {
-                        if (!$model->save()) {
+                        if (!$model->save(false)) { // false per skip validation dato che l'abbiamo già fatta
                             Yii::error('Errore nel salvataggio del modello principale: ' . json_encode($model->errors), __METHOD__);
                             throw new \Exception('Errore nel salvataggio del piano terapeutico: ' . json_encode($model->errors));
                         }
-
+    
                         Yii::info('Modello principale salvato con ID: ' . $model->id, __METHOD__);
-
+    
                         // Salva le terapie
                         foreach ($therapies as $therapy) {
                             if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
@@ -227,36 +230,40 @@ class TherapeuticPlanController extends BaseController
                                 $newTherapy->is_group = !empty($therapy['is_group']);
                                 $newTherapy->setting_id = $therapy['setting_id'];
                                 $newTherapy->notes = $therapy['notes'] ?? null;
-
+    
                                 if (!$newTherapy->save()) {
                                     Yii::error('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors), __METHOD__);
                                     throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
                                 }
-
+    
                                 Yii::info('Terapia salvata con successo: ' . json_encode($newTherapy->attributes), __METHOD__);
                             }
                         }
-
+    
                         // Crea notifica per i manager
                         try {
                             $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
                             $patient = $model->patient;
                             $patientName = $patient->first_name . ' ' . $patient->last_name;
-
+    
                             $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
                             $htmlMessage .= "Paziente: {$patientName}<br>";
                             $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
                             $htmlMessage .= "Regime: {$model->regime->nome}<br>";
                             $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
                             $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
-
+    
                             // Aggiungi dettagli terapie alla notifica
                             $htmlMessage .= "<br><b>Terapie assegnate:</b><br>";
+                            
+                            // Indica se è ABA e quindi le ore sono mensili
+                            $hoursLabel = $model->isABARegime() ? 'ore/mese' : 'ore/settimana';
+                            
                             foreach ($therapies as $therapy) {
                                 if (!empty($therapy['treatment_type_id'])) {
                                     $treatmentType = \common\models\TreatmentType::findOne($therapy['treatment_type_id']);
                                     $setting = \common\models\Setting::findOne($therapy['setting_id']);
-                                    $htmlMessage .= "- {$treatmentType->name}: {$therapy['weekly_hours']} ore/settimana";
+                                    $htmlMessage .= "- {$treatmentType->name}: {$therapy['weekly_hours']} {$hoursLabel}";
                                     $htmlMessage .= " ({$setting->nome})";
                                     if (!empty($therapy['is_group'])) {
                                         $htmlMessage .= " [Gruppo]";
@@ -264,8 +271,7 @@ class TherapeuticPlanController extends BaseController
                                     $htmlMessage .= "<br>";
                                 }
                             }
-
-
+    
                             NotificationHelper::sendToManagers(
                                 'Nuovo piano terapeutico',
                                 $htmlMessage,
@@ -273,15 +279,13 @@ class TherapeuticPlanController extends BaseController
                                 [],
                                 true // skipPush
                             );
-
-
-
+    
                             Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
                         } catch (\Exception $e) {
                             Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
                             // Non blocchiamo il salvataggio se la notifica fallisce
                         }
-
+    
                         $transaction->commit();
                         Yii::info('Transazione completata con successo', __METHOD__);
                         Yii::$app->session->setFlash('success', 'Piano terapeutico creato con successo.');
@@ -301,15 +305,15 @@ class TherapeuticPlanController extends BaseController
                 $error = $e->getMessage();
                 $isValid = false;
             }
-
+    
             if (!$isValid) {
                 if ($error) {
                     Yii::$app->session->setFlash('error', $error);
                 }
-
+    
                 Yii::info('Rendering del form con errori. Model errors: ' . json_encode($model->errors), __METHOD__);
                 Yii::info('Terapie da ripopolare: ' . json_encode($therapies), __METHOD__);
-
+    
                 // Ricarica i dati per il form in caso di errore
                 return $this->render('create', [
                     'model' => $model,
@@ -324,7 +328,7 @@ class TherapeuticPlanController extends BaseController
         } else {
             $model->loadDefaultValues();
         }
-
+    
         return $this->render('create', [
             'model' => $model,
             'therapyModel' => $therapyModel,

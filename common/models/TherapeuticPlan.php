@@ -28,6 +28,10 @@ use yii\helpers\ArrayHelper;
  */
 class TherapeuticPlan extends ActiveRecord
 {
+    /**
+     * @var array temporary storage for therapies during validation
+     */
+    private $_therapies = [];
 
     /**
      * {@inheritdoc}
@@ -73,7 +77,87 @@ class TherapeuticPlan extends ActiveRecord
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            // Custom validation for ABA requirements
+            ['regime_id', 'validateABARequirements'],
         ];
+    }
+
+    /**
+     * Validates ABA regime requirements
+     * @param string $attribute
+     * @param array $params
+     */
+    public function validateABARequirements($attribute, $params)
+    {
+        // Only validate if regime is set and it's ABA
+        if (!$this->regime_id) {
+            return;
+        }
+
+        $regime = Regime::findOne($this->regime_id);
+        if (!$regime || stripos($regime->nome, 'ABA') === false) {
+            return; // Not ABA regime, no special validation needed
+        }
+
+        // Check if therapies are set (for validation during save)
+        $therapies = $this->_therapies;
+        
+        // If we're updating, also check existing therapies
+        if (!$this->isNewRecord && empty($therapies)) {
+            $therapies = [];
+            foreach ($this->planTherapies as $therapy) {
+                $therapies[] = [
+                    'treatment_type_id' => $therapy->treatment_type_id,
+                    'weekly_hours' => $therapy->weekly_hours,
+                ];
+            }
+        }
+
+        if (empty($therapies)) {
+            $this->addError($attribute, 'Per il regime ABA è necessario definire le terapie.');
+            return;
+        }
+
+        $hasSupervision = false;
+        $hasParentTraining = false;
+
+        foreach ($therapies as $therapy) {
+            if (empty($therapy['treatment_type_id'])) {
+                continue;
+            }
+
+            $treatmentType = TreatmentType::findOne($therapy['treatment_type_id']);
+            if (!$treatmentType) {
+                continue;
+            }
+
+            $treatmentName = strtoupper($treatmentType->name);
+            
+            if (strpos($treatmentName, 'SUPERVIS') !== false) {
+                $hasSupervision = true;
+            }
+            
+            if (strpos($treatmentName, 'PARENT') !== false || strpos($treatmentName, 'TRAINING') !== false) {
+                $hasParentTraining = true;
+            }
+        }
+
+        if (!$hasSupervision) {
+            $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire ore di SUPERVISIONE.');
+        }
+
+        if (!$hasParentTraining) {
+            $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire ore di PARENT TRAINING.');
+        }
+    }
+
+    /**
+     * Sets therapies for validation
+     * @param array $therapies
+     */
+    public function setTherapiesForValidation($therapies)
+    {
+        $this->_therapies = $therapies;
     }
 
     /**
@@ -93,6 +177,19 @@ class TherapeuticPlan extends ActiveRecord
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];
+    }
+
+    /**
+     * Check if this plan is ABA regime
+     * @return bool
+     */
+    public function isABARegime()
+    {
+        if (!$this->regime) {
+            return false;
+        }
+        
+        return stripos($this->regime->nome, 'ABA') !== false;
     }
 
     /**
@@ -214,6 +311,7 @@ class TherapeuticPlan extends ActiveRecord
 
     /**
      * Gets total weekly hours from all therapies
+     * For ABA regime, returns monthly hours
      *
      * @return float
      */
@@ -293,4 +391,4 @@ class TherapeuticPlan extends ActiveRecord
     {
         return new TherapeuticPlanQuery(get_called_class());
     }
-} 
+}
