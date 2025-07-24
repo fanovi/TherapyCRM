@@ -44,3 +44,5 @@ phpunit.phar
 /api/runtime
 /common/keys/private.key
 /common/keys/public.key
+
+/.vscode
