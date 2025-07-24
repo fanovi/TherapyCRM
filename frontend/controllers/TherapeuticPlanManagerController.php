@@ -3657,6 +3657,22 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
 
+            // Verifica limite ore per tipologia trattamento TEST ABA
+            $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                Appointment::SOURCE_THERAPEUTIC_PLAN,
+                $data['planTherapyId'],
+                $data['appointmentDateTime'],
+                $data['durationMinutes']
+            );
+
+            if ($hoursLimitCheck) {
+                return [
+                    'success' => false,
+                    'error' => $hoursLimitCheck['message'],
+                    'code' => $hoursLimitCheck['code']
+                ];
+            }
+
             $treatmentTypeId = $data['treatmentTypeId'];
 
             // Mappa treatmentTypeId → appointmentType
@@ -3744,6 +3760,161 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error("Errore creazione appuntamento ABA: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Ottiene le ore assegnate per un piano terapeutico
+     * 
+     * @return array
+     */
+    public function actionGetPlanTherapyUsedHours()
+    {
+        $therapyId = Yii::$app->request->get('therapyId');
+        $startDate = Yii::$app->request->get('start_date');
+        $patientId = Yii::$app->request->get('patient_id', null);
+
+        // Validazione parametri
+        if (!$therapyId || !$startDate) {
+            return [
+                'error' => true,
+                'message' => 'Parametri mancanti: therapyId e start_date sono obbligatori'
+            ];
+        }
+
+        // Determina se è privato (quando c'è patient_id)
+        $isPrivate = !is_null($patientId);
+
+        // Se privato, valida che il paziente esista
+        if ($isPrivate) {
+            $patient = Patient::findOne($patientId);
+            if (!$patient) {
+                return [
+                    'error' => true,
+                    'message' => 'Paziente non trovato'
+                ];
+            }
+        }
+
+        // Inizializza date
+        $periodoInizio = new \DateTime($startDate);
+
+        if ($isPrivate) {
+            // PRIVATI: sempre conteggio settimanale, nessun limite
+            // Aggiusta automaticamente al lunedì della settimana
+            $periodoInizio->modify('monday this week')->setTime(0, 0, 0);
+            $periodoFine = clone $periodoInizio;
+            $periodoFine->modify('+6 days')->setTime(23, 59, 59);
+            $tipoPeriodo = 'settimanale';
+
+            // Verifica che il tipo di trattamento esista
+            $treatmentType = TreatmentType::findOne($therapyId);
+            if (!$treatmentType) {
+                return [
+                    'error' => true,
+                    'message' => 'Tipo di trattamento non trovato'
+                ];
+            }
+
+            // Query per appuntamenti privati
+            $query = Appointment::find()
+                ->where(['treatment_type_id' => $therapyId])
+                ->andWhere(['patient_id' => $patientId])
+                ->andWhere(['source' => Appointment::SOURCE_PRIVATE]);
+
+            $treatmentName = $treatmentType->name;
+            $oreLimite = null; // Privati sono illimitati
+
+        } else {
+            // PIANO TERAPEUTICO: recupera info e determina periodo
+            $planTherapy = PlanTherapy::find()
+                ->where(['id' => $therapyId])
+                ->with(['therapeuticPlan.regime', 'treatmentType'])
+                ->one();
+
+            if (!$planTherapy) {
+                return [
+                    'error' => true,
+                    'message' => 'Piano terapia non trovato'
+                ];
+            }
+
+            if (!$planTherapy->therapeuticPlan || !$planTherapy->therapeuticPlan->regime) {
+                return [
+                    'error' => true,
+                    'message' => 'Piano terapeutico o regime non trovato'
+                ];
+            }
+
+            $regime = $planTherapy->therapeuticPlan->regime;
+
+            if ($regime->conteggio_ore === Regime::CONTEGGIO_ORE_WEEKLY) {
+                // Aggiusta al lunedì della settimana
+                $periodoInizio->modify('monday this week')->setTime(0, 0, 0);
+                $periodoFine = clone $periodoInizio;
+                $periodoFine->modify('+6 days')->setTime(23, 59, 59);
+                $tipoPeriodo = 'settimanale';
+            } else { // monthly
+                // Aggiusta al primo del mese
+                $periodoInizio->modify('first day of this month')->setTime(0, 0, 0);
+                $periodoFine = clone $periodoInizio;
+                $periodoFine->modify('last day of this month')->setTime(23, 59, 59);
+                $tipoPeriodo = 'mensile';
+            }
+
+            // Query per piano terapeutico
+            $query = Appointment::find()
+                ->where(['plan_therapy_id' => $therapyId]);
+
+            $treatmentName = $planTherapy->treatmentType->name;
+            $oreLimite = $planTherapy->weekly_hours;
+        }
+
+        // Completa la query comune
+        $minutiAssegnati = $query
+            ->andWhere([
+                'between',
+                'appointment_datetime',
+                $periodoInizio->format('Y-m-d H:i:s'),
+                $periodoFine->format('Y-m-d H:i:s')
+            ])
+            ->andWhere(['not in', 'status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_THERAPIST_ABSENT
+            ]])
+            ->sum('duration_minutes') ?: 0;
+
+        // Prepara la risposta
+        $oreAssegnate = $minutiAssegnati / 60;
+
+        $response = [
+            'success' => true,
+            'data' => [
+                'is_private' => $isPrivate,
+                'treatment_type' => $treatmentName,
+                'periodo_tipo' => $tipoPeriodo,
+                'periodo_inizio' => $periodoInizio->format('Y-m-d'),
+                'periodo_fine' => $periodoFine->format('Y-m-d'),
+                'ore_assegnate' => round($oreAssegnate, 2),
+                'minuti_assegnati' => $minutiAssegnati
+            ]
+        ];
+
+        // Aggiungi info limite solo se non privato (piano terapeutico)
+        if (!$isPrivate) {
+            $oreRimanenti = $oreLimite - $oreAssegnate;
+            $response['data']['ore_limite'] = $oreLimite;
+            $response['data']['ore_rimanenti'] = round($oreRimanenti, 2);
+            $response['data']['minuti_limite'] = $oreLimite * 60;
+            $response['data']['minuti_rimanenti'] = ($oreLimite * 60) - $minutiAssegnati;
+            $response['data']['plan_therapy_id'] = $therapyId;
+        } else {
+            // Info specifiche per privati
+            $response['data']['patient_id'] = $patientId;
+            $response['data']['treatment_type_id'] = $therapyId;
+            $response['data']['ore_limite'] = 'illimitato';
+        }
+
+        return $response;
     }
 
     /**
