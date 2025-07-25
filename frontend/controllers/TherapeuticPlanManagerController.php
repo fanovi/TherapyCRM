@@ -460,6 +460,103 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Aggiorna la nota di un appuntamento
+     * 
+     * @return array
+     */
+    public function actionSetAppointmentNote()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        try {
+
+            $appointmentId = Yii::$app->request->get('appointmentId');
+            $note = Yii::$app->request->get('note');
+
+            if (!$appointmentId || !$note) {
+                throw new BadRequestHttpException('appointmentId e note sono obbligatori');
+            }
+
+            // Verifica che l'appuntamento esista
+            $appointment = Appointment::findOne($appointmentId);
+            if (!$appointment) {
+                throw new NotFoundHttpException('Appuntamento non trovato');
+            }
+            
+            $appointment->notes = $note;
+
+            if($appointment->save()) {
+                return [
+                    'success' => true,
+                    'message' => "Appuntamento aggiornato con successo",
+                    'data' => [
+                        'appointmentId' => $appointment->id,
+                        'note' => $note
+                    ]
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Errore nell\'aggiornamento dell\'appuntamento',
+                    'data' => $appointment->errors
+                ];
+            }
+
+        } catch (Exception $e) {
+            Yii::error("Errore aggiornamento appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Elimina la nota di un appuntamento
+     * 
+     * @return array
+     */
+    public function actionDeleteAppointmentNote()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        try {
+
+            $data = $this->getRequestData();
+
+            if(Yii::$app->request->isGet)
+                throw new BadRequestHttpException('Metodo non supportato');
+
+            if (!isset($data['appointmentId'])) {
+                throw new BadRequestHttpException('appointmentId è obbligatorio');
+            }
+
+            // Verifica che l'appuntamento esista
+            $appointment = Appointment::findOne($data['appointmentId']);
+            if (!$appointment) {
+                throw new NotFoundHttpException('Appuntamento non trovato');
+            }
+            
+            $appointment->notes = null;
+
+            if($appointment->save()) {
+                return [
+                    'success' => true,
+                    'message' => "Appuntamento aggiornato con successo",
+                    'data' => [
+                        'appointmentId' => $appointment->id,
+                    ]
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Errore nell\'aggiornamento dell\'appuntamento',
+                    'data' => $appointment->errors
+                ];
+            }
+
+        } catch (Exception $e) {
+            Yii::error("Errore aggiornamento appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
      * Trova e valida TreatmentType
      * 
      * @param int $id
