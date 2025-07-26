@@ -201,8 +201,8 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                         [
                             'class' => 'yii\grid\ActionColumn',
                             'header' => 'Azioni',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
-                            'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right'],
                             'template' => '{view} {update} {credentials} {delete} {calendar-link}',
                             'buttons' => [
                                 'view' => function ($url, $model, $key) {

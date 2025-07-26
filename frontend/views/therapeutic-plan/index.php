@@ -147,7 +147,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'header' => 'Azioni',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right'],
-                        'template' => '{view} {update} {delete}',
+                        'template' => '{view} {update} {delete} {calendar-link}',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
                                 return Html::a(
@@ -190,6 +190,17 @@ $this->params['breadcrumbs'][] = $this->title;
                                         'data-pjax' => '0'
                                     ]
                                 );
+                            },
+                            'calendar-link' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('manage_calendar')) return '';
+                                $url = ['calendar/' . $model->patient_id];
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+</svg>', 
+                                    $url, [
+                                    'title' => 'Link al calendario',
+                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                ]);
                             },
                         ],
                     ],
