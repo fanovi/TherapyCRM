@@ -17,6 +17,7 @@ use yii\helpers\ArrayHelper;
  * @property int|null $treatment_type_id
  * @property int|null $private_cycle_id
  * @property int|null $patient_id
+ * @property string|null $group_session_id
  * @property int $therapist_id
  * @property string $appointment_datetime
  * @property int $duration_minutes
@@ -91,6 +92,8 @@ class Appointment extends ActiveRecord
         return [
             [['therapist_id', 'appointment_datetime', 'duration_minutes', 'appointment_source', 'created_by'], 'required'],
             [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
+            [['group_session_id'], 'string', 'max' => 36],
+            [['group_session_id'], 'match', 'pattern' => '/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', 'message' => 'Group Session ID deve essere un UUID valido', 'skipOnEmpty' => true],
             [['appointment_datetime'], 'validateAppointmentDateTime'],
             [['notes'], 'string'],
             [['status'], 'string', 'max' => 30],
@@ -186,7 +189,7 @@ class Appointment extends ActiveRecord
     public function validateTherapistAvailability($attribute, $params)
     {
         if (!empty($this->therapist_id) && !empty($this->appointment_datetime)) {
-            $conflictingAppointment = static::find()
+            $query = static::find()
                 ->where(['therapist_id' => $this->therapist_id])
                 ->andWhere(['between', 'appointment_datetime', 
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) - 300),
@@ -194,8 +197,15 @@ class Appointment extends ActiveRecord
                 ])
                 ->andWhere(['!=', 'status', self::STATUS_CANCELLED])
                 ->andWhere(['!=', 'status', self::STATUS_COMPLETED])
-                ->andWhere(['!=', 'id', $this->id ?: 0])
-                ->exists();
+                ->andWhere(['!=', 'id', $this->id ?: 0]);
+
+            // Se questo appuntamento fa parte di una sessione di gruppo,
+            // escludi altri appuntamenti della stessa sessione di gruppo dalla validazione
+            if (!empty($this->group_session_id)) {
+                $query->andWhere(['!=', 'group_session_id', $this->group_session_id]);
+            }
+
+            $conflictingAppointment = $query->exists();
 
             if ($conflictingAppointment) {
                 $this->addError($attribute, 'Il terapista ha già un appuntamento in questo orario');
@@ -216,6 +226,7 @@ class Appointment extends ActiveRecord
             'treatment_type_id' => 'Tipo Trattamento',
             'private_cycle_id' => 'Ciclo Privato',
             'patient_id' => 'Paziente',
+            'group_session_id' => 'ID Sessione di Gruppo',
             'therapist_id' => 'Terapista',
             'appointment_datetime' => 'Data e Ora',
             'duration_minutes' => 'Durata (minuti)',
@@ -648,5 +659,128 @@ class Appointment extends ActiveRecord
     public function getSubstitutionInfo()
     {
         return $this->therapistSubstitution;
+    }
+
+    /**
+     * Checks if appointment is part of a group session
+     *
+     * @return bool
+     */
+    public function isGroupSession()
+    {
+        return !empty($this->group_session_id);
+    }
+
+    /**
+     * Gets all appointments in the same group session
+     *
+     * @return static[]
+     */
+    public function getGroupSessionAppointments()
+    {
+        if (!$this->isGroupSession()) {
+            return [$this];
+        }
+
+        return static::find()
+            ->where(['group_session_id' => $this->group_session_id])
+            ->orderBy('appointment_datetime')
+            ->all();
+    }
+
+    /**
+     * Gets the number of participants in the group session
+     *
+     * @return int
+     */
+    public function getGroupSessionParticipantsCount()
+    {
+        if (!$this->isGroupSession()) {
+            return 1;
+        }
+
+        return static::find()
+            ->where(['group_session_id' => $this->group_session_id])
+            ->count();
+    }
+
+    /**
+     * Generates a new UUID for group session
+     *
+     * @return string
+     */
+    public static function generateGroupSessionId()
+    {
+        // Genera un UUID v4
+        $data = random_bytes(16);
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // versione 4
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // variant bits
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    /**
+     * Finds appointments by group session ID
+     *
+     * @param string $groupSessionId
+     * @return static[]
+     */
+    public static function findByGroupSession($groupSessionId)
+    {
+        return static::find()
+            ->where(['group_session_id' => $groupSessionId])
+            ->orderBy('appointment_datetime')
+            ->all();
+    }
+
+    /**
+     * Gets patients in the same group session
+     *
+     * @return Patient[]
+     */
+    public function getGroupSessionPatients()
+    {
+        if (!$this->isGroupSession()) {
+            return $this->getActualPatient() ? [$this->getActualPatient()] : [];
+        }
+
+        $appointments = $this->getGroupSessionAppointments();
+        $patients = [];
+        
+        foreach ($appointments as $appointment) {
+            $patient = $appointment->getActualPatient();
+            if ($patient && !in_array($patient->id, array_column($patients, 'id'))) {
+                $patients[] = $patient;
+            }
+        }
+
+        return $patients;
+    }
+
+    /**
+     * Checks if group session conflicts with therapist availability
+     *
+     * @param int $therapistId
+     * @param string $datetime
+     * @param int $duration
+     * @param string|null $excludeGroupSessionId
+     * @return bool
+     */
+    public static function checkGroupSessionConflict($therapistId, $datetime, $duration, $excludeGroupSessionId = null)
+    {
+        $query = static::find()
+            ->where(['therapist_id' => $therapistId])
+            ->andWhere(['between', 'appointment_datetime', 
+                date('Y-m-d H:i:s', strtotime($datetime) - 300),
+                date('Y-m-d H:i:s', strtotime($datetime) + ($duration * 60) + 300)
+            ])
+            ->andWhere(['!=', 'status', self::STATUS_CANCELLED])
+            ->andWhere(['!=', 'status', self::STATUS_COMPLETED]);
+
+        if ($excludeGroupSessionId) {
+            $query->andWhere(['!=', 'group_session_id', $excludeGroupSessionId]);
+        }
+
+        return $query->exists();
     }
 } 
