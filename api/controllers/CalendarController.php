@@ -118,6 +118,32 @@ public function actionPatientAppointments()
                 $treatmentCode = $appointment->planTherapy->treatmentType->code;
             }
             
+            // Controlli di sicurezza per evitare errori su oggetti null
+            $therapistName = 'Terapista non disponibile';
+            $therapistFirstName = '';
+            $therapistLastName = '';
+            $therapistSpecialization = null;
+            
+            if ($appointment->therapist && $appointment->therapist->user && $appointment->therapist->user->profile) {
+                $therapistFirstName = $appointment->therapist->user->profile->first_name ?? '';
+                $therapistLastName = $appointment->therapist->user->profile->last_name ?? '';
+                $therapistName = trim($therapistFirstName . ' ' . $therapistLastName) ?: 'Terapista non disponibile';
+            }
+            
+            if ($appointment->therapist && $appointment->therapist->specialization) {
+                $therapistSpecialization = $appointment->therapist->specialization->name ?? null;
+            }
+            
+            $patientName = 'Paziente non disponibile';
+            $patientFirstName = '';
+            $patientLastName = '';
+            
+            if ($appointment->patient) {
+                $patientFirstName = $appointment->patient->first_name ?? '';
+                $patientLastName = $appointment->patient->last_name ?? '';
+                $patientName = trim($patientFirstName . ' ' . $patientLastName) ?: 'Paziente non disponibile';
+            }
+            
             $formattedAppointments[] = [
                 'id' => $appointment->id,
                 'date' => $date,
@@ -131,17 +157,17 @@ public function actionPatientAppointments()
                 'notes' => $appointment->notes,
                 'location' => 'Centro Terapeutico',
                 'therapist' => [
-                    'id' => $appointment->therapist->id,
-                    'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
-                    'first_name' => $appointment->therapist->user->profile->first_name,
-                    'last_name' => $appointment->therapist->user->profile->last_name,
-                    'specialization' => $appointment->therapist->specialization->name ?? null,
-                    'avatar' => $this->getTherapistAvatar($appointment->therapist->id),
+                    'id' => $appointment->therapist->id ?? null,
+                    'name' => $therapistName,
+                    'first_name' => $therapistFirstName,
+                    'last_name' => $therapistLastName,
+                    'specialization' => $therapistSpecialization,
+                    'avatar' => $this->getTherapistAvatar($appointment->therapist->id ?? null),
                 ],
                 'patient' => [
-                    'name' => $appointment->patient->first_name . ' ' . $appointment->patient->last_name,
-                    'first_name' => $appointment->patient->first_name,
-                    'last_name' => $appointment->patient->last_name,
+                    'name' => $patientName,
+                    'first_name' => $patientFirstName,
+                    'last_name' => $patientLastName,
                 ]
             ];
         }
@@ -527,6 +553,10 @@ public function actionTherapistAppointments()
             ->where(['patients.id' => $patientId])
             ->andWhere(['DATE(appointments.appointment_datetime)' => $date])
             ->andWhere(['!=', 'appointments.status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['IS NOT', 'patients.first_name', null])
+            ->andWhere(['IS NOT', 'patients.last_name', null])
+            ->andWhere(['IS NOT', 'user_profiles.first_name', null])
+            ->andWhere(['IS NOT', 'user_profiles.last_name', null])
             ->orderBy('appointments.appointment_datetime ASC')
             ->all();
     }

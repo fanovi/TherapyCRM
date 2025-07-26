@@ -45,6 +45,7 @@ const AppNavigator = () => {
 
       // 1. Controlla se esiste il token in AsyncStorage
       const token = await AsyncStorage.getItem('authToken');
+      console.log('token', token);
       console.log('📦 Token check result:');
       console.log('   - Token exists:', !!token);
       console.log('   - Token type:', typeof token);
