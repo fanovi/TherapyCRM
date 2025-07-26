@@ -333,7 +333,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   useEffect(() => {
     if (selectedDate && calendarRef.current && loading === false) {
       const calendarApi = calendarRef.current.getApi();
-      console.log("📅 FullCalendar: navigazione iniziale a:", selectedDate);
+
       calendarApi.gotoDate(selectedDate);
     }
   }, [loading]); // Dipende solo da loading, non da selectedDate

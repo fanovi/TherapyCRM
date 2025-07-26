@@ -1204,6 +1204,7 @@ const Index = () => {
         <DualFullCalendarView
           key={refreshKey}
           selectedTherapist={selectedTherapist}
+          selectedSpecialization={selectedSpecialization}
           appointments={combinedAppointments}
           onSlotClick={handleSlotClick}
           onAppointmentClick={handleAppointmentClick}
@@ -1219,6 +1220,7 @@ const Index = () => {
           onVisibleRangeChange={handleVisibleRangeChange}
           isPrivateMode={false} // Sempre false in vista terapista
           selectedDate={currentCalendarDate}
+          isABARegime={isABARegime} // Aggiungi questa prop
           readOnly={isTherapistView} // Disabilita tutte le modifiche in vista terapista
         />
 

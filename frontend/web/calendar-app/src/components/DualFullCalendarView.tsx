@@ -3,11 +3,13 @@ import { Card } from "@/components/ui/card";
 import FullCalendarContainer from "./FullCalendarContainer";
 import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
 import { TherapistWeeklyHours } from "./TherapistWeeklyHours";
-import { Therapist, Appointment } from "@/types/therapy";
+import { Therapist, Appointment, Specialization } from "@/types/therapy";
 import moment from "moment";
+import { PlanTherapyUsedHours } from "./PlanTherapyUsedHours";
 
 interface DualFullCalendarViewProps {
   selectedTherapist: Therapist | null;
+  selectedSpecialization?: Specialization | null; // Aggiungi
   appointments: Appointment[];
   onSlotClick: (date: Date, time: string) => void;
   onAppointmentClick?: (appointmentId: string) => void;
@@ -26,11 +28,13 @@ interface DualFullCalendarViewProps {
   onVisibleRangeChange?: (start: Date, end: Date) => void;
   isPrivateMode?: boolean; // Nuova prop
   selectedDate?: Date;
+  isABARegime?: boolean; // Aggiungi
   readOnly?: boolean; // Nuova prop per disabilitare modifiche
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   selectedTherapist,
+  selectedSpecialization,
   appointments,
   onSlotClick,
   onAppointmentClick,
@@ -44,6 +48,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   onVisibleRangeChange,
   isPrivateMode = false,
   selectedDate: externalSelectedDate,
+  isABARegime,
   readOnly = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState(
@@ -188,8 +193,6 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     // Aggiorna anche l'inizio settimana per le ore settimanali usando moment
     const startOfWeek = moment(date).startOf("isoWeek").toDate();
     setCurrentWeekStart(startOfWeek);
-
-    console.log("Data selezionata:", date, "Inizio settimana:", startOfWeek);
   };
 
   // Gestione navigazione calendario (quando si usano i controlli prev/next)
@@ -197,12 +200,6 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     // Aggiorna l'inizio settimana per le ore settimanali
     const weekStart = moment(date).startOf("isoWeek").toDate();
     setCurrentWeekStart(weekStart);
-
-    console.log("📅 Navigazione calendario terapista:", {
-      date: date.toLocaleDateString("it-IT"),
-      weekStart: weekStart.toLocaleDateString("it-IT"),
-      weekStartFormatted: moment(weekStart).format("YYYY-MM-DD"),
-    });
 
     // Chiama il callback originale se presente
     if (onDateChange) {
@@ -233,13 +230,13 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
     setCurrentWeekStart(weekStart);
 
-    console.log("🧑‍⚕️ Range terapista cambiato:", {
-      originalStart: start.toLocaleDateString("it-IT"),
-      originalEnd: end.toLocaleDateString("it-IT"),
-      startDay: moment(start).format("dddd"),
-      weekStart: weekStart.toLocaleDateString("it-IT"),
-      weekStartFormatted: moment(weekStart).format("YYYY-MM-DD"),
-    });
+    // console.log("🧑‍⚕️ Range terapista cambiato:", {
+    //   originalStart: start.toLocaleDateString("it-IT"),
+    //   originalEnd: end.toLocaleDateString("it-IT"),
+    //   startDay: moment(start).format("dddd"),
+    //   weekStart: weekStart.toLocaleDateString("it-IT"),
+    //   weekStartFormatted: moment(weekStart).format("YYYY-MM-DD"),
+    // });
 
     // Chiama anche il callback generico
     handleVisibleRangeChange(start, end);
@@ -247,10 +244,10 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
   // Gestione cambio range visibile per il calendario del paziente (non aggiorna le ore)
   const handlePatientVisibleRangeChange = (start: Date, end: Date) => {
-    console.log("👤 Range paziente cambiato:", {
-      start: start.toLocaleDateString(),
-      end: end.toLocaleDateString(),
-    });
+    // console.log("👤 Range paziente cambiato:", {
+    //   start: start.toLocaleDateString(),
+    //   end: end.toLocaleDateString(),
+    // });
 
     // Chiama solo il callback generico, non aggiorna le ore settimanali
     handleVisibleRangeChange(start, end);
@@ -333,6 +330,11 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       currentPatientId && event.extendedProps?.patient_id === currentPatientId
   );
 
+  console.log(
+    "this is DUAL FULL CALENDAR VIEW ********",
+    selectedSpecialization
+  );
+
   // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
   if (hidePatientCalendar && selectedTherapist) {
     return (
@@ -346,10 +348,24 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
         {/* Ore settimanali - visibile solo in vista settimana */}
         {viewType === "week" && selectedTherapist && !isPrivateMode && (
-          <TherapistWeeklyHours
-            therapist={selectedTherapist}
-            currentDate={currentWeekStart}
-          />
+          <div className="space-y-4">
+            {/* Ore settimanali terapista */}
+            {selectedTherapist && (
+              <TherapistWeeklyHours
+                therapist={selectedTherapist}
+                currentDate={currentWeekStart}
+              />
+            )}
+
+            {/* Ore piano terapeutico */}
+            {selectedSpecialization && (
+              <PlanTherapyUsedHours
+                specialization={selectedSpecialization}
+                currentDate={currentWeekStart}
+                isABARegime={isABARegime}
+              />
+            )}
+          </div>
         )}
 
         <Card className="p-6">
@@ -395,10 +411,24 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
       {/* Ore settimanali - visibile solo in vista settimana */}
       {viewType === "week" && selectedTherapist && !isPrivateMode && (
-        <TherapistWeeklyHours
-          therapist={selectedTherapist}
-          currentDate={currentWeekStart}
-        />
+        <div className="space-y-4">
+          {/* Ore settimanali terapista */}
+          {selectedTherapist && (
+            <TherapistWeeklyHours
+              therapist={selectedTherapist}
+              currentDate={currentWeekStart}
+            />
+          )}
+
+          {/* Ore piano terapeutico */}
+          {selectedSpecialization && (
+            <PlanTherapyUsedHours
+              specialization={selectedSpecialization}
+              currentDate={currentWeekStart}
+              isABARegime={isABARegime}
+            />
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

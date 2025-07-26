@@ -24,11 +24,6 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
   therapist,
   currentDate,
 }) => {
-  console.log("📅 TherapistWeeklyHours riceve currentDate:", {
-    currentDate,
-    currentDateString: currentDate?.toISOString(),
-    currentDateFormatted: currentDate?.toLocaleDateString("it-IT"),
-  });
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHoursData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

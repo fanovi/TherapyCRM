@@ -732,6 +732,40 @@ class TherapeuticPlanManagerAPI {
 
     return response.data;
   }
+
+  /**
+   * Ottiene le ore utilizzate per un piano terapia in un piano terapeutico
+   */
+  async getPlanTherapyUsedHours(
+    therapyId: number,
+    startDate: string
+  ): Promise<{
+    is_private: boolean;
+    treatment_type: string;
+    periodo_tipo: string;
+    periodo_inizio: string;
+    periodo_fine: string;
+    ore_assegnate: number;
+    minuti_assegnati: string;
+    ore_limite: string;
+    ore_rimanenti: number;
+    minuti_limite: number;
+    minuti_rimanenti: number;
+    plan_therapy_id: string;
+  }> {
+    const response = await this.get<any>("get-plan-therapy-used-hours", {
+      therapyId,
+      start_date: startDate,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel recupero ore utilizzate piano terapeutico"
+      );
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton
