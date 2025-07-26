@@ -17,7 +17,7 @@ import {
   Divider,
 } from 'react-native-paper';
 import {useSelector} from 'react-redux';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import {
@@ -37,6 +37,7 @@ const PatientNotificationsScreen = () => {
   const [filter, setFilter] = useState('all'); // all, unread, read
 
   const theme = useTheme();
+  const navigation = useNavigation();
   const {user} = useSelector(state => state.auth);
 
   useFocusEffect(

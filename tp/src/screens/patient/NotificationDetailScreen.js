@@ -33,6 +33,13 @@ const NotificationDetailScreen = () => {
     fetchNotificationDetail();
   }, [notificationId]);
 
+  // Segna automaticamente come letta quando la notifica viene caricata
+  useEffect(() => {
+    if (notification && !notification.read_at) {
+      handleMarkAsRead();
+    }
+  }, [notification]);
+
   const fetchNotificationDetail = async () => {
     try {
       setLoading(true);
@@ -68,9 +75,10 @@ const NotificationDetailScreen = () => {
 
       if (notification.requires_read_confirmation) {
         await confirmNotificationRead(notification.id);
-        Alert.alert('Successo', 'Lettura confermata');
+        console.log('📱 NotificationDetail: Lettura confermata');
       } else {
         await markNotificationAsRead(notification.id);
+        console.log('📱 NotificationDetail: Notifica segnata come letta');
       }
 
       // Aggiorna lo stato locale
@@ -79,8 +87,11 @@ const NotificationDetailScreen = () => {
         read_at: new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('Errore segnando notifica come letta:', error);
-      Alert.alert('Errore', 'Impossibile segnare la notifica come letta');
+      console.error(
+        '❌ NotificationDetail: Errore segnando notifica come letta:',
+        error,
+      );
+      // Non mostrare alert per lettura automatica
     } finally {
       setActionLoading(false);
     }
@@ -276,8 +287,8 @@ const NotificationDetailScreen = () => {
           </Card.Content>
         </Card>
 
-        {/* Azioni */}
-        {!notification.read_at && (
+        {/* Azioni - solo per notifiche che richiedono conferma esplicita */}
+        {!notification.read_at && notification.requires_read_confirmation && (
           <Card style={styles.actionsCard}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.actionsTitle}>
@@ -288,15 +299,9 @@ const NotificationDetailScreen = () => {
                 onPress={handleMarkAsRead}
                 loading={actionLoading}
                 disabled={actionLoading}
-                icon={
-                  notification.requires_read_confirmation
-                    ? 'check-circle'
-                    : 'done'
-                }
+                icon="check-circle"
                 style={styles.actionButton}>
-                {notification.requires_read_confirmation
-                  ? 'Conferma Lettura'
-                  : 'Segna come Letta'}
+                Conferma Lettura
               </Button>
             </Card.Content>
           </Card>
