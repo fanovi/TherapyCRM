@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import {useSelector} from 'react-redux';
-import PatientSelector from '../../components/PatientSelector';
+
 import {usePatientLogin} from '../../hooks/usePatientLogin';
 
 const PatientDashboard = ({navigation}) => {
@@ -22,9 +22,6 @@ const PatientDashboard = ({navigation}) => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Componente PatientSelector */}
-      <PatientSelector style={styles.patientSelector} />
-
       {/* Contenuto specifico del paziente */}
       {currentPatient && (
         <View style={styles.patientContent}>
@@ -88,9 +85,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     padding: 16,
-  },
-  patientSelector: {
-    marginBottom: 20,
   },
   patientContent: {
     backgroundColor: '#fff',

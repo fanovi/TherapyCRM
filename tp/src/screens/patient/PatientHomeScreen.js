@@ -11,7 +11,6 @@ import {
 } from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
-import PatientSelector from '../../components/PatientSelector';
 import DebugPatientInfo from '../../components/DebugPatientInfo';
 import {loginService} from '../../services/loginService';
 
@@ -39,9 +38,6 @@ const PatientHomeScreen = () => {
       }>
       {/* Componente Debug temporaneo */}
       {/* <DebugPatientInfo /> */}
-
-      {/* Componente PatientSelector per mostrare utente e paziente */}
-      <PatientSelector style={styles.patientSelector} />
       {/* Quick Actions */}
       {/* <View style={styles.section}>
         <Text style={styles.sectionTitle}>Azioni Rapide</Text>
@@ -168,10 +164,6 @@ const PatientHomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  patientSelector: {
-    marginHorizontal: 20,
-    marginTop: 16,
-  },
   section: {
     paddingHorizontal: 20,
     paddingVertical: 16,

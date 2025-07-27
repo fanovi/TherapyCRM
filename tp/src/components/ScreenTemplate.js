@@ -1,7 +1,9 @@
 import React from 'react';
 import {View, StyleSheet, ScrollView, StatusBar} from 'react-native';
 import {Text, IconButton, useTheme} from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import NotificationBadge from './NotificationBadge';
+import FloatingPatientSelector from './FloatingPatientSelector';
 
 const ScreenTemplate = ({
   children,
@@ -13,8 +15,11 @@ const ScreenTemplate = ({
   useBackgroundColor = true,
   useHeaderBackground = true,
   showNotifications = true,
+  message,
 }) => {
   const theme = useTheme();
+  const {user} = useSelector(state => state.auth);
+  const {patients, currentPatient} = useSelector(state => state.patient);
   const ContentComponent = scrollable ? ScrollView : View;
 
   const backgroundColor = useBackgroundColor
@@ -23,6 +28,12 @@ const ScreenTemplate = ({
   const headerBackgroundColor = useHeaderBackground
     ? theme.colors.surface
     : 'transparent';
+
+  // Determina se mostrare info paziente (solo per utenti pazienti con pazienti associati)
+  const isPatientUser =
+    user?.user_type === 'paziente' || user?.role === 'patient';
+  const hasPatients = patients && patients.length > 0;
+  const showPatientInfo = isPatientUser && hasPatients;
 
   return (
     <View style={[styles.container, {backgroundColor}]}>
@@ -43,6 +54,13 @@ const ScreenTemplate = ({
           ]}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
+              {/* Saluto utente connesso */}
+              <Text
+                style={[styles.welcomeText, {color: theme.colors.onSurface}]}>
+                Ciao, {user?.firstName || user?.name || 'Utente'}
+              </Text>
+
+              {/* Titoli originali */}
               {title && (
                 <Text style={[styles.title, {color: theme.colors.onSurface}]}>
                   {title}
@@ -68,12 +86,43 @@ const ScreenTemplate = ({
         </View>
       )}
 
+      {/* Barra informazioni paziente - sotto l'header */}
+      {showPatientInfo && currentPatient && (
+        <View
+          style={[
+            styles.patientInfoBar,
+            {backgroundColor: theme.colors.primaryContainer},
+          ]}>
+          <Text
+            style={[
+              styles.patientInfoText,
+              {color: theme.colors.onPrimaryContainer},
+            ]}>
+            {message ? (
+              message
+            ) : (
+              <>
+                <Text>👤 Stai visualizzando l'app per il paziente: </Text>
+                <Text style={styles.patientName}>
+                  {currentPatient.patient_name}
+                </Text>
+              </>
+            )}
+          </Text>
+        </View>
+      )}
+
       <ContentComponent
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={scrollable ? styles.scrollContent : undefined}>
         {children}
       </ContentComponent>
+
+      {/* Floating Patient Selector - solo se ci sono più pazienti */}
+      {isPatientUser && patients && patients.length > 1 && (
+        <FloatingPatientSelector />
+      )}
     </View>
   );
 };
@@ -108,6 +157,11 @@ const styles = StyleSheet.create({
   notificationBadge: {
     marginRight: 8,
   },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: '600',
@@ -116,6 +170,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '400',
+  },
+  patientInfoBar: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  patientInfoText: {
+    fontSize: 14,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  patientName: {
+    fontWeight: '600',
   },
   content: {
     flex: 1,

@@ -222,20 +222,6 @@ const PatientNotificationsScreen = () => {
                 )}
                 style={styles.notificationIcon}
               />
-              <Chip
-                mode="outlined"
-                compact
-                style={[
-                  styles.typeChip,
-                  {
-                    borderColor: getNotificationColor(
-                      notification.notification_type,
-                      !!notification.read_at,
-                    ),
-                  },
-                ]}>
-                {getTypeLabel(notification.notification_type)}
-              </Chip>
             </View>
 
             {!notification.read_at && (
@@ -373,6 +359,7 @@ const PatientNotificationsScreen = () => {
 
   return (
     <ScreenTemplate
+      message="👤 Stai visualizzando le notifiche per tutti i pazienti a te associati"
       title="Notifiche"
       subtitle={`${notifications.length} notifiche`}
       showNotifications={false} // Non mostrare il dropdown qui
@@ -453,7 +440,7 @@ const styles = StyleSheet.create({
   },
   notificationCard: {
     borderRadius: 12,
-    elevation: 2,
+    elevation: 1,
   },
   cardContent: {
     padding: 16,

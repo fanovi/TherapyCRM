@@ -172,7 +172,10 @@ const NotificationDetailScreen = () => {
   }
 
   return (
-    <ScreenTemplate title="Dettaglio Notifica" showBackButton>
+    <ScreenTemplate
+      title="Dettaglio Notifica"
+      message="👤 Stai visualizzando le notifiche per tutti i pazienti a te associati"
+      showBackButton>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Card style={styles.notificationCard}>
           <Card.Content>
