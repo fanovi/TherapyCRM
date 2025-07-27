@@ -79,4 +79,19 @@ export const therapistService = {
       throw error;
     }
   },
+
+  async setAppointmentNote(appointmentId, note) {
+    try {
+      const response = await apiClient.get('/calendar/set-appointment-note', {
+        params: {
+          appointmentId: appointmentId,
+          note: note,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Errore aggiornamento note appuntamento:', error);
+      throw error;
+    }
+  },
 };

@@ -1918,4 +1918,55 @@ public function actionCompleteAppointment()
             ];
         }
     }
+
+    /**
+     * Aggiunge note a un appuntamento
+     * 
+     * @return array
+     */
+    public function actionSetAppointmentNote()
+    {
+        try {
+            $request = Yii::$app->request;
+            $appointmentId = $request->get('appointmentId');
+            $note = $request->get('note');
+
+            if (!$appointmentId || !$note) {
+                throw new BadRequestHttpException('appointmentId e note sono obbligatori');
+            }
+
+            // Verifica che l'appuntamento esista e appartenga al terapista autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            $appointment = Appointment::find()
+                ->where(['id' => $appointmentId, 'therapist_id' => $therapistId])
+                ->one();
+
+            if (!$appointment) {
+                throw new NotFoundHttpException('Appuntamento non trovato o non autorizzato');
+            }
+            
+            $appointment->notes = $note;
+
+            if ($appointment->save()) {
+                return [
+                    'success' => true,
+                    'message' => "Note appuntamento aggiornate con successo",
+                    'data' => [
+                        'appointmentId' => $appointment->id,
+                        'note' => $note
+                    ]
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Errore nell\'aggiornamento delle note',
+                    'data' => $appointment->errors
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Yii::error("Errore aggiornamento note appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
 } 

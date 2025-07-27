@@ -37,6 +37,7 @@ import {
   markPatientAbsent,
   getAbsenceReasons,
 } from '../../api/calendar';
+import {therapistService} from '../../services/therapistService';
 
 const TherapistCalendarScreen = () => {
   const theme = useTheme();
@@ -70,6 +71,18 @@ const TherapistCalendarScreen = () => {
   });
 
   const [isSubmittingAbsence, setIsSubmittingAbsence] = useState(false);
+
+  // Stato per la modale di aggiunta note
+  const [noteDialog, setNoteDialog] = useState({
+    visible: false,
+    appointment: null,
+  });
+
+  const [noteForm, setNoteForm] = useState({
+    note: '',
+  });
+
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
 
   useEffect(() => {
     // Il terapista è autenticato, non serve recuperare l'ID
@@ -216,6 +229,20 @@ const TherapistCalendarScreen = () => {
     setMenuVisible({});
   };
 
+  const handleAddNote = appointment => {
+    setNoteDialog({
+      visible: true,
+      appointment,
+    });
+
+    // Prepopola con le note esistenti se presenti
+    setNoteForm({
+      note: appointment.notes || '',
+    });
+
+    setMenuVisible({});
+  };
+
   const confirmMarkAbsent = async () => {
     const {appointment} = absenceDialog;
 
@@ -299,6 +326,63 @@ const TherapistCalendarScreen = () => {
     }
   };
 
+  const confirmAddNote = async () => {
+    const {appointment} = noteDialog;
+
+    // Validazione
+    if (!noteForm.note.trim()) {
+      Alert.alert('Errore', 'Inserisci una nota');
+      return;
+    }
+
+    setIsSubmittingNote(true);
+
+    try {
+      const response = await therapistService.setAppointmentNote(
+        appointment.id,
+        noteForm.note.trim(),
+      );
+
+      if (response.success) {
+        Alert.alert(
+          'Note Aggiornate',
+          "Le note dell'appuntamento sono state aggiornate con successo.",
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Ricarica gli appuntamenti
+                loadAppointments();
+                loadMarkedDates();
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          'Errore',
+          response.error || "Errore durante l'aggiornamento delle note",
+        );
+      }
+    } catch (error) {
+      console.error('Errore aggiornamento note:', error);
+
+      if (error.type === 'AUTH_ERROR') {
+        console.log('Errore di autenticazione, logout automatico in corso...');
+      } else if (error.type === 'NOTE_ERROR') {
+        Alert.alert('Errore Note', error.message);
+      } else {
+        Alert.alert(
+          'Errore',
+          'Impossibile aggiornare le note. Riprova più tardi.',
+        );
+      }
+    } finally {
+      setIsSubmittingNote(false);
+      setNoteDialog({visible: false, appointment: null});
+    }
+  };
+
   const confirmAction = () => {
     const {appointment, action} = actionDialog;
 
@@ -350,8 +434,8 @@ const TherapistCalendarScreen = () => {
       appointment.status === 'confermato' &&
       !moment(appointment.datetime).isBefore(moment());
 
-    // Mostra il menu solo se almeno un'azione è disponibile
-    const showMenu = canMarkAbsent;
+    // Mostra il menu se almeno un'azione è disponibile
+    const showMenu = canMarkAbsent || true; // Sempre mostrare per le note
 
     return (
       <Card style={styles.appointmentCard}>
@@ -405,6 +489,11 @@ const TherapistCalendarScreen = () => {
                       leadingIcon="account-remove"
                     />
                   )}
+                  <Menu.Item
+                    onPress={() => handleAddNote(appointment)}
+                    title="Aggiungi Note"
+                    leadingIcon="note-text"
+                  />
                   {/* Commento le azioni non richieste
                   <Menu.Item
                     onPress={() => openActionDialog(appointment, 'reschedule')}
@@ -801,6 +890,62 @@ const TherapistCalendarScreen = () => {
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        {/* Dialog aggiunta note */}
+        <Dialog
+          visible={noteDialog.visible}
+          onDismiss={() => setNoteDialog({visible: false, appointment: null})}
+          style={styles.noteDialog}>
+          <Dialog.Title>Aggiungi Note Appuntamento</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView style={styles.dialogContent}>
+              <Paragraph style={styles.appointmentInfo}>
+                Stai aggiungendo note per l'appuntamento di{' '}
+                {noteDialog.appointment?.patient.name} del{' '}
+                {noteDialog.appointment &&
+                  moment(noteDialog.appointment.datetime).format(
+                    'DD/MM/YYYY',
+                  )}{' '}
+                alle {noteDialog.appointment?.time}
+              </Paragraph>
+
+              <Divider style={styles.divider} />
+
+              <Text
+                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+                Note dell'appuntamento
+              </Text>
+
+              <TextInput
+                label="Inserisci le note per questo appuntamento"
+                value={noteForm.note}
+                onChangeText={text =>
+                  setNoteForm(prev => ({...prev, note: text}))
+                }
+                mode="outlined"
+                style={styles.noteInput}
+                multiline
+                numberOfLines={6}
+                placeholder="Es. Osservazioni, progressi, comportamenti, ecc..."
+              />
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() => setNoteDialog({visible: false, appointment: null})}
+              disabled={isSubmittingNote}>
+              Annulla
+            </Button>
+            <Button
+              onPress={confirmAddNote}
+              buttonColor={theme.colors.primary}
+              loading={isSubmittingNote}
+              disabled={isSubmittingNote || !noteForm.note.trim()}
+              mode="contained">
+              {isSubmittingNote ? 'Salvataggio...' : 'Salva Note'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
     </ScreenTemplate>
   );
@@ -995,6 +1140,13 @@ const styles = StyleSheet.create({
   dialogActions: {
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+  },
+  // Stili per la modale delle note
+  noteDialog: {
+    maxHeight: '80%',
+  },
+  noteInput: {
+    marginBottom: 16,
   },
 });
 
