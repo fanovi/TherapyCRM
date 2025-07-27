@@ -351,12 +351,6 @@ const PatientRequestsScreen = ({navigation}) => {
                         : 'Completate'
                     }"`}
               </Text>
-              <Button
-                mode="contained"
-                onPress={() => navigation.navigate('CreateRequest')}
-                style={styles.createButton}>
-                Crea Nuova Richiesta
-              </Button>
             </Card.Content>
           </Card>
         ) : (

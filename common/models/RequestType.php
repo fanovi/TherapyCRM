@@ -208,7 +208,8 @@ class RequestType extends ActiveRecord
     public static function getForApi()
     {
         $requestTypes = static::find()
-            ->orderBy(['display_order' => SORT_ASC])
+            ->where(['is_active' => self::BOOLEAN_TRUE])
+            ->orderBy(['display_order' => SORT_ASC, 'id' => SORT_ASC])
             ->all();
 
         $result = [];

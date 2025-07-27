@@ -1,15 +1,26 @@
 import apiClient from '../services/axiosConfig';
 
 /**
- * Ottiene le tipologie di richieste disponibili dal backend
- * @returns {Promise<Array>}
+ * Ottiene le tipologie di richieste disponibili dal backend per un paziente specifico
+ * @param {number} patientId - ID del paziente per cui recuperare le tipologie
+ * @returns {Promise<Object>}
  */
-export const getRequestTypes = async () => {
+export const getRequestTypes = async patientId => {
   try {
     console.log('\n=== RICHIESTA TIPI ===');
-    console.log('📤 Recupero tipologie di richieste...');
+    console.log('📤 Recupero tipologie di richieste per paziente:', patientId);
 
-    const response = await apiClient.get('/requests/types');
+    if (!patientId) {
+      throw new Error(
+        'ID paziente mancante - impossibile recuperare le tipologie di richieste',
+      );
+    }
+
+    const response = await apiClient.get('/requests/types', {
+      params: {
+        patient_id: patientId,
+      },
+    });
 
     console.log('\n=== RISPOSTA TIPI ===');
     console.log('📥 Struttura completa:');

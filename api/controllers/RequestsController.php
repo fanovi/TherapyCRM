@@ -82,11 +82,18 @@ class RequestsController extends Controller
     /**
      * @OA\Get(
      *     path="/requests/types",
-     *     summary="Recupera tipologie di richieste",
-     *     description="Restituisce l'elenco delle tipologie di richieste attive dal database per i pazienti autenticati",
+     *     summary="Recupera tipologie di richieste con dati paziente",
+     *     description="Restituisce l'elenco delle tipologie di richieste attive con i dati necessari per il paziente specificato (piani terapeutici, terapie, ecc.)",
      *     operationId="getRequestTypes",
      *     tags={"Richieste"},
      *     security={{"BearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="patient_id",
+     *         in="query",
+     *         required=true,
+     *         description="ID del paziente per cui recuperare le tipologie di richieste",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
      *     @OA\Parameter(
      *         name="Authorization",
      *         in="header",
@@ -139,19 +146,24 @@ class RequestsController extends Controller
      *     )
      * )
      *
-     * Recupera le tipologie di richieste disponibili per i pazienti
-     * GET /requests/types
+     * Recupera le tipologie di richieste disponibili per il paziente specificato
+     * GET /requests/types?patient_id=1
      * 
      * Questo endpoint restituisce l'elenco completo delle tipologie di richieste
-     * che un paziente può fare al proprio centro terapeutico.
+     * che un paziente può fare al proprio centro terapeutico, includendo tutti
+     * i dati necessari per compilare la richiesta (piani terapeutici, terapie, ecc.).
+     * 
+     * Parametri query:
+     * - patient_id (obbligatorio): ID del paziente
      * 
      * Headers richiesti:
      * - Authorization: Bearer {jwt_token}
      * 
      * Risposta:
      * - Lista di tipologie con metadati per la UI
-     * - Informazioni su tempistiche e requisiti
-     * - Categorizzazione per organizzazione UI
+     * - Dati del paziente e piano terapeutico attivo
+     * - Terapie disponibili se richieste
+     * - Validazione presenza dati obbligatori
      */
     public function actionTypes()
     {
@@ -162,11 +174,60 @@ class RequestsController extends Controller
             if (!$currentUser) {
                 throw new UnauthorizedHttpException('Utente non autenticato');
             }
+
+            // Ottieni e valida patient_id
+            $request = Yii::$app->request;
+            $patientId = $request->get('patient_id');
+
+            if (empty($patientId)) {
+                return $this->formatErrorResponse(
+                    'MISSING_REQUIRED_FIELD', 
+                    'Il parametro patient_id è obbligatorio', 
+                    ['patient_id' => 'Specificare l\'ID del paziente per cui recuperare le tipologie'], 
+                    400
+                );
+            }
+
+            if (!is_numeric($patientId) || (int)$patientId <= 0) {
+                return $this->formatErrorResponse(
+                    'MISSING_REQUIRED_FIELD', 
+                    'Il parametro patient_id deve essere un numero intero positivo', 
+                    ['patient_id' => 'Valore non valido'], 
+                    400
+                );
+            }
+
+            $patientId = (int) $patientId;
+
+            // Verifica accesso al paziente
+            $accessCheck = $this->validatePatientAccess($patientId, $currentUser);
+            if (!$accessCheck['hasAccess']) {
+                return $this->formatErrorResponse(
+                    'ACCESS_DENIED', 
+                    $accessCheck['message'], 
+                    [], 
+                    403
+                );
+            }
             
             // Registra l'accesso per audit
-            Yii::info("Request types accessed by user ID: {$currentUser->id}", __METHOD__);
+            Yii::info("Request types accessed by user ID: {$currentUser->id} for patient: {$patientId}", __METHOD__);
             
-            // Recupera le tipologie di richieste dal database (una sola query)
+            // Recupera il paziente
+            $patient = \common\models\Patient::find()
+                ->where(['id' => $patientId])
+                ->one();
+
+            if (!$patient) {
+                return $this->formatErrorResponse(
+                    'NOT_FOUND', 
+                    'Paziente non trovato', 
+                    [], 
+                    404
+                );
+            }
+
+            // Recupera le tipologie di richieste dal database
             $requestTypes = RequestType::getForApi();
             
             // Se non ci sono tipologie, restituisci array vuoto
@@ -175,6 +236,7 @@ class RequestsController extends Controller
                 return [
                     'success' => true,
                     'data' => [],
+                    'patient_data' => $this->formatPatientData($patient),
                     'meta' => [
                         'total' => 0,
                         'active_count' => 0,
@@ -182,14 +244,70 @@ class RequestsController extends Controller
                     ]
                 ];
             }
+
+            // Recupera piano terapeutico attivo e terapie
+            $activePlan = null;
+            $planTherapies = [];
+            
+            try {
+                $activePlan = $patient->getActiveTherapeuticPlan();
+                
+                if ($activePlan) {
+                    $planTherapies = \common\models\PlanTherapy::find()
+                        ->with(['treatmentType'])
+                        ->where(['therapeutic_plan_id' => $activePlan->id])
+                        ->all();
+                }
+            } catch (\Exception $e) {
+                // Log dell'errore ma continua l'esecuzione
+                Yii::warning("Error retrieving active therapeutic plan for patient {$patientId}: " . $e->getMessage(), __METHOD__);
+                $activePlan = null;
+                $planTherapies = [];
+            }
+
+            // Valida requisiti obbligatori per ogni tipologia
+            $validationErrors = [];
+            $processedTypes = [];
+            
+            foreach ($requestTypes as $index => $type) {
+                $typeErrors = $this->validateTypeRequirements($type, $activePlan, $planTherapies);
+                if (!empty($typeErrors)) {
+                    $validationErrors[$type['id']] = $typeErrors;
+                    $type['validation_errors'] = $typeErrors;
+                    $type['is_available'] = false;
+                } else {
+                    $type['is_available'] = true;
+                }
+
+                // Aggiungi dati specifici per il tipo se disponibili
+                // Per piano terapeutico: aggiungi sempre se non è "non associabile" E se esiste un piano attivo
+                if (!$type['is_therapeutic_plan_not_allowed'] && $activePlan) {
+                    $type['therapeutic_plan_data'] = $this->formatTherapeuticPlanData($activePlan);
+                }
+                
+                // Per terapie: aggiungi sempre se richiesto E se esistono terapie
+                if ($type['require_therapy_assignment'] && !empty($planTherapies)) {
+                    $type['therapies_data'] = $this->formatTherapiesData($planTherapies);
+                }
+                
+                $processedTypes[] = $type;
+            }
+            
+            // Sostituisci l'array originale con quello processato
+            $requestTypes = $processedTypes;
             
             // Calcola statistiche utili dai dati recuperati
             $activeCount = 0;
+            $availableCount = 0;
             $ruleDistribution = [];
             
             foreach ($requestTypes as $type) {
                 if ($type['is_active']) {
                     $activeCount++;
+                }
+                
+                if (isset($type['is_available']) && $type['is_available']) {
+                    $availableCount++;
                 }
                 
                 $rule = $type['therapeutic_plan_rule'];
@@ -203,11 +321,19 @@ class RequestsController extends Controller
             return [
                 'success' => true,
                 'data' => $requestTypes,
+                'patient_data' => $this->formatPatientData($patient),
+                'validation_summary' => [
+                    'has_errors' => !empty($validationErrors),
+                    'total_errors' => count($validationErrors),
+                    'errors_by_type' => $validationErrors
+                ],
                 'meta' => [
                     'total' => count($requestTypes),
                     'active_count' => $activeCount,
+                    'available_count' => $availableCount,
                     'rule_distribution' => $ruleDistribution,
-                    'rules' => RequestType::getTherapeuticPlanRuleOptions()
+                    'rules' => RequestType::getTherapeuticPlanRuleOptions(),
+                    'patient_id' => $patientId
                 ]
             ];
             
@@ -867,25 +993,39 @@ class RequestsController extends Controller
                 );
             }
 
-            // Salva la richiesta nel database (o restituisce quella esistente)
+            // Salva la richiesta nel database (o gestisce duplicati)
             $requestResult = $this->saveDocumentRequest($data, $requestType, $currentUser);
 
-            // Notifica tutti gli admin (solo interna, HTML)
-            $htmlMessage = NotificationHelper::buildDocumentRequestNotificationHtml($data, $requestType, $currentUser);
-            NotificationHelper::sendToAdmins(
-                'Nuova richiesta documento',
-                $htmlMessage,
-                \common\models\Notification::TYPE_INFO,
-                [],
-                true // skipPush
-            );
+            // Controlla se è stata bloccata per duplicato
+            if (isset($requestResult['is_duplicate']) && $requestResult['is_duplicate'] && !$requestType['allow_multiple_requests']) {
+                // Blocca la richiesta invece di permetterla - NON inviare notifiche
+                return $this->formatErrorResponse(
+                    'DUPLICATE_REQUEST_NOT_ALLOWED',
+                    $requestResult['duplicate_message'],
+                    ['existing_request_id' => $requestResult['id']],
+                    409 // Conflict
+                );
+            }
+
+            // Invia notifiche solo se la richiesta è stata effettivamente creata (non duplicata)
+            if (!isset($requestResult['is_duplicate']) || !$requestResult['is_duplicate']) {
+                // Notifica tutti gli admin (solo interna, HTML) - solo per nuove richieste
+                $htmlMessage = NotificationHelper::buildDocumentRequestNotificationHtml($data, $requestType, $currentUser);
+                NotificationHelper::sendToAdmins(
+                    'Nuova richiesta documento',
+                    $htmlMessage,
+                    \common\models\Notification::TYPE_INFO,
+                    [],
+                    true // skipPush
+                );
+            }
 
             // Determina status code e messaggio in base al risultato
             if (isset($requestResult['is_duplicate']) && $requestResult['is_duplicate']) {
                 // Richiesta duplicata - restituisce quella esistente
                 Yii::$app->response->statusCode = 200; // OK invece di 201 Created
                 $message = $requestResult['duplicate_message'];
-                Yii::info("Duplicate request returned for patient {$requestResult['patient_id']}, existing ID: {$requestResult['id']}", __METHOD__);
+                Yii::error("Duplicate request returned for patient {$requestResult['patient_id']}, existing ID: {$requestResult['id']}", __METHOD__);
             } else {
                 // Nuova richiesta creata
                 Yii::$app->response->statusCode = 201; // Created
@@ -1078,7 +1218,7 @@ class RequestsController extends Controller
         $patient = $patientSelection['patient'];
 
         // Controlla se esiste già una richiesta attiva per questo paziente e tipo
-        $existingRequest = $this->checkDuplicateRequest($patient->id, $data['request_type_id'], $requestType);
+        $existingRequest = $this->checkDuplicateRequest($patient->id, $data['request_type_id'], $requestType, $data);
         if ($existingRequest) {
             // Restituisce la richiesta esistente invece di crearne una nuova
             return $this->formatExistingRequestResponse($existingRequest, $requestType);
@@ -1113,9 +1253,29 @@ class RequestsController extends Controller
 
         // Recupera i dati dell'account per la response
         $createdByData = $this->getCreatedByData($currentUser);
+        
+        // Recupera dettagli terapia se specificata
+        $therapyDetails = null;
+        if ($documentRequest->therapy_id) {
+            $therapy = \common\models\PlanTherapy::find()
+                ->with(['treatmentType'])
+                ->where(['id' => $documentRequest->therapy_id])
+                ->one();
+                
+            if ($therapy) {
+                $therapyDetails = [
+                    'id' => $therapy->id,
+                    'treatment_type_id' => $therapy->treatment_type_id,
+                    'treatment_type_name' => $therapy->treatmentType ? $therapy->treatmentType->name : 'N/A',
+                    'weekly_hours' => $therapy->weekly_hours,
+                    'is_group' => (bool) $therapy->is_group,
+                    'group_type' => $therapy->is_group ? 'Gruppo' : 'Individuale'
+                ];
+            }
+        }
 
         // Restituisce i dati formattati per l'API
-        return [
+        $response = [
             'id' => $documentRequest->id,
             'patient_id' => $documentRequest->patient_id,
             'request_type_id' => $documentRequest->request_type_id,
@@ -1129,6 +1289,13 @@ class RequestsController extends Controller
             'created_by' => $createdByData,
             'can_be_cancelled' => $documentRequest->canBeCancelled(),
         ];
+        
+        // Aggiungi dettagli terapia se disponibili
+        if ($therapyDetails) {
+            $response['therapy_details'] = $therapyDetails;
+        }
+        
+        return $response;
     }
 
     /**
@@ -1190,20 +1357,22 @@ class RequestsController extends Controller
     /**
      * Controlla se esiste già una richiesta attiva per il paziente e tipo specificato
      * Usa la logica allow_multiple_requests del RequestType
+     * Per "Relazione terapista" controlla anche la terapia specifica
      *
      * @param int $patientId
      * @param int $requestTypeId
      * @param array $requestType
+     * @param array $requestData
      * @return DocumentRequest|null
      */
-    private function checkDuplicateRequest($patientId, $requestTypeId, $requestType)
+    private function checkDuplicateRequest($patientId, $requestTypeId, $requestType, $requestData = [])
     {
         // Se il tipo permette richieste multiple, non c'è duplicato
         if ($requestType['allow_multiple_requests']) {
             return null;
         }
         
-        return DocumentRequest::find()
+        $query = DocumentRequest::find()
             ->with(['accountPatient.user.profile']) // Carica relazioni per created_by
             ->where([
                 'patient_id' => $patientId,
@@ -1213,8 +1382,14 @@ class RequestsController extends Controller
                 DocumentRequest::STATUS_INVIATA,
                 DocumentRequest::STATUS_PRESA_IN_CARICO,
                 DocumentRequest::STATUS_STAMPATO
-            ]]) // Solo richieste attive (non consegnate)
-            ->orderBy(['created_at' => SORT_DESC]) // La più recente
+            ]]); // Solo richieste attive (non consegnate)
+        
+        // Per "Relazione terapista", controlla anche la terapia specifica
+        if ($requestType['name'] === 'Relazione terapista' && !empty($requestData['therapy_id'])) {
+            $query->andWhere(['therapy_id' => $requestData['therapy_id']]);
+        }
+        
+        return $query->orderBy(['created_at' => SORT_DESC]) // La più recente
             ->one();
     }
 
@@ -1241,7 +1416,27 @@ class RequestsController extends Controller
         // Log per audit
         Yii::info("Duplicate request detected for patient {$existingRequest->patient_id}, returning existing request ID: {$existingRequest->id}", __METHOD__);
 
-        return [
+        // Recupera dettagli terapia se specificata
+        $therapyDetails = null;
+        if ($existingRequest->therapy_id) {
+            $therapy = \common\models\PlanTherapy::find()
+                ->with(['treatmentType'])
+                ->where(['id' => $existingRequest->therapy_id])
+                ->one();
+                
+            if ($therapy) {
+                $therapyDetails = [
+                    'id' => $therapy->id,
+                    'treatment_type_id' => $therapy->treatment_type_id,
+                    'treatment_type_name' => $therapy->treatmentType ? $therapy->treatmentType->name : 'N/A',
+                    'weekly_hours' => $therapy->weekly_hours,
+                    'is_group' => (bool) $therapy->is_group,
+                    'group_type' => $therapy->is_group ? 'Gruppo' : 'Individuale'
+                ];
+            }
+        }
+
+        $response = [
             'id' => $existingRequest->id,
             'patient_id' => $existingRequest->patient_id,
             'request_type_id' => $existingRequest->request_type_id,
@@ -1258,6 +1453,19 @@ class RequestsController extends Controller
             'duplicate_message' => "Esiste già una richiesta di questo tipo per il paziente, creata da {$originalRequester['first_name']} {$originalRequester['last_name']} il " . 
                                   (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('d/m/Y \a\l\l\e H:i')
         ];
+        
+        // Aggiungi dettagli terapia se disponibili e personalizza il messaggio per "Relazione terapista"
+        if ($therapyDetails) {
+            $response['therapy_details'] = $therapyDetails;
+            
+            // Personalizza il messaggio per "Relazione terapista"
+            if ($requestType['name'] === 'Relazione terapista') {
+                $response['duplicate_message'] = "Esiste già una richiesta di relazione terapista per '{$therapyDetails['treatment_type_name']}', creata da {$originalRequester['first_name']} {$originalRequester['last_name']} il " . 
+                                                (new \DateTime($existingRequest->created_at, new \DateTimeZone('UTC')))->format('d/m/Y \a\l\l\e H:i');
+            }
+        }
+        
+        return $response;
     }
 
     /**
@@ -1510,5 +1718,108 @@ class RequestsController extends Controller
         }
 
         return $status; // Restituisci il valore originale se non è convertibile
+    }
+
+    /**
+     * Valida i requisiti per una tipologia di richiesta
+     * 
+     * @param array $type
+     * @param TherapeuticPlan|null $activePlan
+     * @param PlanTherapy[] $planTherapies
+     * @return array
+     */
+    private function validateTypeRequirements($type, $activePlan, $planTherapies)
+    {
+        $errors = [];
+
+        // Verifica piano terapeutico obbligatorio
+        if ($type['is_therapeutic_plan_required'] && !$activePlan) {
+            $errors[] = "Piano terapeutico non presente. Impossibile completare la richiesta per '{$type['name']}'";
+        }
+
+        // Verifica assegnazione terapia obbligatoria
+        if ($type['require_therapy_assignment']) {
+            if (!$activePlan) {
+                $errors[] = "Piano terapeutico non presente. Impossibile selezionare una terapia per '{$type['name']}'";
+            } elseif (empty($planTherapies)) {
+                $errors[] = "Nessuna terapia trovata nel piano terapeutico. Impossibile completare la richiesta per '{$type['name']}'";
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Formatta i dati del paziente per la response
+     * 
+     * @param Patient $patient
+     * @return array
+     */
+    private function formatPatientData($patient)
+    {
+        $activePlan = $patient->getActiveTherapeuticPlan();
+        
+        return [
+            'id' => $patient->id,
+            'first_name' => $patient->first_name,
+            'last_name' => $patient->last_name,
+            'fiscal_code' => $patient->fiscal_code,
+            'has_active_plan' => $activePlan !== null,
+            'active_plan_id' => $activePlan ? $activePlan->id : null,
+            'active_plan_start_date' => $activePlan ? $activePlan->start_date : null,
+            'active_plan_end_date' => $activePlan ? $activePlan->end_date : null
+        ];
+    }
+
+    /**
+     * Formatta i dati del piano terapeutico per la response
+     * 
+     * @param TherapeuticPlan $plan
+     * @return array
+     */
+    private function formatTherapeuticPlanData($plan)
+    {
+        // Gestisce il caso in cui end_date possa non essere disponibile
+        $endDate = null;
+        try {
+            $endDate = $plan->end_date ?: $plan->getCalculatedEndDate();
+        } catch (\Exception $e) {
+            // Calcola manualmente se necessario
+            if ($plan->start_date && $plan->duration_days) {
+                $endDate = date('Y-m-d', strtotime($plan->start_date . ' + ' . $plan->duration_days . ' days'));
+            }
+        }
+
+        return [
+            'id' => $plan->id,
+            'start_date' => $plan->start_date,
+            'end_date' => $endDate,
+            'duration_days' => $plan->duration_days,
+            'notes' => $plan->notes
+        ];
+    }
+
+    /**
+     * Formatta i dati delle terapie per la response
+     * 
+     * @param PlanTherapy[] $therapies
+     * @return array
+     */
+    private function formatTherapiesData($therapies)
+    {
+        $result = [];
+        
+        foreach ($therapies as $therapy) {
+            $result[] = [
+                'id' => $therapy->id,
+                'treatment_type_id' => $therapy->treatment_type_id,
+                'treatment_type_name' => $therapy->treatmentType ? $therapy->treatmentType->name : 'N/A',
+                'weekly_hours' => $therapy->weekly_hours,
+                'is_group' => (bool) $therapy->is_group,
+                'group_type' => $therapy->is_group ? 'Gruppo' : 'Individuale'
+            ];
+        }
+        
+        return $result;
     }
 } 

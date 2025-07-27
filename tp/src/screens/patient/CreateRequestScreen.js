@@ -95,16 +95,64 @@ const CreateRequestScreen = ({navigation}) => {
 
   const loadRequestTypes = async () => {
     try {
-      const response = await getRequestTypes();
+      if (!patient_id) {
+        Alert.alert('Errore', 'ID paziente mancante');
+        return;
+      }
+
+      const response = await getRequestTypes(patient_id);
 
       console.log('🔍 ANALISI DETTAGLIATA TIPI DI RICHIESTA:');
       console.log(JSON.stringify(response, null, 2));
 
       if (response.success) {
         setRequestTypes(response.data);
+
+        // Controlla se ci sono errori di validazione
+        if (
+          response.validation_summary &&
+          response.validation_summary.has_errors
+        ) {
+          console.log('⚠️ ERRORI DI VALIDAZIONE TROVATI:');
+          console.log(
+            JSON.stringify(response.validation_summary.errors_by_type, null, 2),
+          );
+        }
+
+        // Log dati paziente
+        if (response.patient_data) {
+          console.log('👤 DATI PAZIENTE:');
+          console.log(JSON.stringify(response.patient_data, null, 2));
+        }
       }
     } catch (error) {
       console.error('❌ Errore caricamento tipologie:', error);
+
+      // Gestisci errori specifici
+      if (error.message?.includes('ID paziente mancante')) {
+        Alert.alert(
+          'Errore',
+          'Seleziona un paziente prima di creare una richiesta',
+        );
+        navigation.goBack();
+        return;
+      }
+
+      if (error.response?.status === 403) {
+        Alert.alert(
+          'Accesso Negato',
+          'Non hai i permessi per accedere ai dati di questo paziente',
+        );
+        navigation.goBack();
+        return;
+      }
+
+      if (error.response?.status === 404) {
+        Alert.alert('Errore', 'Paziente non trovato');
+        navigation.goBack();
+        return;
+      }
+
       Alert.alert('Errore', 'Impossibile caricare le tipologie di richieste');
     }
   };
@@ -115,19 +163,38 @@ const CreateRequestScreen = ({navigation}) => {
       return false;
     }
 
+    // Verifica se il tipo è disponibile
+    if (selectedType.is_available === false) {
+      Alert.alert(
+        'Errore',
+        'Questa tipologia di richiesta non è disponibile per il paziente selezionato',
+      );
+      return false;
+    }
+
     const errors = [];
 
     // Controllo piano terapeutico
-    if (
-      selectedType.is_therapeutic_plan_required &&
-      !formData.therapeutic_plan_id
-    ) {
-      errors.push('Piano terapeutico obbligatorio per questa tipologia');
+    if (selectedType.is_therapeutic_plan_required) {
+      if (!selectedType.therapeutic_plan_data) {
+        errors.push(
+          'Piano terapeutico obbligatorio non disponibile per questa tipologia',
+        );
+      } else if (!formData.therapeutic_plan_id) {
+        errors.push('Piano terapeutico obbligatorio per questa tipologia');
+      }
     }
 
     // Controllo assegnazione terapia
-    if (selectedType.require_therapy_assignment && !formData.therapy_id) {
-      errors.push('Selezione terapia obbligatoria per questa tipologia');
+    if (selectedType.require_therapy_assignment) {
+      if (
+        !selectedType.therapies_data ||
+        selectedType.therapies_data.length === 0
+      ) {
+        errors.push('Terapie non disponibili nel piano terapeutico');
+      } else if (!formData.therapy_id) {
+        errors.push('Selezione terapia obbligatoria per questa tipologia');
+      }
     }
 
     // Controllo note
@@ -274,6 +341,22 @@ const CreateRequestScreen = ({navigation}) => {
 
   const handleTypeSelect = type => {
     setSelectedType(type);
+
+    // Reset form data quando si cambia tipo
+    setFormData({
+      request_type_id: type.id,
+      therapeutic_plan_id: '',
+      therapy_id: '',
+      notes: '',
+    });
+
+    // Se il tipo ha un piano terapeutico disponibile, pre-selezionalo
+    if (type.therapeutic_plan_data) {
+      setFormData(prev => ({
+        ...prev,
+        therapeutic_plan_id: type.therapeutic_plan_data.id.toString(),
+      }));
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -323,59 +406,82 @@ const CreateRequestScreen = ({navigation}) => {
               <Text style={styles.sectionTitle}>
                 Seleziona il tipo di richiesta:
               </Text>
-              {requestTypes.map(type => {
+              {requestTypes.map((type, index) => {
                 const config = REQUEST_TYPE_CONFIG[type.name] || {
                   icon: 'description',
                   color: '#ECEFF1',
                   textColor: '#546E7A',
                 };
 
+                const isAvailable = type.is_available !== false;
+                const hasErrors =
+                  type.validation_errors && type.validation_errors.length > 0;
+
                 return (
                   <TouchableRipple
-                    key={type.id}
-                    onPress={() => handleTypeSelect(type)}
+                    key={`${type.id}-${index}`}
+                    onPress={() =>
+                      isAvailable ? handleTypeSelect(type) : null
+                    }
+                    disabled={!isAvailable}
                     style={[
                       styles.requestTypeCard,
                       {
-                        backgroundColor: config.color,
+                        backgroundColor: isAvailable ? config.color : '#F5F5F5',
                         borderColor:
                           selectedType?.id === type.id
                             ? config.textColor
                             : 'transparent',
+                        opacity: isAvailable ? 1 : 0.6,
                       },
                     ]}>
                     <View style={styles.requestTypeContent}>
                       <View
                         style={[
                           styles.iconContainer,
-                          {backgroundColor: config.color},
+                          {
+                            backgroundColor: isAvailable
+                              ? config.color
+                              : '#E0E0E0',
+                          },
                         ]}>
                         <Icon
-                          name={config.icon}
+                          name={hasErrors ? 'error' : config.icon}
                           size={24}
-                          color={config.textColor}
+                          color={isAvailable ? config.textColor : '#9E9E9E'}
                         />
                       </View>
                       <View style={styles.requestTypeInfo}>
                         <Text
                           style={[
                             styles.requestTypeName,
-                            {color: config.textColor},
+                            {color: isAvailable ? config.textColor : '#9E9E9E'},
                           ]}>
                           {type.name}
                         </Text>
-                        <Text style={styles.requestTypeDescription}>
+                        <Text
+                          style={[
+                            styles.requestTypeDescription,
+                            {color: isAvailable ? '#666' : '#9E9E9E'},
+                          ]}>
                           {type.therapeutic_plan_rule_label}
                         </Text>
+                        {hasErrors && (
+                          <Text style={styles.errorText}>
+                            {type.validation_errors[0]}
+                          </Text>
+                        )}
                       </View>
                       <Icon
                         name={
-                          selectedType?.id === type.id
+                          !isAvailable
+                            ? 'block'
+                            : selectedType?.id === type.id
                             ? 'check-circle'
                             : 'radio-button-unchecked'
                         }
                         size={24}
-                        color={config.textColor}
+                        color={isAvailable ? config.textColor : '#9E9E9E'}
                       />
                     </View>
                   </TouchableRipple>
@@ -390,30 +496,92 @@ const CreateRequestScreen = ({navigation}) => {
 
                 {/* Piano Terapeutico */}
                 {!selectedType.is_therapeutic_plan_not_allowed && (
-                  <TextInput
-                    label="Piano Terapeutico"
-                    value={formData.therapeutic_plan_id}
-                    onChangeText={value =>
-                      handleInputChange('therapeutic_plan_id', value)
-                    }
-                    style={styles.input}
-                    disabled={submitting}
-                    required={selectedType.is_therapeutic_plan_required}
-                  />
+                  <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>
+                      Piano Terapeutico
+                      {selectedType.is_therapeutic_plan_required && ' *'}
+                    </Text>
+                    {selectedType.therapeutic_plan_data ? (
+                      <View style={styles.dataDisplayContainer}>
+                        <Text style={styles.dataDisplayText}>
+                          Piano dal{' '}
+                          {selectedType.therapeutic_plan_data.start_date} al{' '}
+                          {selectedType.therapeutic_plan_data.end_date}
+                        </Text>
+                        <Text style={styles.dataDisplaySubtext}>
+                          Durata:{' '}
+                          {selectedType.therapeutic_plan_data.duration_days}{' '}
+                          giorni
+                        </Text>
+                      </View>
+                    ) : selectedType.is_therapeutic_plan_required ? (
+                      <Text style={styles.errorText}>
+                        Piano terapeutico non disponibile
+                      </Text>
+                    ) : (
+                      <Text style={styles.infoText}>
+                        Nessun piano terapeutico attivo
+                      </Text>
+                    )}
+                  </View>
                 )}
 
                 {/* Terapia */}
                 {selectedType.require_therapy_assignment && (
-                  <TextInput
-                    label="Terapia"
-                    value={formData.therapy_id}
-                    onChangeText={value =>
-                      handleInputChange('therapy_id', value)
-                    }
-                    style={styles.input}
-                    disabled={submitting}
-                    required={true}
-                  />
+                  <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Terapia *</Text>
+                    {selectedType.therapies_data &&
+                    selectedType.therapies_data.length > 0 ? (
+                      <View style={styles.therapyListContainer}>
+                        {selectedType.therapies_data.map(
+                          (therapy, therapyIndex) => (
+                            <TouchableRipple
+                              key={`therapy-${therapy.id}-${therapyIndex}`}
+                              onPress={() =>
+                                handleInputChange(
+                                  'therapy_id',
+                                  therapy.id.toString(),
+                                )
+                              }
+                              style={[
+                                styles.therapyItem,
+                                {
+                                  backgroundColor:
+                                    formData.therapy_id ===
+                                    therapy.id.toString()
+                                      ? '#E3F2FD'
+                                      : '#F5F5F5',
+                                },
+                              ]}>
+                              <View style={styles.therapyItemContent}>
+                                <Text style={styles.therapyName}>
+                                  {therapy.treatment_type_name}
+                                </Text>
+                                <Text style={styles.therapyDetails}>
+                                  {therapy.weekly_hours}h/settimana -{' '}
+                                  {therapy.group_type}
+                                </Text>
+                                <Icon
+                                  name={
+                                    formData.therapy_id ===
+                                    therapy.id.toString()
+                                      ? 'check-circle'
+                                      : 'radio-button-unchecked'
+                                  }
+                                  size={20}
+                                  color="#2196F3"
+                                />
+                              </View>
+                            </TouchableRipple>
+                          ),
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={styles.errorText}>
+                        Nessuna terapia disponibile nel piano terapeutico
+                      </Text>
+                    )}
+                  </View>
                 )}
 
                 {/* Note */}
@@ -495,6 +663,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  errorText: {
+    fontSize: 12,
+    color: '#F44336',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   formContainer: {
     flex: 1,
   },
@@ -504,6 +678,58 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 24,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  dataDisplayContainer: {
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 8,
+  },
+  dataDisplayText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  dataDisplaySubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  therapyListContainer: {
+    gap: 8,
+  },
+  therapyItem: {
+    borderRadius: 8,
+    padding: 12,
+  },
+  therapyItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  therapyName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    flex: 1,
+  },
+  therapyDetails: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 8,
   },
   noPatientContainer: {
     flex: 1,
