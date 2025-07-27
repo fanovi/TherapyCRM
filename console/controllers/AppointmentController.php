@@ -1,72 +1,6 @@
 <?php
 
 namespace console\controllers;
-
-use Yii;
-use yii\console\Controller;
-use yii\console\ExitCode;
-use common\models\Appointment;
-use yii\db\Expression;
-use yii\helpers\Console;
-
-/**
- * Gestisce il completamento automatico degli appuntamenti
- * 
- * @author Your Name
- */
-class AppointmentController extends Controller
-{
-    /**
-     * @var int Numero di record da processare per batch
-     */
-    public $batchSize = 100;
-    
-    /**
-     * @var bool Modalità verbose per debug
-     */
-    public $verbose = false;
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function options($actionID)
-    {
-        return array_merge(parent::options($actionID), [
-            'batchSize',
-            'verbose'
-        ]);
-    }
-    
-    /**
-     * {@inheritdoc}
-     */
-    public function optionAliases()
-    {
-        return array_merge(parent::optionAliases(), [
-            'b' => 'batchSize',
-            'v' => 'verbose'
-        ]);
-    }
-    
-    /**
-     * Completa automaticamente gli appuntamenti terminati
-     * 
-     * Questo comando trova tutti gli appuntamenti con status 'scheduled'
-     * che sono terminati (appointment_datetime + duration_minutes < now)
-     * e li marca come 'completed'.
-     * 
-     * Utilizzo:
-     * ```
-     * php yii appointment/auto-complete
-     * php yii appointment/auto-complete --batchSize=200
-     * php yii appointment/auto-complete -v
-     * ```
-     * 
-     * @return int Exit code
-     */
-    <?php
-
-    namespace console\controllers;
     
     use Yii;
     use yii\console\Controller;
@@ -325,51 +259,6 @@ class AppointmentController extends Controller
             
             return ExitCode::OK;
         }
-    }
     
-    /**
-     * Mostra statistiche sugli appuntamenti
-     * 
-     * Utile per monitorare lo stato del sistema
-     * 
-     * @return int Exit code
-     */
-    public function actionStats()
-    {
-        $this->stdout("=== Statistiche Appuntamenti ===\n", Console::FG_CYAN);
-        
-        $stats = Appointment::find()
-            ->select(['status', 'COUNT(*) as count'])
-            ->groupBy('status')
-            ->asArray()
-            ->all();
-        
-        $this->stdout("\nAppuntamenti per stato:\n");
-        foreach ($stats as $stat) {
-            $statusLabel = Appointment::getStatusLabels()[$stat['status']] ?? $stat['status'];
-            $this->stdout(sprintf("  %-25s: %d\n", $statusLabel, $stat['count']));
-        }
-        
-        // Appuntamenti da completare
-        $toComplete = Appointment::find()
-            ->where(['status' => Appointment::STATUS_SCHEDULED])
-            ->andWhere([
-                '<', 
-                new Expression('DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)'),
-                date('Y-m-d H:i:s')
-            ])
-            ->count();
-        
-        $this->stdout("\nAppuntamenti da completare automaticamente: {$toComplete}\n", Console::FG_YELLOW);
-        
-        // Appuntamenti futuri
-        $future = Appointment::find()
-            ->where(['status' => Appointment::STATUS_SCHEDULED])
-            ->andWhere(['>', 'appointment_datetime', date('Y-m-d H:i:s')])
-            ->count();
-        
-        $this->stdout("Appuntamenti futuri programmati: {$future}\n", Console::FG_GREEN);
-        
-        return ExitCode::OK;
-    }
+    
 }
