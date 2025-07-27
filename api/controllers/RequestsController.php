@@ -1681,6 +1681,25 @@ class RequestsController extends Controller
             $data['type_info'] = null;
         }
 
+        // Aggiungi dettagli terapia se specificata (importante per "Relazione terapista")
+        if ($request->therapy_id) {
+            $therapy = \common\models\PlanTherapy::find()
+                ->with(['treatmentType'])
+                ->where(['id' => $request->therapy_id])
+                ->one();
+                
+            if ($therapy) {
+                $data['therapy_details'] = [
+                    'id' => $therapy->id,
+                    'treatment_type_id' => $therapy->treatment_type_id,
+                    'treatment_type_name' => $therapy->treatmentType ? $therapy->treatmentType->name : 'N/A',
+                    'weekly_hours' => $therapy->weekly_hours,
+                    'is_group' => (bool) $therapy->is_group,
+                    'group_type' => $therapy->is_group ? 'Gruppo' : 'Individuale'
+                ];
+            }
+        }
+
         return $data;
     }
 

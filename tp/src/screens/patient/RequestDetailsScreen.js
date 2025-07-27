@@ -381,6 +381,44 @@ const RequestDetailsScreen = ({navigation, route}) => {
           </Card.Content>
         </Card>
 
+        {/* Dettagli Terapia - Solo per "Relazione terapista" */}
+        {request.therapy_details &&
+          request.request_type === 'Relazione terapista' && (
+            <Card style={styles.therapyCard}>
+              <Card.Content>
+                <Text style={styles.sectionTitle}>Dettagli Terapia</Text>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tipologia:</Text>
+                  <Text style={styles.infoValue}>
+                    {request.therapy_details.treatment_type_name}
+                  </Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Modalità:</Text>
+                  <Text style={styles.infoValue}>
+                    {request.therapy_details.group_type}
+                  </Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Ore settimanali:</Text>
+                  <Text style={styles.infoValue}>
+                    {request.therapy_details.weekly_hours}h
+                  </Text>
+                </View>
+
+                <Surface style={styles.therapyNotice}>
+                  <Text style={styles.therapyNoticeText}>
+                    💡 Questa richiesta di relazione si riferisce specificamente
+                    alla terapia "{request.therapy_details.treatment_type_name}"
+                  </Text>
+                </Surface>
+              </Card.Content>
+            </Card>
+          )}
+
         {/* Note */}
         {request.notes && (
           <Card style={styles.notesCard}>
@@ -543,6 +581,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
     color: '#333',
+  },
+  therapyCard: {
+    marginBottom: 16,
+  },
+  therapyNotice: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  therapyNoticeText: {
+    fontSize: 13,
+    color: '#1565C0',
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
   notesCard: {
     marginBottom: 16,
