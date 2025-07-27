@@ -32,6 +32,7 @@ class TherapeuticPlanController extends BaseController
                     'class' => VerbFilter::class,
                     'actions' => [
                         'delete' => ['POST'],
+                        'delete-confirm' => ['GET'], // Nuova azione per la conferma
                     ],
                 ],
                 'access' => [
@@ -67,6 +68,13 @@ class TherapeuticPlanController extends BaseController
                         ],
                         [
                             'actions' => ['delete'],
+                            'allow' => true,
+                            'matchCallback' => function ($rule, $action) {
+                                return Yii::$app->user->can('delete_therapeutic_plan');
+                            }
+                        ],
+                        [
+                            'actions' => ['delete-confirm'],
                             'allow' => true,
                             'matchCallback' => function ($rule, $action) {
                                 return Yii::$app->user->can('delete_therapeutic_plan');
@@ -502,27 +510,97 @@ class TherapeuticPlanController extends BaseController
         ]);
     }
 
-    /**
-     * Deletes an existing TherapeuticPlan model.
-     * If deletion is successful, the browser will be redirected to the 'index' page.
-     *
-     * @param int $id ID
-     * @return \yii\web\Response
-     * @throws NotFoundHttpException if the model cannot be found
-     */
+    public function actionDeleteConfirm($id)
+{
+    $model = $this->findModel($id);
+    
+    // Controlla se ci sono appuntamenti collegati tramite le plan_therapies
+    $planTherapyIds = \common\models\PlanTherapy::find()
+        ->where(['therapeutic_plan_id' => $id])
+        ->select('id')
+        ->column();
+    
+    $appointmentCount = 0;
+    if (!empty($planTherapyIds)) {
+        $appointmentCount = \common\models\Appointment::find()
+            ->where(['plan_therapy_id' => $planTherapyIds])
+            ->count();
+    }
+    
+    return $this->render('delete-confirm', [
+        'model' => $model,
+        'appointmentCount' => $appointmentCount
+    ]);
+}
+    
+    // Modifica l'azione delete per gestire solo POST
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
-
-        try {
-            $model->delete();
-            Yii::$app->session->setFlash('success', 'Piano terapeutico eliminato con successo.');
-        } catch (\Exception $e) {
-            Yii::$app->session->setFlash('error', 'Errore durante l\'eliminazione del piano terapeutico.');
-            Yii::error('Errore eliminazione piano terapeutico: ' . $e->getMessage());
+        
+        // Controlla se ci sono appuntamenti collegati tramite le plan_therapies
+        $planTherapyIds = \common\models\PlanTherapy::find()
+            ->where(['therapeutic_plan_id' => $id])
+            ->select('id')
+            ->column();
+        
+        $appointmentCount = 0;
+        if (!empty($planTherapyIds)) {
+            $appointmentCount = \common\models\Appointment::find()
+                ->where(['plan_therapy_id' => $planTherapyIds])
+                ->count();
         }
-
-        return $this->redirect(['index']);
+        
+        if ($appointmentCount > 0) {
+            // Se ci sono appuntamenti collegati, mostra un messaggio di conferma più dettagliato
+            if (Yii::$app->request->post('confirm_delete') === 'yes') {
+                // L'utente ha confermato l'eliminazione
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    // Prima elimina tutti gli appuntamenti collegati alle plan_therapies di questo piano terapeutico
+                    if (!empty($planTherapyIds)) {
+                        \common\models\Appointment::deleteAll(['plan_therapy_id' => $planTherapyIds]);
+                    }
+                    
+                    // Poi elimina le plan_therapies
+                    \common\models\PlanTherapy::deleteAll(['therapeutic_plan_id' => $id]);
+                    
+                    // Infine elimina il piano terapeutico
+                    $model->delete();
+                    
+                    $transaction->commit();
+                    Yii::$app->session->setFlash('success', 
+                        "Piano terapeutico e {$appointmentCount} appuntamenti collegati eliminati con successo.");
+                    
+                    return $this->redirect(['index']);
+                    
+                } catch (\Exception $e) {
+                    $transaction->rollBack();
+                    Yii::$app->session->setFlash('error', 
+                        'Errore durante l\'eliminazione del piano terapeutico e degli appuntamenti collegati.');
+                    Yii::error('Errore eliminazione piano terapeutico: ' . $e->getMessage());
+                    
+                    return $this->redirect(['index']);
+                }
+            } else {
+                // Mostra la pagina di conferma
+                return $this->render('delete-confirm', [
+                    'model' => $model,
+                    'appointmentCount' => $appointmentCount
+                ]);
+            }
+        } else {
+            // Nessun appuntamento collegato, eliminazione diretta
+            try {
+                $model->delete();
+                Yii::$app->session->setFlash('success', 'Piano terapeutico eliminato con successo.');
+            } catch (\Exception $e) {
+                Yii::$app->session->setFlash('error', 'Errore durante l\'eliminazione del piano terapeutico.');
+                Yii::error('Errore eliminazione piano terapeutico: ' . $e->getMessage());
+            }
+            
+            return $this->redirect(['index']);
+        }
     }
 
     /**

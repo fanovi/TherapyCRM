@@ -176,21 +176,23 @@ $this->params['breadcrumbs'][] = $this->title;
                                     ]
                                 );
                             },
-                            'delete' => function ($url, $model, $key) {
-                                return Html::a(
-                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                    </svg>',
-                                    $url,
-                                    [
-                                        'title' => 'Elimina',
-                                        'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
-                                        'data-confirm' => 'Sei sicuro di voler eliminare questo piano terapeutico?',
-                                        'data-method' => 'post',
-                                        'data-pjax' => '0'
-                                    ]
-                                );
-                            },
+                           
+'delete' => function ($url, $model, $key) {
+    // Cambia l'URL per puntare all'azione delete-confirm
+    $confirmUrl = \yii\helpers\Url::to(['delete-confirm', 'id' => $model->id]);
+    
+    return Html::a(
+        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>',
+        $confirmUrl,
+        [
+            'title' => 'Elimina piano terapeutico',
+            'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
+            'data-pjax' => '0'
+        ]
+    );
+},
                             'calendar-link' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('manage_calendar')) return '';
                                 $url = ['calendar/' . $model->patient_id];

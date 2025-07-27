@@ -35,22 +35,21 @@ class TherapeuticPlanExpiryController extends Controller
         $totalNotifications = 0;
         $errors = [];
 
-        // IMPORTANTE: Elabora in ordine decrescente (90, 60, 30, 15)
-        // così la logica di "notifica immediatamente precedente" funziona correttamente
-        $sortedDays = $this->notificationDays;
-        rsort($sortedDays);
+        // Ottieni tutti i piani attivi
+        $today = date('Y-m-d');
+        $activePlans = TherapeuticPlan::find()
+            ->where(['>', 'end_date', $today])
+            ->with(['patient', 'regime'])
+            ->all();
 
-        foreach ($sortedDays as $daysBefore) {
-            $this->stdout("\nElaborazione notifiche per {$daysBefore} giorni prima della scadenza...\n");
-            
+        foreach ($activePlans as $plan) {
             try {
-                $count = $this->processNotificationsForDays($daysBefore);
+                $count = $this->processNotificationsForPlan($plan);
                 $totalNotifications += $count;
-                $this->stdout("  - Inviate {$count} notifiche\n");
             } catch (\Exception $e) {
-                $error = "Errore per {$daysBefore} giorni: " . $e->getMessage();
+                $error = "Errore per piano {$plan->id}: " . $e->getMessage();
                 $errors[] = $error;
-                $this->stderr("  - {$error}\n");
+                $this->stderr("- {$error}\n");
                 Yii::error($error, __METHOD__);
             }
         }
@@ -71,85 +70,70 @@ class TherapeuticPlanExpiryController extends Controller
     }
 
     /**
-     * Elabora le notifiche per un numero specifico di giorni prima della scadenza
+     * Elabora le notifiche per un singolo piano
      * 
-     * @param int $daysBefore
+     * @param TherapeuticPlan $plan
      * @return int Numero di notifiche inviate
      * @throws \Exception
      */
-    private function processNotificationsForDays($daysBefore)
+    private function processNotificationsForPlan($plan)
     {
-        // Trova il template corrispondente
-        $templateCode = 'PLAN_EXPIRING_' . $daysBefore;
+        // Calcola i giorni rimanenti
+        $daysRemaining = (new \DateTime($plan->end_date))->diff(new \DateTime())->days;
+        
+        // Trova il threshold appropriato (il più piccolo tra quelli applicabili e non ancora inviati)
+        $appropriateThreshold = $this->findAppropriateThreshold($plan, $daysRemaining);
+        
+        if ($appropriateThreshold === null) {
+            return 0; // Nessuna notifica da inviare
+        }
+
+        // Trova il template
+        $templateCode = 'PLAN_EXPIRING_' . $appropriateThreshold;
         $template = NotificationTemplate::findByCode($templateCode);
         
         if (!$template) {
             throw new \Exception("Template '{$templateCode}' non trovato o non attivo");
         }
 
-        $today = date('Y-m-d');
-        $maxDate = date('Y-m-d', strtotime("+{$daysBefore} days"));
+        $this->stdout("\nPiano ID {$plan->id} - {$plan->patient->getFullName()} (scade tra {$daysRemaining} giorni)\n");
+        $this->stdout("  - Invio notifica {$appropriateThreshold}gg\n");
+
+        return $this->sendNotificationsForPlan($plan, $appropriateThreshold, $template);
+    }
+
+    /**
+     * Trova il threshold appropriato per le notifiche
+     * 
+     * @param TherapeuticPlan $plan
+     * @param int $daysRemaining
+     * @return int|null Il threshold da usare, o null se nessuna notifica deve essere inviata
+     */
+    private function findAppropriateThreshold($plan, $daysRemaining)
+    {
+        // Ordina i threshold in ordine crescente (dal più piccolo al più grande)
+        $sortedThresholds = $this->notificationDays;
+        sort($sortedThresholds);
         
-        // Trova tutti i piani che:
-        // - Sono ancora attivi (end_date > oggi)
-        // - Scadono entro X giorni (end_date <= oggi + X giorni)
-        $expiringPlans = TherapeuticPlan::find()
-            ->where(['and',
-                ['>', 'end_date', $today],
-                ['<=', 'end_date', $maxDate]
-            ])
-            ->with(['patient', 'regime'])
-            ->all();
-
-        $notificationsSent = 0;
-
-        foreach ($expiringPlans as $plan) {
-            try {
-                // Verifica se questo piano ha già ricevuto questa notifica
+        // Trova il primo threshold applicabile (dal più piccolo) che non è ancora stato inviato
+        foreach ($sortedThresholds as $threshold) {
+            // Se i giorni rimanenti sono più del threshold, questa notifica è applicabile
+            if ($daysRemaining <= $threshold) {
+                // Verifica se questa notifica è già stata inviata
                 $alreadySent = TherapeuticPlanNotification::find()
                     ->where([
                         'therapeutic_plan_id' => $plan->id,
-                        'days_before' => $daysBefore
+                        'days_before' => $threshold
                     ])
                     ->exists();
                     
-                if ($alreadySent) {
-                    continue;
+                if (!$alreadySent) {
+                    return $threshold; // Questo è il threshold da usare
                 }
-                
-                // Verifica se ha già ricevuto una notifica con threshold maggiore
-                // Es: se stiamo valutando 60gg, verifica se ha già ricevuto 90gg
-                $largerThresholds = array_filter($this->notificationDays, function($days) use ($daysBefore) {
-                    return $days > $daysBefore;
-                });
-                
-                $hasLargerNotification = false;
-                foreach ($largerThresholds as $threshold) {
-                    if (TherapeuticPlanNotification::find()
-                        ->where([
-                            'therapeutic_plan_id' => $plan->id,
-                            'days_before' => $threshold
-                        ])
-                        ->exists()) {
-                        $hasLargerNotification = true;
-                        break;
-                    }
-                }
-                
-                // Se ha già una notifica con threshold maggiore, salta questa
-                if ($hasLargerNotification) {
-                    continue;
-                }
-                
-                $count = $this->sendNotificationsForPlan($plan, $daysBefore, $template);
-                $notificationsSent += $count;
-            } catch (\Exception $e) {
-                Yii::error("Errore invio notifiche per piano {$plan->id}: " . $e->getMessage(), __METHOD__);
-                // Continua con il prossimo piano
             }
         }
-
-        return $notificationsSent;
+        
+        return null; // Nessuna notifica da inviare
     }
 
     /**
@@ -273,75 +257,67 @@ class TherapeuticPlanExpiryController extends Controller
     {
         $this->stdout("=== MODALITÀ DRY RUN - NESSUNA NOTIFICA VERRÀ INVIATA ===\n\n");
         
-        $sortedDays = $this->notificationDays;
-        rsort($sortedDays);
+        $today = date('Y-m-d');
+        $activePlans = TherapeuticPlan::find()
+            ->where(['>', 'end_date', $today])
+            ->with(['patient', 'regime'])
+            ->orderBy(['end_date' => SORT_ASC])
+            ->all();
+            
+        if (empty($activePlans)) {
+            $this->stdout("Nessun piano terapeutico attivo trovato.\n");
+            return ExitCode::OK;
+        }
         
-        foreach ($sortedDays as $daysBefore) {
-            $today = date('Y-m-d');
-            $maxDate = date('Y-m-d', strtotime("+{$daysBefore} days"));
+        $this->stdout("Piani terapeutici attivi:\n");
+        
+        foreach ($activePlans as $plan) {
+            $daysRemaining = (new \DateTime($plan->end_date))->diff(new \DateTime())->days;
             
-            $this->stdout("\n--- NOTIFICHE {$daysBefore} GIORNI ---\n");
-            $this->stdout("Piani che scadono entro il {$maxDate}:\n");
+            $this->stdout("\n- Piano ID {$plan->id}: {$plan->patient->getFullName()}\n");
+            $this->stdout("  Scade il: {$plan->end_date} (tra {$daysRemaining} giorni)\n");
+            $this->stdout("  Regime: {$plan->getRegimeName()}\n");
             
-            // Trova tutti i piani eleggibili
-            $eligiblePlans = TherapeuticPlan::find()
-                ->where(['and',
-                    ['>', 'end_date', $today],
-                    ['<=', 'end_date', $maxDate]
-                ])
-                ->with(['patient', 'regime'])
-                ->orderBy(['end_date' => SORT_ASC])
-                ->all();
+            // Trova quale notifica verrebbe inviata
+            $appropriateThreshold = $this->findAppropriateThreshold($plan, $daysRemaining);
+            
+            // Mostra lo stato di tutte le notifiche
+            $sortedThresholds = $this->notificationDays;
+            rsort($sortedThresholds); // Mostra dal più grande al più piccolo per leggibilità
+            
+            $this->stdout("  Stato notifiche:\n");
+            foreach ($sortedThresholds as $threshold) {
+                $sent = TherapeuticPlanNotification::find()
+                    ->where([
+                        'therapeutic_plan_id' => $plan->id,
+                        'days_before' => $threshold
+                    ])
+                    ->exists();
+                    
+                $applicable = $daysRemaining <= $threshold;
                 
-            if (empty($eligiblePlans)) {
-                $this->stdout("  - Nessun piano eleggibile\n");
-            } else {
-                foreach ($eligiblePlans as $plan) {
-                    $daysRemaining = (new \DateTime($plan->end_date))->diff(new \DateTime())->days;
-                    
-                    // Verifica se ha già questa notifica
-                    $hasThisNotification = TherapeuticPlanNotification::find()
-                        ->where([
-                            'therapeutic_plan_id' => $plan->id,
-                            'days_before' => $daysBefore
-                        ])
-                        ->exists();
-                    
-                    // Verifica se ha notifiche con threshold maggiore
-                    $largerNotifications = TherapeuticPlanNotification::find()
-                        ->where(['and',
-                            ['therapeutic_plan_id' => $plan->id],
-                            ['>', 'days_before', $daysBefore]
-                        ])
-                        ->select(['days_before'])
-                        ->column();
-                    
-                    $willSend = !$hasThisNotification && empty($largerNotifications);
-                    
-                    $this->stdout("  - Piano ID {$plan->id}: {$plan->patient->getFullName()}\n");
-                    $this->stdout("    Scade il: {$plan->end_date} (tra {$daysRemaining} giorni)\n");
-                    $this->stdout("    Regime: {$plan->getRegimeName()}\n");
-                    $this->stdout("    Notifica {$daysBefore}gg già inviata: " . ($hasThisNotification ? "SÌ" : "NO") . "\n");
-                    
-                    if (!empty($largerNotifications)) {
-                        $this->stdout("    Notifiche con threshold maggiore già inviate: " . implode(', ', $largerNotifications) . "gg\n");
-                    }
-                    
-                    $this->stdout("    INVIERÀ NOTIFICA: " . ($willSend ? "SÌ" : "NO") . "\n");
-                    
-                    if ($willSend) {
-                        // Conta gli account che riceverebbero la notifica
-                        $accountCount = AccountPatient::find()
-                            ->where([
-                                'patient_id' => $plan->patient->id,
-                                'has_parental_authority' => 1
-                            ])
-                            ->count();
-                            
-                        $this->stdout("    Account da notificare: {$accountCount}\n");
-                        $this->stdout("    Messaggio mostrerà: \"scadrà tra {$daysRemaining} giorni\"\n");
-                    }
+                $status = $sent ? "INVIATA" : ($applicable ? "DA INVIARE" : "NON APPLICABILE");
+                $this->stdout("    - {$threshold} giorni: {$status}");
+                
+                if ($threshold === $appropriateThreshold) {
+                    $this->stdout(" <-- VERRÀ INVIATA QUESTA");
                 }
+                $this->stdout("\n");
+            }
+            
+            if ($appropriateThreshold !== null) {
+                // Conta gli account che riceverebbero la notifica
+                $accountCount = AccountPatient::find()
+                    ->where([
+                        'patient_id' => $plan->patient->id,
+                        'has_parental_authority' => 1
+                    ])
+                    ->count();
+                    
+                $this->stdout("  AZIONE: Invierà notifica {$appropriateThreshold}gg a {$accountCount} account\n");
+                $this->stdout("  Il messaggio dirà: \"scadrà tra {$daysRemaining} giorni\"\n");
+            } else {
+                $this->stdout("  AZIONE: Nessuna notifica da inviare\n");
             }
         }
         
