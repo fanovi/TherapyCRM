@@ -38,12 +38,12 @@ const PatientHomeScreen = () => {
         />
       }>
       {/* Componente Debug temporaneo */}
-      <DebugPatientInfo />
+      {/* <DebugPatientInfo /> */}
 
       {/* Componente PatientSelector per mostrare utente e paziente */}
       <PatientSelector style={styles.patientSelector} />
       {/* Quick Actions */}
-      <View style={styles.section}>
+      {/* <View style={styles.section}>
         <Text style={styles.sectionTitle}>Azioni Rapide</Text>
 
         <View style={styles.actionsRow}>
@@ -93,7 +93,7 @@ const PatientHomeScreen = () => {
             </Card.Content>
           </Card>
         </View>
-      </View>
+      </View> */}
 
       {/* Prossimi Appuntamenti */}
       <View style={styles.section}>
@@ -134,7 +134,7 @@ const PatientHomeScreen = () => {
       </View>
 
       {/* Stato Salute */}
-      <View style={styles.section}>
+      {/* <View style={styles.section}>
         <Text style={styles.sectionTitle}>Stato di Salute</Text>
 
         <Card style={styles.healthCard}>
@@ -162,7 +162,7 @@ const PatientHomeScreen = () => {
             </View>
           </Card.Content>
         </Card>
-      </View>
+      </View> */}
     </ScreenTemplate>
   );
 };
