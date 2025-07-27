@@ -207,7 +207,7 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Crea appuntamento
-            $appointment = $this->createSingleAppointment($data, $planTherapy);
+            $appointment = $this->createSingleAppointment($data, $planTherapy,$patientId);
 
             // Verifica limite settimanale
             $weeklyLimitInfo = $this->checkWeeklyLimit($therapist, $data['appointmentDateTime'], $data['durationMinutes']);
@@ -2791,10 +2791,12 @@ class TherapeuticPlanManagerController extends Controller
      * @return Appointment
      * @throws Exception
      */
-    private function createSingleAppointment($data, $planTherapy)
+    private function createSingleAppointment($data, $planTherapy, $patientId)
     {
-        Yii::info("Creazione singolo appuntamento - DateTime: {$data['appointmentDateTime']}", __METHOD__);
-
+      
+        if(!$patientId){
+            throw new Exception('Paziente non trovato');
+        }
         // Normalizza il formato datetime
         $appointmentDateTime = $data['appointmentDateTime'];
         try {
@@ -2809,6 +2811,7 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->plan_therapy_id = $data['planTherapyId'];
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
         $appointment->therapist_id = $data['therapistId'];
+        $appointment->patient_id = $patientId;
         $appointment->appointment_datetime = $appointmentDateTime;
         $appointment->duration_minutes = $data['durationMinutes'];
         $appointment->notes = $data['notes'] ?? null;
@@ -3837,6 +3840,7 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->therapist_id = $data['therapistId'];
             $appointment->appointment_datetime = $data['appointmentDateTime'];
             $appointment->duration_minutes = $data['durationMinutes'];
+            $appointment->patient_id = $data['patientId'];
             $appointment->appointment_type = $appointmentType;
             $appointment->notes = $data['notes'] ?? null;
             $appointment->status = Appointment::STATUS_SCHEDULED;

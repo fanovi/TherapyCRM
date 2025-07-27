@@ -250,8 +250,8 @@ $this->params['breadcrumbs'][] = $this->title;
                                 'attribute' => 'therapy_id',
                                 'label' => 'Terapia',
                                 'value' => function ($model) {
-                                    return $model->therapy ? 
-                                           $model->therapy->name : 'N/A';
+                                    return $model->therapy && $model->therapy->treatmentType ? 
+                                           $model->therapy->treatmentType->name : 'N/A';
                                 },
                                 'visible' => $model->therapy_id,
                             ],
