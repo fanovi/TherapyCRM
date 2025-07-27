@@ -151,7 +151,9 @@ const TherapistPatientsScreen = () => {
                 Ultimo
               </Text>
               <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-                {formatDateTime(item.lastAppointment)}
+                {item.lastAppointment
+                  ? formatDateTime(item.lastAppointment)
+                  : 'N/A'}
               </Text>
             </View>
 

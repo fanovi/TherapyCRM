@@ -1833,7 +1833,7 @@ public function actionCompleteAppointment()
                     ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                     ->count();
 
-                // Ultimo appuntamento
+                // Ultimo appuntamento (solo appuntamenti passati)
                 $lastAppointment = Appointment::find()
                     ->alias('a')
                     ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
@@ -1844,6 +1844,7 @@ public function actionCompleteAppointment()
                         ['a.patient_id' => $patient->id],
                         ['tp.patient_id' => $patient->id]
                     ])
+                    ->andWhere(['<', 'a.appointment_datetime', date('Y-m-d H:i:s')])
                     ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                     ->orderBy('a.appointment_datetime DESC')
                     ->one();

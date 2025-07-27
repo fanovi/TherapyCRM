@@ -276,12 +276,19 @@ const TherapistDashboardScreen = ({navigation}) => {
                       {appointment.type}
                     </Text>
                   </View>
-                  <Avatar.Image
+                  <Avatar.Text
                     size={40}
-                    source={{
-                      uri: `https://i.pravatar.cc/150?img=${appointment.patient.id}`,
-                    }}
-                    style={styles.patientAvatar}
+                    label={appointment.patient.name
+                      .split(' ')
+                      .map(name => name.charAt(0))
+                      .join('')
+                      .toUpperCase()
+                      .substring(0, 2)}
+                    style={[
+                      styles.patientAvatar,
+                      {backgroundColor: theme.colors.primaryContainer},
+                    ]}
+                    labelStyle={{color: theme.colors.onPrimaryContainer}}
                   />
                 </View>
 
@@ -316,15 +323,6 @@ const TherapistDashboardScreen = ({navigation}) => {
                       Chiama
                     </Button>
                   )}
-                  <Button
-                    mode="contained"
-                    style={[
-                      styles.actionButton,
-                      {backgroundColor: theme.colors.secondary},
-                    ]}
-                    icon="folder-open">
-                    Cartella
-                  </Button>
                 </View>
               </Card.Content>
             </Card>
