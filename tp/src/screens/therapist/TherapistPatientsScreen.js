@@ -67,101 +67,121 @@ const TherapistPatientsScreen = () => {
     });
   };
 
-  const renderPatient = ({item}) => (
-    <Card style={styles.patientCard}>
-      <Card.Content>
-        <View style={styles.patientHeader}>
-          <Avatar.Image
-            size={50}
-            source={{uri: item.avatar}}
-            style={styles.avatar}
-          />
-          <View style={styles.patientInfo}>
-            <Text style={[styles.patientName, {color: theme.colors.onSurface}]}>
-              {item.fullName}
-            </Text>
-            <Text
+  const renderPatient = ({item}) => {
+    // Crea le iniziali dal nome completo
+    const initials = item.fullName
+      .split(' ')
+      .map(name => name.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+
+    return (
+      <Card style={styles.patientCard}>
+        <Card.Content>
+          <View style={styles.patientHeader}>
+            <Avatar.Text
+              size={50}
+              label={initials}
               style={[
-                styles.patientDetail,
-                {color: theme.colors.onSurfaceVariant},
-              ]}>
-              {item.phone || 'Telefono non disponibile'}
-            </Text>
-            {item.email && (
+                styles.avatar,
+                {backgroundColor: theme.colors.primaryContainer},
+              ]}
+              labelStyle={{color: theme.colors.onPrimaryContainer}}
+            />
+            <View style={styles.patientInfo}>
+              <Text
+                style={[styles.patientName, {color: theme.colors.onSurface}]}>
+                {item.fullName}
+              </Text>
               <Text
                 style={[
                   styles.patientDetail,
                   {color: theme.colors.onSurfaceVariant},
                 ]}>
-                {item.email}
+                {item.phone || 'Telefono non disponibile'}
               </Text>
+              {item.email && (
+                <Text
+                  style={[
+                    styles.patientDetail,
+                    {color: theme.colors.onSurfaceVariant},
+                  ]}>
+                  {item.email}
+                </Text>
+              )}
+            </View>
+            {item.phone && (
+              <IconButton
+                icon="phone"
+                size={20}
+                iconColor={theme.colors.primary}
+                onPress={() => {
+                  // TODO: Implementare chiamata
+                  console.log('Chiama paziente:', item.phone);
+                }}
+              />
             )}
           </View>
-          <IconButton
-            icon="phone"
-            size={20}
-            iconColor={theme.colors.primary}
-            onPress={() => {
-              // TODO: Implementare chiamata
-              console.log('Chiama paziente:', item.phone);
-            }}
-          />
-        </View>
 
-        <View style={styles.patientStats}>
-          <View style={styles.statItem}>
-            <Text
-              style={[
-                styles.statLabel,
-                {color: theme.colors.onSurfaceVariant},
-              ]}>
-              Appuntamenti
-            </Text>
-            <Chip
-              style={[
-                styles.statChip,
-                {backgroundColor: theme.colors.primaryContainer},
-              ]}>
-              {item.totalAppointments}
-            </Chip>
+          <View style={styles.patientStats}>
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Appuntamenti
+              </Text>
+              <Chip
+                style={[
+                  styles.statChip,
+                  {backgroundColor: theme.colors.primaryContainer},
+                ]}>
+                {item.totalAppointments}
+              </Chip>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Ultimo
+              </Text>
+              <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
+                {formatDateTime(item.lastAppointment)}
+              </Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Prossimo
+              </Text>
+              <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
+                {formatDateTime(item.nextAppointment)}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.statItem}>
+          {item.dateOfBirth && (
             <Text
               style={[
-                styles.statLabel,
+                styles.birthDate,
                 {color: theme.colors.onSurfaceVariant},
               ]}>
-              Ultimo
+              Nato il: {formatDate(item.dateOfBirth)}
             </Text>
-            <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-              {formatDateTime(item.lastAppointment)}
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text
-              style={[
-                styles.statLabel,
-                {color: theme.colors.onSurfaceVariant},
-              ]}>
-              Prossimo
-            </Text>
-            <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-              {formatDateTime(item.nextAppointment)}
-            </Text>
-          </View>
-        </View>
-
-        {item.dateOfBirth && (
-          <Text
-            style={[styles.birthDate, {color: theme.colors.onSurfaceVariant}]}>
-            Nato il: {formatDate(item.dateOfBirth)}
-          </Text>
-        )}
-      </Card.Content>
-    </Card>
-  );
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
 
   if (loading) {
     return (

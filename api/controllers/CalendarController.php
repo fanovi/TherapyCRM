@@ -1870,7 +1870,21 @@ public function actionCompleteAppointment()
                 $email = null;
                 
                 if ($linkedUser && $linkedUser->profile) {
-                    $phone = $linkedUser->profile->phone;
+                    // Decrittografa il telefono se presente
+                    if (!empty($linkedUser->profile->phone)) {
+                        try {
+                            $encryptionKey = Yii::$app->params['encryptionKey'];
+                            $decryptedPhone = Yii::$app->security->decryptByKey(
+                                base64_decode($linkedUser->profile->phone), 
+                                $encryptionKey
+                            );
+                            $phone = $decryptedPhone;
+                        } catch (\Exception $e) {
+                            Yii::error("Failed to decrypt phone number: " . $e->getMessage(), __METHOD__);
+                            // Se la decodifica fallisce, mantieni il valore originale
+                            $phone = $linkedUser->profile->phone;
+                        }
+                    }
                     $email = $linkedUser->email;
                 }
 
@@ -1885,7 +1899,6 @@ public function actionCompleteAppointment()
                     'totalAppointments' => (int)$totalAppointments,
                     'lastAppointment' => $lastAppointment ? $lastAppointment->appointment_datetime : null,
                     'nextAppointment' => $nextAppointment ? $nextAppointment->appointment_datetime : null,
-                    'avatar' => "https://i.pravatar.cc/150?img={$patient->id}",
                 ];
             }
 
