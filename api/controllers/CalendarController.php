@@ -632,7 +632,7 @@ public function actionPatientAppointments()
                         'todayAppointments' => (int)$todayAppointments,
                         'todayCompletedAppointments' => (int)$todayCompletedAppointments,
                         'weeklyHours' => $weeklyHours,
-                        'satisfactionRate' => 96 // Placeholder - implementare logica reale se necessario
+                        'therapistId' => $therapistId
                     ],
                     'upcomingAppointments' => $formattedUpcoming
                 ]
@@ -1700,4 +1700,209 @@ public function actionCompleteAppointment()
         ];
     }
 }
+
+    /**
+     * GET /api/calendar/therapist-weekly-hours
+     * Recupera le ore settimanali del terapista autenticato
+     * 
+     * Query params:
+     * - startDate: data di riferimento per la settimana (opzionale, default oggi)
+     */
+    public function actionTherapistWeeklyHours()
+    {
+        $request = Yii::$app->request;
+        $startDate = $request->get('startDate');
+
+        // Se non viene passata una data, usa oggi
+        if (!$startDate) {
+            $startDate = date('Y-m-d');
+        }
+
+        // Recupera il terapista dall'utente autenticato
+        $therapistId = $this->getAuthenticatedTherapistId();
+        if (!$therapistId) {
+            throw new BadRequestHttpException('Utente non associato a nessun terapista');
+        }
+
+        try {
+            // Trova il terapista per ottenere le ore contrattuali
+            $therapist = Therapist::findOne($therapistId);
+            if (!$therapist) {
+                throw new NotFoundHttpException('Terapista non trovato');
+            }
+
+            // Calcola inizio e fine settimana (lunedì-domenica)
+            $weekStart = new \DateTime($startDate);
+            $dayOfWeek = $weekStart->format('N'); // 1 = lunedì, 7 = domenica
+            
+            // Calcola sempre il lunedì della settimana corrente
+            $daysToSubtract = ($dayOfWeek - 1);
+            $weekStart->modify("-{$daysToSubtract} days");
+
+            $weekEnd = (clone $weekStart)->modify('+6 days');
+
+            // Trova tutti gli appuntamenti del terapista per quella settimana
+            $appointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->andWhere([
+                    'between',
+                    'appointment_datetime',
+                    $weekStart->format('Y-m-d 00:00:00'),
+                    $weekEnd->format('Y-m-d 23:59:59')
+                ])
+                ->all();
+
+            // Calcola ore totali
+            $totalMinutes = 0;
+            $appointmentCount = 0;
+
+            foreach ($appointments as $appointment) {
+                $totalMinutes += $appointment->duration_minutes;
+                $appointmentCount++;
+            }
+
+            $totalHours = round($totalMinutes / 60, 2);
+            $contractHours = $therapist->weekly_hours_contract ?? 0;
+
+            return [
+                'success' => true,
+                'data' => [
+                    'therapistId' => $therapistId,
+                    'weekStart' => $weekStart->format('Y-m-d'),
+                    'weekEnd' => $weekEnd->format('Y-m-d'),
+                    'totalHours' => $totalHours,
+                    'contractHours' => $contractHours,
+                    'appointmentCount' => $appointmentCount,
+                    'isOverContract' => $totalHours > $contractHours,
+                    'remainingHours' => max(0, $contractHours - $totalHours),
+                    'exceededHours' => max(0, $totalHours - $contractHours)
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore calcolo ore settimanali: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * GET /api/calendar/therapist-patients
+     * Recupera i pazienti attivi del terapista autenticato
+     */
+    public function actionTherapistPatients()
+    {
+        try {
+            // Recupera il terapista dall'utente autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            if (!$therapistId) {
+                throw new BadRequestHttpException('Utente non associato a nessun terapista');
+            }
+
+            // Recupera pazienti attivi (con appuntamenti negli ultimi 30 giorni)
+            $patients = Patient::find()
+                ->alias('p')
+                ->leftJoin('appointments a', 'a.patient_id = p.id OR (a.plan_therapy_id IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM plan_therapies pt 
+                    LEFT JOIN therapeutic_plans tp ON pt.therapeutic_plan_id = tp.id 
+                    WHERE pt.id = a.plan_therapy_id AND tp.patient_id = p.id
+                ))')
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['>=', 'DATE(a.appointment_datetime)', date('Y-m-d', strtotime('-30 days'))])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->groupBy('p.id')
+                ->orderBy('p.last_name ASC, p.first_name ASC')
+                ->all();
+
+            $formattedPatients = [];
+            foreach ($patients as $patient) {
+                // Conta appuntamenti totali del paziente con questo terapista
+                $totalAppointments = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->count();
+
+                // Ultimo appuntamento
+                $lastAppointment = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->orderBy('a.appointment_datetime DESC')
+                    ->one();
+
+                // Prossimo appuntamento
+                $nextAppointment = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->orderBy('a.appointment_datetime ASC')
+                    ->one();
+
+                // Ottieni i dati di contatto dal primo account collegato (se esiste)
+                $linkedUser = $patient->getLinkedUsers()->one();
+                $phone = null;
+                $email = null;
+                
+                if ($linkedUser && $linkedUser->profile) {
+                    $phone = $linkedUser->profile->phone;
+                    $email = $linkedUser->email;
+                }
+
+                $formattedPatients[] = [
+                    'id' => $patient->id,
+                    'firstName' => $patient->first_name,
+                    'lastName' => $patient->last_name,
+                    'fullName' => $patient->getFullName(),
+                    'phone' => $phone,
+                    'email' => $email,
+                    'dateOfBirth' => $patient->birth_date,
+                    'totalAppointments' => (int)$totalAppointments,
+                    'lastAppointment' => $lastAppointment ? $lastAppointment->appointment_datetime : null,
+                    'nextAppointment' => $nextAppointment ? $nextAppointment->appointment_datetime : null,
+                    'avatar' => "https://i.pravatar.cc/150?img={$patient->id}",
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'patients' => $formattedPatients,
+                    'totalCount' => count($formattedPatients)
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero pazienti terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 } 

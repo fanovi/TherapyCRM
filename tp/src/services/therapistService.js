@@ -18,6 +18,23 @@ export const therapistService = {
   },
 
   /**
+   * Recupera le ore settimanali del terapista
+   */
+  async getWeeklyHours(therapistId, startDate = null) {
+    try {
+      // Se non viene passata una data, usa oggi
+      const dateToUse = startDate || new Date().toISOString().split('T')[0];
+      const response = await apiClient.get(
+        `/calendar/therapist-weekly-hours?startDate=${dateToUse}`,
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Errore recupero ore settimanali terapista:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Recupera gli appuntamenti del terapista per una data specifica
    */
   async getAppointments(date) {
@@ -46,6 +63,19 @@ export const therapistService = {
       return response.data;
     } catch (error) {
       console.error('Errore recupero appuntamenti mensili terapista:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Recupera i pazienti attivi del terapista
+   */
+  async getPatients() {
+    try {
+      const response = await apiClient.get('/calendar/therapist-patients');
+      return response.data;
+    } catch (error) {
+      console.error('Errore recupero pazienti terapista:', error);
       throw error;
     }
   },

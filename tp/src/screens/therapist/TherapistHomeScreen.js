@@ -25,6 +25,7 @@ const TherapistHomeScreen = () => {
   const {user} = useSelector(state => state.auth);
 
   const [dashboardData, setDashboardData] = useState(null);
+  const [weeklyHoursData, setWeeklyHoursData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -37,6 +38,14 @@ const TherapistHomeScreen = () => {
 
       if (response.success) {
         setDashboardData(response.data);
+
+        // Recupera anche le ore settimanali
+        const weeklyResponse = await therapistService.getWeeklyHours();
+        console.log('weekly hours response', weeklyResponse);
+
+        if (weeklyResponse.success) {
+          setWeeklyHoursData(weeklyResponse.data);
+        }
       } else {
         setError('Errore nel caricamento dei dati');
       }
@@ -160,25 +169,30 @@ const TherapistHomeScreen = () => {
           <View style={styles.statsRow}>
             <Card style={styles.statCard}>
               <Card.Content style={styles.statContent}>
-                <Avatar.Icon size={32} icon="clock" style={styles.statIcon} />
-                <Text style={styles.statNumber}>
-                  {dashboardData?.stats?.weeklyHours || 0}h
-                </Text>
-                <Text style={styles.statLabel}>Ore Settimana</Text>
-              </Card.Content>
-            </Card>
-
-            <Card style={styles.statCard}>
-              <Card.Content style={styles.statContent}>
                 <Avatar.Icon
                   size={32}
-                  icon="chart-line"
+                  icon="calendar-clock"
                   style={styles.statIcon}
                 />
                 <Text style={styles.statNumber}>
-                  {dashboardData?.stats?.satisfactionRate || 0}%
+                  {weeklyHoursData
+                    ? `${weeklyHoursData.totalHours}/${weeklyHoursData.contractHours}`
+                    : '0/0'}
                 </Text>
-                <Text style={styles.statLabel}>Soddisfazione</Text>
+                <Text style={styles.statLabel}>Ore Settimana</Text>
+                {weeklyHoursData && (
+                  <Text style={styles.weekPeriod}>
+                    {new Date(weeklyHoursData.weekStart).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}{' '}
+                    -{' '}
+                    {new Date(weeklyHoursData.weekEnd).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}
+                  </Text>
+                )}
               </Card.Content>
             </Card>
           </View>
@@ -375,6 +389,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
+  },
+  weekPeriod: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   appointmentCard: {
     borderRadius: 12,
