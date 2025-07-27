@@ -33,7 +33,7 @@ const TherapistHomeScreen = () => {
     try {
       setError(null);
       const response = await therapistService.getDashboardData();
-      console.log(""esponse);
+      console.log('response', response);
 
       if (response.success) {
         setDashboardData(response.data);
