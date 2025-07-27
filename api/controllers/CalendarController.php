@@ -950,7 +950,7 @@ public function actionTherapistAppointments()
 
             if (!empty($patientUsers)) {
                 $patientTitle = "Assenza Segnalata";
-                $patientMessage = "È stata segnalata un'assenza per il tuo appuntamento del {$appointmentDate} alle {$appointmentTime} con il terapista {$therapistName}.\n\n";
+                $patientMessage = "È stata segnalata un'assenza per l'appuntamento di {$patientName} del {$appointmentDate} alle {$appointmentTime} con il terapista {$therapistName}.\n\n";
                 $patientMessage .= "Tipo di assenza: {$absenceTypeLabel}\n";
                 $patientMessage .= "Motivo: {$reason}";
                 if (!empty($notes)) {
