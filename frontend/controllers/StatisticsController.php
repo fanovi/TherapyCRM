@@ -610,31 +610,41 @@ class StatisticsController extends BaseController
         $searchModel = new AbsenceStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
-        // Ottieni dati per export
-        $absenceData = $searchModel->getStatisticsQuery()->all();
+        // Ottieni dati per export (raggruppa per evitare duplicati di group_session_id)
+        $rawData = $searchModel->getStatisticsQuery()->all();
+        
+        // Raggruppa per absence_group_key per evitare duplicati
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         // Headers
-        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Giustificata', 'Recupero'];
+        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Tipo Assenza', 'Giustificata', 'Recupero'];
         $sheet->fromArray($headers, null, 'A1');
 
         // Dati
         $row = 2;
-        foreach ($absenceData as $absence) {
+        foreach ($groupedData as $absence) {
             $sheet->setCellValue("A{$row}", $absence['absence_date']);
             $sheet->setCellValue("B{$row}", sprintf('%02d:00', $absence['absence_hour']));
-            $sheet->setCellValue("C{$row}", $absence['patient_name'] . ' ' . $absence['patient_surname']);
-            $sheet->setCellValue("D{$row}", $absence['therapist_name'] . ' ' . $absence['therapist_surname']);
-            $sheet->setCellValue("E{$row}", $absence['treatment_name']);
-            $sheet->setCellValue("F{$row}", $absence['reason']);
-            $sheet->setCellValue("G{$row}", $absence['is_justified'] ? 'Sì' : 'No');
-            $sheet->setCellValue("H{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
+            $sheet->setCellValue("C{$row}", ($absence['patient_name'] ?: '') . ' ' . ($absence['patient_surname'] ?: ''));
+            $sheet->setCellValue("D{$row}", ($absence['therapist_name'] ?: '') . ' ' . ($absence['therapist_surname'] ?: ''));
+            $sheet->setCellValue("E{$row}", $absence['treatment_name'] ?: '');
+            $sheet->setCellValue("F{$row}", $absence['absence_reason'] ?: ''); // Cambiato da 'reason' a 'absence_reason'
+            $sheet->setCellValue("G{$row}", $absence['absence_type_flag'] === 'direct' ? 'Diretta' : 'Sostituzione'); // Nuovo campo
+            $sheet->setCellValue("H{$row}", $absence['is_justified'] ? 'Sì' : 'No');
+            $sheet->setCellValue("I{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
             $row++;
         }
 
-        return $this->sendExcelFile($spreadsheet, 'statistiche_assenze_' . date('Y-m-d') . '.xlsx');
+        return $this->sendExcelFile($spreadsheet, 'statistiche_assenze_terapisti_' . date('Y-m-d') . '.xlsx');
     }
 
     protected function exportPatients()

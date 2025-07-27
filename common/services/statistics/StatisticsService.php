@@ -69,38 +69,19 @@ class StatisticsService
     }
 
     /**
-     * Ottiene overview assenze per dashboard
-     *
-     * @return array
+     * Ottiene panoramica assenze per dashboard
+     * Usa la nuova logica AbsenceStatisticsService
      */
     protected function getAbsencesOverview()
     {
-        $thisMonth = date('Y-m');
+        $absenceService = new \common\services\statistics\AbsenceStatisticsService();
+        $monthlyData = $absenceService->getMonthlyRate();
         
-        $totalThisMonth = (new Query())
-            ->from('statistics_absences_mv')
-            ->where(['like', 'absence_date', $thisMonth])
-            ->count();
-
-        $justifiedThisMonth = (new Query())
-            ->from('statistics_absences_mv')
-            ->where(['like', 'absence_date', $thisMonth])
-            ->andWhere(['is_justified' => 1])
-            ->count();
-
-        $withRecovery = (new Query())
-            ->from('statistics_absences_mv')
-            ->where(['like', 'absence_date', $thisMonth])
-            ->andWhere(['has_recovery' => 'SI'])
-            ->count();
-
-        $rate = $totalThisMonth > 0 ? round(($totalThisMonth - $justifiedThisMonth) / $totalThisMonth * 100, 1) : 0;
-
         return [
-            'total_this_month' => (int)$totalThisMonth,
-            'justified_this_month' => (int)$justifiedThisMonth,
-            'with_recovery' => (int)$withRecovery,
-            'unjustified_rate' => $rate,
+            'total_this_month' => $monthlyData['total_absences'],
+            'justified_this_month' => $monthlyData['justified_absences'],
+            'with_recovery' => $monthlyData['with_recovery'],
+            'unjustified_rate' => $monthlyData['unjustified_rate']
         ];
     }
 
