@@ -34,11 +34,22 @@ class Alert extends Widget
      * - value: the Tailwind CSS classes for the alert type
      */
     public $alertTypes = [
-        'error'   => 'bg-red-100 border border-red-400 text-red-700',
-        'danger'  => 'bg-red-100 border border-red-400 text-red-700',
-        'success' => 'bg-green-100 border border-green-400 text-green-700',
-        'info'    => 'bg-blue-100 border border-blue-400 text-blue-700',
-        'warning' => 'bg-yellow-100 border border-yellow-400 text-yellow-700'
+        'error'   => 'bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200',
+        'danger'  => 'bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200',
+        'success' => 'bg-green-50 border border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200',
+        'info'    => 'bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200',
+        'warning' => 'bg-yellow-50 border border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
+    ];
+
+    /**
+     * @var array the icons for different alert types
+     */
+    public $alertIcons = [
+        'error' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        'danger' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        'success' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        'info' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        'warning' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>'
     ];
 
     /**
@@ -57,23 +68,27 @@ class Alert extends Widget
 
             foreach ((array) $flash as $i => $message) {
                 $id = $this->getId() . '-' . $type . '-' . $i;
+                
+                // Get icon for this alert type
+                $icon = isset($this->alertIcons[$type]) ? $this->alertIcons[$type] : '';
+                
                 echo Html::tag('div', 
-                    Html::tag('div',
-                        $message . 
+                    Html::tag('div', 
+                        Html::tag('div', $icon, ['class' => 'flex-shrink-0']) .
+                        Html::tag('div', $message, ['class' => 'ml-3 flex-1']) .
                         Html::button(
-                            Html::tag('span', '×', ['class' => 'sr-only']) .
-                            Html::tag('span', '×', ['aria-hidden' => 'true']),
+                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
                             [
                                 'type' => 'button',
-                                'class' => 'close-button absolute top-0 right-0 px-4 py-3',
+                                'class' => 'ml-3 inline-flex flex-shrink-0 text-opacity-50 hover:text-opacity-75',
                                 'onclick' => "this.parentElement.parentElement.style.display='none'"
                             ]
                         ),
-                        ['class' => 'flex justify-between items-center px-4 py-3']
+                        ['class' => 'flex items-center']
                     ),
                     [
                         'id' => $id,
-                        'class' => 'relative px-4 py-3 rounded ' . $this->alertTypes[$type] . $appendClass,
+                        'class' => 'mb-4 rounded-lg p-4 ' . $this->alertTypes[$type] . $appendClass,
                         'role' => 'alert'
                     ]
                 );

@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use common\widgets\Alert;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\TherapeuticPlan */
@@ -21,6 +22,8 @@ $this->params['breadcrumbs'][] = 'Modifica';
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white"><?= Html::encode($this->title) ?></h1>
     </div>
+
+    <?= Alert::widget() ?>
 
     <?= $this->render('_form', [
         'model' => $model,

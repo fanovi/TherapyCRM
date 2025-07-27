@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use common\widgets\Alert;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\TherapeuticPlan */
@@ -16,6 +17,7 @@ $this->params['breadcrumbs'][] = ['label' => 'Piani Terapeutici', 'url' => ['ind
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="therapeutic-plan-create">
+    <?= Alert::widget() ?>
     <?= $this->render('_form', [
         'model' => $model,
         'therapyModel' => $therapyModel,
