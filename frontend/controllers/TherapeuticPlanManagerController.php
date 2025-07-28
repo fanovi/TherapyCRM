@@ -555,7 +555,7 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
-    public function actionGetTherapistAbsences()//SONO QUI
+    public function actionGetTherapistAbsences()
     {
         $data = $this->getRequestData();
 
