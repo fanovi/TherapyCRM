@@ -1421,7 +1421,7 @@ class TherapeuticPlanManagerController extends Controller
 
         try {
             $startDate = new DateTime("$year-$month-01");
-            $endDate = (clone $startDate)->modify('last day of this month');
+            $endDate = (clone $startDate)->modify('first day of next month')->modify('+6 days');
 
             $appointments = Appointment::find()
                 ->alias('a')
