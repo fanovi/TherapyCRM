@@ -555,6 +555,76 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    public function actionGetTherapistAbsences()//SONO QUI
+    {
+        $data = $this->getRequestData();
+
+        // Validazione parametri
+        $therapistId = Yii::$app->request->get('therapistId');
+        if (!$therapistId) {
+            return [
+                'success' => false,
+                'message' => 'ID terapista obbligatorio',
+                'data' => null
+            ];
+        }
+
+        if(Therapist::findOne($therapistId) === null) {
+            return [
+                'success' => false,
+                'message' => 'Terapista non trovato',
+                'data' => null
+            ];
+        }
+
+        // Parametri opzionali
+        $startDate = Yii::$app->request->get('startDate');
+        $endDate = Yii::$app->request->get('endDate');
+
+        // Query di base
+        $query = Absence::find()
+            ->where(['therapist_id' => $therapistId])
+            ->andWhere(['status' => 'approved'])
+            ->orderBy(['start_date' => SORT_DESC]);
+
+        // Filtri date opzionali
+        if ($startDate && $endDate) {
+            // Assenze che si sovrappongono al periodo specificato
+            $query->andWhere([
+                'or',
+                ['between', 'start_date', $startDate, $endDate],
+                ['between', 'end_date', $startDate, $endDate],
+                [
+                    'and',
+                    ['<=', 'start_date', $startDate],
+                    ['>=', 'end_date', $endDate]
+                ]
+            ]);
+        } elseif ($startDate) {
+            // Assenze che terminano dopo la data di inizio
+            $query->andWhere(['>=', 'end_date', $startDate]);
+        } elseif ($endDate) {
+            // Assenze che iniziano prima della data di fine
+            $query->andWhere(['<=', 'start_date', $endDate]);
+        }
+        
+        $absences = $query->all();
+
+        return [
+            'success' => true,
+            'message' => 'Assenze recuperate con successo',
+            'data' => [
+                'therapist_id' => $therapistId,
+                'filters' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ],
+                'total' => count($absences),
+                'absences' => $absences
+            ]
+        ];
+    }
+
     /**
      * Trova e valida TreatmentType
      * 
