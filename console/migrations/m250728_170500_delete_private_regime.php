@@ -75,7 +75,7 @@ class m250728_170500_delete_private_regime extends Migration
         if ($exists) {
             echo "Il regime 'Privato' esiste già. Nessuna azione necessaria.\n";
             return true;
-        }
+    }
 
         // Ricreo il regime "Privato"
         $this->insert('{{%regime}}', [
