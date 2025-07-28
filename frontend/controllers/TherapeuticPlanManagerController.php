@@ -1589,6 +1589,8 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             Yii::info("Dati ricevuti per update appointment: " . json_encode($data), __METHOD__);
             $this->validateUpdateAppointmentFields($data);
+            $this->validateTherapist($data);
+            $this->validateTherapist($data);
 
             $appointment = Appointment::findOne($data['appointmentId']);
             if (!$appointment) {
@@ -2842,7 +2844,7 @@ class TherapeuticPlanManagerController extends Controller
     private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
-
+        $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
         $appointment = new Appointment();
         $appointment->pattern_id = $pattern->id;
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
@@ -3839,6 +3841,7 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
+            $this->validateTherapist($data);
 
             // Verifica limite ore per tipologia trattamento TEST ABA
             $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
