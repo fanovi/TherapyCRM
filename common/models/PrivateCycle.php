@@ -66,7 +66,6 @@ class PrivateCycle extends ActiveRecord
             [['notes'], 'string'],
             [['created_at', 'updated_at'], 'safe'],
             [['total_sessions'], 'integer', 'min' => 1, 'max' => 50],
-            [['patient_id', 'month_year'], 'unique', 'targetAttribute' => ['patient_id', 'month_year'], 'message' => 'Esiste già un ciclo per questo paziente nel mese selezionato.'],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
         ];
