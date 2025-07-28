@@ -555,6 +555,76 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    public function actionGetTherapistAbsences()
+    {
+        $data = $this->getRequestData();
+
+        // Validazione parametri
+        $therapistId = Yii::$app->request->get('therapistId');
+        if (!$therapistId) {
+            return [
+                'success' => false,
+                'message' => 'ID terapista obbligatorio',
+                'data' => null
+            ];
+        }
+
+        if(Therapist::findOne($therapistId) === null) {
+            return [
+                'success' => false,
+                'message' => 'Terapista non trovato',
+                'data' => null
+            ];
+        }
+
+        // Parametri opzionali
+        $startDate = Yii::$app->request->get('startDate');
+        $endDate = Yii::$app->request->get('endDate');
+
+        // Query di base
+        $query = Absence::find()
+            ->where(['therapist_id' => $therapistId])
+            ->andWhere(['status' => 'approved'])
+            ->orderBy(['start_date' => SORT_DESC]);
+
+        // Filtri date opzionali
+        if ($startDate && $endDate) {
+            // Assenze che si sovrappongono al periodo specificato
+            $query->andWhere([
+                'or',
+                ['between', 'start_date', $startDate, $endDate],
+                ['between', 'end_date', $startDate, $endDate],
+                [
+                    'and',
+                    ['<=', 'start_date', $startDate],
+                    ['>=', 'end_date', $endDate]
+                ]
+            ]);
+        } elseif ($startDate) {
+            // Assenze che terminano dopo la data di inizio
+            $query->andWhere(['>=', 'end_date', $startDate]);
+        } elseif ($endDate) {
+            // Assenze che iniziano prima della data di fine
+            $query->andWhere(['<=', 'start_date', $endDate]);
+        }
+        
+        $absences = $query->all();
+
+        return [
+            'success' => true,
+            'message' => 'Assenze recuperate con successo',
+            'data' => [
+                'therapist_id' => $therapistId,
+                'filters' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ],
+                'total' => count($absences),
+                'absences' => $absences
+            ]
+        ];
+    }
+
     /**
      * Trova e valida TreatmentType
      * 
@@ -1519,6 +1589,8 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             Yii::info("Dati ricevuti per update appointment: " . json_encode($data), __METHOD__);
             $this->validateUpdateAppointmentFields($data);
+            $this->validateTherapist($data);
+            $this->validateTherapist($data);
 
             $appointment = Appointment::findOne($data['appointmentId']);
             if (!$appointment) {
@@ -2772,7 +2844,7 @@ class TherapeuticPlanManagerController extends Controller
     private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
-
+        $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
         $appointment = new Appointment();
         $appointment->pattern_id = $pattern->id;
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
@@ -3769,6 +3841,7 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
+            $this->validateTherapist($data);
 
             // Verifica limite ore per tipologia trattamento TEST ABA
             $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
