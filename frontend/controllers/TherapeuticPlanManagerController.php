@@ -144,6 +144,7 @@ class TherapeuticPlanManagerController extends Controller
             $this->validateTherapeuticPlan($planTherapy->therapeuticPlan);
             $therapist = $this->findTherapist($data['therapistId']);
 
+            $this->validateTherapist($data);
 
             // Verifica conflitti terapista
             $conflict = $this->checkTherapistConflict(
@@ -481,10 +482,10 @@ class TherapeuticPlanManagerController extends Controller
             if (!$appointment) {
                 throw new NotFoundHttpException('Appuntamento non trovato');
             }
-            
+
             $appointment->notes = $note;
 
-            if($appointment->save()) {
+            if ($appointment->save()) {
                 return [
                     'success' => true,
                     'message' => "Appuntamento aggiornato con successo",
@@ -500,7 +501,6 @@ class TherapeuticPlanManagerController extends Controller
                     'data' => $appointment->errors
                 ];
             }
-
         } catch (Exception $e) {
             Yii::error("Errore aggiornamento appuntamento: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
@@ -519,7 +519,7 @@ class TherapeuticPlanManagerController extends Controller
 
             $data = $this->getRequestData();
 
-            if(Yii::$app->request->isGet)
+            if (Yii::$app->request->isGet)
                 throw new BadRequestHttpException('Metodo non supportato');
 
             if (!isset($data['appointmentId'])) {
@@ -531,10 +531,10 @@ class TherapeuticPlanManagerController extends Controller
             if (!$appointment) {
                 throw new NotFoundHttpException('Appuntamento non trovato');
             }
-            
+
             $appointment->notes = null;
 
-            if($appointment->save()) {
+            if ($appointment->save()) {
                 return [
                     'success' => true,
                     'message' => "Appuntamento aggiornato con successo",
@@ -549,7 +549,6 @@ class TherapeuticPlanManagerController extends Controller
                     'data' => $appointment->errors
                 ];
             }
-
         } catch (Exception $e) {
             Yii::error("Errore aggiornamento appuntamento: " . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
@@ -2434,6 +2433,20 @@ class TherapeuticPlanManagerController extends Controller
             'weeklyLimitExceeded' => [],
             'data' => []
         ];
+    }
+
+    private function validateTherapist($data)
+    {
+        $absences = Absence::find()
+            ->where(['therapist_id' => $data['therapistId']])
+            ->andWhere(['<=', 'start_date', $data['appointmentDateTime']])
+            ->andWhere(['>=', 'end_date', $data['appointmentDateTime']])
+            ->andWhere(['status' => 'approved'])
+            ->exists();
+
+        if ($absences) {
+            throw new BadRequestHttpException('Terapista non disponibile per le date selezionate');
+        }
     }
 
     /**
