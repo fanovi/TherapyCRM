@@ -769,8 +769,10 @@ const Index = () => {
           startTime: selectedSlot.time,
           durationMinutes: appointmentData.duration,
           notes: appointmentData.notes,
+          appointmentDateTime: appointmentDateTime,
         };
 
+        console.log("request", request);
         const result = await therapyAPI.createPrivateCycle(request);
 
         if (result.conflicts && result.conflicts.length > 0) {
