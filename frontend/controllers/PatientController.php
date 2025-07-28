@@ -505,6 +505,13 @@ class PatientController extends Controller
         $patientIds = is_array($data['patient_ids']) ? $data['patient_ids'] : [$data['patient_ids']];
         $title = trim($data['title']);
         $message = trim($data['message']);
+        $requiresReadConfirmation = false;
+        if (isset($data['requires_read_confirmation'])) {
+            $value = $data['requires_read_confirmation'];
+            $requiresReadConfirmation = ($value === true || $value === 'true' || $value === 1 || $value === '1');
+        }
+
+
 
         try {
             // Ottieni tutti gli user_id collegati ai pazienti selezionati
@@ -524,7 +531,8 @@ class PatientController extends Controller
                 $title,
                 $message,
                 \common\models\Notification::TYPE_INFO,
-                Yii::$app->user->id
+                Yii::$app->user->id,
+                $requiresReadConfirmation
             );
 
             // Log dell'operazione

@@ -354,106 +354,121 @@ public function actionPatientAppointments()
      *   "date": "2024-01-15"
      * }
      */
-    /**
- * POST /api/calendar/therapist-appointments
- * Recupera appuntamenti del terapista autenticato per una data specifica
- * 
- * Body:
- * {
- *   "date": "2024-01-15"
- * }
- */
-public function actionTherapistAppointments()
-{
-    $request = Yii::$app->request;
-    $data = $request->getBodyParams();
-    
-    $date = $data['date'] ?? null;
+    public function actionTherapistAppointments()
+    {
+        $request = Yii::$app->request;
+        $data = $request->getBodyParams();
+        
+        $date = $data['date'] ?? null;
 
-    if (!$date) {
-        throw new BadRequestHttpException('Parametro date è obbligatorio');
-    }
-
-    // Recupera il terapista dall'utente autenticato
-    $therapistId = $this->getAuthenticatedTherapistId();
-    if (!$therapistId) {
-        throw new BadRequestHttpException('Utente non associato a nessun terapista');
-    }
-
-    try {
-        // Verifica che la data sia valida
-        $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
-        if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
-            throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
+        if (!$date) {
+            throw new BadRequestHttpException('Parametro date è obbligatorio');
         }
 
-        // Recupera appuntamenti del terapista
-        $appointments = $this->getTherapistAppointmentsOptimized($therapistId, $date);
+        // Recupera il terapista dall'utente autenticato
+        $therapistId = $this->getAuthenticatedTherapistId();
+        if (!$therapistId) {
+            throw new BadRequestHttpException('Utente non associato a nessun terapista');
+        }
 
-        // Formatta i dati per l'app mobile
-        $formattedAppointments = [];
-        foreach ($appointments as $appointment) {
-            $datetime = new \DateTime($appointment->appointment_datetime);
-            
-            // Determina il tipo di trattamento
-            $treatmentName = 'Terapia';
-            $treatmentCode = null;
-            
-            if ($appointment->appointment_type === 'private') {
-                $treatmentName = 'Appuntamento Privato';
-            } elseif ($appointment->planTherapy && $appointment->planTherapy->treatmentType) {
-                $treatmentName = $appointment->planTherapy->treatmentType->name;
-                $treatmentCode = $appointment->planTherapy->treatmentType->code;
+        try {
+            // Verifica che la data sia valida
+            $dateObj = \DateTime::createFromFormat('Y-m-d', $date);
+            if (!$dateObj || $dateObj->format('Y-m-d') !== $date) {
+                throw new BadRequestHttpException('Formato data non valido. Utilizzare YYYY-MM-DD');
             }
-            
-            $formattedAppointments[] = [
-                'id' => $appointment->id,
-                'date' => $date,
-                'time' => $datetime->format('H:i'),
-                'datetime' => $appointment->appointment_datetime,
-                'duration_minutes' => $appointment->duration_minutes,
-                'status' => $this->mapStatusToApp($appointment->status),
-                'type' => $treatmentName,
-                'appointment_type' => $appointment->appointment_type,
-                'treatment_code' => $treatmentCode,
-                'notes' => $appointment->notes,
-                'location' => 'Centro Terapeutico',
-                'patient' => [
-                    'id' => $appointment->patient->id,
-                    'name' => $appointment->patient->first_name . ' ' . $appointment->patient->last_name,
-                    'first_name' => $appointment->patient->first_name,
-                    'last_name' => $appointment->patient->last_name,
-                    'phone' => $appointment->patient->phone ?? null,
-                    'avatar' => $this->getPatientAvatar($appointment->patient->id),
-                ],
-                'therapist' => [
-                    'id' => $appointment->therapist->id,
-                    'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
-                    'first_name' => $appointment->therapist->user->profile->first_name,
-                    'last_name' => $appointment->therapist->user->profile->last_name,
-                    'specialization' => $appointment->therapist->specialization->name ?? null,
+
+            // Usa la stessa logica di TherapeuticPlanManagerController
+            $appointments = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+                ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile'])
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->andWhere(['DATE(a.appointment_datetime)' => $date])
+                ->orderBy(['a.appointment_datetime' => SORT_ASC])
+                ->all();
+
+            // Formatta i dati per l'app mobile
+            $formattedAppointments = [];
+            foreach ($appointments as $appointment) {
+                $datetime = new \DateTime($appointment->appointment_datetime);
+                
+                // Ottieni il paziente corretto basato sul tipo di appuntamento
+                if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+                    $patient = $appointment->planTherapy->therapeuticPlan->patient;
+                    $treatmentType = $appointment->planTherapy->treatmentType;
+                } else {
+                    $patient = $appointment->patient;
+                    $treatmentType = $appointment->treatmentType;
+                }
+
+                // Controlli di sicurezza
+                if (!$patient) {
+                    Yii::error("Appuntamento ID {$appointment->id} non ha paziente associato", __METHOD__);
+                    continue;
+                }
+                
+                if (!$appointment->therapist || !$appointment->therapist->user || !$appointment->therapist->user->profile) {
+                    Yii::error("Appuntamento ID {$appointment->id} non ha terapista/profilo completo", __METHOD__);
+                    continue;
+                }
+
+                $formattedAppointments[] = [
+                    'id' => $appointment->id,
+                    'date' => $date,
+                    'time' => $datetime->format('H:i'),
+                    'datetime' => $appointment->appointment_datetime,
+                    'duration_minutes' => $appointment->duration_minutes,
+                    'status' => $this->mapStatusToApp($appointment->status),
+                    'type' => $treatmentType ? $treatmentType->name : 'Non specificato',
+                    'appointment_type' => $appointment->appointment_source,
+                    'treatment_code' => $treatmentType ? $treatmentType->code : null,
+                    'notes' => $appointment->notes,
+                    'location' => 'Centro Terapeutico',
+                    'patient' => [
+                        'id' => $patient->id,
+                        'name' => $patient->getFullName(),
+                        'first_name' => $patient->first_name,
+                        'last_name' => $patient->last_name,
+                        'phone' => $patient->phone ?? null,
+                        'avatar' => $this->getPatientAvatar($patient->id),
+                    ],
+                    'therapist' => [
+                        'id' => $appointment->therapist->id,
+                        'name' => $appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name,
+                        'first_name' => $appointment->therapist->user->profile->first_name,
+                        'last_name' => $appointment->therapist->user->profile->last_name,
+                        'specialization' => $appointment->therapist->specialization->name ?? null,
+                    ],
+                    'patternId' => $appointment->pattern_id,
+                    'isRecurring' => $appointment->pattern_id !== null,
+                    'privateCycleId' => $appointment->private_cycle_id,
+                    'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $formattedAppointments,
+                'meta' => [
+                    'date' => $date,
+                    'count' => count($formattedAppointments),
+                    'therapist_id' => $therapistId
                 ]
             ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero appuntamenti terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
-
-        return [
-            'success' => true,
-            'data' => $formattedAppointments,
-            'meta' => [
-                'date' => $date,
-                'count' => count($formattedAppointments),
-                'therapist_id' => $therapistId
-            ]
-        ];
-
-    } catch (\Exception $e) {
-        Yii::error('Errore recupero appuntamenti terapista: ' . $e->getMessage(), __METHOD__);
-        return [
-            'success' => false,
-            'error' => $e->getMessage()
-        ];
     }
-}
 
     /**
      * POST /api/calendar/therapist-marked-dates
@@ -506,6 +521,260 @@ public function actionTherapistAppointments()
 
         } catch (\Exception $e) {
             Yii::error('Errore recupero date marcate terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * POST /api/calendar/therapist-dashboard
+     * Recupera le statistiche della dashboard per il terapista autenticato
+     * 
+     * Body: {}
+     */
+    public function actionTherapistDashboard()
+    {
+        try {
+            // Recupera il terapista dall'utente autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            if (!$therapistId) {
+                throw new BadRequestHttpException('Utente non associato a nessun terapista');
+            }
+
+            $today = date('Y-m-d');
+            $weekStart = date('Y-m-d', strtotime('monday this week'));
+            $weekEnd = date('Y-m-d', strtotime('sunday this week'));
+
+            // Pazienti attivi (con appuntamenti negli ultimi 30 giorni)
+            $activePatientsCount = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['>=', 'DATE(a.appointment_datetime)', date('Y-m-d', strtotime('-30 days'))])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->select('DISTINCT COALESCE(tp.patient_id, a.patient_id) as patient_id')
+                ->count();
+
+            // Appuntamenti di oggi
+            $todayAppointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['DATE(appointment_datetime)' => $today])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->count();
+
+            // Appuntamenti completati di oggi
+            $todayCompletedAppointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['DATE(appointment_datetime)' => $today])
+                ->andWhere(['status' => Appointment::STATUS_COMPLETED])
+                ->count();
+
+            // Ore lavorate questa settimana
+            $weeklyHours = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['between', 'DATE(appointment_datetime)', $weekStart, $weekEnd])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->sum('duration_minutes');
+            $weeklyHours = round(($weeklyHours ?? 0) / 60, 1);
+
+            // Prossimi 3 appuntamenti
+            $upcomingAppointments = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+                ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType'])
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->orderBy(['a.appointment_datetime' => SORT_ASC])
+                ->limit(3)
+                ->all();
+
+            $formattedUpcoming = [];
+            foreach ($upcomingAppointments as $appointment) {
+                $datetime = new \DateTime($appointment->appointment_datetime);
+                
+                // Ottieni il paziente corretto basato sul tipo di appuntamento
+                if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+                    $patient = $appointment->planTherapy->therapeuticPlan->patient;
+                    $treatmentType = $appointment->planTherapy->treatmentType;
+                } else {
+                    $patient = $appointment->patient;
+                    $treatmentType = $appointment->treatmentType;
+                }
+
+                if (!$patient) continue;
+
+                $formattedUpcoming[] = [
+                    'id' => $appointment->id,
+                    'time' => $datetime->format('H:i') . ' - ' . $datetime->modify('+' . $appointment->duration_minutes . ' minutes')->format('H:i'),
+                    'type' => $treatmentType ? $treatmentType->name : 'Terapia',
+                    'patient' => [
+                        'id' => $patient->id,
+                        'name' => $patient->getFullName(),
+                        'phone' => $patient->phone ?? null,
+                    ],
+                    'notes' => $appointment->notes,
+                    'datetime' => $appointment->appointment_datetime,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'stats' => [
+                        'activePatientsCount' => (int)$activePatientsCount,
+                        'todayAppointments' => (int)$todayAppointments,
+                        'todayCompletedAppointments' => (int)$todayCompletedAppointments,
+                        'weeklyHours' => $weeklyHours,
+                        'therapistId' => $therapistId
+                    ],
+                    'upcomingAppointments' => $formattedUpcoming
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero dashboard terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * POST /api/calendar/therapist-profile
+     * Recupera i dati del profilo del terapista autenticato
+     * 
+     * Body: {}
+     */
+    public function actionTherapistProfile()
+    {
+        try {
+            // Recupera il terapista dall'utente autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            if (!$therapistId) {
+                throw new BadRequestHttpException('Utente non associato a nessun terapista');
+            }
+
+            $therapist = Therapist::find()
+                ->with(['user.profile', 'specialization'])
+                ->where(['id' => $therapistId])
+                ->one();
+
+            if (!$therapist) {
+                throw new NotFoundHttpException('Terapista non trovato');
+            }
+
+            // Statistiche del terapista
+            $today = date('Y-m-d');
+            $thisMonth = date('Y-m');
+            $thisYear = date('Y');
+
+            // Appuntamenti totali questo mese
+            $monthlyAppointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['like', 'appointment_datetime', $thisMonth])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->count();
+
+            // Appuntamenti totali quest'anno
+            $yearlyAppointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['like', 'appointment_datetime', $thisYear])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->count();
+
+            // Pazienti unici seguiti quest'anno
+            $yearlyPatients = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['like', 'a.appointment_datetime', $thisYear])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->select('DISTINCT COALESCE(tp.patient_id, a.patient_id) as patient_id')
+                ->count();
+
+            // Ore totali lavorate questo mese
+            $monthlyHours = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['like', 'appointment_datetime', $thisMonth])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->sum('duration_minutes');
+            $monthlyHours = round(($monthlyHours ?? 0) / 60, 1);
+
+            // Prossimo appuntamento
+            $nextAppointment = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+                ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType'])
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->orderBy(['a.appointment_datetime' => SORT_ASC])
+                ->one();
+
+            $nextAppointmentData = null;
+            if ($nextAppointment) {
+                $datetime = new \DateTime($nextAppointment->appointment_datetime);
+                
+                // Ottieni il paziente corretto basato sul tipo di appuntamento
+                if ($nextAppointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+                    $patient = $nextAppointment->planTherapy->therapeuticPlan->patient;
+                    $treatmentType = $nextAppointment->planTherapy->treatmentType;
+                } else {
+                    $patient = $nextAppointment->patient;
+                    $treatmentType = $nextAppointment->treatmentType;
+                }
+
+                if ($patient) {
+                    $nextAppointmentData = [
+                        'id' => $nextAppointment->id,
+                        'datetime' => $nextAppointment->appointment_datetime,
+                        'date' => $datetime->format('d/m/Y'),
+                        'time' => $datetime->format('H:i'),
+                        'patient_name' => $patient->getFullName(),
+                        'treatment_type' => $treatmentType ? $treatmentType->name : 'Terapia',
+                    ];
+                }
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'therapist' => [
+                        'id' => $therapist->id,
+                        'firstName' => $therapist->user->profile->first_name,
+                        'lastName' => $therapist->user->profile->last_name,
+                        'fullName' => $therapist->user->profile->getFullName(),
+                        'email' => $therapist->user->email,
+                        'phone' => $therapist->user->profile->phone,
+                        'specialization' => $therapist->specialization->name ?? 'Non specificata',
+                        'registrationDate' => $therapist->user->created_at,
+                        'contractualHours' => $therapist->contractual_hours ?? 40,
+                        'isActive' => $therapist->user->status === 10,
+                    ],
+                    'statistics' => [
+                        'monthlyAppointments' => (int)$monthlyAppointments,
+                        'yearlyAppointments' => (int)$yearlyAppointments,
+                        'yearlyPatients' => (int)$yearlyPatients,
+                        'monthlyHours' => $monthlyHours,
+                    ],
+                    'nextAppointment' => $nextAppointmentData,
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero profilo terapista: ' . $e->getMessage(), __METHOD__);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -605,25 +874,6 @@ public function actionTherapistAppointments()
         }
 
         return $markedDates;
-    }
-
-    /**
-     * Metodo ottimizzato per recuperare appuntamenti del terapista usando ActiveRecord relationships
-     */
-    private function getTherapistAppointmentsOptimized($therapistId, $date)
-    {
-        return Appointment::find()
-            ->joinWith([
-                'planTherapy.therapeuticPlan.patient',
-                'planTherapy.treatmentType',
-                'therapist.user.profile',
-                'therapist.specialization'
-            ])
-            ->where(['appointments.therapist_id' => $therapistId])
-            ->andWhere(['DATE(appointments.appointment_datetime)' => $date])
-            ->andWhere(['!=', 'appointments.status', Appointment::STATUS_CANCELLED])
-            ->orderBy('appointments.appointment_datetime ASC')
-            ->all();
     }
 
     /**
@@ -1450,4 +1700,274 @@ public function actionCompleteAppointment()
         ];
     }
 }
+
+    /**
+     * GET /api/calendar/therapist-weekly-hours
+     * Recupera le ore settimanali del terapista autenticato
+     * 
+     * Query params:
+     * - startDate: data di riferimento per la settimana (opzionale, default oggi)
+     */
+    public function actionTherapistWeeklyHours()
+    {
+        $request = Yii::$app->request;
+        $startDate = $request->get('startDate');
+
+        // Se non viene passata una data, usa oggi
+        if (!$startDate) {
+            $startDate = date('Y-m-d');
+        }
+
+        // Recupera il terapista dall'utente autenticato
+        $therapistId = $this->getAuthenticatedTherapistId();
+        if (!$therapistId) {
+            throw new BadRequestHttpException('Utente non associato a nessun terapista');
+        }
+
+        try {
+            // Trova il terapista per ottenere le ore contrattuali
+            $therapist = Therapist::findOne($therapistId);
+            if (!$therapist) {
+                throw new NotFoundHttpException('Terapista non trovato');
+            }
+
+            // Calcola inizio e fine settimana (lunedì-domenica)
+            $weekStart = new \DateTime($startDate);
+            $dayOfWeek = $weekStart->format('N'); // 1 = lunedì, 7 = domenica
+            
+            // Calcola sempre il lunedì della settimana corrente
+            $daysToSubtract = ($dayOfWeek - 1);
+            $weekStart->modify("-{$daysToSubtract} days");
+
+            $weekEnd = (clone $weekStart)->modify('+6 days');
+
+            // Trova tutti gli appuntamenti del terapista per quella settimana
+            $appointments = Appointment::find()
+                ->where(['therapist_id' => $therapistId])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->andWhere([
+                    'between',
+                    'appointment_datetime',
+                    $weekStart->format('Y-m-d 00:00:00'),
+                    $weekEnd->format('Y-m-d 23:59:59')
+                ])
+                ->all();
+
+            // Calcola ore totali
+            $totalMinutes = 0;
+            $appointmentCount = 0;
+
+            foreach ($appointments as $appointment) {
+                $totalMinutes += $appointment->duration_minutes;
+                $appointmentCount++;
+            }
+
+            $totalHours = round($totalMinutes / 60, 2);
+            $contractHours = $therapist->weekly_hours_contract ?? 0;
+
+            return [
+                'success' => true,
+                'data' => [
+                    'therapistId' => $therapistId,
+                    'weekStart' => $weekStart->format('Y-m-d'),
+                    'weekEnd' => $weekEnd->format('Y-m-d'),
+                    'totalHours' => $totalHours,
+                    'contractHours' => $contractHours,
+                    'appointmentCount' => $appointmentCount,
+                    'isOverContract' => $totalHours > $contractHours,
+                    'remainingHours' => max(0, $contractHours - $totalHours),
+                    'exceededHours' => max(0, $totalHours - $contractHours)
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore calcolo ore settimanali: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * GET /api/calendar/therapist-patients
+     * Recupera i pazienti attivi del terapista autenticato
+     */
+    public function actionTherapistPatients()
+    {
+        try {
+            // Recupera il terapista dall'utente autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            if (!$therapistId) {
+                throw new BadRequestHttpException('Utente non associato a nessun terapista');
+            }
+
+            // Recupera pazienti attivi (con appuntamenti negli ultimi 30 giorni)
+            $patients = Patient::find()
+                ->alias('p')
+                ->leftJoin('appointments a', 'a.patient_id = p.id OR (a.plan_therapy_id IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM plan_therapies pt 
+                    LEFT JOIN therapeutic_plans tp ON pt.therapeutic_plan_id = tp.id 
+                    WHERE pt.id = a.plan_therapy_id AND tp.patient_id = p.id
+                ))')
+                ->where(['a.therapist_id' => $therapistId])
+                ->andWhere(['>=', 'DATE(a.appointment_datetime)', date('Y-m-d', strtotime('-30 days'))])
+                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->groupBy('p.id')
+                ->orderBy('p.last_name ASC, p.first_name ASC')
+                ->all();
+
+            $formattedPatients = [];
+            foreach ($patients as $patient) {
+                // Conta appuntamenti totali del paziente con questo terapista
+                $totalAppointments = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->count();
+
+                // Ultimo appuntamento (solo appuntamenti passati)
+                $lastAppointment = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['<', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->orderBy('a.appointment_datetime DESC')
+                    ->one();
+
+                // Prossimo appuntamento
+                $nextAppointment = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->where(['a.therapist_id' => $therapistId])
+                    ->andWhere([
+                        'or',
+                        ['a.patient_id' => $patient->id],
+                        ['tp.patient_id' => $patient->id]
+                    ])
+                    ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->orderBy('a.appointment_datetime ASC')
+                    ->one();
+
+                // Ottieni i dati di contatto dal primo account collegato (se esiste)
+                $linkedUser = $patient->getLinkedUsers()->one();
+                $phone = null;
+                $email = null;
+                
+                if ($linkedUser && $linkedUser->profile) {
+                    // Decrittografa il telefono se presente
+                    if (!empty($linkedUser->profile->phone)) {
+                        try {
+                            $encryptionKey = Yii::$app->params['encryptionKey'];
+                            $decryptedPhone = Yii::$app->security->decryptByKey(
+                                base64_decode($linkedUser->profile->phone), 
+                                $encryptionKey
+                            );
+                            $phone = $decryptedPhone;
+                        } catch (\Exception $e) {
+                            Yii::error("Failed to decrypt phone number: " . $e->getMessage(), __METHOD__);
+                            // Se la decodifica fallisce, mantieni il valore originale
+                            $phone = $linkedUser->profile->phone;
+                        }
+                    }
+                    $email = $linkedUser->email;
+                }
+
+                $formattedPatients[] = [
+                    'id' => $patient->id,
+                    'firstName' => $patient->first_name,
+                    'lastName' => $patient->last_name,
+                    'fullName' => $patient->getFullName(),
+                    'phone' => $phone,
+                    'email' => $email,
+                    'dateOfBirth' => $patient->birth_date,
+                    'totalAppointments' => (int)$totalAppointments,
+                    'lastAppointment' => $lastAppointment ? $lastAppointment->appointment_datetime : null,
+                    'nextAppointment' => $nextAppointment ? $nextAppointment->appointment_datetime : null,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'patients' => $formattedPatients,
+                    'totalCount' => count($formattedPatients)
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero pazienti terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Aggiunge note a un appuntamento
+     * 
+     * @return array
+     */
+    public function actionSetAppointmentNote()
+    {
+        try {
+            $request = Yii::$app->request;
+            $appointmentId = $request->get('appointmentId');
+            $note = $request->get('note');
+
+            if (!$appointmentId || !$note) {
+                throw new BadRequestHttpException('appointmentId e note sono obbligatori');
+            }
+
+            // Verifica che l'appuntamento esista e appartenga al terapista autenticato
+            $therapistId = $this->getAuthenticatedTherapistId();
+            $appointment = Appointment::find()
+                ->where(['id' => $appointmentId, 'therapist_id' => $therapistId])
+                ->one();
+
+            if (!$appointment) {
+                throw new NotFoundHttpException('Appuntamento non trovato o non autorizzato');
+            }
+            
+            $appointment->notes = $note;
+
+            if ($appointment->save()) {
+                return [
+                    'success' => true,
+                    'message' => "Note appuntamento aggiornate con successo",
+                    'data' => [
+                        'appointmentId' => $appointment->id,
+                        'note' => $note
+                    ]
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Errore nell\'aggiornamento delle note',
+                    'data' => $appointment->errors
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Yii::error("Errore aggiornamento note appuntamento: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
 } 

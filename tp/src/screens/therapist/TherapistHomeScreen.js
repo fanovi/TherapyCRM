@@ -1,17 +1,92 @@
-import React from 'react';
-import {View, StyleSheet, ScrollView, StatusBar} from 'react-native';
-import {Text, Card, Button, Avatar, Chip, IconButton} from 'react-native-paper';
+import React, {useState, useEffect} from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
+import {
+  Text,
+  Card,
+  Button,
+  Avatar,
+  Chip,
+  IconButton,
+  ActivityIndicator,
+} from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import {loginService} from '../../services/loginService';
+import {therapistService} from '../../services/therapistService';
 
 const TherapistHomeScreen = () => {
   const dispatch = useDispatch();
   const {user} = useSelector(state => state.auth);
 
+  const [dashboardData, setDashboardData] = useState(null);
+  const [weeklyHoursData, setWeeklyHoursData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadDashboardData = async () => {
+    try {
+      setError(null);
+      const response = await therapistService.getDashboardData();
+      console.log('response', response);
+
+      if (response.success) {
+        setDashboardData(response.data);
+
+        // Recupera anche le ore settimanali
+        const weeklyResponse = await therapistService.getWeeklyHours();
+        console.log('weekly hours response', weeklyResponse);
+
+        if (weeklyResponse.success) {
+          setWeeklyHoursData(weeklyResponse.data);
+        }
+      } else {
+        setError('Errore nel caricamento dei dati');
+      }
+    } catch (err) {
+      setError('Errore di connessione');
+      console.error('Errore caricamento dashboard:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
+
   const handleLogout = async () => {
     await loginService.logout(dispatch);
   };
+
+  const formatTime = datetime => {
+    const date = new Date(datetime);
+    return date.toLocaleTimeString('it-IT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Caricamento dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -41,7 +116,21 @@ const TherapistHomeScreen = () => {
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }>
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Button mode="outlined" onPress={loadDashboardData}>
+              Riprova
+            </Button>
+          </View>
+        )}
+
         {/* Statistiche */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
@@ -54,7 +143,9 @@ const TherapistHomeScreen = () => {
                   icon="account-group"
                   style={styles.statIcon}
                 />
-                <Text style={styles.statNumber}>24</Text>
+                <Text style={styles.statNumber}>
+                  {dashboardData?.stats?.activePatientsCount || 0}
+                </Text>
                 <Text style={styles.statLabel}>Pazienti Attivi</Text>
               </Card.Content>
             </Card>
@@ -66,7 +157,10 @@ const TherapistHomeScreen = () => {
                   icon="calendar-today"
                   style={styles.statIcon}
                 />
-                <Text style={styles.statNumber}>8</Text>
+                <Text style={styles.statNumber}>
+                  {dashboardData?.stats?.todayCompletedAppointments || 0}/
+                  {dashboardData?.stats?.todayAppointments || 0}
+                </Text>
                 <Text style={styles.statLabel}>Oggi</Text>
               </Card.Content>
             </Card>
@@ -75,21 +169,30 @@ const TherapistHomeScreen = () => {
           <View style={styles.statsRow}>
             <Card style={styles.statCard}>
               <Card.Content style={styles.statContent}>
-                <Avatar.Icon size={32} icon="clock" style={styles.statIcon} />
-                <Text style={styles.statNumber}>32</Text>
-                <Text style={styles.statLabel}>Ore Settimana</Text>
-              </Card.Content>
-            </Card>
-
-            <Card style={styles.statCard}>
-              <Card.Content style={styles.statContent}>
                 <Avatar.Icon
                   size={32}
-                  icon="chart-line"
+                  icon="calendar-clock"
                   style={styles.statIcon}
                 />
-                <Text style={styles.statNumber}>96%</Text>
-                <Text style={styles.statLabel}>Soddisfazione</Text>
+                <Text style={styles.statNumber}>
+                  {weeklyHoursData
+                    ? `${weeklyHoursData.totalHours}/${weeklyHoursData.contractHours}`
+                    : '0/0'}
+                </Text>
+                <Text style={styles.statLabel}>Ore Settimana</Text>
+                {weeklyHoursData && (
+                  <Text style={styles.weekPeriod}>
+                    {new Date(weeklyHoursData.weekStart).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}{' '}
+                    -{' '}
+                    {new Date(weeklyHoursData.weekEnd).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}
+                  </Text>
+                )}
               </Card.Content>
             </Card>
           </View>
@@ -99,81 +202,63 @@ const TherapistHomeScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Prossimi Appuntamenti</Text>
 
-          <Card style={styles.appointmentCard}>
-            <Card.Content>
-              <View style={styles.appointmentHeader}>
-                <View>
-                  <Text style={styles.appointmentTime}>10:30 - 11:30</Text>
-                  <Text style={styles.appointmentType}>Fisioterapia</Text>
-                </View>
-                <Chip icon="account" style={styles.patientChip}>
-                  Mario Rossi
-                </Chip>
-              </View>
+          {dashboardData?.upcomingAppointments?.length > 0 ? (
+            dashboardData.upcomingAppointments.map((appointment, index) => (
+              <Card
+                key={appointment.id || index}
+                style={styles.appointmentCard}>
+                <Card.Content>
+                  <View style={styles.appointmentHeader}>
+                    <View>
+                      <Text style={styles.appointmentTime}>
+                        {appointment.time}
+                      </Text>
+                      <Text style={styles.appointmentType}>
+                        {appointment.type}
+                      </Text>
+                    </View>
+                    <Chip icon="account" style={styles.patientChip}>
+                      {appointment.patient.name}
+                    </Chip>
+                  </View>
 
-              <View style={styles.appointmentNotes}>
-                <Text style={styles.notesLabel}>Note:</Text>
-                <Text style={styles.notesText}>
-                  Controllo recupero post-operatorio ginocchio
+                  {appointment.notes && (
+                    <View style={styles.appointmentNotes}>
+                      <Text style={styles.notesLabel}>Note:</Text>
+                      <Text style={styles.notesText}>{appointment.notes}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.appointmentActions}>
+                    {appointment.patient.phone && (
+                      <Button
+                        mode="outlined"
+                        style={styles.actionButton}
+                        icon="phone"
+                        compact>
+                        Chiama
+                      </Button>
+                    )}
+                    <Button
+                      mode="contained"
+                      style={styles.actionButton}
+                      icon="file-document"
+                      compact>
+                      Cartella
+                    </Button>
+                  </View>
+                </Card.Content>
+              </Card>
+            ))
+          ) : (
+            <Card style={styles.appointmentCard}>
+              <Card.Content>
+                <Text style={styles.noAppointmentsText}>
+                  Nessun appuntamento in programma
                 </Text>
-              </View>
-
-              <View style={styles.appointmentActions}>
-                <Button
-                  mode="outlined"
-                  style={styles.actionButton}
-                  icon="phone"
-                  compact>
-                  Chiama
-                </Button>
-                <Button
-                  mode="contained"
-                  style={styles.actionButton}
-                  icon="file-document"
-                  compact>
-                  Cartella
-                </Button>
-              </View>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.appointmentCard}>
-            <Card.Content>
-              <View style={styles.appointmentHeader}>
-                <View>
-                  <Text style={styles.appointmentTime}>14:00 - 15:00</Text>
-                  <Text style={styles.appointmentType}>Consulenza</Text>
-                </View>
-                <Chip icon="account" style={styles.patientChip}>
-                  Anna Bianchi
-                </Chip>
-              </View>
-
-              <View style={styles.appointmentNotes}>
-                <Text style={styles.notesLabel}>Note:</Text>
-                <Text style={styles.notesText}>
-                  Prima visita - valutazione posturale
-                </Text>
-              </View>
-
-              <View style={styles.appointmentActions}>
-                <Button
-                  mode="outlined"
-                  style={styles.actionButton}
-                  icon="phone"
-                  compact>
-                  Chiama
-                </Button>
-                <Button
-                  mode="contained"
-                  style={styles.actionButton}
-                  icon="file-document"
-                  compact>
-                  Cartella
-                </Button>
-              </View>
-            </Card.Content>
-          </Card>
+              </Card.Content>
+            </Card>
+          )}
         </View>
 
         {/* Azioni Rapide */}
@@ -207,6 +292,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+  },
+  errorContainer: {
+    padding: 20,
+    backgroundColor: '#FFE5E5',
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   header: {
     paddingTop: 20,
@@ -283,6 +390,13 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  weekPeriod: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   appointmentCard: {
     borderRadius: 12,
     elevation: 2,
@@ -334,6 +448,12 @@ const styles = StyleSheet.create({
   },
   quickButtonContent: {
     height: 48,
+  },
+  noAppointmentsText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
 

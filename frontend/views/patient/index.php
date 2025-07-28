@@ -302,6 +302,7 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
             resetForm() {
                 this.title = '';
                 this.message = '';
+                $('#requires-read-confirmation').prop('checked', false);
                 this.resetMessages();
             },
             
@@ -369,6 +370,9 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                             <p class="mt-1 text-brand-700 dark:text-brand-300">
                                 La notifica sarà inviata a tutti gli account collegati ai pazienti selezionati
                             </p>
+                            <p class="mt-1 text-brand-600 dark:text-brand-400">
+                                <strong>Tipi di notifica:</strong> Informativa (normale) o con conferma di lettura obbligatoria
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -405,6 +409,25 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                             maxlength="500"
                             required
                         ></textarea>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="flex items-center">
+                            <input
+                                type="checkbox"
+                                id="requires-read-confirmation"
+                                class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
+                            />
+                            <label
+                                for="requires-read-confirmation"
+                                class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                            >
+                                Richiede conferma di lettura
+                            </label>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Se selezionato, la notifica richiederà una conferma di lettura da parte del destinatario
+                        </p>
                     </div>
                 </div>
 

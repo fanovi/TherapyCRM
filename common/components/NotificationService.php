@@ -54,6 +54,8 @@ class NotificationService extends Component
         $data = [],
         $skipPush = false
     ) {
+
+
         // Normalizza userIds in array
         if (!is_array($userIds)) {
             $userIds = [$userIds];

@@ -2,168 +2,185 @@
  * Sistema Notifiche Pazienti - Versione Semplificata
  */
 
-$(document).ready(function() {
-    let selectedPatients = [];
-    
-    // Inizializzazione
-    init();
-    
-    function init() {
-        bindEvents();
-        updateUI();
+$(document).ready(function () {
+  let selectedPatients = [];
+
+  // Inizializzazione
+  init();
+
+  function init() {
+    bindEvents();
+    updateUI();
+  }
+
+  function bindEvents() {
+    // Checkbox "Seleziona tutto"
+    $(document).on("change", "#select-all-patients", function () {
+      const isChecked = $(this).is(":checked");
+      $(".patient-checkbox").prop("checked", isChecked);
+      updateSelectedPatients();
+    });
+
+    // Checkbox singoli pazienti
+    $(document).on("change", ".patient-checkbox", function () {
+      updateSelectedPatients();
+      updateSelectAllState();
+    });
+
+    // Bottone "Invia Notifica"
+    $(document).on("click", "#send-notifications-btn", function (e) {
+      e.preventDefault();
+      if (selectedPatients.length === 0) {
+        showAlert(
+          "Seleziona almeno un paziente per inviare le notifiche.",
+          "warning"
+        );
+        return;
+      }
+      openModal();
+    });
+  }
+
+  function updateSelectedPatients() {
+    selectedPatients = [];
+    $(".patient-checkbox:checked").each(function () {
+      selectedPatients.push(parseInt($(this).val()));
+    });
+    updateUI();
+  }
+
+  function updateSelectAllState() {
+    const total = $(".patient-checkbox").length;
+    const checked = $(".patient-checkbox:checked").length;
+
+    $("#select-all-patients").prop(
+      "indeterminate",
+      checked > 0 && checked < total
+    );
+    $("#select-all-patients").prop("checked", checked === total && total > 0);
+  }
+
+  function updateUI() {
+    const count = selectedPatients.length;
+    $("#selected-patients-count").text(count);
+
+    if (count > 0) {
+      $("#notification-actions-bar").removeClass("hidden").addClass("flex");
+    } else {
+      $("#notification-actions-bar").removeClass("flex").addClass("hidden");
     }
-    
-    function bindEvents() {
-        // Checkbox "Seleziona tutto"
-        $(document).on('change', '#select-all-patients', function() {
-            const isChecked = $(this).is(':checked');
-            $('.patient-checkbox').prop('checked', isChecked);
-            updateSelectedPatients();
-        });
-        
-        // Checkbox singoli pazienti
-        $(document).on('change', '.patient-checkbox', function() {
-            updateSelectedPatients();
-            updateSelectAllState();
-        });
-        
-        // Bottone "Invia Notifica"
-        $(document).on('click', '#send-notifications-btn', function(e) {
-            e.preventDefault();
-            if (selectedPatients.length === 0) {
-                showAlert('Seleziona almeno un paziente per inviare le notifiche.', 'warning');
-                return;
-            }
-            openModal();
-        });
+  }
+
+  function openModal() {
+    // Trova e apri la modale TailAdmin
+    const modal = document.getElementById("notificationModal");
+    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
+
+    if (modalData) {
+      modalData.selectedCount = selectedPatients.length;
+      modalData.showModal = true;
+      modalData.errors = "";
+      modalData.success = "";
+      modalData.title = "";
+      modalData.message = "";
+      // Reset checkbox con jQuery
+      $("#requires-read-confirmation").prop("checked", false);
+
+      // Mostra la modale
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
     }
-    
-    function updateSelectedPatients() {
-        selectedPatients = [];
-        $('.patient-checkbox:checked').each(function() {
-            selectedPatients.push(parseInt($(this).val()));
-        });
-        updateUI();
-    }
-    
-    function updateSelectAllState() {
-        const total = $('.patient-checkbox').length;
-        const checked = $('.patient-checkbox:checked').length;
-        
-        $('#select-all-patients').prop('indeterminate', checked > 0 && checked < total);
-        $('#select-all-patients').prop('checked', checked === total && total > 0);
-    }
-    
-    function updateUI() {
-        const count = selectedPatients.length;
-        $('#selected-patients-count').text(count);
-        
-        if (count > 0) {
-            $('#notification-actions-bar').removeClass('hidden').addClass('flex');
-        } else {
-            $('#notification-actions-bar').removeClass('flex').addClass('hidden');
-        }
-    }
-    
-    function openModal() {
-        // Trova e apri la modale TailAdmin
-        const modal = document.getElementById('notificationModal');
-        const modalData = Alpine.$data(modal.querySelector('[x-data]'));
-        
-        if (modalData) {
-            modalData.selectedCount = selectedPatients.length;
-            modalData.showModal = true;
-            modalData.errors = '';
-            modalData.success = '';
-            modalData.title = '';
-            modalData.message = '';
-            
-            // Mostra la modale
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-    }
-    
-    // Funzione globale per inviare le notifiche (chiamata dal modal Alpine)
-    window.sendPatientNotifications = async function() {
-        const modal = document.getElementById('notificationModal');
-        const modalData = Alpine.$data(modal.querySelector('[x-data]'));
-        
-        if (!modalData) return;
-        
-        const title = modalData.title?.trim();
-        const message = modalData.message?.trim();
-        
-        if (!title || !message) {
-            modalData.errors = 'Inserisci sia il titolo che il messaggio della notifica.';
-            return;
-        }
-        
-        modalData.isLoading = true;
-        modalData.errors = '';
-        modalData.success = '';
-        
-        try {
-            // URL generato da Yii2
-            const response = await $.ajax({
-                url: window.sendNotificationUrl || '/patient/send-notification',
-                type: 'POST',
-                data: {
-                    patient_ids: selectedPatients,
-                    title: title,
-                    message: message,
-                    _csrf: $('meta[name=csrf-token]').attr('content')
-                },
-                dataType: 'json'
-            });
-            
-            if (response.success) {
-                modalData.success = response.message || 'Notifiche inviate con successo!';
-                
-                // Chiudi modal e resetta selezioni dopo 2 secondi
-                setTimeout(() => {
-                    modalData.closeModal();
-                    clearAllSelections();
-                }, 2000);
-                
-            } else {
-                modalData.errors = response.error || 'Errore durante l\'invio delle notifiche.';
-            }
-            
-        } catch (error) {
-            console.error('Errore AJAX:', error);
-            
-            let errorMessage = 'Errore di comunicazione con il server.';
-            if (error.responseJSON?.error) {
-                errorMessage = error.responseJSON.error;
-            } else if (error.status) {
-                errorMessage = `Errore ${error.status}: ${error.statusText}`;
-            }
-            
-            modalData.errors = errorMessage;
-        } finally {
-            modalData.isLoading = false;
-        }
+  }
+
+  // Funzione globale per inviare le notifiche (chiamata dal modal Alpine)
+  window.sendPatientNotifications = async function () {
+    const modal = document.getElementById("notificationModal");
+    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
+
+    if (!modalData) return;
+
+    const title = modalData.title?.trim();
+    const message = modalData.message?.trim();
+
+    // Leggi direttamente dalla checkbox usando jQuery
+    const requiresReadConfirmation = $("#requires-read-confirmation").is(
+      ":checked"
+    );
+
+    const dataToSend = {
+      patient_ids: selectedPatients,
+      title: title,
+      message: message,
+      requires_read_confirmation: requiresReadConfirmation ? 1 : 0,
+      _csrf: $("meta[name=csrf-token]").attr("content"),
     };
-    
-    function clearAllSelections() {
-        selectedPatients = [];
-        $('.patient-checkbox').prop('checked', false);
-        $('#select-all-patients').prop('checked', false);
-        updateUI();
+
+    if (!title || !message) {
+      modalData.errors =
+        "Inserisci sia il titolo che il messaggio della notifica.";
+      return;
     }
-    
-    function showAlert(message, type = 'info') {
-        const alertTypes = {
-            'success': 'bg-green-50 border-green-200 text-green-800',
-            'error': 'bg-red-50 border-red-200 text-red-800',
-            'warning': 'bg-yellow-50 border-yellow-200 text-yellow-800',
-            'info': 'bg-blue-50 border-blue-200 text-blue-800'
-        };
-        
-        const alertClass = alertTypes[type] || alertTypes.info;
-        
-        const $alert = $(`
+
+    modalData.isLoading = true;
+    modalData.errors = "";
+    modalData.success = "";
+
+    try {
+      // URL generato da Yii2
+      const response = await $.ajax({
+        url: window.sendNotificationUrl || "/patient/send-notification",
+        type: "POST",
+        data: dataToSend,
+        dataType: "json",
+      });
+
+      if (response.success) {
+        modalData.success =
+          response.message || "Notifiche inviate con successo!";
+
+        // Chiudi modal e resetta selezioni dopo 2 secondi
+        setTimeout(() => {
+          modalData.closeModal();
+          clearAllSelections();
+        }, 2000);
+      } else {
+        modalData.errors =
+          response.error || "Errore durante l'invio delle notifiche.";
+      }
+    } catch (error) {
+      console.error("Errore AJAX:", error);
+
+      let errorMessage = "Errore di comunicazione con il server.";
+      if (error.responseJSON?.error) {
+        errorMessage = error.responseJSON.error;
+      } else if (error.status) {
+        errorMessage = `Errore ${error.status}: ${error.statusText}`;
+      }
+
+      modalData.errors = errorMessage;
+    } finally {
+      modalData.isLoading = false;
+    }
+  };
+
+  function clearAllSelections() {
+    selectedPatients = [];
+    $(".patient-checkbox").prop("checked", false);
+    $("#select-all-patients").prop("checked", false);
+    updateUI();
+  }
+
+  function showAlert(message, type = "info") {
+    const alertTypes = {
+      success: "bg-green-50 border-green-200 text-green-800",
+      error: "bg-red-50 border-red-200 text-red-800",
+      warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
+      info: "bg-blue-50 border-blue-200 text-blue-800",
+    };
+
+    const alertClass = alertTypes[type] || alertTypes.info;
+
+    const $alert = $(`
             <div class="border rounded-lg p-4 mb-4 ${alertClass}" role="alert">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -184,11 +201,11 @@ $(document).ready(function() {
                 </div>
             </div>
         `);
-        
-        $('.mx-auto.max-w-7xl').first().prepend($alert);
-        
-        setTimeout(() => {
-            $alert.fadeOut(() => $alert.remove());
-        }, 5000);
-    }
+
+    $(".mx-auto.max-w-7xl").first().prepend($alert);
+
+    setTimeout(() => {
+      $alert.fadeOut(() => $alert.remove());
+    }, 5000);
+  }
 });

@@ -1,5 +1,11 @@
-import React from 'react';
-import {View, StyleSheet} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {
+  View,
+  StyleSheet,
+  RefreshControl,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import {
   Text,
   Card,
@@ -8,24 +14,80 @@ import {
   Chip,
   IconButton,
   useTheme,
+  ActivityIndicator,
 } from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import {loginService} from '../../services/loginService';
+import {therapistService} from '../../services/therapistService';
 import ScreenTemplate from '../../components/ScreenTemplate';
 
-const TherapistDashboardScreen = () => {
+const TherapistDashboardScreen = ({navigation}) => {
   const dispatch = useDispatch();
   const {user} = useSelector(state => state.auth);
   const theme = useTheme();
+
+  const [dashboardData, setDashboardData] = useState(null);
+  const [weeklyHoursData, setWeeklyHoursData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadDashboardData = async () => {
+    try {
+      setError(null);
+      const response = await therapistService.getDashboardData();
+      console.log('response', response);
+
+      if (response.success) {
+        setDashboardData(response.data);
+
+        // Recupera anche le ore settimanali
+        const weeklyResponse = await therapistService.getWeeklyHours();
+        console.log('weekly hours response', weeklyResponse);
+
+        if (weeklyResponse.success) {
+          setWeeklyHoursData(weeklyResponse.data);
+        }
+      } else {
+        setError('Errore nel caricamento dei dati');
+      }
+    } catch (err) {
+      setError('Errore di connessione');
+      console.error('Errore caricamento dashboard:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
 
   const handleLogout = async () => {
     await loginService.logout(dispatch);
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, {color: theme.colors.onSurface}]}>
+          Caricamento dashboard...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <ScreenTemplate
       title="Dashboard"
-      subtitle={`Benvenuto, ${user?.name || 'Dottore'}`}
+      subtitle={`Benvenuto, ${user?.firstName || user?.name || 'Dottore'}`}
       headerRight={
         <IconButton
           icon="logout"
@@ -33,32 +95,55 @@ const TherapistDashboardScreen = () => {
           iconColor={theme.colors.secondary}
           onPress={handleLogout}
         />
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }>
+      {error && (
+        <View
+          style={[
+            styles.errorContainer,
+            {backgroundColor: theme.colors.errorContainer},
+          ]}>
+          <Text style={[styles.errorText, {color: theme.colors.error}]}>
+            {error}
+          </Text>
+          <Button mode="outlined" onPress={loadDashboardData}>
+            Riprova
+          </Button>
+        </View>
+      )}
+
       {/* Statistiche */}
       <View style={styles.section}>
         <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <Card.Content style={styles.statContent}>
-              <Avatar.Icon
-                size={48}
-                icon="account-group"
-                style={[
-                  styles.statIcon,
-                  {backgroundColor: theme.colors.secondaryContainer},
-                ]}
-              />
-              <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-                24
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                Pazienti Attivi
-              </Text>
-            </Card.Content>
-          </Card>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate('TherapistPatientsScreen')}>
+            <Card style={styles.statCardInner}>
+              <Card.Content style={styles.statContent}>
+                <Avatar.Icon
+                  size={48}
+                  icon="account-group"
+                  style={[
+                    styles.statIcon,
+                    {backgroundColor: theme.colors.secondaryContainer},
+                  ]}
+                />
+                <Text
+                  style={[styles.statValue, {color: theme.colors.onSurface}]}>
+                  {dashboardData?.stats?.activePatientsCount || 0}
+                </Text>
+                <Text
+                  style={[
+                    styles.statLabel,
+                    {color: theme.colors.onSurfaceVariant},
+                  ]}>
+                  Pazienti Attivi
+                </Text>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
 
           <Card style={styles.statCard}>
             <Card.Content style={styles.statContent}>
@@ -71,7 +156,8 @@ const TherapistDashboardScreen = () => {
                 ]}
               />
               <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-                8
+                {dashboardData?.stats?.todayCompletedAppointments || 0}/
+                {dashboardData?.stats?.todayAppointments || 0}
               </Text>
               <Text
                 style={[
@@ -84,9 +170,10 @@ const TherapistDashboardScreen = () => {
           </Card>
         </View>
 
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <Card.Content style={styles.statContent}>
+        {/* Card Ore Settimana - Occupa tutta la larghezza */}
+        <Card style={styles.fullWidthCard}>
+          <Card.Content style={styles.weeklyHoursContent}>
+            <View style={styles.weeklyHoursHeader}>
               <Avatar.Icon
                 size={48}
                 icon="clock"
@@ -95,39 +182,71 @@ const TherapistDashboardScreen = () => {
                   {backgroundColor: theme.colors.tertiaryContainer},
                 ]}
               />
-              <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-                32
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                Ore Settimana
-              </Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <Card.Content style={styles.statContent}>
-              <Avatar.Icon
-                size={48}
-                icon="thumb-up"
-                style={[styles.statIcon, {backgroundColor: '#E8F5E8'}]}
-              />
-              <Text style={[styles.statValue, {color: theme.colors.onSurface}]}>
-                96%
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                Soddisfazione
-              </Text>
-            </Card.Content>
-          </Card>
-        </View>
+              <View style={styles.weeklyHoursData}>
+                <Text
+                  style={[
+                    styles.weeklyHoursValue,
+                    {color: theme.colors.onSurface},
+                  ]}>
+                  {weeklyHoursData
+                    ? `${weeklyHoursData.totalHours}/${weeklyHoursData.contractHours}h`
+                    : '0/0h'}
+                </Text>
+                <Text
+                  style={[
+                    styles.weeklyHoursLabel,
+                    {color: theme.colors.onSurfaceVariant},
+                  ]}>
+                  Ore Lavorate / Contratto
+                </Text>
+                {weeklyHoursData && (
+                  <Text
+                    style={[
+                      styles.weekPeriod,
+                      {color: theme.colors.onSurfaceVariant},
+                    ]}>
+                    Settimana:{' '}
+                    {new Date(weeklyHoursData.weekStart).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}{' '}
+                    -{' '}
+                    {new Date(weeklyHoursData.weekEnd).toLocaleDateString(
+                      'it-IT',
+                      {day: '2-digit', month: '2-digit'},
+                    )}
+                  </Text>
+                )}
+              </View>
+            </View>
+            {weeklyHoursData && (
+              <View style={styles.progressContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {backgroundColor: theme.colors.surfaceVariant},
+                  ]}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        backgroundColor: weeklyHoursData.isOverContract
+                          ? theme.colors.error
+                          : theme.colors.primary,
+                        width: `${Math.min(
+                          (weeklyHoursData.totalHours /
+                            weeklyHoursData.contractHours) *
+                            100,
+                          100,
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
       </View>
 
       {/* Prossimi Appuntamenti */}
@@ -136,131 +255,91 @@ const TherapistDashboardScreen = () => {
           Prossimi Appuntamenti
         </Text>
 
-        <Card style={styles.appointmentCard}>
-          <Card.Content>
-            <View style={styles.appointmentHeader}>
-              <View>
-                <Text
-                  style={[
-                    styles.appointmentTime,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  10:30 - 11:30
-                </Text>
-                <Text
-                  style={[
-                    styles.appointmentType,
-                    {color: theme.colors.onSurfaceVariant},
-                  ]}>
-                  Fisioterapia
-                </Text>
-              </View>
-              <Avatar.Image
-                size={40}
-                source={{uri: 'https://i.pravatar.cc/150?img=1'}}
-                style={styles.patientAvatar}
-              />
-            </View>
+        {dashboardData?.upcomingAppointments?.length > 0 ? (
+          dashboardData.upcomingAppointments.map((appointment, index) => (
+            <Card key={appointment.id || index} style={styles.appointmentCard}>
+              <Card.Content>
+                <View style={styles.appointmentHeader}>
+                  <View>
+                    <Text
+                      style={[
+                        styles.appointmentTime,
+                        {color: theme.colors.onSurface},
+                      ]}>
+                      {appointment.time}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.appointmentType,
+                        {color: theme.colors.onSurfaceVariant},
+                      ]}>
+                      {appointment.type}
+                    </Text>
+                  </View>
+                  <Avatar.Text
+                    size={40}
+                    label={appointment.patient.name
+                      .split(' ')
+                      .map(name => name.charAt(0))
+                      .join('')
+                      .toUpperCase()
+                      .substring(0, 2)}
+                    style={[
+                      styles.patientAvatar,
+                      {backgroundColor: theme.colors.primaryContainer},
+                    ]}
+                    labelStyle={{color: theme.colors.onPrimaryContainer}}
+                  />
+                </View>
 
-            <View style={styles.appointmentDetails}>
-              <View style={styles.patientInfo}>
-                <Text
-                  style={[styles.patientName, {color: theme.colors.onSurface}]}>
-                  Mario Rossi
-                </Text>
-                <Text
-                  style={[
-                    styles.appointmentNote,
-                    {color: theme.colors.onSurfaceVariant},
-                  ]}>
-                  Note: Controllo recupero post-operatorio ginocchio
-                </Text>
-              </View>
-            </View>
+                <View style={styles.appointmentDetails}>
+                  <View style={styles.patientInfo}>
+                    <Text
+                      style={[
+                        styles.patientName,
+                        {color: theme.colors.onSurface},
+                      ]}>
+                      {appointment.patient.name}
+                    </Text>
+                    {appointment.notes && (
+                      <Text
+                        style={[
+                          styles.appointmentNote,
+                          {color: theme.colors.onSurfaceVariant},
+                        ]}>
+                        Note: {appointment.notes}
+                      </Text>
+                    )}
+                  </View>
+                </View>
 
-            <View style={styles.appointmentActions}>
-              <Button
-                mode="outlined"
-                style={styles.actionButton}
-                labelStyle={{color: theme.colors.secondary}}
-                icon="phone">
-                Chiama
-              </Button>
-              <Button
-                mode="contained"
+                <View style={styles.appointmentActions}>
+                  {appointment.patient.phone && (
+                    <Button
+                      mode="outlined"
+                      style={styles.actionButton}
+                      labelStyle={{color: theme.colors.secondary}}
+                      icon="phone">
+                      Chiama
+                    </Button>
+                  )}
+                </View>
+              </Card.Content>
+            </Card>
+          ))
+        ) : (
+          <Card style={styles.appointmentCard}>
+            <Card.Content>
+              <Text
                 style={[
-                  styles.actionButton,
-                  {backgroundColor: theme.colors.secondary},
-                ]}
-                icon="folder-open">
-                Cartella
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.appointmentCard}>
-          <Card.Content>
-            <View style={styles.appointmentHeader}>
-              <View>
-                <Text
-                  style={[
-                    styles.appointmentTime,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  14:00 - 15:00
-                </Text>
-                <Text
-                  style={[
-                    styles.appointmentType,
-                    {color: theme.colors.onSurfaceVariant},
-                  ]}>
-                  Consulenza
-                </Text>
-              </View>
-              <Avatar.Image
-                size={40}
-                source={{uri: 'https://i.pravatar.cc/150?img=5'}}
-                style={styles.patientAvatar}
-              />
-            </View>
-
-            <View style={styles.appointmentDetails}>
-              <View style={styles.patientInfo}>
-                <Text
-                  style={[styles.patientName, {color: theme.colors.onSurface}]}>
-                  Anna Bianchi
-                </Text>
-                <Text
-                  style={[
-                    styles.appointmentNote,
-                    {color: theme.colors.onSurfaceVariant},
-                  ]}>
-                  Note: Prima visita - valutazione posturale
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.appointmentActions}>
-              <Button
-                mode="outlined"
-                style={styles.actionButton}
-                labelStyle={{color: theme.colors.secondary}}
-                icon="phone">
-                Chiama
-              </Button>
-              <Button
-                mode="contained"
-                style={[
-                  styles.actionButton,
-                  {backgroundColor: theme.colors.secondary},
-                ]}
-                icon="folder-open">
-                Cartella
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
+                  styles.noAppointmentsText,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Nessun appuntamento in programma
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
       </View>
     </ScreenTemplate>
   );
@@ -286,6 +365,48 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 2,
   },
+  statCardInner: {
+    borderRadius: 12,
+    elevation: 2,
+  },
+  fullWidthCard: {
+    borderRadius: 12,
+    elevation: 2,
+    marginTop: 12,
+  },
+  weeklyHoursContent: {
+    paddingVertical: 20,
+  },
+  weeklyHoursHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  weeklyHoursData: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  weeklyHoursValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  weeklyHoursLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  progressContainer: {
+    marginTop: 8,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
   statContent: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -301,6 +422,12 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  weekPeriod: {
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   appointmentCard: {
     borderRadius: 12,
@@ -347,6 +474,30 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 0.48,
     borderRadius: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+  },
+  errorContainer: {
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  errorText: {
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  noAppointmentsText: {
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
 
