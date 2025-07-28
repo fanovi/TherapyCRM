@@ -1586,16 +1586,20 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $data = $this->getRequestData();
+            $data = $this->getRequestData(); // QUI MODIFICHE
             Yii::info("Dati ricevuti per update appointment: " . json_encode($data), __METHOD__);
-            $this->validateUpdateAppointmentFields($data);
-            $this->validateTherapist($data);
-            $this->validateTherapist($data);
+
+            if(!isset($data['appointmentId'])){
+                throw new BadRequestHttpException('ID appuntamento obbligatorio');
+            }
 
             $appointment = Appointment::findOne($data['appointmentId']);
-            if (!$appointment) {
+
+            if(!$appointment){
                 throw new NotFoundHttpException('Appuntamento non trovato');
             }
+
+            $this->validateTherapist(['therapistId' => $appointment->therapist_id, 'appointmentDateTime' => $appointment->appointment_datetime]);
 
             if ($appointment->status === 'completed') {
                 throw new BadRequestHttpException('Non è possibile modificare un appuntamento completato');
