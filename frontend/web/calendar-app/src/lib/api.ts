@@ -11,6 +11,8 @@ import {
   TherapistSubstitutionRequest,
   TherapistSubstitutionResponse,
   SpecializationTreatment,
+  TherapistAbsence,
+  TherapistAbsencesResponse,
 } from "@/types/therapy";
 
 /**
@@ -765,6 +767,41 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data;
+  }
+
+  // === GESTIONE ASSENZE TERAPISTA ===
+
+  /**
+   * Ottiene le assenze di un terapista per un range di date
+   */
+  async getTherapistAbsences(
+    therapistId: number,
+    startDate?: string,
+    endDate?: string
+  ): Promise<TherapistAbsence[]> {
+    const params: Record<string, string | number> = {
+      therapistId: therapistId,
+    };
+
+    if (startDate) {
+      params.start_date = startDate;
+    }
+    if (endDate) {
+      params.end_date = endDate;
+    }
+
+    const response = await this.get<APIResponse<TherapistAbsencesResponse>>(
+      "get-therapist-absences",
+      params
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento assenze terapista"
+      );
+    }
+
+    return response.data.absences;
   }
 }
 

@@ -1,0 +1,72 @@
+/* Stili personalizzati per il calendario - Assenze Terapista */
+
+.absence-event {
+  opacity: 0.7;
+  font-weight: bold;
+}
+
+/* Stile per celle con sfondo di assenza */
+.fc-day-today.fc-day-disabled {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Stile per giorni con assenze */
+.fc-day[data-date] {
+  position: relative;
+}
+
+/* Overlay per giorni di assenza */
+.fc-day.absence-day::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(239, 68, 68, 0.1),
+    rgba(239, 68, 68, 0.1) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Stile per eventi di assenza di tipo vacation */
+.fc-event.absence-vacation {
+  background-color: #f59e0b !important;
+  border-color: #f59e0b !important;
+}
+
+/* Stile per eventi di assenza di tipo sick */
+.fc-event.absence-sick {
+  background-color: #ef4444 !important;
+  border-color: #ef4444 !important;
+}
+
+/* Stile per eventi di assenza di tipo training */
+.fc-event.absence-training {
+  background-color: #8b5cf6 !important;
+  border-color: #8b5cf6 !important;
+}
+
+/* Stile per eventi di assenza di tipo other */
+.fc-event.absence-other {
+  background-color: #6b7280 !important;
+  border-color: #6b7280 !important;
+}
+
+/* Tooltip per assenze */
+.absence-tooltip {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: nowrap;
+}

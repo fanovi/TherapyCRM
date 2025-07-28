@@ -227,3 +227,29 @@ export interface TherapistSubstitutionResponse {
     substitutionId: number;
   };
 }
+
+export interface TherapistAbsence {
+  id: number;
+  therapist_id: number;
+  start_date: string;
+  end_date: string;
+  type: "vacation" | "sick" | "training" | "other";
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  approved_by?: number;
+  approved_at?: string;
+  notes?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TherapistAbsencesResponse {
+  therapist_id: string;
+  filters: {
+    start_date: string | null;
+    end_date: string | null;
+  };
+  total: number;
+  absences: TherapistAbsence[];
+}

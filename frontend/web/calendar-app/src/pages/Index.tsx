@@ -17,6 +17,7 @@ import {
   TreatmentType,
   Specialization,
   SpecializationTreatment,
+  TherapistAbsence,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
@@ -91,9 +92,66 @@ const Index = () => {
   const [selectedTreatment, setSelectedTreatment] =
     useState<SpecializationTreatment | null>(null);
 
+  // Stati per le assenze del terapista
+  const [therapistAbsences, setTherapistAbsences] = useState<
+    TherapistAbsence[]
+  >([]);
+
+  // Funzione helper per verificare se una data è bloccata per assenza
+  const isDateBlocked = (date: Date): boolean => {
+    if (!selectedTherapist || therapistAbsences.length === 0) {
+      return false;
+    }
+
+    const dateString = date.toISOString().split("T")[0];
+
+    return therapistAbsences.some((absence) => {
+      // Considera solo le assenze approvate
+      if (absence.status !== "approved") {
+        return false;
+      }
+
+      const startDate = absence.start_date;
+      const endDate = absence.end_date;
+
+      return dateString >= startDate && dateString <= endDate;
+    });
+  };
+
   // Vista terapista: non ci sono selezioni da gestire, solo visualizzazione
 
   const planId = patient?.planTherapy?.therapeuticPlanId;
+  // Funzione per caricare le assenze del terapista
+  const loadTherapistAbsences = async (
+    therapistId: number,
+    startDate?: Date,
+    endDate?: Date
+  ) => {
+    try {
+      const startDateStr = startDate
+        ? startDate.toISOString().split("T")[0]
+        : undefined;
+      const endDateStr = endDate
+        ? endDate.toISOString().split("T")[0]
+        : undefined;
+
+      const absences = await therapyAPI.getTherapistAbsences(
+        therapistId,
+        startDateStr,
+        endDateStr
+      );
+
+      setTherapistAbsences(absences);
+      console.log(
+        `📅 Assenze caricate per terapista ${therapistId}:`,
+        absences
+      );
+    } catch (error) {
+      console.error("Errore nel caricamento assenze terapista:", error);
+      setTherapistAbsences([]);
+    }
+  };
+
   // Funzione per ricaricare gli appuntamenti per un mese specifico
   const loadAppointmentsForMonth = async (date: Date) => {
     const month = date.getMonth() + 1;
@@ -452,6 +510,20 @@ const Index = () => {
     loadTherapistAppointments();
   }, [selectedTherapist, isTherapistView]);
 
+  // Carica le assenze quando il terapista selezionato cambia
+  useEffect(() => {
+    if (selectedTherapist) {
+      // Calcola un range di 6 mesi: 3 mesi prima e 3 mesi dopo la data corrente
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+
+      loadTherapistAbsences(selectedTherapist.id, startDate, endDate);
+    } else {
+      setTherapistAbsences([]);
+    }
+  }, [selectedTherapist]);
+
   // Nella vista terapista non serve ricaricare in base al paziente selezionato
   // Gli appuntamenti del terapista vengono caricati automaticamente
 
@@ -767,6 +839,37 @@ const Index = () => {
         "Modalità Visualizzazione",
         "In questa vista puoi solo consultare gli appuntamenti esistenti. La creazione di nuovi appuntamenti non è disponibile."
       );
+      return;
+    }
+
+    // Verifica se la data è bloccata per assenza del terapista
+    if (isDateBlocked(date)) {
+      const blockedAbsence = therapistAbsences.find((absence) => {
+        const dateString = date.toISOString().split("T")[0];
+        return (
+          absence.status === "approved" &&
+          dateString >= absence.start_date &&
+          dateString <= absence.end_date
+        );
+      });
+
+      if (blockedAbsence) {
+        const absenceTypeLabels = {
+          vacation: "Ferie",
+          sick: "Malattia",
+          training: "Formazione",
+          other: "Altro",
+        };
+
+        showError(
+          "Data non disponibile",
+          `Il terapista ${
+            selectedTherapist?.name
+          } è assente in questa data per: ${
+            absenceTypeLabels[blockedAbsence.type]
+          } (${blockedAbsence.reason}). Non è possibile creare appuntamenti.`
+        );
+      }
       return;
     }
 
@@ -1201,6 +1304,77 @@ const Index = () => {
           </div>
         )}
 
+        {/* Mostra avviso assenze attive */}
+        {selectedTherapist && therapistAbsences.length > 0 && (
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="text-orange-600 text-xl">⚠️</div>
+              <div className="flex-1">
+                <p className="font-medium text-orange-900 mb-2">
+                  Assenze programmate per {selectedTherapist.name}
+                </p>
+                <div className="space-y-2">
+                  {therapistAbsences
+                    .filter((absence) => absence.status === "approved")
+                    .slice(0, 3) // Mostra solo le prime 3 assenze
+                    .map((absence) => {
+                      const absenceTypeLabels = {
+                        vacation: "Ferie",
+                        sick: "Malattia",
+                        training: "Formazione",
+                        other: "Altro",
+                      };
+
+                      const startDate = new Date(
+                        absence.start_date
+                      ).toLocaleDateString("it-IT");
+                      const endDate = new Date(
+                        absence.end_date
+                      ).toLocaleDateString("it-IT");
+                      const dateRange =
+                        startDate === endDate
+                          ? startDate
+                          : `${startDate} - ${endDate}`;
+
+                      return (
+                        <div
+                          key={absence.id}
+                          className="text-sm text-orange-700"
+                        >
+                          <span className="font-medium">
+                            {absenceTypeLabels[absence.type]}
+                          </span>
+                          : {dateRange}
+                          {absence.reason && (
+                            <span className="text-orange-600">
+                              {" "}
+                              - {absence.reason}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  {therapistAbsences.filter(
+                    (absence) => absence.status === "approved"
+                  ).length > 3 && (
+                    <div className="text-sm text-orange-600">
+                      ... e altre{" "}
+                      {therapistAbsences.filter(
+                        (absence) => absence.status === "approved"
+                      ).length - 3}{" "}
+                      assenze
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-orange-600 mt-2">
+                  ⚡ Non è possibile creare appuntamenti durante i periodi di
+                  assenza
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <DualFullCalendarView
           key={refreshKey}
           selectedTherapist={selectedTherapist}
@@ -1222,6 +1396,7 @@ const Index = () => {
           selectedDate={currentCalendarDate}
           isABARegime={isABARegime} // Aggiungi questa prop
           readOnly={isTherapistView} // Disabilita tutte le modifiche in vista terapista
+          therapistAbsences={therapistAbsences} // Passa le assenze del terapista
         />
 
         <AppointmentModal

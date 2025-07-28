@@ -9,9 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, List, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
-import { Appointment } from "@/types/therapy";
+import { Appointment, TherapistAbsence } from "@/types/therapy";
 import { getTreatmentColor } from "@/lib/treatmentColors";
 import moment from "moment";
+import "../styles/calendar.css";
 
 interface FullCalendarContainerProps {
   patientId?: string;
@@ -35,6 +36,7 @@ interface FullCalendarContainerProps {
   onRef?: (ref: any) => void;
   onNavigate?: (date: Date) => void;
   onVisibleRangeChange?: (start: Date, end: Date) => void;
+  therapistAbsences?: TherapistAbsence[];
 }
 
 interface AppointmentEvent {
@@ -66,6 +68,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   onRef,
   onNavigate,
   onVisibleRangeChange,
+  therapistAbsences = [],
 }) => {
   const [internalCurrentView, setInternalCurrentView] = useState<
     "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek"
@@ -338,8 +341,52 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     }
   }, [loading]); // Dipende solo da loading, non da selectedDate
 
-  // Usa eventi esterni se forniti
-  const displayEvents = externalEvents || events;
+  // Crea eventi per le assenze del terapista
+  const absenceEvents = therapistAbsences.map((absence) => {
+    const startDate = new Date(`${absence.start_date}T00:00:00`);
+    const endDate = new Date(`${absence.end_date}T23:59:59`);
+
+    // Aggiungi un giorno alla data di fine per la visualizzazione corretta in FullCalendar
+    const displayEndDate = new Date(endDate);
+    displayEndDate.setDate(displayEndDate.getDate() + 1);
+
+    const absenceTypeLabels = {
+      vacation: "Ferie",
+      sick: "Malattia",
+      training: "Formazione",
+      other: "Altro",
+    };
+
+    const absenceColors = {
+      vacation: "#F59E0B", // Ambra
+      sick: "#EF4444", // Rosso
+      training: "#8B5CF6", // Viola
+      other: "#6B7280", // Grigio
+    };
+
+    return {
+      id: `absence-${absence.id}`,
+      title: `🚫 ${absenceTypeLabels[absence.type]}: ${absence.reason}`,
+      start: absence.start_date,
+      end: displayEndDate.toISOString().split("T")[0],
+      allDay: true,
+      backgroundColor: absenceColors[absence.type],
+      borderColor: absenceColors[absence.type],
+      textColor: "#FFFFFF",
+      display: "background", // Visualizza come sfondo
+      classNames: ["absence-event", `absence-${absence.type}`],
+      extendedProps: {
+        isAbsence: true,
+        absenceType: absence.type,
+        absenceReason: absence.reason,
+        absenceStatus: absence.status,
+      },
+    };
+  });
+
+  // Combina eventi normali e assenze
+  const allEvents = [...(externalEvents || events), ...absenceEvents];
+  const displayEvents = allEvents;
 
   // Espone funzioni per comunicazione con altri calendari
   const calendarInterface = {
@@ -423,6 +470,49 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       return;
     }
 
+    // Verifica se la data selezionata cade durante un'assenza del terapista
+    const checkDate = selectInfo.start;
+    const selectedDateStr = checkDate.toISOString().split("T")[0];
+
+    const isDuringAbsence = therapistAbsences.some((absence) => {
+      if (absence.status !== "approved") return false;
+      return (
+        selectedDateStr >= absence.start_date &&
+        selectedDateStr <= absence.end_date
+      );
+    });
+
+    if (isDuringAbsence && therapistId) {
+      const blockedAbsence = therapistAbsences.find((absence) => {
+        return (
+          absence.status === "approved" &&
+          selectedDateStr >= absence.start_date &&
+          selectedDateStr <= absence.end_date
+        );
+      });
+
+      if (blockedAbsence) {
+        const absenceTypeLabels = {
+          vacation: "Ferie",
+          sick: "Malattia",
+          training: "Formazione",
+          other: "Altro",
+        };
+
+        toast({
+          title: "Data non disponibile",
+          description: `Il terapista è assente in questa data per: ${
+            absenceTypeLabels[blockedAbsence.type]
+          } (${blockedAbsence.reason}). Non è possibile creare appuntamenti.`,
+          variant: "destructive",
+        });
+
+        const calendarApi = calendarRef.current?.getApi();
+        calendarApi?.unselect();
+        return;
+      }
+    }
+
     // Verifica se c'è già un evento in questo slot
     const selectedStart = selectInfo.start.getTime();
     const selectedEnd = selectInfo.end.getTime();
@@ -441,6 +531,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           "Questo slot orario è già occupato. Clicca sull'appuntamento per vedere i dettagli.",
         variant: "destructive",
       });
+      const calendarApi = calendarRef.current?.getApi();
       calendarApi?.unselect();
       return;
     }

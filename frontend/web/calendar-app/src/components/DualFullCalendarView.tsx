@@ -3,7 +3,12 @@ import { Card } from "@/components/ui/card";
 import FullCalendarContainer from "./FullCalendarContainer";
 import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
 import { TherapistWeeklyHours } from "./TherapistWeeklyHours";
-import { Therapist, Appointment, Specialization } from "@/types/therapy";
+import {
+  Therapist,
+  Appointment,
+  Specialization,
+  TherapistAbsence,
+} from "@/types/therapy";
 import moment from "moment";
 import { PlanTherapyUsedHours } from "./PlanTherapyUsedHours";
 
@@ -30,6 +35,7 @@ interface DualFullCalendarViewProps {
   selectedDate?: Date;
   isABARegime?: boolean; // Aggiungi
   readOnly?: boolean; // Nuova prop per disabilitare modifiche
+  therapistAbsences?: TherapistAbsence[]; // Nuova prop per le assenze
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -50,6 +56,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   selectedDate: externalSelectedDate,
   isABARegime,
   readOnly = false,
+  therapistAbsences = [],
 }) => {
   const [selectedDate, setSelectedDate] = useState(
     externalSelectedDate || new Date()
@@ -390,6 +397,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             onViewChange={handleViewChange}
             onNavigate={handleTherapistNavigate}
             onVisibleRangeChange={handleTherapistVisibleRangeChange}
+            therapistAbsences={therapistAbsences}
             onRef={(ref) => {
               therapistCalendarRef.current = ref;
             }}
