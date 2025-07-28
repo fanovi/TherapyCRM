@@ -8,7 +8,12 @@ use yii\caching\TagDependency;
 use frontend\models\AbsenceStatisticsSearch;
 
 /**
- * Service per le statistiche delle assenze
+ * Service per le statistiche delle assenze dei terapisti
+ * 
+ * Nuova logica:
+ * - Assenze da tabella 'absences' (periodi di non disponibilità)
+ * - Conta solo quando ci sono appuntamenti effettivi persi (therapist_absent o sostituzioni)
+ * - Raggruppa per group_session_id (stesso ID = 1 assenza, NULL = singole)
  */
 class AbsenceStatisticsService
 {
@@ -17,6 +22,7 @@ class AbsenceStatisticsService
 
     /**
      * Ottiene dati per heatmap assenze (orari x giorni settimana)
+     * Conta assenze raggruppate per group_session_id
      *
      * @param AbsenceStatisticsSearch $searchModel
      * @return array
@@ -26,36 +32,41 @@ class AbsenceStatisticsService
         $cacheKey = 'absence_heatmap_' . md5(serialize($searchModel->attributes));
         
         return Yii::$app->cache->getOrSet($cacheKey, function() use ($searchModel) {
-            $query = $searchModel->getStatisticsQuery();
             
-            $data = $query->select([
-                'sa.absence_day_number',
-                'sa.absence_hour',
-                'COUNT(*) as absence_count'
-            ])
-            ->groupBy(['sa.absence_day_number', 'sa.absence_hour'])
-            ->orderBy(['sa.absence_day_number' => SORT_ASC, 'sa.absence_hour' => SORT_ASC])
-            ->all();
+            // Prima otteniamo tutti i dati con la nuova logica
+            $rawData = $searchModel->getStatisticsQuery()->all();
+            
+            // Raggruppiamo per absence_group_key per evitare duplicati di gruppo
+            $groupedData = [];
+            foreach ($rawData as $row) {
+                $groupKey = $row['absence_group_key'];
+                if (!isset($groupedData[$groupKey])) {
+                    $groupedData[$groupKey] = $row;
+                }
+            }
 
-            // Trasforma i dati per la heatmap
+            // Ora contiamo per ora e giorno
             $heatmapData = [];
             $maxCount = 0;
+            $hourDayCounts = [];
             
-            foreach ($data as $row) {
-                $dayIndex = $row['absence_day_number'] - 1; // 0-6 per JS
+            foreach ($groupedData as $row) {
+                $dayIndex = $row['absence_day_number'] - 1; // 0-6 per JS (Lun=0)
                 $hour = $row['absence_hour'];
-                $count = (int)$row['absence_count'];
                 
-                if (!isset($heatmapData[$dayIndex])) {
-                    $heatmapData[$dayIndex] = [];
+                if (!isset($hourDayCounts[$dayIndex])) {
+                    $hourDayCounts[$dayIndex] = [];
+                }
+                if (!isset($hourDayCounts[$dayIndex][$hour])) {
+                    $hourDayCounts[$dayIndex][$hour] = 0;
                 }
                 
-                $heatmapData[$dayIndex][$hour] = $count;
-                $maxCount = max($maxCount, $count);
+                $hourDayCounts[$dayIndex][$hour]++;
+                $maxCount = max($maxCount, $hourDayCounts[$dayIndex][$hour]);
             }
 
             return [
-                'data' => $heatmapData,
+                'data' => $hourDayCounts,
                 'maxCount' => $maxCount,
                 'dayLabels' => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
                 'hourLabels' => range(0, 23)
@@ -65,45 +76,104 @@ class AbsenceStatisticsService
 
     /**
      * Ottiene statistiche assenze per motivo
+     * Raggruppa per absence_group_key per conteggio corretto
      *
      * @param AbsenceStatisticsSearch $searchModel
      * @return array
      */
     public function getByReason($searchModel)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        return $query->select([
-            'COALESCE(sa.reason, "Non specificato") as reason',
-            'COUNT(*) as count',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_count',
-            'SUM(CASE WHEN sa.has_recovery = "SI" THEN 1 ELSE 0 END) as with_recovery_count'
-        ])
-        ->groupBy('sa.reason')
-        ->orderBy(['count' => SORT_DESC])
-        ->all();
+        // Raggruppa per absence_group_key per evitare conteggi duplicati
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per motivo
+        $reasonCounts = [];
+        foreach ($groupedData as $row) {
+            $reason = $row['absence_reason'] ?: 'Non specificato';
+            
+            if (!isset($reasonCounts[$reason])) {
+                $reasonCounts[$reason] = [
+                    'reason' => $reason,
+                    'count' => 0,
+                    'justified_count' => 0,
+                    'with_recovery_count' => 0
+                ];
+            }
+            
+            $reasonCounts[$reason]['count']++;
+            if ($row['is_justified']) {
+                $reasonCounts[$reason]['justified_count']++;
+            }
+            if ($row['has_recovery'] === 'SI') {
+                $reasonCounts[$reason]['with_recovery_count']++;
+            }
+        }
+        
+        // Ordina per count discendente
+        uasort($reasonCounts, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return array_values($reasonCounts);
     }
 
     /**
      * Ottiene statistiche per chi genera l'assenza
+     * Per le assenze terapisti, il generatore è sempre 'therapist'
      *
      * @param AbsenceStatisticsSearch $searchModel
      * @return array
      */
     public function getByGenerator($searchModel)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        $data = $query->select([
-            'sa.generated_by',
-            'COUNT(*) as count',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_count',
-            'ROUND(AVG(CASE WHEN sa.is_justified = 1 THEN 100 ELSE 0 END), 1) as justified_percentage'
-        ])
-        ->groupBy('sa.generated_by')
-        ->orderBy(['count' => SORT_DESC])
-        ->all();
-
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per generatore
+        $generatorCounts = [];
+        foreach ($groupedData as $row) {
+            $generator = $row['generated_by'];
+            
+            if (!isset($generatorCounts[$generator])) {
+                $generatorCounts[$generator] = [
+                    'generated_by' => $generator,
+                    'count' => 0,
+                    'justified_count' => 0,
+                    'justified_percentage' => 0
+                ];
+            }
+            
+            $generatorCounts[$generator]['count']++;
+            if ($row['is_justified']) {
+                $generatorCounts[$generator]['justified_count']++;
+            }
+        }
+        
+        // Calcola percentuali
+        foreach ($generatorCounts as &$item) {
+            if ($item['count'] > 0) {
+                $item['justified_percentage'] = round(($item['justified_count'] / $item['count']) * 100, 1);
+            }
+        }
+        
         // Traduce le etichette
         $labels = [
             'patient' => 'Paziente',
@@ -111,11 +181,16 @@ class AbsenceStatisticsService
             'system' => 'Sistema'
         ];
 
-        foreach ($data as &$row) {
-            $row['generated_by_label'] = $labels[$row['generated_by']] ?? $row['generated_by'];
+        foreach ($generatorCounts as &$item) {
+            $item['generated_by_label'] = $labels[$item['generated_by']] ?? $item['generated_by'];
         }
 
-        return $data;
+        // Ordina per count discendente
+        uasort($generatorCounts, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+
+        return array_values($generatorCounts);
     }
 
     /**
@@ -126,22 +201,64 @@ class AbsenceStatisticsService
      */
     public function getByTimeSlot($searchModel)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        return $query->select([
-            'CASE 
-                WHEN sa.absence_hour BETWEEN 8 AND 11 THEN "Mattina (8-11)"
-                WHEN sa.absence_hour BETWEEN 12 AND 14 THEN "Pranzo (12-14)"
-                WHEN sa.absence_hour BETWEEN 15 AND 18 THEN "Pomeriggio (15-18)"
-                WHEN sa.absence_hour BETWEEN 19 AND 21 THEN "Sera (19-21)"
-                ELSE "Altri orari"
-            END as time_slot',
-            'COUNT(*) as count',
-            'ROUND(AVG(CASE WHEN sa.is_justified = 1 THEN 100 ELSE 0 END), 1) as justified_percentage'
-        ])
-        ->groupBy('time_slot')
-        ->orderBy(['count' => SORT_DESC])
-        ->all();
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per fascia oraria
+        $timeSlotCounts = [];
+        foreach ($groupedData as $row) {
+            $hour = $row['absence_hour'];
+            
+            // Determina fascia oraria
+            if ($hour >= 8 && $hour <= 11) {
+                $timeSlot = 'Mattina (8-11)';
+            } elseif ($hour >= 12 && $hour <= 14) {
+                $timeSlot = 'Pranzo (12-14)';
+            } elseif ($hour >= 15 && $hour <= 18) {
+                $timeSlot = 'Pomeriggio (15-18)';
+            } elseif ($hour >= 19 && $hour <= 21) {
+                $timeSlot = 'Sera (19-21)';
+            } else {
+                $timeSlot = 'Altri orari';
+            }
+            
+            if (!isset($timeSlotCounts[$timeSlot])) {
+                $timeSlotCounts[$timeSlot] = [
+                    'time_slot' => $timeSlot,
+                    'count' => 0,
+                    'justified_count' => 0,
+                    'justified_percentage' => 0
+                ];
+            }
+            
+            $timeSlotCounts[$timeSlot]['count']++;
+            if ($row['is_justified']) {
+                $timeSlotCounts[$timeSlot]['justified_count']++;
+            }
+        }
+        
+        // Calcola percentuali
+        foreach ($timeSlotCounts as &$item) {
+            if ($item['count'] > 0) {
+                $item['justified_percentage'] = round(($item['justified_count'] / $item['count']) * 100, 1);
+            }
+        }
+        
+        // Ordina per count discendente
+        uasort($timeSlotCounts, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return array_values($timeSlotCounts);
     }
 
     /**
@@ -152,18 +269,46 @@ class AbsenceStatisticsService
      */
     public function getByDayOfWeek($searchModel)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        $data = $query->select([
-            'sa.absence_day_number',
-            'sa.absence_day_name',
-            'COUNT(*) as count',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_count',
-            'ROUND(AVG(CASE WHEN sa.is_justified = 1 THEN 100 ELSE 0 END), 1) as justified_percentage'
-        ])
-        ->groupBy(['sa.absence_day_number', 'sa.absence_day_name'])
-        ->orderBy(['sa.absence_day_number' => SORT_ASC])
-        ->all();
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per giorno settimana
+        $dayCounts = [];
+        foreach ($groupedData as $row) {
+            $dayNumber = $row['absence_day_number'];
+            $dayName = $row['absence_day_name'];
+            
+            if (!isset($dayCounts[$dayNumber])) {
+                $dayCounts[$dayNumber] = [
+                    'absence_day_number' => $dayNumber,
+                    'absence_day_name' => $dayName,
+                    'count' => 0,
+                    'justified_count' => 0,
+                    'justified_percentage' => 0
+                ];
+            }
+            
+            $dayCounts[$dayNumber]['count']++;
+            if ($row['is_justified']) {
+                $dayCounts[$dayNumber]['justified_count']++;
+            }
+        }
+        
+        // Calcola percentuali
+        foreach ($dayCounts as &$item) {
+            if ($item['count'] > 0) {
+                $item['justified_percentage'] = round(($item['justified_count'] / $item['count']) * 100, 1);
+            }
+        }
 
         // Traduce i nomi dei giorni
         $dayTranslations = [
@@ -176,11 +321,14 @@ class AbsenceStatisticsService
             'Sunday' => 'Domenica'
         ];
 
-        foreach ($data as &$row) {
-            $row['day_label'] = $dayTranslations[$row['absence_day_name']] ?? $row['absence_day_name'];
+        foreach ($dayCounts as &$item) {
+            $item['day_label'] = $dayTranslations[$item['absence_day_name']] ?? $item['absence_day_name'];
         }
 
-        return $data;
+        // Ordina per numero giorno (Lunedì = 1)
+        ksort($dayCounts);
+        
+        return array_values($dayCounts);
     }
 
     /**
@@ -191,18 +339,54 @@ class AbsenceStatisticsService
      */
     public function getTrendData($searchModel)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        return $query->select([
-            'DATE_FORMAT(sa.absence_date, "%Y-%m") as month',
-            'COUNT(*) as total_absences',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_absences',
-            'SUM(CASE WHEN sa.has_recovery = "SI" THEN 1 ELSE 0 END) as with_recovery',
-            'ROUND((COUNT(*) - SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END)) * 100.0 / COUNT(*), 1) as unjustified_rate'
-        ])
-        ->groupBy('month')
-        ->orderBy('month')
-        ->all();
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per mese
+        $monthCounts = [];
+        foreach ($groupedData as $row) {
+            $month = date('Y-m', strtotime($row['absence_date']));
+            
+            if (!isset($monthCounts[$month])) {
+                $monthCounts[$month] = [
+                    'month' => $month,
+                    'total_absences' => 0,
+                    'justified_absences' => 0,
+                    'with_recovery' => 0,
+                    'unjustified_rate' => 0
+                ];
+            }
+            
+            $monthCounts[$month]['total_absences']++;
+            if ($row['is_justified']) {
+                $monthCounts[$month]['justified_absences']++;
+            }
+            if ($row['has_recovery'] === 'SI') {
+                $monthCounts[$month]['with_recovery']++;
+            }
+        }
+        
+        // Calcola percentuali unjustified
+        foreach ($monthCounts as &$item) {
+            if ($item['total_absences'] > 0) {
+                $unjustified = $item['total_absences'] - $item['justified_absences'];
+                $item['unjustified_rate'] = round(($unjustified / $item['total_absences']) * 100, 1);
+            }
+        }
+        
+        // Ordina per mese
+        ksort($monthCounts);
+        
+        return array_values($monthCounts);
     }
 
     /**
@@ -216,47 +400,47 @@ class AbsenceStatisticsService
         if (!$month) {
             $month = date('Y-m');
         }
-
-        $cacheKey = "absence_monthly_rate_{$month}";
         
-        return Yii::$app->cache->getOrSet($cacheKey, function() use ($month) {
-            // Conta appuntamenti totali del mese
-            $totalAppointments = (new Query())
-                ->from('appointments a')
-                ->innerJoin('plan_therapies pt', 'a.plan_therapy_id = pt.id')
-                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['like', 'DATE(a.appointment_datetime)', $month])
-                ->count();
-
-            // Conta assenze del mese
-            $totalAbsences = (new Query())
-                ->from('statistics_absences_mv')
-                ->where(['like', 'absence_date', $month])
-                ->count();
-
-            $justifiedAbsences = (new Query())
-                ->from('statistics_absences_mv')
-                ->where(['like', 'absence_date', $month])
-                ->andWhere(['is_justified' => 1])
-                ->count();
-
-            $rate = $totalAppointments > 0 ? round($totalAbsences / $totalAppointments * 100, 2) : 0;
-            $unjustifiedRate = $totalAppointments > 0 ? round(($totalAbsences - $justifiedAbsences) / $totalAppointments * 100, 2) : 0;
-
-            return [
-                'month' => $month,
-                'total_appointments' => (int)$totalAppointments,
-                'total_absences' => (int)$totalAbsences,
-                'justified_absences' => (int)$justifiedAbsences,
-                'unjustified_absences' => (int)($totalAbsences - $justifiedAbsences),
-                'absence_rate' => $rate,
-                'unjustified_rate' => $unjustifiedRate,
-            ];
-        }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->dateFrom = $month . '-01';
+        $searchModel->dateTo = date('Y-m-t', strtotime($month . '-01'));
+        
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
+        
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        $totalAbsences = count($groupedData);
+        $justifiedAbsences = 0;
+        
+        foreach ($groupedData as $row) {
+            if ($row['is_justified']) {
+                $justifiedAbsences++;
+            }
+        }
+        
+        $unjustifiedAbsences = $totalAbsences - $justifiedAbsences;
+        $unjustifiedRate = $totalAbsences > 0 ? round(($unjustifiedAbsences / $totalAbsences) * 100, 1) : 0;
+        
+        return [
+            'month' => $month,
+            'total_absences' => $totalAbsences,
+            'justified_absences' => $justifiedAbsences,
+            'unjustified_absences' => $unjustifiedAbsences,
+            'unjustified_rate' => $unjustifiedRate,
+            'with_recovery' => 0 // Per ora non gestiamo recuperi terapisti
+        ];
     }
 
     /**
-     * Ottiene top pazienti per assenze
+     * Ottiene top pazienti coinvolti in assenze terapisti
      *
      * @param AbsenceStatisticsSearch $searchModel
      * @param int $limit
@@ -264,20 +448,56 @@ class AbsenceStatisticsService
      */
     public function getTopAbsentPatients($searchModel, $limit = 10)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        return $query->select([
-            'sa.patient_id',
-            'sa.patient_name',
-            'sa.patient_surname',
-            'COUNT(*) as absence_count',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_count',
-            'ROUND((COUNT(*) - SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END)) * 100.0 / COUNT(*), 1) as unjustified_rate'
-        ])
-        ->groupBy(['sa.patient_id', 'sa.patient_name', 'sa.patient_surname'])
-        ->orderBy(['absence_count' => SORT_DESC])
-        ->limit($limit)
-        ->all();
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per paziente
+        $patientCounts = [];
+        foreach ($groupedData as $row) {
+            $patientId = $row['patient_id'];
+            
+            if (!$patientId) continue; // Skip se non c'è paziente
+            
+            if (!isset($patientCounts[$patientId])) {
+                $patientCounts[$patientId] = [
+                    'patient_id' => $patientId,
+                    'patient_name' => $row['patient_name'],
+                    'patient_surname' => $row['patient_surname'],
+                    'absence_count' => 0,
+                    'justified_count' => 0,
+                    'unjustified_rate' => 0
+                ];
+            }
+            
+            $patientCounts[$patientId]['absence_count']++;
+            if ($row['is_justified']) {
+                $patientCounts[$patientId]['justified_count']++;
+            }
+        }
+        
+        // Calcola percentuali
+        foreach ($patientCounts as &$item) {
+            if ($item['absence_count'] > 0) {
+                $unjustified = $item['absence_count'] - $item['justified_count'];
+                $item['unjustified_rate'] = round(($unjustified / $item['absence_count']) * 100, 1);
+            }
+        }
+        
+        // Ordina per assenze discendente
+        uasort($patientCounts, function($a, $b) {
+            return $b['absence_count'] - $a['absence_count'];
+        });
+        
+        return array_slice(array_values($patientCounts), 0, $limit);
     }
 
     /**
@@ -289,20 +509,45 @@ class AbsenceStatisticsService
      */
     public function getTopTherapistsByAbsences($searchModel, $limit = 10)
     {
-        $query = $searchModel->getStatisticsQuery();
+        // Ottieni dati grezzi
+        $rawData = $searchModel->getStatisticsQuery()->all();
         
-        return $query->select([
-            'sa.therapist_id',
-            'sa.therapist_name',
-            'sa.therapist_surname',
-            'COUNT(*) as absence_count',
-            'SUM(CASE WHEN sa.is_justified = 1 THEN 1 ELSE 0 END) as justified_count'
-        ])
-        ->where(['sa.generated_by' => 'therapist'])
-        ->groupBy(['sa.therapist_id', 'sa.therapist_name', 'sa.therapist_surname'])
-        ->orderBy(['absence_count' => SORT_DESC])
-        ->limit($limit)
-        ->all();
+        // Raggruppa per absence_group_key
+        $groupedData = [];
+        foreach ($rawData as $row) {
+            $groupKey = $row['absence_group_key'];
+            if (!isset($groupedData[$groupKey])) {
+                $groupedData[$groupKey] = $row;
+            }
+        }
+        
+        // Conta per terapista
+        $therapistCounts = [];
+        foreach ($groupedData as $row) {
+            $therapistId = $row['therapist_id'];
+            
+            if (!isset($therapistCounts[$therapistId])) {
+                $therapistCounts[$therapistId] = [
+                    'therapist_id' => $therapistId,
+                    'therapist_name' => $row['therapist_name'],
+                    'therapist_surname' => $row['therapist_surname'],
+                    'absence_count' => 0,
+                    'justified_count' => 0
+                ];
+            }
+            
+            $therapistCounts[$therapistId]['absence_count']++;
+            if ($row['is_justified']) {
+                $therapistCounts[$therapistId]['justified_count']++;
+            }
+        }
+        
+        // Ordina per assenze discendente
+        uasort($therapistCounts, function($a, $b) {
+            return $b['absence_count'] - $a['absence_count'];
+        });
+        
+        return array_slice(array_values($therapistCounts), 0, $limit);
     }
 
     /**

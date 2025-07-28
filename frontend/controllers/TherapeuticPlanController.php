@@ -176,33 +176,55 @@ class TherapeuticPlanController extends BaseController
         $model = new TherapeuticPlan();
         $model->created_by = Yii::$app->user->id;
         $therapyModel = new \common\models\PlanTherapy();
-    
+
         if ($this->request->isPost) {
             Yii::info('Inizio processo di creazione piano terapeutico', __METHOD__);
-    
+
             // Carica i dati del form
             if ($model->load($this->request->post())) {
                 Yii::info('Dati del modello caricati: ' . json_encode($model->attributes), __METHOD__);
             } else {
                 Yii::error('Errore nel caricamento dei dati del modello', __METHOD__);
             }
-    
+
             // Valida le terapie
             $therapies = Yii::$app->request->post('PlanTherapy', []);
             Yii::info('Terapie ricevute: ' . json_encode($therapies), __METHOD__);
-    
+
             // Passa le terapie al modello per la validazione ABA
             $model->setTherapiesForValidation($therapies);
-    
+
             $isValid = true;
             $error = null;
-    
+
             try {
+
+                // Verifica sovrapposizione piani PRIMA di tutto il resto
+                if ($model->patient_id && $model->start_date && $model->duration_days) {
+                    $overlapCheck = $this->checkPlanOverlap(
+                        $model->patient_id,
+                        $model->start_date,
+                        $model->duration_days
+                    );
+
+                    if (!$overlapCheck['isValid']) {
+                        $conflictingPlan = $overlapCheck['conflictingPlan'];
+                        $error = sprintf(
+                            'Esiste già un piano terapeutico per questo paziente dal %s al %s (Piano #%d - %s) che si sovrappone con le date selezionate.',
+                            Yii::$app->formatter->asDate($conflictingPlan['start_date']),
+                            Yii::$app->formatter->asDate($conflictingPlan['end_date']),
+                            $conflictingPlan['id'],
+                            $conflictingPlan['regime']
+                        );
+                        throw new \Exception($error);
+                    }
+                }
+
                 if (empty($therapies)) {
                     Yii::error('Nessuna terapia ricevuta', __METHOD__);
                     throw new \Exception('È necessario inserire almeno una terapia.');
                 }
-    
+
                 // Verifica duplicati
                 $treatmentTypes = [];
                 foreach ($therapies as $therapy) {
@@ -214,20 +236,20 @@ class TherapeuticPlanController extends BaseController
                         $treatmentTypes[] = $therapy['treatment_type_id'];
                     }
                 }
-    
+
                 // Se il modello principale è valido (include validazione ABA), procedi con il salvataggio
                 if ($model->validate()) {
                     Yii::info('Validazione modello principale superata', __METHOD__);
-    
+
                     $transaction = Yii::$app->db->beginTransaction();
                     try {
                         if (!$model->save(false)) { // false per skip validation dato che l'abbiamo già fatta
                             Yii::error('Errore nel salvataggio del modello principale: ' . json_encode($model->errors), __METHOD__);
                             throw new \Exception('Errore nel salvataggio del piano terapeutico: ' . json_encode($model->errors));
                         }
-    
+
                         Yii::info('Modello principale salvato con ID: ' . $model->id, __METHOD__);
-    
+
                         // Salva le terapie
                         foreach ($therapies as $therapy) {
                             if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
@@ -238,35 +260,35 @@ class TherapeuticPlanController extends BaseController
                                 $newTherapy->is_group = !empty($therapy['is_group']);
                                 $newTherapy->setting_id = $therapy['setting_id'];
                                 $newTherapy->notes = $therapy['notes'] ?? null;
-    
+
                                 if (!$newTherapy->save()) {
                                     Yii::error('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors), __METHOD__);
                                     throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
                                 }
-    
+
                                 Yii::info('Terapia salvata con successo: ' . json_encode($newTherapy->attributes), __METHOD__);
                             }
                         }
-    
+
                         // Crea notifica per i manager
                         try {
                             $planLink = Yii::$app->urlManager->createAbsoluteUrl(['/therapeutic-plan/view', 'id' => $model->id]);
                             $patient = $model->patient;
                             $patientName = $patient->first_name . ' ' . $patient->last_name;
-    
+
                             $htmlMessage = "<b>Nuovo piano terapeutico creato</b><br>";
                             $htmlMessage .= "Paziente: {$patientName}<br>";
                             $htmlMessage .= "Piano: <a href='{$planLink}'>#{$model->id}</a><br>";
                             $htmlMessage .= "Regime: {$model->regime->nome}<br>";
                             $htmlMessage .= "Data inizio: " . Yii::$app->formatter->asDate($model->start_date) . "<br>";
                             $htmlMessage .= "Durata: {$model->duration_days} giorni<br>";
-    
+
                             // Aggiungi dettagli terapie alla notifica
                             $htmlMessage .= "<br><b>Terapie assegnate:</b><br>";
-                            
+
                             // Indica se è ABA e quindi le ore sono mensili
                             $hoursLabel = $model->isABARegime() ? 'ore/mese' : 'ore/settimana';
-                            
+
                             foreach ($therapies as $therapy) {
                                 if (!empty($therapy['treatment_type_id'])) {
                                     $treatmentType = \common\models\TreatmentType::findOne($therapy['treatment_type_id']);
@@ -279,7 +301,7 @@ class TherapeuticPlanController extends BaseController
                                     $htmlMessage .= "<br>";
                                 }
                             }
-    
+
                             NotificationHelper::sendToManagers(
                                 'Nuovo piano terapeutico',
                                 $htmlMessage,
@@ -287,13 +309,13 @@ class TherapeuticPlanController extends BaseController
                                 [],
                                 true // skipPush
                             );
-    
+
                             Yii::info("Notifica piano terapeutico #{$model->id} inviata ai manager", __METHOD__);
                         } catch (\Exception $e) {
                             Yii::error("Errore invio notifica piano terapeutico: " . $e->getMessage(), __METHOD__);
                             // Non blocchiamo il salvataggio se la notifica fallisce
                         }
-    
+
                         $transaction->commit();
                         Yii::info('Transazione completata con successo', __METHOD__);
                         Yii::$app->session->setFlash('success', 'Piano terapeutico creato con successo.');
@@ -313,15 +335,15 @@ class TherapeuticPlanController extends BaseController
                 $error = $e->getMessage();
                 $isValid = false;
             }
-    
+
             if (!$isValid) {
                 if ($error) {
                     Yii::$app->session->setFlash('error', $error);
                 }
-    
+
                 Yii::info('Rendering del form con errori. Model errors: ' . json_encode($model->errors), __METHOD__);
                 Yii::info('Terapie da ripopolare: ' . json_encode($therapies), __METHOD__);
-    
+
                 // Ricarica i dati per il form in caso di errore
                 return $this->render('create', [
                     'model' => $model,
@@ -336,7 +358,7 @@ class TherapeuticPlanController extends BaseController
         } else {
             $model->loadDefaultValues();
         }
-    
+
         return $this->render('create', [
             'model' => $model,
             'therapyModel' => $therapyModel,
@@ -385,6 +407,28 @@ class TherapeuticPlanController extends BaseController
 
             try {
                 if ($model->load($this->request->post()) && $model->save()) {
+
+                    // Verifica sovrapposizione piani PRIMA di tutto il resto
+                    if ($model->patient_id && $model->start_date && $model->duration_days) {
+                        $overlapCheck = $this->checkPlanOverlap(
+                            $model->patient_id,
+                            $model->start_date,
+                            $model->duration_days
+                        );
+
+                        if (!$overlapCheck['isValid']) {
+                            $conflictingPlan = $overlapCheck['conflictingPlan'];
+                            $error = sprintf(
+                                'Esiste già un piano terapeutico per questo paziente dal %s al %s (Piano #%d - %s) che si sovrappone con le date selezionate.',
+                                Yii::$app->formatter->asDate($conflictingPlan['start_date']),
+                                Yii::$app->formatter->asDate($conflictingPlan['end_date']),
+                                $conflictingPlan['id'],
+                                $conflictingPlan['regime']
+                            );
+                            throw new \Exception($error);
+                        }
+                    }
+
                     // Valida le terapie
                     $therapies = Yii::$app->request->post('PlanTherapy', []);
                     if (empty($therapies)) {
@@ -511,46 +555,46 @@ class TherapeuticPlanController extends BaseController
     }
 
     public function actionDeleteConfirm($id)
-{
-    $model = $this->findModel($id);
-    
-    // Controlla se ci sono appuntamenti collegati tramite le plan_therapies
-    $planTherapyIds = \common\models\PlanTherapy::find()
-        ->where(['therapeutic_plan_id' => $id])
-        ->select('id')
-        ->column();
-    
-    $appointmentCount = 0;
-    if (!empty($planTherapyIds)) {
-        $appointmentCount = \common\models\Appointment::find()
-            ->where(['plan_therapy_id' => $planTherapyIds])
-            ->count();
-    }
-    
-    return $this->render('delete-confirm', [
-        'model' => $model,
-        'appointmentCount' => $appointmentCount
-    ]);
-}
-    
-    // Modifica l'azione delete per gestire solo POST
-    public function actionDelete($id)
     {
         $model = $this->findModel($id);
-        
+
         // Controlla se ci sono appuntamenti collegati tramite le plan_therapies
         $planTherapyIds = \common\models\PlanTherapy::find()
             ->where(['therapeutic_plan_id' => $id])
             ->select('id')
             ->column();
-        
+
         $appointmentCount = 0;
         if (!empty($planTherapyIds)) {
             $appointmentCount = \common\models\Appointment::find()
                 ->where(['plan_therapy_id' => $planTherapyIds])
                 ->count();
         }
-        
+
+        return $this->render('delete-confirm', [
+            'model' => $model,
+            'appointmentCount' => $appointmentCount
+        ]);
+    }
+
+    // Modifica l'azione delete per gestire solo POST
+    public function actionDelete($id)
+    {
+        $model = $this->findModel($id);
+
+        // Controlla se ci sono appuntamenti collegati tramite le plan_therapies
+        $planTherapyIds = \common\models\PlanTherapy::find()
+            ->where(['therapeutic_plan_id' => $id])
+            ->select('id')
+            ->column();
+
+        $appointmentCount = 0;
+        if (!empty($planTherapyIds)) {
+            $appointmentCount = \common\models\Appointment::find()
+                ->where(['plan_therapy_id' => $planTherapyIds])
+                ->count();
+        }
+
         if ($appointmentCount > 0) {
             // Se ci sono appuntamenti collegati, mostra un messaggio di conferma più dettagliato
             if (Yii::$app->request->post('confirm_delete') === 'yes') {
@@ -561,25 +605,28 @@ class TherapeuticPlanController extends BaseController
                     if (!empty($planTherapyIds)) {
                         \common\models\Appointment::deleteAll(['plan_therapy_id' => $planTherapyIds]);
                     }
-                    
+
                     // Poi elimina le plan_therapies
                     \common\models\PlanTherapy::deleteAll(['therapeutic_plan_id' => $id]);
-                    
+
                     // Infine elimina il piano terapeutico
                     $model->delete();
-                    
+
                     $transaction->commit();
-                    Yii::$app->session->setFlash('success', 
-                        "Piano terapeutico e {$appointmentCount} appuntamenti collegati eliminati con successo.");
-                    
+                    Yii::$app->session->setFlash(
+                        'success',
+                        "Piano terapeutico e {$appointmentCount} appuntamenti collegati eliminati con successo."
+                    );
+
                     return $this->redirect(['index']);
-                    
                 } catch (\Exception $e) {
                     $transaction->rollBack();
-                    Yii::$app->session->setFlash('error', 
-                        'Errore durante l\'eliminazione del piano terapeutico e degli appuntamenti collegati.');
+                    Yii::$app->session->setFlash(
+                        'error',
+                        'Errore durante l\'eliminazione del piano terapeutico e degli appuntamenti collegati.'
+                    );
                     Yii::error('Errore eliminazione piano terapeutico: ' . $e->getMessage());
-                    
+
                     return $this->redirect(['index']);
                 }
             } else {
@@ -598,7 +645,7 @@ class TherapeuticPlanController extends BaseController
                 Yii::$app->session->setFlash('error', 'Errore durante l\'eliminazione del piano terapeutico.');
                 Yii::error('Errore eliminazione piano terapeutico: ' . $e->getMessage());
             }
-            
+
             return $this->redirect(['index']);
         }
     }
@@ -711,5 +758,80 @@ class TherapeuticPlanController extends BaseController
             'id',
             'nome'
         );
+    }
+
+    /**
+     * Verifica se un piano terapeutico si sovrappone con altri piani dello stesso paziente
+     * 
+     * @param int $patientId ID del paziente
+     * @param string $startDate Data di inizio del piano (formato Y-m-d)
+     * @param int $durationDays Durata del piano in giorni
+     * @param int|null $excludePlanId ID del piano da escludere dal controllo (per update)
+     * @return array ['isValid' => bool, 'conflictingPlan' => array|null]
+     */
+    private function checkPlanOverlap($patientId, $startDate, $durationDays, $excludePlanId = null)
+    {
+        // Calcola la data di fine del nuovo piano
+        $endDate = date('Y-m-d', strtotime($startDate . ' + ' . ($durationDays - 1) . ' days'));
+
+        Yii::info("Verifica sovrapposizione piani per paziente {$patientId}: {$startDate} - {$endDate}", __METHOD__);
+
+        // Query per trovare piani sovrapposti
+        $query = TherapeuticPlan::find()
+            ->where(['patient_id' => $patientId])
+            ->andWhere([
+                'or',
+                // Il nuovo piano inizia durante un piano esistente
+                [
+                    'and',
+                    ['<=', 'start_date', $startDate],
+                    ['>=', 'end_date', $startDate]
+                ],
+                // Il nuovo piano finisce durante un piano esistente
+                [
+                    'and',
+                    ['<=', 'start_date', $endDate],
+                    ['>=', 'end_date', $endDate]
+                ],
+                // Il nuovo piano contiene completamente un piano esistente
+                [
+                    'and',
+                    ['>=', 'start_date', $startDate],
+                    ['<=', 'end_date', $endDate]
+                ],
+                // Un piano esistente contiene completamente il nuovo piano
+                [
+                    'and',
+                    ['<=', 'start_date', $startDate],
+                    ['>=', 'end_date', $endDate]
+                ]
+            ]);
+
+        // Escludi il piano corrente se specificato (per update)
+        if ($excludePlanId !== null) {
+            $query->andWhere(['!=', 'id', $excludePlanId]);
+        }
+
+        $conflictingPlan = $query->one();
+
+        if ($conflictingPlan) {
+            Yii::warning("Trovato piano in conflitto: ID {$conflictingPlan->id}, date {$conflictingPlan->start_date} - {$conflictingPlan->end_date}", __METHOD__);
+
+            return [
+                'isValid' => false,
+                'conflictingPlan' => [
+                    'id' => $conflictingPlan->id,
+                    'start_date' => $conflictingPlan->start_date,
+                    'end_date' => $conflictingPlan->end_date,
+                    'duration_days' => $conflictingPlan->duration_days,
+                    'regime' => $conflictingPlan->regime->nome ?? null
+                ]
+            ];
+        }
+
+        return [
+            'isValid' => true,
+            'conflictingPlan' => null
+        ];
     }
 }
