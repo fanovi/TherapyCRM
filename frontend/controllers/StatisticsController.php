@@ -123,10 +123,12 @@ class StatisticsController extends BaseController
         $searchModel->load(Yii::$app->request->queryParams);
 
         try {
-            // Pre-carica alcuni dati per la pagina
+            // Pre-carica i dati
             $monthlyRate = $this->absenceService->getMonthlyRate();
             $byReason = $this->absenceService->getByReason($searchModel);
             $byGenerator = $this->absenceService->getByGenerator($searchModel);
+            $byTreatmentType = $this->absenceService->getByTreatmentType($this->extractFilters($searchModel));
+            $topAbsentees = $this->absenceService->getTopAbsentees();
 
             // Opzioni per i filtri
             $therapistOptions = $this->getTherapistOptions();
@@ -138,6 +140,8 @@ class StatisticsController extends BaseController
                 'monthlyRate' => $monthlyRate,
                 'byReason' => $byReason,
                 'byGenerator' => $byGenerator,
+                'byTreatmentType' => $byTreatmentType,
+                'topAbsentees' => $topAbsentees,
                 'therapistOptions' => $therapistOptions,
                 'patientOptions' => $patientOptions,
                 'treatmentOptions' => $treatmentOptions,
@@ -181,6 +185,36 @@ class StatisticsController extends BaseController
             Yii::error("Errore pagina pazienti: " . $e->getMessage());
             throw new NotFoundHttpException('Errore nel caricamento dei dati');
         }
+    }
+
+    // Helper per estrarre filtri
+    protected function extractFilters($searchModel)
+    {
+        $filters = [];
+
+        if ($searchModel->dateFrom) {
+            $filters['dateFrom'] = $searchModel->dateFrom;
+        }
+        if ($searchModel->dateTo) {
+            $filters['dateTo'] = $searchModel->dateTo;
+        }
+        if ($searchModel->therapistId) {
+            $filters['therapistId'] = $searchModel->therapistId;
+        }
+        if ($searchModel->patientId) {
+            $filters['patientId'] = $searchModel->patientId;
+        }
+        if ($searchModel->treatmentTypeId) {
+            $filters['treatmentTypeId'] = $searchModel->treatmentTypeId;
+        }
+        if ($searchModel->absenceSource) {
+            $filters['absenceSource'] = $searchModel->absenceSource;
+        }
+        if (isset($searchModel->isJustified)) {
+            $filters['isJustified'] = $searchModel->isJustified;
+        }
+
+        return $filters;
     }
 
     /**
@@ -304,6 +338,9 @@ class StatisticsController extends BaseController
 
                 case 'plans-monthly':
                     return $this->getPlansMonthlyData();
+
+                case 'absence-hourly':
+                    return $this->getAbsenceHourlyData();
 
                 default:
                     throw new BadRequestHttpException('Tipo grafico non supportato');
@@ -610,9 +647,10 @@ class StatisticsController extends BaseController
         $searchModel = new AbsenceStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
-        // Ottieni dati per export (raggruppa per evitare duplicati di group_session_id)
-        $rawData = $searchModel->getStatisticsQuery()->all();
-        
+        // Usa la nuova query
+        $query = $searchModel->getStatisticsQuery();
+        $rawData = $query->all();
+
         // Raggruppa per absence_group_key per evitare duplicati
         $groupedData = [];
         foreach ($rawData as $row) {
@@ -625,8 +663,8 @@ class StatisticsController extends BaseController
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Headers
-        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Tipo Assenza', 'Giustificata', 'Recupero'];
+        // Headers aggiornati
+        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Chi è assente', 'Tipo', 'Giustificata', 'Recupero'];
         $sheet->fromArray($headers, null, 'A1');
 
         // Dati
@@ -637,14 +675,15 @@ class StatisticsController extends BaseController
             $sheet->setCellValue("C{$row}", ($absence['patient_name'] ?: '') . ' ' . ($absence['patient_surname'] ?: ''));
             $sheet->setCellValue("D{$row}", ($absence['therapist_name'] ?: '') . ' ' . ($absence['therapist_surname'] ?: ''));
             $sheet->setCellValue("E{$row}", $absence['treatment_name'] ?: '');
-            $sheet->setCellValue("F{$row}", $absence['absence_reason'] ?: ''); // Cambiato da 'reason' a 'absence_reason'
-            $sheet->setCellValue("G{$row}", $absence['absence_type_flag'] === 'direct' ? 'Diretta' : 'Sostituzione'); // Nuovo campo
-            $sheet->setCellValue("H{$row}", $absence['is_justified'] ? 'Sì' : 'No');
-            $sheet->setCellValue("I{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
+            $sheet->setCellValue("F{$row}", $absence['absence_reason'] ?: '');
+            $sheet->setCellValue("G{$row}", $absence['generated_by'] === 'therapist' ? 'Terapista' : 'Paziente');
+            $sheet->setCellValue("H{$row}", $absence['absence_type_flag'] === 'direct' ? 'Diretta' : ($absence['absence_type_flag'] === 'substitution' ? 'Sostituzione' : 'Paziente'));
+            $sheet->setCellValue("I{$row}", $absence['is_justified'] ? 'Sì' : 'No');
+            $sheet->setCellValue("J{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
             $row++;
         }
 
-        return $this->sendExcelFile($spreadsheet, 'statistiche_assenze_terapisti_' . date('Y-m-d') . '.xlsx');
+        return $this->sendExcelFile($spreadsheet, 'statistiche_assenze_' . date('Y-m-d') . '.xlsx');
     }
 
     protected function exportPatients()
@@ -796,5 +835,29 @@ class StatisticsController extends BaseController
             'id',
             'name'
         );
+    }
+
+    protected function getAbsenceHourlyData()
+    {
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        $hourlyStats = $this->absenceService->getHourlyStatistics($this->extractFilters($searchModel));
+
+        $labels = [];
+        $values = [];
+
+        foreach ($hourlyStats as $stat) {
+            $labels[] = sprintf('%02d:00', $stat['hour']);
+            $values[] = (int)$stat['total_count'];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'labels' => $labels,
+                'values' => $values
+            ]
+        ];
     }
 }
