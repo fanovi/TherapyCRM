@@ -300,6 +300,19 @@ const Index = () => {
     }
   };
 
+  const saveScrollPosition = () => {
+    return window.scrollY;
+  };
+
+  const restoreScrollPosition = (position: number) => {
+    setTimeout(() => {
+      window.scrollTo({
+        top: position,
+        behavior: "instant", // Usa 'instant' per evitare animazioni
+      });
+    }, 50);
+  };
+
   // Gestisce il cambio di mese/data nel calendario
   const handleDateChange = (date: Date) => {
     // Previeni aggiornamenti inutili confrontando con la data salvata
@@ -589,7 +602,7 @@ const Index = () => {
 
   const handleAppointmentCreate = async (appointmentData: AppointmentData) => {
     if (!selectedTherapist || !selectedSlot) return;
-
+    const scrollPos = saveScrollPosition();
     try {
       // Determina quale paziente usare in base alla vista
       const currentPatient = isTherapistView ? selectedPatient : patient;
@@ -673,6 +686,7 @@ const Index = () => {
 
       await reloadCurrentVisibleAppointments();
       setRefreshKey((prev) => prev + 1);
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       setIsModalOpen(false);
       setSelectedSlot(null);
       setExistingSlotAppointments([]);
@@ -699,7 +713,7 @@ const Index = () => {
     } catch (err) {
       console.error("Errore nella creazione dell'appuntamento:", err);
       setRefreshKey((prev) => prev + 1);
-
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
 
@@ -743,7 +757,7 @@ const Index = () => {
     appointmentData: PrivateAppointmentData
   ) => {
     if (!selectedTherapist || !selectedSlot) return;
-
+    const scrollPos = saveScrollPosition();
     try {
       // Determina quale paziente usare in base alla vista
       const currentPatient = isTherapistView ? selectedPatient : patient;
@@ -809,13 +823,13 @@ const Index = () => {
 
       // Forza anche un refresh immediato con un piccolo delay
       setRefreshKey((prev) => prev + 1);
-
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       setIsPrivateModalOpen(false);
       setSelectedSlot(null);
     } catch (err) {
       console.error("Errore nella creazione dell'appuntamento privato:", err);
       setRefreshKey((prev) => prev + 1);
-
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
         let conflictMessage = conflict?.message || "Conflitto rilevato";
@@ -995,8 +1009,10 @@ const Index = () => {
   };
 
   const handleAppointmentDelete = async (appointmentId: string) => {
+    const scrollPos = saveScrollPosition();
     await handleAppointmentUpdate(appointmentId);
     setRefreshKey((prev) => prev + 1);
+    restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
   };
 
   const handleTherapistSubstitution = async (substitutionData: {
@@ -1005,12 +1021,11 @@ const Index = () => {
     reason?: string;
   }) => {
     try {
-      console.log("🔄 Sostituzione terapista completata:", substitutionData);
-
+      const scrollPos = saveScrollPosition();
       // La modale ha già chiamato l'API, qui gestiamo solo l'aggiornamento della UI
       await reloadCurrentVisibleAppointments();
       setRefreshKey((prev) => prev + 1);
-
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       showSuccess(
         "Terapista sostituito",
         "Il terapista è stato sostituito con successo"
@@ -1035,6 +1050,7 @@ const Index = () => {
     newTime: string,
     eventData?: any
   ) => {
+    const scrollPos = saveScrollPosition();
     try {
       const numericId = parseInt(appointmentId);
       if (isNaN(numericId)) {
@@ -1092,7 +1108,7 @@ const Index = () => {
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
       setRefreshKey((prev) => prev + 1);
-
+      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
 
