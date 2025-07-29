@@ -1,12 +1,8 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 use yii\widgets\ActiveForm;
-use frontend\assets\StatisticsAsset;
-use frontend\widgets\StatsCard;
-use frontend\widgets\ChartWidget;
-use frontend\widgets\StatisticsFilter;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\TreatmentStatisticsSearch */
@@ -18,487 +14,553 @@ use frontend\widgets\StatisticsFilter;
 /* @var $treatmentOptions array */
 /* @var $regimeOptions array */
 
-$this->title = 'Analisi Trattamenti';
+$this->title = 'Statistiche Trattamenti';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-StatisticsAsset::register($this);
+// Registra Chart.js
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('@web/css/statistics.css');
+// Inizializza variabili se non definite
+$ranking = $ranking ?? [];
+$combinations = $combinations ?? [];
+$bySettingType = $bySettingType ?? [];
+$hoursDistribution = $hoursDistribution ?? [];
+$searchResults = $searchResults ?? [];
 
-$this->registerJs("
-", \yii\web\View::POS_READY);
+// Funzione helper per verificare se ci sono filtri attivi
+$hasActiveFilters = !empty($searchModel->treatmentIds) || !empty($searchModel->regimeId) || 
+                    !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
+                    $searchModel->combinationMode !== 'any' || $searchModel->includeInactive;
 
+// Helper per verificare se ci sono dati
+$hasData = !empty($ranking) || !empty($combinations) || !empty($bySettingType) || !empty($hoursDistribution);
+
+// Calcola totali per statistiche
+$totalPatients = array_sum(array_column($ranking, 'patient_count'));
+$totalTherapies = array_sum(array_column($ranking, 'therapy_count'));
+$totalHours = array_sum(array_column($ranking, 'total_weekly_hours'));
+$activeTreatments = count($ranking);
 ?>
 
-<div class="treatment-statistics p-6">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <i class="fas fa-stethoscope text-blue-600"></i>
-            Analisi Trattamenti
-        </h1>
-        <div class="flex gap-3">
-            <?= Html::a(
-                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
-                ['index'],
-                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
-            ) ?>
-            <?= Html::a(
-                '<i class="fas fa-download mr-2"></i> Esporta',
-                ['export', 'type' => 'treatments'],
-                [
-                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
-                    'data-method' => 'post'
-                ]
-            ) ?>
-        </div>
+<div class="statistics-treatments">
+    <!-- Header con titolo -->
+    <div class="page-header">
+        <h1><?= Html::encode($this->title) ?></h1>
+        <p class="period-text">Analisi ranking, combinazioni e distribuzione trattamenti</p>
     </div>
 
-    <!-- Treatment Search/Filter -->
-    <div class="mb-8">
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="fas fa-search text-blue-600"></i>
-                    Ricerca Combinazioni Trattamenti
-                </h6>
-            </div>
-            <div class="p-6">
-                <?php $form = ActiveForm::begin([
-                    'method' => 'get',
-                    'options' => ['id' => 'treatment-search-form']
-                ]); ?>
+    <!-- Filtri di ricerca -->
+    <div class="filter-card">
+        <div class="filter-header">
+            <h3>Filtri di ricerca</h3>
+            <?php if ($hasActiveFilters): ?>
+                <span class="active-filters-badge">
+                    <i class="fas fa-filter"></i> Filtri attivi
+                </span>
+            <?php endif; ?>
+        </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <?= $form->field($searchModel, 'treatmentIds', [
-                            'options' => ['class' => 'mb-0'],
-                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
-                        ])->dropDownList($treatmentOptions, [
+        <?php $form = ActiveForm::begin([
+            'method' => 'get',
+            'options' => ['class' => 'filter-form']
+        ]); ?>
+
+        <!-- Filtri trattamenti -->
+        <div class="filter-section">
+            <h4>Selezione trattamenti</h4>
+            <div class="filter-row">
+                <div class="filter-col" style="flex: 2;">
+                    <?= $form->field($searchModel, 'treatmentIds')->dropDownList(
+                        $treatmentOptions,
+                        [
+                            'class' => 'form-control',
                             'multiple' => true,
-                            'prompt' => 'Seleziona trattamenti da analizzare...',
-                            'size' => 8,
-                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[200px] max-h-[300px]'
-                        ])->label('Trattamenti') ?>
-                    </div>
-
-                    <div>
-                        <?= StatisticsFilter::widget([
-                            'model' => $searchModel,
-                            'form' => $form,
-                            'title' => false,
-                            'fields' => ['combinationMode'],
-                            'collapsible' => false
-                        ]) ?>
-                    </div>
+                            'size' => 5,
+                            'prompt' => 'Seleziona uno o più trattamenti...'
+                        ]
+                    )->label('Trattamenti specifici')->hint('Tieni premuto Ctrl per selezione multipla') ?>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <?= $form->field($searchModel, 'dateFrom', [
-                            'options' => ['class' => 'mb-0'],
-                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
-                        ])->input('date', [
-                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        ])->label('Data da') ?>
-                    </div>
-
-                    <div>
-                        <?= $form->field($searchModel, 'dateTo', [
-                            'options' => ['class' => 'mb-0'],
-                            'template' => '<div class="space-y-2">{label}<div class="mt-1">{input}</div>{error}</div>'
-                        ])->input('date', [
-                            'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                        ])->label('Data a') ?>
-                    </div>
-
-                    <div class="flex items-center">
-                        <?= $form->field($searchModel, 'includeInactive', [
-                            'options' => ['class' => 'mb-0'],
-                            'template' => '<div class="flex items-center space-x-2">{input}{label}</div>'
-                        ])->checkbox([
-                            'class' => 'w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500'
-                        ])->label('Includi inattivi') ?>
-                    </div>
-                </div>
-
-                <div class="flex justify-center gap-3">
-                    <?= Html::submitButton('<i class="fas fa-search mr-2"></i> Analizza', [
-                        'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600'
-                    ]) ?>
-                    <?= Html::a('<i class="fas fa-eraser mr-2"></i> Pulisci', ['treatments'], [
-                        'class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50'
-                    ]) ?>
-                </div>
-
-                <?php ActiveForm::end(); ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- Search Results -->
-    <?php if (!empty($searchResults)): ?>
-        <div class="mb-8">
-            <div class="bg-white rounded-lg shadow border-l-4 border-blue-500">
-                <div class="px-6 py-4 border-b border-gray-100">
-                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                        <i class="fas fa-chart-bar text-blue-600"></i>
-                        Risultati Ricerca Combinazioni
-                    </h6>
-                </div>
-                <div class="p-6">
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Paziente</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamenti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($searchResults as $result): ?>
-                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                        <td class="py-3 px-4">
-                                            <strong class="text-gray-900">
-                                                <?php
-                                                // Gestisci diversi formati possibili di dati
-                                                if (isset($result['first_name']) && isset($result['last_name'])) {
-                                                    echo Html::encode($result['first_name'] . ' ' . $result['last_name']);
-                                                } elseif (isset($result['patient_name'])) {
-                                                    echo Html::encode($result['patient_name']);
-                                                } elseif (isset($result['name'])) {
-                                                    echo Html::encode($result['name']);
-                                                } else {
-                                                    echo 'N/D';
-                                                }
-                                                ?>
-                                            </strong>
-                                        </td>
-                                        <td class="py-3 px-4 text-center">
-                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                                <?= isset($result['treatment_count']) ? $result['treatment_count'] : 0 ?>
-                                            </span>
-                                        </td>
-                                        <td class="py-3 px-4">
-                                            <span class="text-sm text-gray-600">
-                                                <?= Html::encode(isset($result['treatments']) ? $result['treatments'] : 'N/D') ?>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="mt-4">
-                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
-                            Trovati <?= count($searchResults) ?> pazienti con la combinazione richiesta
-                        </span>
-                    </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'regimeId')->dropDownList(
+                        ['' => 'Tutti i regimi'] + $regimeOptions,
+                        ['class' => 'form-control']
+                    )->label('Regime sanitario') ?>
                 </div>
             </div>
-        </div>
-    <?php endif; ?>
-
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div>
-            <?= StatsCard::widget([
-                'title' => 'Tipi di Trattamento',
-                'value' => count($ranking),
-                'icon' => 'fas fa-list',
-                'color' => 'primary',
-                'footer' => 'Totale disponibili',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div>
-            <?php
-            $totalPatients = array_sum(array_column($ranking, 'patient_count'));
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Pazienti Totali',
-                'value' => $totalPatients,
-                'icon' => 'fas fa-users',
-                'color' => 'success',
-                'footer' => 'Con almeno un trattamento',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div>
-            <?php
-            $totalHours = array_sum(array_column($ranking, 'total_weekly_hours'));
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Ore Settimanali',
-                'value' => $totalHours,
-                'icon' => 'fas fa-clock',
-                'color' => 'info',
-                'footer' => 'Totale programmate',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div>
-            <?= StatsCard::widget([
-                'title' => 'Combinazioni Frequenti',
-                'value' => count($combinations),
-                'icon' => 'fas fa-layer-group',
-                'color' => 'warning',
-                'footer' => 'Trattamenti multipli',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div class="lg:col-span-2">
-            <?= ChartWidget::widget([
-                'title' => 'Ranking Trattamenti per Numero Pazienti',
-                'type' => 'bar',
-                'data' => [
-                    'labels' => array_slice(array_column($ranking, 'name'), 0, 15),
-                    'datasets' => [
-                        [
-                            'label' => 'Numero Pazienti',
-                            'data' => array_slice(array_column($ranking, 'patient_count'), 0, 15),
-                            'backgroundColor' => '#4e73df'
-                        ]
-                    ]
-                ],
-                'height' => 400,
-                'options' => [
-                    'indexAxis' => 'y',
-                    'scales' => [
-                        'x' => [
-                            'beginAtZero' => true
-                        ]
-                    ]
-                ]
-            ]) ?>
-        </div>
-
-        <div>
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione Ore Settimanali',
-                'type' => 'doughnut',
-                'data' => [
-                    'labels' => array_column($hoursDistribution, 'hours_range'),
-                    'datasets' => [
-                        [
-                            'label' => 'Numero Terapie',
-                            'data' => array_column($hoursDistribution, 'therapy_count'),
-                            'backgroundColor' => [
-                                '#4e73df',
-                                '#1cc88a',
-                                '#36b9cc',
-                                '#f6c23e',
-                                '#e74a3b'
-                            ]
-                        ]
-                    ]
-                ],
-                'height' => 400
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Setting Type Analysis -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div>
-            <div class="bg-white rounded-lg shadow h-full">
-                <div class="px-6 py-4 border-b border-gray-100">
-                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                        <i class="fas fa-users text-blue-600"></i>
-                        Terapie Individuali vs Gruppo
-                    </h6>
+            
+            <!-- Modalità combinazione -->
+            <div class="filter-row">
+                <div class="filter-col">
+                    <label class="control-label">Modalità Combinazione</label>
+                    <div style="display: flex; gap: 20px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                            <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
+                                $searchModel->combinationMode === 'any' || empty($searchModel->combinationMode), 
+                                ['value' => 'any', 'class' => 'form-check-input']) ?>
+                            <span>Almeno uno (ANY)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                            <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
+                                $searchModel->combinationMode === 'all', 
+                                ['value' => 'all', 'class' => 'form-check-input']) ?>
+                            <span>Tutti (ALL)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                            <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
+                                $searchModel->combinationMode === 'exact', 
+                                ['value' => 'exact', 'class' => 'form-check-input']) ?>
+                            <span>Esattamente questi (EXACT)</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-2 gap-4">
-                        <?php foreach ($bySettingType as $setting): ?>
-                            <div class="text-center p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                <h4 class="text-lg font-semibold text-blue-600 mb-3"><?= $setting['setting_type'] ?></h4>
-                                <div class="space-y-2">
-                                    <div>
-                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
-                                            <?= $setting['therapy_count'] ?>
-                                        </span>
-                                        <div class="text-xs text-gray-500 mt-1">Terapie</div>
-                                    </div>
-                                    <div>
-                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-green-100 text-green-800 rounded-lg">
-                                            <?= $setting['patient_count'] ?>
-                                        </span>
-                                        <div class="text-xs text-gray-500 mt-1">Pazienti</div>
-                                    </div>
-                                    <div>
-                                        <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
-                                            <?= round($setting['avg_hours'], 1) ?>h
-                                        </span>
-                                        <div class="text-xs text-gray-500 mt-1">Ore medie</div>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+                <div class="filter-col">
+                    <label class="control-label">Includi Piani Inattivi</label>
+                    <div style="margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                            <?= Html::checkbox('TreatmentStatisticsSearch[includeInactive]', 
+                                $searchModel->includeInactive, 
+                                ['class' => 'form-check-input']) ?>
+                            <span>Includi inattivi</span>
+                        </label>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div>
-            <?= ChartWidget::widget([
-                'title' => 'Confronto Individuale vs Gruppo',
-                'type' => 'bar',
-                'data' => [
-                    'labels' => ['Terapie', 'Pazienti', 'Ore Totali'],
-                    'datasets' => [
-                        [
-                            'label' => $bySettingType[0]['setting_type'] ?? 'Gruppo',
-                            'data' => [
-                                $bySettingType[0]['therapy_count'] ?? 0,
-                                $bySettingType[0]['patient_count'] ?? 0,
-                                $bySettingType[0]['total_hours'] ?? 0
-                            ],
-                            'backgroundColor' => '#4e73df'
-                        ],
-                        [
-                            'label' => $bySettingType[1]['setting_type'] ?? 'Individuale',
-                            'data' => [
-                                $bySettingType[1]['therapy_count'] ?? 0,
-                                $bySettingType[1]['patient_count'] ?? 0,
-                                $bySettingType[1]['total_hours'] ?? 0
-                            ],
-                            'backgroundColor' => '#1cc88a'
-                        ]
-                    ]
-                ],
-                'height' => 350
+        <!-- Filtri temporali -->
+        <div class="filter-section">
+            <h4>Periodo analisi</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'dateFrom')->textInput([
+                        'type' => 'date',
+                        'class' => 'form-control'
+                    ])->label('Data inizio') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'dateTo')->textInput([
+                        'type' => 'date',
+                        'class' => 'form-control'
+                    ])->label('Data fine') ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pulsanti azione -->
+        <div class="filter-actions">
+            <?= Html::submitButton('<i class="fas fa-search"></i> Applica filtri', [
+                'class' => 'btn btn-primary'
+            ]) ?>
+            <?= Html::a('<i class="fas fa-undo"></i> Rimuovi filtri', ['treatments'], [
+                'class' => 'btn btn-secondary'
             ]) ?>
         </div>
+
+        <?php ActiveForm::end(); ?>
     </div>
 
-    <!-- Detailed Ranking Table -->
-    <div class="mb-8">
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="fas fa-table text-blue-600"></i>
-                    Ranking Dettagliato Trattamenti
-                </h6>
-            </div>
-            <div class="p-6">
-                <div class="overflow-x-auto">
-                    <table class="w-full border-collapse">
+    <!-- Risultati ricerca filtrata (solo se ci sono filtri attivi) -->
+    <?php if ($hasActiveFilters && !empty($treatmentOptions)): ?>
+        <?php if (!empty($searchModel->treatmentIds)): ?>
+            <div class="filter-card" style="background: #f0f9ff; border-color: #3b82f6;">
+                <h3 style="color: #1e40af;">Risultati per Trattamenti Selezionati</h3>
+                <div class="table-card" style="background: white;">
+                    <table class="data-table">
                         <thead>
-                            <tr class="border-b border-gray-200">
-                                <th class="text-left py-3 px-4 font-semibold text-gray-700">#</th>
-                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamento</th>
-                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Codice</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Pazienti</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Terapie</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Ore Settimanali</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">Ore Medie</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">% Pazienti</th>
+                            <tr>
+                                <th>Trattamento</th>
+                                <th>Codice</th>
+                                <th class="text-center">Pazienti</th>
+                                <th class="text-center">Terapie</th>
+                                <th class="text-center">Ore Sett.</th>
+                                <th class="text-center">Media Ore</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($ranking as $index => $treatment): ?>
-                                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                    <td class="py-3 px-4">
-                                        <strong class="text-gray-900"><?= $index + 1 ?></strong>
-                                    </td>
-                                    <td class="py-3 px-4"><?= Html::encode($treatment['name']) ?></td>
-                                    <td class="py-3 px-4">
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                                            <?= Html::encode($treatment['code']) ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                            <?= $treatment['patient_count'] ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                            <?= $treatment['therapy_count'] ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <span class="text-sm text-gray-600">
-                                            <?= round($treatment['total_weekly_hours'] ?? 0, 1) ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <span class="text-sm text-gray-600">
-                                            <?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <?php
-                                        $percentage = $totalPatients > 0 ? round($treatment['patient_count'] / $totalPatients * 100, 1) : 0;
-                                        $badgeClass = $percentage >= 20 ? 'bg-green-100 text-green-800' : ($percentage >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800');
-                                        ?>
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
-                                            <?= $percentage ?>%
-                                        </span>
+                            <?php 
+                            // Filtra il ranking per mostrare solo i trattamenti selezionati
+                            $selectedTreatments = array_filter($ranking, function($treatment) use ($searchModel) {
+                                return in_array($treatment['id'], $searchModel->treatmentIds);
+                            });
+                            
+                            if (empty($selectedTreatments)): ?>
+                                <tr>
+                                    <td colspan="6" class="text-center no-data">
+                                        Nessun dato trovato per i trattamenti selezionati
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php foreach ($selectedTreatments as $treatment): ?>
+                                    <tr>
+                                        <td class="font-bold"><?= Html::encode($treatment['name']) ?></td>
+                                        <td><?= Html::encode($treatment['code']) ?></td>
+                                        <td class="text-center">
+                                            <span class="badge badge-blue"><?= $treatment['patient_count'] ?></span>
+                                        </td>
+                                        <td class="text-center"><?= $treatment['therapy_count'] ?></td>
+                                        <td class="text-center"><?= $treatment['total_weekly_hours'] ?></td>
+                                        <td class="text-center"><?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <tr style="background: #f3f4f6; font-weight: 600;">
+                                    <td colspan="2">Totale Selezionati</td>
+                                    <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'patient_count')) ?></td>
+                                    <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'therapy_count')) ?></td>
+                                    <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'total_weekly_hours')) ?></td>
+                                    <td class="text-center">-</td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
+        <?php endif; ?>
+    <?php endif; ?>
 
-    <!-- Frequent Combinations -->
-    <?php if (!empty($combinations)): ?>
-        <div class="mb-8">
-            <div class="bg-white rounded-lg shadow">
-                <div class="px-6 py-4 border-b border-gray-100">
-                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                        <i class="fas fa-layer-group text-blue-600"></i>
-                        Combinazioni di Trattamenti Più Frequenti
-                    </h6>
+    <?php if (!$hasData): ?>
+        <!-- Messaggio quando non ci sono dati -->
+        <div class="no-data-message">
+            <i class="fas fa-info-circle"></i>
+            <h3>Nessun dato disponibile</h3>
+            <p>
+                Non sono presenti dati per l'analisi dei trattamenti.<br>
+                Verifica che ci siano trattamenti attivi nel sistema.
+            </p>
+        </div>
+    <?php else: ?>
+
+        <!-- 1. Riepilogo generale -->
+        <div class="summary-card">
+            <h3>Riepilogo Trattamenti</h3>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value blue"><?= $activeTreatments ?></div>
+                    <div class="stat-label">Tipi Attivi</div>
                 </div>
-                <div class="p-6">
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">#</th>
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Combinazione Trattamenti</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Pazienti</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($combinations as $index => $combo): ?>
-                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                        <td class="py-3 px-4">
-                                            <strong class="text-gray-900"><?= $index + 1 ?></strong>
-                                        </td>
-                                        <td class="py-3 px-4"><?= Html::encode($combo['combination']) ?></td>
-                                        <td class="py-3 px-4 text-center">
-                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                                <?= $combo['treatment_count'] ?>
-                                            </span>
-                                        </td>
-                                        <td class="py-3 px-4 text-center">
-                                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                                <?= $combo['patient_count'] ?>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="stat-box">
+                    <div class="stat-value green"><?= $totalPatients ?></div>
+                    <div class="stat-label">Pazienti Totali</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value purple"><?= $totalTherapies ?></div>
+                    <div class="stat-label">Terapie Totali</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value orange"><?= $totalHours ?></div>
+                    <div class="stat-label">Ore Settimanali</div>
                 </div>
             </div>
         </div>
+
+        <!-- 2. Ranking trattamenti -->
+        <?php if (!empty($ranking)): ?>
+        <div class="full-width-card">
+            <h3>Ranking Trattamenti per Numero Pazienti</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">Pos.</th>
+                        <th>Trattamento</th>
+                        <th>Codice</th>
+                        <th class="text-center">Pazienti</th>
+                        <th class="text-center">Terapie</th>
+                        <th class="text-center">Ore Sett.</th>
+                        <th class="text-center">Media Ore</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($ranking, 0, 20) as $index => $treatment): ?>
+                        <tr class="<?= $index < 3 ? 'top-three' : '' ?>">
+                            <td class="text-center">
+                                <span class="rank"><?= $index + 1 ?></span>
+                            </td>
+                            <td class="font-bold"><?= Html::encode($treatment['name']) ?></td>
+                            <td><?= Html::encode($treatment['code']) ?></td>
+                            <td class="text-center">
+                                <span class="badge <?= $treatment['patient_count'] > 50 ? 'badge-green' : 'badge-gray' ?>">
+                                    <?= $treatment['patient_count'] ?>
+                                </span>
+                            </td>
+                            <td class="text-center"><?= $treatment['therapy_count'] ?></td>
+                            <td class="text-center"><?= $treatment['total_weekly_hours'] ?></td>
+                            <td class="text-center"><?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if (count($ranking) > 20): ?>
+            <p class="no-data" style="text-align: center; padding: 16px;">
+                Mostrati i primi 20 di <?= count($ranking) ?> trattamenti
+            </p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- 3. Grafici distribuzione -->
+        <div class="section-title">
+            <h3>Distribuzione Trattamenti</h3>
+        </div>
+        <div class="charts-row">
+            <div class="chart-card">
+                <h4>Distribuzione per Ore Settimanali</h4>
+                <div class="chart-container">
+                    <canvas id="hours-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h4>Distribuzione per Setting</h4>
+                <div class="chart-container">
+                    <canvas id="setting-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Combinazioni frequenti -->
+        <?php if (!empty($combinations)): ?>
+        <div class="full-width-card">
+            <h3>Combinazioni di Trattamenti più Frequenti</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">Pos.</th>
+                        <th>Combinazione Trattamenti</th>
+                        <th class="text-center">N° Pazienti</th>
+                        <th class="text-center">% sul Totale</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php 
+                    $totalMultiPatients = array_sum(array_column($combinations, 'patient_count'));
+                    foreach ($combinations as $index => $combo): 
+                        $percentage = $totalMultiPatients > 0 ? round(($combo['patient_count'] / $totalMultiPatients) * 100, 1) : 0;
+                    ?>
+                        <tr>
+                            <td class="text-center">
+                                <span class="rank"><?= $index + 1 ?></span>
+                            </td>
+                            <td><?= Html::encode($combo['combination']) ?></td>
+                            <td class="text-center">
+                                <span class="badge badge-purple"><?= $combo['patient_count'] ?></span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge-small <?= $percentage > 20 ? 'badge-green' : 'badge-gray' ?>">
+                                    <?= $percentage ?>%
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <!-- 5. Azioni export -->
+        <div class="export-section">
+            <div class="info-text">
+                <i class="fas fa-info-circle"></i>
+                I dati mostrati includono tutti i trattamenti attivi nel sistema
+            </div>
+            <?= Html::a(
+                '<i class="fas fa-file-excel"></i> Esporta Report Excel',
+                ['export', 'type' => 'treatments'] + Yii::$app->request->queryParams,
+                ['class' => 'btn btn-success']
+            ) ?>
+        </div>
+
     <?php endif; ?>
 </div>
+
+<!-- Stili aggiuntivi specifici -->
+<style>
+.stat-value.purple {
+    color: #8b5cf6;
+}
+
+.form-check-input {
+    margin-right: 4px;
+}
+
+.control-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.top-three {
+    background: #f9fafb;
+}
+
+.rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+}
+
+.top-three .rank {
+    background: #fbbf24;
+    color: #92400e;
+}
+</style>
+
+<?php if ($hasData): ?>
+<?php
+// Javascript per i grafici
+$this->registerJs("
+// Configurazione globale per Chart.js
+Chart.defaults.font.size = 12;
+Chart.defaults.maintainAspectRatio = false;
+
+// Variabili per memorizzare i grafici
+let hoursChart = null;
+let settingChart = null;
+
+// Funzione per distruggere un grafico se esiste
+function destroyChart(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+// Funzione per inizializzare i grafici
+function initializeCharts() {
+    console.log('Inizializzazione grafici trattamenti...');
+    
+    // Grafico distribuzione ore
+    loadHoursChart();
+    
+    // Grafico distribuzione setting
+    loadSettingChart();
+}
+
+// Grafico distribuzione ore
+function loadHoursChart() {
+    var hoursData = " . json_encode($hoursDistribution) . ";
+    
+    if (hoursData && hoursData.length > 0) {
+        destroyChart(hoursChart);
+        var ctx = document.getElementById('hours-chart');
+        if (ctx) {
+            hoursChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: hoursData.map(function(h) { return h.hours_range || ''; }),
+                    datasets: [{
+                        label: 'Numero terapie',
+                        data: hoursData.map(function(h) { return h.therapy_count || 0; }),
+                        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                        borderColor: 'rgba(139, 92, 246, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            title: {
+                                display: true,
+                                text: 'Numero terapie'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Ore settimanali'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Grafico distribuzione setting
+function loadSettingChart() {
+    var settingData = " . json_encode($bySettingType) . ";
+    
+    if (settingData && settingData.length > 0) {
+        destroyChart(settingChart);
+        var ctx = document.getElementById('setting-chart');
+        if (ctx) {
+            settingChart = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: settingData.map(function(s) { return s.setting_type || 'Non specificato'; }),
+                    datasets: [{
+                        label: 'Terapie',
+                        data: settingData.map(function(s) { return s.therapy_count || 0; }),
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(107, 114, 128, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    var value = context.parsed;
+                                    var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    var percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Inizializza quando Chart.js è pronto
+if (typeof Chart !== 'undefined') {
+    console.log('Chart.js già caricato, inizializzo i grafici');
+    initializeCharts();
+} else {
+    console.log('Attendo caricamento Chart.js...');
+    setTimeout(function() {
+        if (typeof Chart !== 'undefined') {
+            initializeCharts();
+        } else {
+            console.error('Chart.js non trovato!');
+        }
+    }, 1000);
+}
+", \yii\web\View::POS_READY);
+?>
+<?php endif; ?>
