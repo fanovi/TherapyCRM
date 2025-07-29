@@ -40,11 +40,6 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
         // Così il backend calcolerà "monday this week" correttamente
         const startDate = moment(currentDate).format("YYYY-MM-DD");
 
-        console.log("🔧 TherapistWeeklyHours - Date formatting:", {
-          originalDate: moment(currentDate).format("DD/MM/YYYY"),
-          startDateString: startDate,
-        });
-
         const data = await therapyAPI.getTherapistWeeklyHours(
           therapist.id,
           startDate

@@ -31,15 +31,6 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
   currentDate,
   isABARegime = false,
 }) => {
-  console.log("📅 PlanTherapyUsedHours riceve:", {
-    specialization,
-    specializationId: specialization?.id,
-    currentDate,
-    currentDateString: currentDate?.toISOString(),
-    currentDateFormatted: currentDate?.toLocaleDateString("it-IT"),
-    isABARegime,
-  });
-
   const [planHours, setPlanHours] = useState<PlanTherapyHoursData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,13 +47,6 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
         const startDate = isABARegime
           ? moment(currentDate).startOf("month").format("YYYY-MM-DD")
           : moment(currentDate).startOf("isoWeek").format("YYYY-MM-DD");
-
-        console.log("🔧 PlanTherapyUsedHours - Date formatting:", {
-          originalDate: moment(currentDate).format("DD/MM/YYYY"),
-          startDateString: startDate,
-          isABARegime,
-          period: isABARegime ? "mensile" : "settimanale",
-        });
 
         const response = await therapyAPI.getPlanTherapyUsedHours(
           specialization.id,

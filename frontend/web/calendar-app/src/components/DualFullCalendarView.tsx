@@ -337,11 +337,6 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       currentPatientId && event.extendedProps?.patient_id === currentPatientId
   );
 
-  console.log(
-    "this is DUAL FULL CALENDAR VIEW ********",
-    selectedSpecialization
-  );
-
   // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
   if (hidePatientCalendar && selectedTherapist) {
     return (

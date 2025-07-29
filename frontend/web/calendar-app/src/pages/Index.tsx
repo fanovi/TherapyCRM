@@ -968,7 +968,6 @@ const Index = () => {
       }
     }
   };
-  console.log("this is the selected specialization", selectedSpecialization);
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
     await reloadCurrentVisibleAppointments();
@@ -1028,6 +1027,8 @@ const Index = () => {
     }
   };
 
+  console.log("this is my appointments", combinedAppointments);
+
   const handleAppointmentMove = async (
     appointmentId: string,
     newDate: Date,
@@ -1039,10 +1040,11 @@ const Index = () => {
       if (isNaN(numericId)) {
         throw new Error("ID appuntamento non valido");
       }
-
+      console.log("this is my appointments", combinedAppointments, numericId);
       const appointment = combinedAppointments.find(
-        (apt) => apt.id === numericId
+        (apt) => +apt.id === numericId
       );
+
       if (!appointment) {
         throw new Error("Appuntamento non trovato");
       }
