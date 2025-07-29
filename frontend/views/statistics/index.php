@@ -2,9 +2,6 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use frontend\assets\StatisticsAsset;
-use frontend\widgets\StatsCard;
-use frontend\widgets\ChartWidget;
 
 /* @var $this yii\web\View */
 /* @var $summary array */
@@ -14,264 +11,413 @@ use frontend\widgets\ChartWidget;
 $this->title = 'Dashboard Statistiche';
 $this->params['breadcrumbs'][] = $this->title;
 
-StatisticsAsset::register($this);
-
-$this->registerJs("
-    document.body.classList.add('dashboard-page');
-", \yii\web\View::POS_READY);
-
+// Registra Chart.js
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('@web/css/statistics.css');
+// Inizializza variabili se non definite
+$summary = $summary ?? [
+    'patients' => ['active' => 0, 'total' => 0, 'new_this_month' => 0, 'multi_treatment' => 0],
+    'absences' => ['total_this_month' => 0, 'justified_this_month' => 0, 'with_recovery' => 0, 'unjustified_rate' => 0],
+    'treatments' => ['active_types' => 0, 'total_weekly_hours' => 0, 'top_treatment' => 'N/A'],
+    'plans' => ['total' => 0, 'active' => 0, 'expiring_soon' => 0, 'new_this_month' => 0]
+];
+$topTreatments = $topTreatments ?? [];
+$patientGrowth = $patientGrowth ?? [];
 ?>
 
-<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
-  <div class="space-y-4 md:space-y-6">
-    
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
-            <i class="fas fa-chart-bar mr-2"></i>
-            Dashboard Statistiche
-        </h1>
-        <div class="flex gap-3">
-            <?= Html::a(
-                '<i class="fas fa-sync-alt mr-2"></i> Aggiorna',
-                ['index'],
-                ['class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600']
-            ) ?>
-            <div class="relative" x-data="{ open: false }">
-                <?= Html::a(
-                    '<i class="fas fa-chart-line mr-2"></i> Analisi Dettagliate',
-                    '#',
-                    [
-                        'class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50',
-                        '@click.prevent' => 'open = !open',
-                        '@click.away' => 'open = false'
-                    ]
-                ) ?>
-                <div x-show="open" 
-                     x-transition:enter="transition ease-out duration-100"
-                     x-transition:enter-start="transform opacity-0 scale-95"
-                     x-transition:enter-end="transform opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-75"
-                     x-transition:leave-start="transform opacity-100 scale-100"
-                     x-transition:leave-end="transform opacity-0 scale-95"
-                     class="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                    <div class="py-1">
-                        <?= Html::a('Analisi Assenze', ['absences'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
-                        <?= Html::a('Analisi Pazienti', ['patients'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
-                        <?= Html::a('Analisi Trattamenti', ['treatments'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
-                        <?= Html::a('Analisi Piani', ['plans'], ['class' => 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100']) ?>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="statistics-dashboard">
+    <!-- Header con titolo -->
+    <div class="page-header">
+        <h1><?= Html::encode($this->title) ?></h1>
+        <p class="period-text">Panoramica generale del sistema</p>
     </div>
 
     <?php if (isset($error)): ?>
-    <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-red-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-red-700"><?= Html::encode($error) ?></p>
-            </div>
+        <!-- Messaggio di errore -->
+        <div class="no-data-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Errore nel caricamento dati</h3>
+            <p><?= Html::encode($error) ?></p>
         </div>
-    </div>
     <?php else: ?>
 
-    <!-- Summary Cards Row -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <div class="col-span-1">
-            <?= StatsCard::widget([
-                'title' => 'Pazienti Attivi',
-                'value' => $summary['patients']['active'] ?? 0,
-                'icon' => 'fas fa-users',
-                'color' => 'primary',
-                'footer' => 'Totale: ' . ($summary['patients']['total'] ?? 0),
-                'url' => Url::to(['patients']),
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= StatsCard::widget([
-                'title' => 'Assenze Questo Mese',
-                'value' => $summary['absences']['total_this_month'] ?? 0,
-                'icon' => 'fas fa-calendar-times',
-                'color' => 'danger',
-                'footer' => 'Tasso ingiustificate: ' . ($summary['absences']['unjustified_rate'] ?? 0) . '%',
-                'url' => Url::to(['absences']),
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= StatsCard::widget([
-                'title' => 'Trattamenti Attivi',
-                'value' => $summary['treatments']['active_types'] ?? 0,
-                'icon' => 'fas fa-stethoscope',
-                'color' => 'success',
-                'footer' => 'Ore settimanali: ' . ($summary['treatments']['total_weekly_hours'] ?? 0),
-                'url' => Url::to(['treatments']),
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= StatsCard::widget([
-                'title' => 'Piani in Scadenza',
-                'value' => $summary['plans']['expiring_soon'] ?? 0,
-                'icon' => 'fas fa-clock',
-                'color' => 'warning',
-                'footer' => 'Piani attivi: ' . ($summary['plans']['active'] ?? 0),
-                'url' => Url::to(['plans']),
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div class="lg:col-span-2">
-            <?= ChartWidget::widget([
-                'title' => 'Crescita Pazienti (Ultimi 6 Mesi)',
-                'type' => 'line',
-                'data' => [
-                    'labels' => array_column($patientGrowth, 'month'),
-                    'datasets' => [
-                        [
-                            'label' => 'Nuovi Pazienti',
-                            'data' => array_column($patientGrowth, 'new_patients'),
-                            'borderColor' => '#4e73df',
-                            'backgroundColor' => 'rgba(78, 115, 223, 0.1)',
-                            'fill' => true,
-                            'tension' => 0.4
-                        ]
-                    ]
-                ],
-                'height' => 300,
-                'options' => [
-                    'scales' => [
-                        'y' => [
-                            'beginAtZero' => true,
-                            'ticks' => ['precision' => 0]
-                        ]
-                    ]
-                ]
-            ]) ?>
-        </div>
-
-        <div class="lg:col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Top 5 Trattamenti',
-                'type' => 'doughnut',
-                'data' => [
-                    'labels' => array_column($topTreatments, 'name'),
-                    'datasets' => [
-                        [
-                            'label' => 'Pazienti',
-                            'data' => array_column($topTreatments, 'patient_count'),
-                            'backgroundColor' => [
-                                '#4e73df',
-                                '#1cc88a',
-                                '#36b9cc',
-                                '#f6c23e',
-                                '#e74a3b'
-                            ]
-                        ]
-                    ]
-                ],
-                'height' => 300,
-                'options' => [
-                    'plugins' => [
-                        'legend' => [
-                            'position' => 'bottom'
-                        ]
-                    ]
-                ]
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Dynamic Charts Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Trend Assenze per Giorno Settimana',
-                'type' => 'bar',
-                'ajaxUrl' => Url::to(['chart-data', 'type' => 'absence-by-day']),
-                'height' => 300
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione Età Pazienti',
-                'type' => 'pie',
-                'ajaxUrl' => Url::to(['chart-data', 'type' => 'patient-age-groups']),
-                'height' => 300
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Quick Links Section -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h6 class="text-lg font-semibold text-gray-900">
-                <i class="fas fa-link mr-2"></i>
-                Accesso Rapido alle Analisi
-            </h6>
-        </div>
-        <div class="p-6">
-            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <div class="bg-blue-light-500 text-white rounded-lg p-6 h-full">
-                        <div class="text-center">
-                            <i class="fas fa-calendar-times text-4xl mb-3 block"></i>
-                            <h5 class="text-lg font-semibold mb-2">Assenze</h5>
-                            <p class="text-sm opacity-75 mb-4">Analisi dettagliata pattern assenze</p>
-                            <?= Html::a('Vai all\'analisi', ['absences'], [
-                                'class' => 'inline-block bg-white text-blue-light-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
-                            ]) ?>
-                        </div>
-                    </div>
-
-                    <div class="bg-success-500 text-white rounded-lg p-6 h-full">
-                        <div class="text-center">
-                            <i class="fas fa-users text-4xl mb-3 block"></i>
-                            <h5 class="text-lg font-semibold mb-2">Pazienti</h5>
-                            <p class="text-sm opacity-75 mb-4">Demografia e trattamenti multipli</p>
-                            <?= Html::a('Vai all\'analisi', ['patients'], [
-                                'class' => 'inline-block bg-white text-success-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
-                            ]) ?>
-                        </div>
-                    </div>
-
-                    <div class="bg-brand-500 text-white rounded-lg p-6 h-full">
-                        <div class="text-center">
-                            <i class="fas fa-stethoscope text-4xl mb-3 block"></i>
-                            <h5 class="text-lg font-semibold mb-2">Trattamenti</h5>
-                            <p class="text-sm opacity-75 mb-4">Ranking e combinazioni</p>
-                            <?= Html::a('Vai all\'analisi', ['treatments'], [
-                                'class' => 'inline-block bg-white text-brand-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
-                            ]) ?>
-                        </div>
-                    </div>
-
-                    <div class="bg-warning-500 text-white rounded-lg p-6 h-full">
-                        <div class="text-center">
-                            <i class="fas fa-clipboard-list text-4xl mb-3 block"></i>
-                            <h5 class="text-lg font-semibold mb-2">Piani</h5>
-                            <p class="text-sm opacity-75 mb-4">Stati e scadenze</p>
-                            <?= Html::a('Vai all\'analisi', ['plans'], [
-                                'class' => 'inline-block bg-white text-warning-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors duration-200'
-                            ]) ?>
-                        </div>
-                    </div>
+        <!-- 1. Riepilogo principale KPI -->
+        <div class="summary-card">
+            <h3>Riepilogo Sistema</h3>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value blue"><?= $summary['patients']['active'] ?? 0 ?></div>
+                    <div class="stat-label">Pazienti Attivi</div>
+                    <small>Totale: <?= $summary['patients']['total'] ?? 0 ?></small>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value red"><?= $summary['absences']['total_this_month'] ?? 0 ?></div>
+                    <div class="stat-label">Assenze Questo Mese</div>
+                    <small>Non giustificate: <?= $summary['absences']['unjustified_rate'] ?? 0 ?>%</small>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value green"><?= $summary['treatments']['active_types'] ?? 0 ?></div>
+                    <div class="stat-label">Trattamenti Attivi</div>
+                    <small>Ore settimanali: <?= $summary['treatments']['total_weekly_hours'] ?? 0 ?></small>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value orange"><?= $summary['plans']['expiring_soon'] ?? 0 ?></div>
+                    <div class="stat-label">Piani in Scadenza</div>
+                    <small>Piani attivi: <?= $summary['plans']['active'] ?? 0 ?></small>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- 2. Grafici principali -->
+        <div class="section-title">
+            <h3>Analisi Temporali</h3>
+        </div>
+        <div class="analysis-row">
+            <div class="table-card" style="flex: 2;">
+                <h4>Crescita Pazienti (Ultimi 6 Mesi)</h4>
+                <div class="chart-container">
+                    <canvas id="growth-chart"></canvas>
+                </div>
+            </div>
+            <div class="table-card">
+                <h4>Top 5 Trattamenti</h4>
+                <div class="chart-container">
+                    <canvas id="treatments-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Grafici secondari -->
+        <div class="charts-row">
+            <div class="chart-card">
+                <h4>Trend Assenze per Giorno</h4>
+                <div class="chart-container">
+                    <canvas id="absence-day-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h4>Distribuzione Età Pazienti</h4>
+                <div class="chart-container">
+                    <canvas id="age-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Quick Links con stesso stile ranking cards -->
+        <div class="section-title">
+            <h3>Accesso Rapido alle Analisi</h3>
+        </div>
+        <div class="ranking-row">
+            <div class="ranking-card" style="background: #ebf8ff; border-color: #90cdf4;">
+                <h4 style="color: #1e40af;">Analisi Assenze</h4>
+                <div class="text-center" style="padding: 20px;">
+                    <i class="fas fa-calendar-times" style="font-size: 3rem; color: #3b82f6; margin-bottom: 16px; display: block;"></i>
+                    <p style="margin-bottom: 20px; color: #4b5563;">Analisi dettagliata pattern assenze</p>
+                    <?= Html::a('Vai all\'analisi <i class="fas fa-arrow-right"></i>', ['absences'], [
+                        'class' => 'btn btn-primary',
+                        'style' => 'display: inline-block;'
+                    ]) ?>
+                </div>
+            </div>
+
+            <div class="ranking-card" style="background: #f0fdf4; border-color: #86efac;">
+                <h4 style="color: #166534;">Analisi Pazienti</h4>
+                <div class="text-center" style="padding: 20px;">
+                    <i class="fas fa-users" style="font-size: 3rem; color: #10b981; margin-bottom: 16px; display: block;"></i>
+                    <p style="margin-bottom: 20px; color: #4b5563;">Demografia e trattamenti multipli</p>
+                    <?= Html::a('Vai all\'analisi <i class="fas fa-arrow-right"></i>', ['patients'], [
+                        'class' => 'btn btn-success'
+                    ]) ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="ranking-row">
+            <div class="ranking-card" style="background: #f3e8ff; border-color: #c084fc;">
+                <h4 style="color: #6b21a8;">Analisi Trattamenti</h4>
+                <div class="text-center" style="padding: 20px;">
+                    <i class="fas fa-stethoscope" style="font-size: 3rem; color: #8b5cf6; margin-bottom: 16px; display: block;"></i>
+                    <p style="margin-bottom: 20px; color: #4b5563;">Ranking e combinazioni</p>
+                    <?= Html::a('Vai all\'analisi <i class="fas fa-arrow-right"></i>', ['treatments'], [
+                        'class' => 'btn btn-secondary',
+                        'style' => 'background: #8b5cf6; color: white; border-color: #8b5cf6;'
+                    ]) ?>
+                </div>
+            </div>
+
+            <div class="ranking-card orange">
+                <h4>Analisi Piani</h4>
+                <div class="text-center" style="padding: 20px;">
+                    <i class="fas fa-clipboard-list" style="font-size: 3rem; color: #ea580c; margin-bottom: 16px; display: block;"></i>
+                    <p style="margin-bottom: 20px; color: #4b5563;">Stati e scadenze</p>
+                    <?= Html::a('Vai all\'analisi <i class="fas fa-arrow-right"></i>', ['plans'], [
+                        'class' => 'btn',
+                        'style' => 'background: #f97316; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;'
+                    ]) ?>
+                </div>
+            </div>
+        </div>
 
     <?php endif; ?>
-  </div>
-</div> 
+</div>
+
+<!-- Stili aggiuntivi minimi solo per elementi specifici dashboard -->
+<style>
+.stat-box small {
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.stat-value.orange {
+    color: #f97316;
+}
+
+.analysis-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 1024px) {
+    .analysis-row {
+        flex-direction: column;
+    }
+}
+
+.text-center {
+    text-align: center;
+}
+</style>
+
+<?php
+// Javascript per i grafici
+$this->registerJs("
+// Configurazione globale per Chart.js
+Chart.defaults.font.size = 12;
+Chart.defaults.maintainAspectRatio = false;
+
+// Variabili per memorizzare i grafici
+let growthChart = null;
+let treatmentsChart = null;
+let absenceDayChart = null;
+let ageChart = null;
+
+// Funzione per distruggere un grafico se esiste
+function destroyChart(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+// Funzione per inizializzare i grafici
+function initializeCharts() {
+    console.log('Inizializzazione grafici dashboard...');
+    
+    // Grafico crescita pazienti
+    loadGrowthChart();
+    
+    // Grafico top trattamenti
+    loadTreatmentsChart();
+    
+    // Carica grafici con dati AJAX
+    loadAbsenceDayChart();
+    loadAgeChart();
+}
+
+// Grafico crescita pazienti
+function loadGrowthChart() {
+    var growthData = " . json_encode($patientGrowth) . ";
+    
+    if (growthData && growthData.length > 0) {
+        destroyChart(growthChart);
+        var ctx = document.getElementById('growth-chart');
+        if (ctx) {
+            growthChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: growthData.map(function(d) { return d.month || ''; }),
+                    datasets: [{
+                        label: 'Nuovi Pazienti',
+                        data: growthData.map(function(d) { return d.new_patients || 0; }),
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Grafico top trattamenti
+function loadTreatmentsChart() {
+    var treatmentsData = " . json_encode(array_slice($topTreatments, 0, 5)) . ";
+    
+    if (treatmentsData && treatmentsData.length > 0) {
+        destroyChart(treatmentsChart);
+        var ctx = document.getElementById('treatments-chart');
+        if (ctx) {
+            treatmentsChart = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: treatmentsData.map(function(t) { return t.name || ''; }),
+                    datasets: [{
+                        label: 'Pazienti',
+                        data: treatmentsData.map(function(t) { return t.patient_count || 0; }),
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(147, 51, 234, 0.8)',
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Grafico assenze per giorno (AJAX)
+function loadAbsenceDayChart() {
+    $.ajax({
+        url: '" . Url::to(['chart-data', 'type' => 'absence-by-day']) . "',
+        dataType: 'json',
+        success: function(response) {
+            if (response.success && response.data) {
+                destroyChart(absenceDayChart);
+                var ctx = document.getElementById('absence-day-chart');
+                if (ctx) {
+                    // Usa solo il primo dataset o crea uno aggregato
+                    var datasets = response.data.datasets || [];
+                    var data = [];
+                    
+                    if (datasets.length > 0) {
+                        data = datasets[0].data;
+                    }
+                    
+                    absenceDayChart = new Chart(ctx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: response.data.labels || [],
+                            datasets: [{
+                                label: 'Assenze totali',
+                                data: data,
+                                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    });
+}
+
+// Grafico età pazienti (AJAX)
+function loadAgeChart() {
+    $.ajax({
+        url: '" . Url::to(['chart-data', 'type' => 'patient-age-groups']) . "',
+        dataType: 'json',
+        success: function(response) {
+            if (response.success && response.data) {
+                destroyChart(ageChart);
+                var ctx = document.getElementById('age-chart');
+                if (ctx) {
+                    ageChart = new Chart(ctx.getContext('2d'), {
+                        type: 'pie',
+                        data: response.data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 15,
+                                        usePointStyle: true,
+                                        font: {
+                                            size: 11
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    });
+}
+
+// Inizializza quando Chart.js è pronto
+if (typeof Chart !== 'undefined') {
+    console.log('Chart.js già caricato, inizializzo i grafici');
+    initializeCharts();
+} else {
+    console.log('Attendo caricamento Chart.js...');
+    setTimeout(function() {
+        if (typeof Chart !== 'undefined') {
+            initializeCharts();
+        } else {
+            console.error('Chart.js non trovato!');
+        }
+    }, 1000);
+}
+", \yii\web\View::POS_READY);
+?>
