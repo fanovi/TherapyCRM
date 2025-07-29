@@ -51,9 +51,9 @@ class AbsenceStatisticsService
                 ['ab' => 'absences'],
                 'a.therapist_id = ab.therapist_id 
                 AND DATE(a.appointment_datetime) BETWEEN ab.start_date AND ab.end_date
-                AND a.status = "scheduled"
                 AND ab.status = "approved"'
             )
+            ->where(['NOT IN', 'a.status', ['completed', 'deleted']]) // Escludi solo quelli completati o cancellati
             ->leftJoin(['pt' => 'plan_therapies'], 'a.plan_therapy_id = pt.id')
             ->leftJoin(['tp' => 'therapeutic_plans'], 'pt.therapeutic_plan_id = tp.id')
             ->leftJoin(['p' => 'patients'], 'tp.patient_id = p.id')
