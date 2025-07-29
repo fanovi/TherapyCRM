@@ -1,12 +1,8 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 use yii\widgets\ActiveForm;
-use frontend\assets\StatisticsAsset;
-use frontend\widgets\StatsCard;
-use frontend\widgets\ChartWidget;
-use frontend\widgets\StatisticsFilter;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\PatientStatisticsSearch */
@@ -18,354 +14,537 @@ use frontend\widgets\StatisticsFilter;
 /* @var $regimeOptions array */
 /* @var $districtOptions array */
 
-$this->title = 'Analisi Pazienti';
+$this->title = 'Statistiche Pazienti';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-StatisticsAsset::register($this);
+// Registra Chart.js
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('@web/css/statistics.css');
+// Inizializza variabili se non definite
+$demographics = $demographics ?? [];
+$byTreatment = $byTreatment ?? [];
+$byRegime = $byRegime ?? [];
+$multiTreatmentStats = $multiTreatmentStats ?? ['patients' => [], 'stats' => []];
 
-$this->registerJs("
-", \yii\web\View::POS_READY);
+// Funzione helper per verificare se ci sono filtri attivi
+$hasActiveFilters = !empty($searchModel->gender) || !empty($searchModel->ageFrom) || 
+                    !empty($searchModel->ageTo) || !empty($searchModel->status) || 
+                    !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
+                    !empty($searchModel->treatmentTypeIds) || !empty($searchModel->districtId);
 
-// Helper function per calcolo sicuro delle percentuali
+// Calcola il totale pazienti
+$totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
+
+// Helper per verificare se ci sono dati
+$hasData = $totalPatients > 0 || !empty($byTreatment) || !empty($byRegime) || !empty($multiTreatmentStats['patients']);
+
+// Helper per calcolo percentuali
 function calculatePercentage($part, $total, $decimals = 1) {
     return $total > 0 ? round($part / $total * 100, $decimals) : 0;
 }
-
-// Calcola il totale pazienti una volta sola
-$totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
 ?>
 
-<div class="patient-statistics p-6">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <i class="fas fa-users text-blue-600"></i>
-            Analisi Pazienti
-        </h1>
-        <div class="flex gap-3">
-            <?= Html::a(
-                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
-                ['index'],
-                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
-            ) ?>
-            <?= Html::a(
-                '<i class="fas fa-download mr-2"></i> Esporta',
-                ['export', 'type' => 'patients'],
-                [
-                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
-                    'data-method' => 'post'
-                ]
-            ) ?>
-        </div>
+<div class="statistics-patients">
+    <!-- Header con titolo -->
+    <div class="page-header">
+        <h1><?= Html::encode($this->title) ?></h1>
+        <p class="period-text">Analisi demografica e distribuzione pazienti</p>
     </div>
 
-    <!-- Filters -->
-    <?php $form = ActiveForm::begin([
-        'method' => 'get',
-        'options' => ['class' => 'mb-4', 'id' => 'patient-filters-form']
-    ]); ?>
-
-    <?= StatisticsFilter::widget([
-        'model' => $searchModel,
-        'form' => $form,
-        'title' => 'Filtri Pazienti',
-        'fields' => [
-            'gender',
-            'ageFrom',
-            'ageTo',
-            'treatments',
-            'status',
-            'dateFrom',
-            'dateTo'
-        ],
-        'options' => [
-            'treatments' => $treatmentOptions,
-            'regimes' => $regimeOptions,
-            'districts' => $districtOptions
-        ],
-        'collapsible' => true,
-        'collapsed' => false
-    ]) ?>
-
-    <?php ActiveForm::end(); ?>
-
-    <?php if ($totalPatients == 0): ?>
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle mr-2"></i>
-        Nessun paziente trovato con i filtri selezionati.
-    </div>
-    <?php endif; ?>
-
-    <!-- Demographics Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div>
-            <?= StatsCard::widget([
-                'title' => 'Età Media',
-                'value' => round($demographics['age_stats']['avg_age'] ?? 0, 1),
-                'icon' => 'fas fa-birthday-cake',
-                'color' => 'primary',
-                'footer' => 'Range: ' . ($demographics['age_stats']['min_age'] ?? 0) . '-' . ($demographics['age_stats']['max_age'] ?? 0),
-                'valueFormat' => 'number'
-            ]) ?>
+    <!-- Filtri di ricerca -->
+    <div class="filter-card">
+        <div class="filter-header">
+            <h3>Filtri di ricerca</h3>
+            <?php if ($hasActiveFilters): ?>
+                <span class="active-filters-badge">
+                    <i class="fas fa-filter"></i> Filtri attivi
+                </span>
+            <?php endif; ?>
         </div>
 
-        <div>
-            <?= StatsCard::widget([
-                'title' => 'Totale Pazienti',
-                'value' => $totalPatients,
-                'icon' => 'fas fa-users',
-                'color' => 'success',
-                'footer' => 'Nei filtri selezionati',
-                'valueFormat' => 'number'
-            ]) ?>
+        <?php $form = ActiveForm::begin([
+            'method' => 'get',
+            'options' => ['class' => 'filter-form']
+        ]); ?>
+
+        <!-- Filtri demografici -->
+        <div class="filter-section">
+            <h4>Filtri demografici</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'gender')->dropDownList([
+                        '' => 'Tutti i generi',
+                        'M' => 'Maschio',
+                        'F' => 'Femmina',
+                        'N' => 'Non specificato'
+                    ], ['class' => 'form-control'])->label('Genere') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'status')->dropDownList([
+                        '' => 'Tutti gli stati',
+                        'active' => 'Con piano attivo',
+                        'inactive' => 'Senza piano attivo',
+                        'dismissed' => 'Dimessi'
+                    ], ['class' => 'form-control'])->label('Stato paziente') ?>
+                </div>
+            </div>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'ageFrom')->textInput([
+                        'type' => 'number',
+                        'min' => 0,
+                        'max' => 120,
+                        'class' => 'form-control'
+                    ])->label('Età minima') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'ageTo')->textInput([
+                        'type' => 'number',
+                        'min' => 0,
+                        'max' => 120,
+                        'class' => 'form-control'
+                    ])->label('Età massima') ?>
+                </div>
+            </div>
         </div>
 
-        <div>
-            <?php
-            $multiTreatmentCount = count($multiTreatmentStats['patients'] ?? []);
-            $multiTreatmentPerc = calculatePercentage($multiTreatmentCount, $totalPatients);
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Trattamenti Multipli',
-                'value' => $multiTreatmentCount,
-                'icon' => 'fas fa-layer-group',
-                'color' => 'info',
-                'footer' => $multiTreatmentPerc . '% del totale',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div>
-            <?= StatsCard::widget([
-                'title' => 'Media Trattamenti',
-                'value' => round($multiTreatmentStats['stats']['avg_treatments'] ?? 0, 1),
-                'icon' => 'fas fa-chart-bar',
-                'color' => 'warning',
-                'footer' => 'Max: ' . ($multiTreatmentStats['stats']['max_treatments'] ?? 0),
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Demographics Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div>
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione per Età',
-                'type' => 'bar',
-                'data' => [
-                    'labels' => array_column($demographics['age_groups'] ?? [], 'age_group'),
-                    'datasets' => [
+        <!-- Filtri per trattamento e distretto -->
+        <div class="filter-section">
+            <h4>Filtri specifici</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'treatmentTypeIds')->dropDownList(
+                        $treatmentOptions,
                         [
-                            'label' => 'Numero Pazienti',
-                            'data' => array_column($demographics['age_groups'] ?? [], 'count'),
-                            'backgroundColor' => '#4e73df'
+                            'class' => 'form-control',
+                            'multiple' => true,
+                            'prompt' => 'Tutti i trattamenti'
                         ]
-                    ]
-                ],
-                'height' => 350
+                    )->label('Tipo trattamento') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'districtId')->dropDownList(
+                        ['' => 'Tutti i distretti'] + $districtOptions,
+                        ['class' => 'form-control']
+                    )->label('Distretto') ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtri temporali -->
+        <div class="filter-section">
+            <h4>Periodo registrazione</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'dateFrom')->textInput([
+                        'type' => 'date',
+                        'class' => 'form-control'
+                    ])->label('Data inizio') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'dateTo')->textInput([
+                        'type' => 'date',
+                        'class' => 'form-control'
+                    ])->label('Data fine') ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pulsanti azione -->
+        <div class="filter-actions">
+            <?= Html::submitButton('<i class="fas fa-search"></i> Applica filtri', [
+                'class' => 'btn btn-primary'
+            ]) ?>
+            <?= Html::a('<i class="fas fa-undo"></i> Rimuovi filtri', ['patients'], [
+                'class' => 'btn btn-secondary'
             ]) ?>
         </div>
 
-        <div>
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione per Genere',
-                'type' => 'doughnut',
-                'data' => [
-                    'labels' => array_column($demographics['gender_distribution'] ?? [], 'gender_label'),
-                    'datasets' => [
-                        [
-                            'label' => 'Numero Pazienti',
-                            'data' => array_column($demographics['gender_distribution'] ?? [], 'count'),
-                            'backgroundColor' => ['#36b9cc', '#e74a3b', '#858796']
-                        ]
-                    ]
-                ],
-                'height' => 350
-            ]) ?>
-        </div>
+        <?php ActiveForm::end(); ?>
     </div>
 
-    <!-- Treatment Analysis -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow">
-                <div class="px-6 py-4 border-b border-gray-100">
-                    <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                        <i class="fas fa-stethoscope text-blue-600"></i>
-                        Pazienti per Trattamento
-                    </h6>
+    <?php if (!$hasData): ?>
+        <!-- Messaggio quando non ci sono dati -->
+        <div class="no-data-message">
+            <i class="fas fa-info-circle"></i>
+            <h3>Nessun paziente trovato</h3>
+            <p>
+                Non sono presenti pazienti per i criteri selezionati.<br>
+                Prova a modificare i filtri di ricerca per visualizzare i dati.
+            </p>
+        </div>
+    <?php else: ?>
+
+        <!-- 1. Riepilogo demografico -->
+        <div class="summary-card">
+            <h3>Riepilogo Demografico</h3>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value blue"><?= $totalPatients ?></div>
+                    <div class="stat-label">Totale Pazienti</div>
                 </div>
-                <div class="p-6">
-                    <?php if (!empty($byTreatment)): ?>
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamento</th>
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Codice</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">Pazienti</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">% del Totale</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($byTreatment as $treatment): ?>
-                                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                    <td class="py-3 px-4"><?= Html::encode($treatment['name']) ?></td>
-                                    <td class="py-3 px-4">
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                                            <?= Html::encode($treatment['code']) ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                            <?= $treatment['patient_count'] ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <?php 
-                                        $percentage = calculatePercentage($treatment['patient_count'], $totalPatients);
-                                        $badgeClass = $percentage >= 20 ? 'bg-green-100 text-green-800' : ($percentage >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800');
-                                        ?>
-                                        <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
-                                            <?= $percentage ?>%
-                                        </span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php else: ?>
-                    <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
-                        <i class="fas fa-info-circle mr-3"></i>
-                        Nessun dato disponibile per i trattamenti.
-                    </div>
-                    <?php endif; ?>
+                <div class="stat-box">
+                    <div class="stat-value green"><?= round($demographics['age_stats']['avg_age'] ?? 0, 1) ?></div>
+                    <div class="stat-label">Età Media</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value gray"><?= count($multiTreatmentStats['patients'] ?? []) ?></div>
+                    <div class="stat-label">Multi-trattamento</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value orange"><?= round($multiTreatmentStats['stats']['avg_treatments'] ?? 0, 1) ?></div>
+                    <div class="stat-label">Media Trattamenti</div>
                 </div>
             </div>
         </div>
 
-        <div>
-            <?= ChartWidget::widget([
-                'title' => 'Top 10 Trattamenti',
-                'type' => 'pie',
-                'data' => [
-                    'labels' => array_slice(array_column($byTreatment ?? [], 'name'), 0, 10),
-                    'datasets' => [
-                        [
-                            'label' => 'Pazienti',
-                            'data' => array_slice(array_column($byTreatment ?? [], 'patient_count'), 0, 10),
-                            'backgroundColor' => [
-                                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
-                                '#858796', '#5a5c69', '#1f2937', '#374151', '#6b7280'
-                            ]
-                        ]
-                    ]
-                ],
-                'height' => 400
-            ]) ?>
+        <!-- 2. Distribuzione demografica -->
+        <div class="section-title">
+            <h3>Distribuzione Demografica</h3>
         </div>
-    </div>
-
-    <!-- Multi-Treatment Analysis -->
-    <div class="mb-8">
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="fas fa-layer-group text-blue-600"></i>
-                    Pazienti con Trattamenti Multipli (escluso ABA)
-                </h6>
+        <div class="charts-row">
+            <div class="chart-card">
+                <h4>Distribuzione per Età</h4>
+                <div class="chart-container">
+                    <canvas id="age-chart"></canvas>
+                </div>
             </div>
-            <div class="p-6">
-                <?php if (!empty($multiTreatmentStats['patients'])): ?>
-                <div class="overflow-x-auto">
-                    <table class="w-full border-collapse">
-                        <thead>
-                            <tr class="border-b border-gray-200">
-                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Paziente</th>
-                                <th class="text-center py-3 px-4 font-semibold text-gray-700">N° Trattamenti</th>
-                                <th class="text-left py-3 px-4 font-semibold text-gray-700">Trattamenti</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach (array_slice($multiTreatmentStats['patients'], 0, 20) as $patient): ?>
-                            <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                <td class="py-3 px-4">
-                                    <strong class="text-gray-900"><?= Html::encode($patient['patient_name']) ?></strong>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <?php 
-                                    $count = $patient['treatment_count'];
-                                    $badgeClass = $count >= 4 ? 'bg-red-100 text-red-800' : ($count >= 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
-                                    ?>
-                                    <span class="inline-flex px-2 py-1 text-xs font-medium <?= $badgeClass ?> rounded-full">
-                                        <?= $count ?>
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <span class="text-sm text-gray-600"><?= Html::encode($patient['treatments']) ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+            <div class="chart-card">
+                <h4>Distribuzione per Genere</h4>
+                <div class="chart-container">
+                    <canvas id="gender-chart"></canvas>
                 </div>
-                
-                <?php if (count($multiTreatmentStats['patients']) > 20): ?>
-                <div class="text-center mt-4">
-                    <span class="text-sm text-gray-500">
-                        Mostrati i primi 20 di <?= count($multiTreatmentStats['patients']) ?> pazienti con trattamenti multipli
-                    </span>
-                </div>
-                <?php endif; ?>
-                
-                <?php else: ?>
-                <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
-                    <i class="fas fa-info-circle mr-3"></i>
-                    Nessun paziente con trattamenti multipli trovato con i filtri selezionati.
-                </div>
-                <?php endif; ?>
             </div>
         </div>
-    </div>
 
-    <!-- Regime Analysis -->
-    <div class="mb-8">
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h6 class="text-base font-semibold text-gray-700 flex items-center gap-2">
-                    <i class="fas fa-clipboard-list text-blue-600"></i>
-                    Distribuzione per Regime Sanitario
-                </h6>
-            </div>
-            <div class="p-6">
-                <?php if (!empty($byRegime)): ?>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <?php foreach ($byRegime as $regime): ?>
-                    <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-blue-500">
-                        <h5 class="text-lg font-semibold text-gray-900 mb-3"><?= Html::encode($regime['regime_name']) ?></h5>
-                        <div class="mb-3">
-                            <span class="inline-flex px-3 py-2 text-sm font-medium bg-blue-100 text-blue-800 rounded-lg">
-                                <?= $regime['patient_count'] ?> pazienti
-                            </span>
-                        </div>
-                        <?php if (!empty($regime['avg_duration']) && $regime['avg_duration'] > 0): ?>
-                        <div class="text-sm text-gray-600">
-                            Durata media: <?= round($regime['avg_duration']) ?> giorni
-                        </div>
-                        <?php endif; ?>
-                    </div>
+        <!-- 3. Analisi per trattamento -->
+        <?php if (!empty($byTreatment)): ?>
+        <div class="full-width-card">
+            <h3>Pazienti per Trattamento</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Trattamento</th>
+                        <th>Codice</th>
+                        <th class="text-center">Pazienti</th>
+                        <th class="text-center">% del Totale</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($byTreatment, 0, 15) as $treatment): ?>
+                        <tr>
+                            <td class="font-bold"><?= Html::encode($treatment['name']) ?></td>
+                            <td><?= Html::encode($treatment['code']) ?></td>
+                            <td class="text-center">
+                                <span class="badge badge-gray"><?= $treatment['patient_count'] ?></span>
+                            </td>
+                            <td class="text-center">
+                                <?php 
+                                $percentage = calculatePercentage($treatment['patient_count'], $totalPatients);
+                                $badgeClass = $percentage >= 20 ? 'badge-green' : ($percentage >= 10 ? 'badge-orange' : 'badge-gray');
+                                ?>
+                                <span class="badge-small <?= $badgeClass ?>">
+                                    <?= $percentage ?>%
+                                </span>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if (count($byTreatment) > 15): ?>
+            <p class="text-center mt-4 text-sm text-gray-600">
+                Mostrati i primi 15 di <?= count($byTreatment) ?> trattamenti
+            </p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- 4. Pazienti con trattamenti multipli -->
+        <?php if (!empty($multiTreatmentStats['patients'])): ?>
+        <div class="full-width-card">
+            <h3>Pazienti con Trattamenti Multipli (escluso ABA)</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Paziente</th>
+                        <th class="text-center">N° Trattamenti</th>
+                        <th>Trattamenti</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($multiTreatmentStats['patients'], 0, 20) as $patient): ?>
+                        <tr>
+                            <td class="font-bold"><?= Html::encode($patient['patient_name']) ?></td>
+                            <td class="text-center">
+                                <?php 
+                                $count = $patient['treatment_count'];
+                                $badgeClass = $count >= 4 ? 'badge-red' : ($count >= 3 ? 'badge-orange' : 'badge-green');
+                                ?>
+                                <span class="badge <?= $badgeClass ?>"><?= $count ?></span>
+                            </td>
+                            <td class="text-sm"><?= Html::encode($patient['treatments']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if (count($multiTreatmentStats['patients']) > 20): ?>
+            <p class="text-center mt-4 text-sm text-gray-600">
+                Mostrati i primi 20 di <?= count($multiTreatmentStats['patients']) ?> pazienti con trattamenti multipli
+            </p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- 5. Distribuzione per regime -->
+        <?php if (!empty($byRegime)): ?>
+        <div class="section-title">
+            <h3>Distribuzione per Regime Sanitario</h3>
+        </div>
+        <div class="regime-grid">
+            <?php foreach ($byRegime as $regime): ?>
+            <div class="regime-card">
+                <h4><?= Html::encode($regime['regime_name']) ?></h4>
+                <div class="regime-count">
+                    <?= $regime['patient_count'] ?> pazienti
                 </div>
-                <?php else: ?>
-                <div class="flex items-center p-4 bg-blue-50 text-blue-700 rounded-lg">
-                    <i class="fas fa-info-circle mr-3"></i>
-                    Nessun dato disponibile per i regimi sanitari.
+                <?php if (!empty($regime['avg_duration']) && $regime['avg_duration'] > 0): ?>
+                <div class="regime-duration">
+                    Durata media: <?= round($regime['avg_duration']) ?> giorni
                 </div>
                 <?php endif; ?>
             </div>
+            <?php endforeach; ?>
         </div>
-    </div>
+        <?php endif; ?>
+
+        <!-- 6. Azioni export -->
+        <div class="export-section">
+            <div class="info-text">
+                <i class="fas fa-info-circle"></i>
+                I dati mostrati sono filtrati secondo i criteri selezionati
+            </div>
+            <?= Html::a(
+                '<i class="fas fa-file-excel"></i> Esporta Report Excel',
+                ['export', 'type' => 'patients'] + Yii::$app->request->queryParams,
+                ['class' => 'btn btn-success']
+            ) ?>
+        </div>
+
+    <?php endif; ?>
 </div>
+
+<!-- CSS aggiuntivo per questa view -->
+<style>
+/* Stili specifici per i regimi */
+.regime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.regime-card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #3182ce;
+}
+
+.regime-card h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 12px;
+}
+
+.regime-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3182ce;
+    margin-bottom: 8px;
+}
+
+.regime-duration {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Colore arancione per stat-value */
+.stat-value.orange {
+    color: #f97316;
+}
+</style>
+
+<?php if ($hasData): ?>
+<?php
+// Javascript per i grafici
+$this->registerJs("
+// Configurazione globale per Chart.js
+Chart.defaults.font.size = 12;
+Chart.defaults.maintainAspectRatio = false;
+
+// Variabili per memorizzare i grafici
+let ageChart = null;
+let genderChart = null;
+
+// Funzione per distruggere un grafico se esiste
+function destroyChart(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+// Funzione per inizializzare i grafici
+function initializeCharts() {
+    console.log('Inizializzazione grafici pazienti...');
+    
+    // Grafico età
+    loadAgeChart();
+    
+    // Grafico genere
+    loadGenderChart();
+}
+
+// Carica grafico età
+function loadAgeChart() {
+    console.log('Caricamento grafico età...');
+    
+    // Prepara i dati dalle statistiche demografiche
+    var ageGroups = " . json_encode($demographics['age_groups'] ?? []) . ";
+    
+    if (ageGroups && ageGroups.length > 0) {
+        destroyChart(ageChart);
+        var ctx = document.getElementById('age-chart');
+        if (ctx) {
+            ageChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ageGroups.map(function(g) { return g.age_group; }),
+                    datasets: [{
+                        label: 'Numero pazienti',
+                        data: ageGroups.map(function(g) { return g.count; }),
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Pazienti: ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            title: {
+                                display: true,
+                                text: 'Numero pazienti'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fascia di età'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Carica grafico genere
+function loadGenderChart() {
+    console.log('Caricamento grafico genere...');
+    
+    // Prepara i dati dalle statistiche demografiche
+    var genderData = " . json_encode($demographics['gender_distribution'] ?? []) . ";
+    
+    if (genderData && genderData.length > 0) {
+        destroyChart(genderChart);
+        var ctx = document.getElementById('gender-chart');
+        if (ctx) {
+            genderChart = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: genderData.map(function(g) { return g.gender_label; }),
+                    datasets: [{
+                        label: 'Pazienti',
+                        data: genderData.map(function(g) { return g.count; }),
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(201, 203, 207, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(201, 203, 207, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    var value = context.parsed;
+                                    var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    var percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Attendi che Chart.js sia caricato
+if (typeof Chart !== 'undefined') {
+    console.log('Chart.js già caricato, inizializzo i grafici');
+    initializeCharts();
+} else {
+    console.log('Attendo caricamento Chart.js...');
+    // Riprova dopo un breve delay
+    setTimeout(function() {
+        if (typeof Chart !== 'undefined') {
+            initializeCharts();
+        } else {
+            console.error('Chart.js non trovato!');
+        }
+    }, 1000);
+}
+", \yii\web\View::POS_READY);
+?>
+<?php endif; ?>
