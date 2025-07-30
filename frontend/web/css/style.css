@@ -6140,11 +6140,6 @@ span.flatpickr-weekday,
 }
 .form-check-input:checked ~ span {
   border-style: var(--tw-border-style);
-  border-width: 6px;
-  border-color: var(--color-brand-500);
-  &:is(.dark *) {
-    border-color: var(--color-brand-500);
-  }
 }
 .taskCheckbox:checked ~ span {
   opacity: 100%;

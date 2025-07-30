@@ -230,30 +230,30 @@ class StatisticsController extends BaseController
         $searchModel->load(Yii::$app->request->queryParams);
 
         try {
-            // Debug: prova ogni chiamata singolarmente
+            // Debug: prova ogni chiamata singolarmente con filtri
             try {
-                $ranking = $this->treatmentService->getRankingData();
+                $ranking = $this->treatmentService->getRankingData($searchModel);
             } catch (\Exception $e) {
                 Yii::error("Errore in getRankingData: " . $e->getMessage());
                 $ranking = [];
             }
 
             try {
-                $combinations = $this->treatmentService->getMostFrequentCombinations(10);
+                $combinations = $this->treatmentService->getMostFrequentCombinations($searchModel, 10);
             } catch (\Exception $e) {
                 Yii::error("Errore in getMostFrequentCombinations: " . $e->getMessage());
                 $combinations = [];
             }
 
             try {
-                $bySettingType = $this->treatmentService->getBySettingType();
+                $bySettingType = $this->treatmentService->getBySettingType($searchModel);
             } catch (\Exception $e) {
                 Yii::error("Errore in getBySettingType: " . $e->getMessage());
                 $bySettingType = [];
             }
 
             try {
-                $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution();
+                $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution($searchModel);
             } catch (\Exception $e) {
                 Yii::error("Errore in getWeeklyHoursDistribution: " . $e->getMessage());
                 $hoursDistribution = [];

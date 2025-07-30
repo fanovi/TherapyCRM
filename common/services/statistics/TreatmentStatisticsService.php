@@ -33,13 +33,22 @@ class TreatmentStatisticsService
     /**
      * Ottiene dati per ranking trattamenti
      *
-     * @param array $filters
+     * @param mixed $searchModelOrFilters SearchModel o array di filtri per compatibilità
      * @return array
      */
-    public function getRankingData($filters = [])
+        public function getRankingData($searchModelOrFilters = [])
     {
-        $cacheKey = 'treatment_ranking_' . md5(serialize($filters));
+        // Determina se è un searchModel o array di filtri
+        $isSearchModel = is_object($searchModelOrFilters) && $searchModelOrFilters instanceof \frontend\models\TreatmentStatisticsSearch;
+        $filters = $isSearchModel ? $this->extractFiltersFromSearchModel($searchModelOrFilters) : $searchModelOrFilters;
         
+        // Se c'è un searchModel con filtri, non usare cache
+        if ($isSearchModel && !empty(array_filter($filters))) {
+            return $this->getRankingDataWithFilters($filters);
+        }
+        
+        $cacheKey = 'treatment_ranking_' . md5(serialize($filters));
+
         return Yii::$app->cache->getOrSet($cacheKey, function() use ($filters) {
             $query = (new Query())
                 ->select([
@@ -137,9 +146,10 @@ class TreatmentStatisticsService
     /**
      * Ottiene statistiche distribuzione ore settimanali
      *
+     * @param mixed $searchModel SearchModel per filtri (opzionale)
      * @return array
      */
-    public function getWeeklyHoursDistribution()
+    public function getWeeklyHoursDistribution($searchModel = null)
     {
         return (new Query())
             ->select([
@@ -171,9 +181,10 @@ class TreatmentStatisticsService
     /**
      * Ottiene statistiche per setting (individuale/gruppo)
      *
+     * @param mixed $searchModel SearchModel per filtri (opzionale)
      * @return array
      */
-    public function getBySettingType()
+    public function getBySettingType($searchModel = null)
     {
         return (new Query())
             ->select([
@@ -251,14 +262,19 @@ class TreatmentStatisticsService
     /**
      * Ottiene combinazioni più frequenti di trattamenti
      *
-     * @param int $limit
+     * @param mixed $searchModelOrLimit SearchModel o limite numerico per compatibilità
+     * @param int $limit Limite quando il primo parametro è searchModel
      * @return array
      */
-    public function getMostFrequentCombinations($limit = 10)
+    public function getMostFrequentCombinations($searchModelOrLimit = 10, $limit = 10)
     {
-        $cacheKey = "frequent_combinations_{$limit}";
+        // Determina se è un searchModel o un limite numerico
+        $isSearchModel = is_object($searchModelOrLimit) && $searchModelOrLimit instanceof \frontend\models\TreatmentStatisticsSearch;
+        $actualLimit = $isSearchModel ? $limit : $searchModelOrLimit;
         
-        return Yii::$app->cache->getOrSet($cacheKey, function() use ($limit) {
+        $cacheKey = "frequent_combinations_{$actualLimit}";
+        
+        return Yii::$app->cache->getOrSet($cacheKey, function() use ($actualLimit) {
             // Trova pazienti con più di un trattamento
             $multiTreatmentPatients = (new Query())
                 ->select([
@@ -293,7 +309,7 @@ class TreatmentStatisticsService
                 return $b['patient_count'] - $a['patient_count'];
             });
 
-            return array_slice($combinations, 0, $limit);
+            return array_slice($combinations, 0, $actualLimit);
         }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
     }
 
@@ -364,5 +380,75 @@ class TreatmentStatisticsService
     public function clearCache()
     {
         TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
+    }
+
+    /**
+     * Estrae i filtri dal search model
+     */
+    protected function extractFiltersFromSearchModel($searchModel)
+    {
+        $filters = [];
+        
+        if (!empty($searchModel->treatmentIds)) {
+            $filters['treatmentIds'] = $searchModel->treatmentIds;
+        }
+        
+        if (!empty($searchModel->regimeId)) {
+            $filters['regimeId'] = $searchModel->regimeId;
+        }
+        
+        if (!empty($searchModel->dateFrom)) {
+            $filters['dateFrom'] = $searchModel->dateFrom;
+        }
+        
+        if (!empty($searchModel->dateTo)) {
+            $filters['dateTo'] = $searchModel->dateTo;
+        }
+        
+        return $filters;
+    }
+
+    /**
+     * Metodo helper per getRankingData con filtri applicati
+     */
+    protected function getRankingDataWithFilters($filters)
+    {
+        $query = (new Query())
+            ->select([
+                'tt.id',
+                'tt.name',
+                'tt.code',
+                'tt.description',
+                'COUNT(DISTINCT tp.patient_id) as patient_count',
+                'COUNT(pt.id) as therapy_count',
+                'SUM(pt.weekly_hours) as total_weekly_hours',
+                'AVG(pt.weekly_hours) as avg_weekly_hours',
+                'SUM(pt.weekly_hours * 4.33 * tp.duration_days / 365) as estimated_total_hours'
+            ])
+            ->from('treatment_types tt')
+            ->leftJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
+            ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
+
+        // Applica filtri
+        if (!empty($filters['treatmentIds'])) {
+            $query->andWhere(['tt.id' => $filters['treatmentIds']]);
+        }
+        
+        if (!empty($filters['regimeId'])) {
+            $query->andWhere(['tp.regime_id' => $filters['regimeId']]);
+        }
+        
+        if (!empty($filters['dateFrom'])) {
+            $query->andWhere(['>=', 'tp.start_date', $filters['dateFrom']]);
+        }
+        
+        if (!empty($filters['dateTo'])) {
+            $query->andWhere(['<=', 'tp.start_date', $filters['dateTo']]);
+        }
+
+        return $query->groupBy(['tt.id', 'tt.name', 'tt.code', 'tt.description'])
+            ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0])
+            ->orderBy(['patient_count' => SORT_DESC])
+            ->all();
     }
 }
