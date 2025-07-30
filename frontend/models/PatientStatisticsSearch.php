@@ -4,6 +4,8 @@ namespace frontend\models;
 
 use yii\base\Model;
 use yii\db\Query;
+use yii\data\ActiveDataProvider;
+use common\models\Patient;
 use Yii;
 
 /**
@@ -252,5 +254,157 @@ class PatientStatisticsSearch extends Model
         if (empty($this->treatmentTypeIds)) $this->treatmentTypeIds = [];
 
         return $loaded;
+    }
+
+    /**
+     * Crea un DataProvider per la lista dei pazienti con i filtri applicati
+     *
+     * @param array $params
+     * @return ActiveDataProvider
+     */
+    public function search($params)
+    {
+        // Usa direttamente la query dalla materialized view invece del modello Patient
+        $query = (new Query())
+            ->select([
+                'sp.id',
+                'sp.first_name', 
+                'sp.last_name',
+                'sp.birth_date',
+                'sp.gender',
+                'sp.created_at',
+                'p.district_id',
+                'sp.age',
+                'sp.piano_terapeutico_attivo',
+                'sp.trattamenti_count_no_aba',
+                'd.name as district_name'
+            ])
+            ->from('statistics_patients_mv sp')
+            ->leftJoin('patients p', 'sp.id = p.id')
+            ->leftJoin('districts d', 'p.district_id = d.id');
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query,
+            'pagination' => [
+                'pageSize' => 20,
+            ],
+            'sort' => [
+                'defaultOrder' => [
+                    'last_name' => SORT_ASC,
+                    'first_name' => SORT_ASC,
+                ],
+                'attributes' => [
+                    'id' => [
+                        'asc' => ['sp.id' => SORT_ASC],
+                        'desc' => ['sp.id' => SORT_DESC],
+                    ],
+                    'first_name' => [
+                        'asc' => ['sp.first_name' => SORT_ASC],
+                        'desc' => ['sp.first_name' => SORT_DESC],
+                    ],
+                    'last_name' => [
+                        'asc' => ['sp.last_name' => SORT_ASC],
+                        'desc' => ['sp.last_name' => SORT_DESC],
+                    ],
+                    'age' => [
+                        'asc' => ['sp.age' => SORT_ASC],
+                        'desc' => ['sp.age' => SORT_DESC],
+                    ],
+                    'gender' => [
+                        'asc' => ['sp.gender' => SORT_ASC],
+                        'desc' => ['sp.gender' => SORT_DESC],
+                    ],
+                    'created_at' => [
+                        'asc' => ['sp.created_at' => SORT_ASC],
+                        'desc' => ['sp.created_at' => SORT_DESC],
+                    ],
+                    'piano_terapeutico_attivo' => [
+                        'asc' => ['sp.piano_terapeutico_attivo' => SORT_ASC],
+                        'desc' => ['sp.piano_terapeutico_attivo' => SORT_DESC],
+                    ],
+                    'trattamenti_count_no_aba' => [
+                        'asc' => ['sp.trattamenti_count_no_aba' => SORT_ASC],
+                        'desc' => ['sp.trattamenti_count_no_aba' => SORT_DESC],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->load($params);
+
+        if (!$this->validate()) {
+            return $dataProvider;
+        }
+
+        // Applica i filtri della statistiche alla query
+        $this->applyFilters($query);
+
+        return $dataProvider;
+    }
+
+    /**
+     * Applica i filtri alla query
+     *
+     * @param \yii\db\ActiveQuery $query
+     */
+    protected function applyFilters($query)
+    {
+        // Filtro genere
+        if ($this->gender && $this->gender !== 'all') {
+            $query->andWhere(['sp.gender' => $this->gender]);
+        }
+
+        // Filtro età
+        if ($this->ageFrom !== null && $this->ageFrom !== '') {
+            $query->andWhere(['>=', 'sp.age', $this->ageFrom]);
+        }
+
+        if ($this->ageTo !== null && $this->ageTo !== '') {
+            $query->andWhere(['<=', 'sp.age', $this->ageTo]);
+        }
+
+        // Filtro stato
+        if ($this->status && $this->status !== 'all') {
+            if ($this->status === 'active') {
+                $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+            } elseif ($this->status === 'dismissed') {
+                $query->andWhere(['sp.dismesso' => 'SI']);
+            }
+        }
+
+        // Filtro date
+        if ($this->dateFrom) {
+            $query->andWhere(['>=', 'DATE(sp.created_at)', $this->dateFrom]);
+        }
+
+        if ($this->dateTo) {
+            $query->andWhere(['<=', 'DATE(sp.created_at)', $this->dateTo]);
+        }
+
+        // Filtro trattamenti multipli
+        if ($this->hasMultipleTreatments !== null) {
+            if ($this->hasMultipleTreatments) {
+                $query->andWhere(['>', 'sp.trattamenti_count_no_aba', 1]);
+            } else {
+                $query->andWhere(['<=', 'sp.trattamenti_count_no_aba', 1]);
+            }
+        }
+
+        // Filtro per tipi di trattamento specifici
+        if (!empty($this->treatmentTypeIds) && is_array($this->treatmentTypeIds)) {
+            $subQuery = (new Query())
+                ->select('tp.patient_id')
+                ->distinct()
+                ->from('plan_therapies pt')
+                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
+                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds]);
+
+            $query->andWhere(['in', 'sp.id', $subQuery]);
+        }
+
+        // Filtro distretto
+        if ($this->districtId) {
+            $query->andWhere(['p.district_id' => $this->districtId]);
+        }
     }
 }

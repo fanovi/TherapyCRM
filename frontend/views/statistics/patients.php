@@ -3,6 +3,8 @@
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\helpers\Url;
+use yii\grid\GridView;
+use yii\grid\ActionColumn;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\PatientStatisticsSearch */
@@ -10,6 +12,7 @@ use yii\helpers\Url;
 /* @var $byTreatment array */
 /* @var $byRegime array */
 /* @var $multiTreatmentStats array */
+/* @var $dataProvider yii\data\ActiveDataProvider */
 /* @var $treatmentOptions array */
 /* @var $regimeOptions array */
 /* @var $districtOptions array */
@@ -339,7 +342,119 @@ function calculatePercentage($part, $total, $decimals = 1) {
         </div>
         <?php endif; ?>
 
-        <!-- 6. Azioni export -->
+        <!-- 6. Lista Pazienti -->
+        <div class="full-width-card">
+            <h3>Lista Pazienti</h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Elenco completo dei pazienti filtrato secondo i criteri selezionati
+            </p>
+            
+            <?= GridView::widget([
+                'dataProvider' => $dataProvider,
+                'tableOptions' => ['class' => 'table table-striped table-bordered'],
+                'layout' => "{items}\n{summary}\n{pager}",
+                'columns' => [
+                    [
+                        'attribute' => 'id',
+                        'label' => 'ID',
+                        'options' => ['width' => '80px'],
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                    ],
+                    [
+                        'attribute' => 'first_name',
+                        'label' => 'Nome',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $fullName = Html::encode($model['first_name'] . ' ' . $model['last_name']);
+                            return Html::a($fullName, ['patient/view', 'id' => $model['id']], [
+                                'class' => 'text-blue-600 hover:text-blue-800 font-medium'
+                            ]);
+                        },
+                    ],
+                    [
+                        'attribute' => 'age',
+                        'label' => 'Età',
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '80px'],
+                    ],
+                    [
+                        'attribute' => 'gender',
+                        'label' => 'Genere',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $genderLabels = ['M' => 'Maschio', 'F' => 'Femmina', 'N' => 'N/A'];
+                            $label = $genderLabels[$model['gender']] ?? 'N/A';
+                            $badgeClass = $model['gender'] === 'M' ? 'badge-blue' : ($model['gender'] === 'F' ? 'badge-pink' : 'badge-gray');
+                            return '<span class="badge ' . $badgeClass . '">' . Html::encode($label) . '</span>';
+                        },
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '100px'],
+                    ],
+                    [
+                        'attribute' => 'piano_terapeutico_attivo',
+                        'label' => 'Piano Attivo',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $isActive = $model['piano_terapeutico_attivo'] === 'SI';
+                            $badgeClass = $isActive ? 'badge-green' : 'badge-gray';
+                            $label = $isActive ? 'Attivo' : 'Non Attivo';
+                            return '<span class="badge ' . $badgeClass . '">' . $label . '</span>';
+                        },
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '120px'],
+                    ],
+                    [
+                        'attribute' => 'trattamenti_count_no_aba',
+                        'label' => 'N° Trattamenti',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $count = (int)$model['trattamenti_count_no_aba'];
+                            if ($count === 0) {
+                                return '<span class="badge badge-gray">0</span>';
+                            } elseif ($count === 1) {
+                                return '<span class="badge badge-blue">1</span>';
+                            } else {
+                                return '<span class="badge badge-orange">' . $count . '</span>';
+                            }
+                        },
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '120px'],
+                    ],
+                    [
+                        'attribute' => 'district_name',
+                        'label' => 'Distretto',
+                        'value' => function ($model) {
+                            return $model['district_name'] ?: 'N/A';
+                        },
+                        'options' => ['width' => '150px'],
+                    ],
+                    [
+                        'attribute' => 'created_at',
+                        'label' => 'Data Registrazione',
+                        'format' => 'date',
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '150px'],
+                    ],
+                ],
+                'pager' => [
+                    'class' => 'yii\widgets\LinkPager',
+                    'options' => ['class' => 'pagination justify-center mt-4'],
+                    'linkOptions' => ['class' => 'page-link'],
+                    'activePageCssClass' => 'active',
+                    'disabledPageCssClass' => 'disabled',
+                    'prevPageLabel' => '‹ Precedente',
+                    'nextPageLabel' => 'Successivo ›',
+                ],
+            ]) ?>
+        </div>
+
+        <!-- 7. Azioni export -->
         <div class="export-section">
             <div class="info-text">
                 <i class="fas fa-info-circle"></i>
@@ -449,6 +564,120 @@ function calculatePercentage($part, $total, $decimals = 1) {
     transform: translateY(-50%);
 }
 
+/* Stili per i badge del GridView */
+.badge-blue {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-pink {
+    background-color: #fce7f3;
+    color: #be185d;
+}
+
+.badge-green {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.badge-orange {
+    background-color: #fed7aa;
+    color: #c2410c;
+}
+
+.badge-gray {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Stili per il GridView */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.table-striped tbody tr:nth-child(odd) {
+    background-color: #f9fafb;
+}
+
+.table-bordered {
+    border: 1px solid #e5e7eb;
+}
+
+/* Stili per la paginazione */
+.pagination {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    gap: 0.25rem;
+}
+
+.pagination li {
+    display: inline-block;
+}
+
+.pagination .page-link {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    color: #3b82f6;
+    text-decoration: none;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+}
+
+.pagination .page-link:hover {
+    background-color: #f3f4f6;
+    color: #1d4ed8;
+}
+
+.pagination .active .page-link {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.pagination .disabled .page-link {
+    color: #6b7280;
+    background-color: #f9fafb;
+    cursor: not-allowed;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+/* Link sui nomi dei pazienti */
+.text-blue-600 {
+    color: #2563eb;
+}
+
+.text-blue-800 {
+    color: #1e40af;
+}
+
+.hover\:text-blue-800:hover {
+    color: #1e40af;
+}
+
+.font-medium {
+    font-weight: 500;
+}
 
 </style>
 

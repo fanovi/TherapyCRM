@@ -175,12 +175,16 @@ class StatisticsController extends BaseController
             $regimeOptions = $this->getRegimeOptions();
             $districtOptions = $this->getDistrictOptions();
 
+            // DataProvider per la lista pazienti
+            $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
             return $this->render('patients', [
                 'searchModel' => $searchModel,
                 'demographics' => $demographics,
                 'byTreatment' => $byTreatment,
                 'byRegime' => $byRegime,
                 'multiTreatmentStats' => $multiTreatmentStats,
+                'dataProvider' => $dataProvider,
                 'treatmentOptions' => $treatmentOptions,
                 'regimeOptions' => $regimeOptions,
                 'districtOptions' => $districtOptions,
