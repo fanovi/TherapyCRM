@@ -77,6 +77,34 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepic
         'enableAjaxValidation' => false,
     ]); ?>
 
+    <style>
+    .has-error .form-control,
+    .has-error select,
+    .has-error input {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 1px #dc2626 !important;
+    }
+    .has-error .form-control:focus,
+    .has-error select:focus,
+    .has-error input:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 1px #dc2626 !important;
+    }
+    .help-block-error {
+        color: #dc2626 !important;
+        font-weight: 500;
+    }
+    .dark .has-error .form-control,
+    .dark .has-error select,
+    .dark .has-error input {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 1px #ef4444 !important;
+    }
+    .dark .help-block-error {
+        color: #f87171 !important;
+    }
+    </style>
+
     <!-- Dati Assenza -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
@@ -146,30 +174,38 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepic
     </div>
 
     <!-- Alert Appuntamenti -->
-    <div id="appointments-alert" class="hidden rounded-2xl border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
-        <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <div class="flex">
+    <div id="appointments-alert" class="hidden rounded-2xl border-2 border-orange-300 bg-gradient-to-r from-orange-50 to-yellow-50 dark:border-orange-600 dark:from-orange-900/30 dark:to-yellow-900/30 shadow-lg">
+        <div class="px-6 py-5 sm:px-8 sm:py-6">
+            <div class="flex items-start">
                 <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50">
+                        <svg class="h-6 w-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
                 </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                        Attenzione: Appuntamenti nel periodo selezionato
+                <div class="ml-4 flex-1">
+                    <h3 class="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                        ⚠️ Attenzione: Appuntamenti nel periodo selezionato
                     </h3>
-                    <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                        <p id="appointments-count"></p>
-                        <div id="appointments-list" class="mt-2"></div>
+                    <div class="text-sm text-orange-700 dark:text-orange-300">
+                        <p id="appointments-count" class="font-medium mb-3"></p>
+                        <div id="appointments-list" class="mb-4"></div>
                         
-                        <div class="mt-3">
-                            <label class="flex items-center">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                            <label class="flex items-start cursor-pointer">
                                 <input type="checkbox" 
                                        name="update_appointments" 
                                        value="1" 
-                                       class="rounded border-gray-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50">
-                                <span class="ml-2 text-sm">Imposta tutti questi appuntamenti come "Terapista Assente"</span>
+                                       checked
+                                       class="mt-1 rounded border-orange-300 text-orange-600 shadow-sm focus:border-orange-300 focus:ring focus:ring-orange-200 focus:ring-opacity-50">
+                                <span class="ml-3 text-sm font-medium text-orange-800 dark:text-orange-200">
+                                     Imposta tutti questi appuntamenti come "Terapista Assente"
+                                </span>
                             </label>
+                            <p class="mt-2 text-xs text-orange-600 dark:text-orange-400">
+                                Questa azione aggiornerà automaticamente lo stato di tutti gli appuntamenti nel periodo selezionato.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -305,19 +341,26 @@ function checkAppointments() {
                     '<strong>Attenzione!</strong> Sono stati trovati <span class=\"font-bold\">' + data.count + '</span> appuntamenti nel periodo selezionato:'
                 );
                 
-                var listHtml = '<div class=\"mt-3 max-h-48 overflow-y-auto border border-yellow-200 rounded-lg p-3 bg-yellow-50/50 dark:border-yellow-700 dark:bg-yellow-900/30\">';
-                listHtml += '<ul class=\"space-y-2\">';
+                var listHtml = '<div class=\"max-h-64 overflow-y-auto border-2 border-orange-200 rounded-lg p-4 bg-white/80 dark:border-orange-700 dark:bg-gray-800/80 shadow-inner\">';
+                listHtml += '<div class=\"flex items-center justify-between mb-3\">';
+                listHtml += '<h4 class=\"text-sm font-semibold text-orange-800 dark:text-orange-200\">📅 Appuntamenti trovati:</h4>';
+                listHtml += '<span class=\"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200\">' + data.count + ' appuntamenti</span>';
+                listHtml += '</div>';
+                listHtml += '<ul class=\"space-y-3\">';
                 
-                data.appointments.forEach(function(appointment) {
-                    listHtml += '<li class=\"flex items-start\">';
-                    listHtml += '<svg class=\"w-4 h-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0\" fill=\"currentColor\" viewBox=\"0 0 20 20\">';
-                    listHtml += '<path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 1.414L10.586 9.5l-3.293-3.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l4-4a1 1 0 000-1.414z\" clip-rule=\"evenodd\"/>';
-                    listHtml += '</svg>';
-                    listHtml += '<span class=\"text-sm\">';
-                    listHtml += '<strong>' + appointment.date + '</strong> alle ' + appointment.time + ' - ';
-                    listHtml += '<span class=\"font-medium\">' + appointment.patient + '</span> ';
-                    listHtml += '<span class=\"text-gray-600\">(' + appointment.type + ')</span>';
-                    listHtml += '</span>';
+                data.appointments.forEach(function(appointment, index) {
+                    listHtml += '<li class=\"flex items-start p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800\">';
+                    listHtml += '<div class=\"flex items-center justify-center w-6 h-6 rounded-full bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 text-xs font-bold mr-3 flex-shrink-0\">' + (index + 1) + '</div>';
+                    listHtml += '<div class=\"flex-1\">';
+                    listHtml += '<div class=\"flex items-center justify-between\">';
+                    listHtml += '<span class=\"font-semibold text-orange-900 dark:text-orange-100\">' + appointment.date + '</span>';
+                    listHtml += '<span class=\"text-sm font-medium text-orange-700 dark:text-orange-300\">' + appointment.time + '</span>';
+                    listHtml += '</div>';
+                    listHtml += '<div class=\"mt-1\">';
+                    listHtml += '<span class=\"font-medium text-gray-900 dark:text-white\">' + appointment.patient + '</span>';
+                    listHtml += '<span class=\"ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200\">' + appointment.type + '</span>';
+                    listHtml += '</div>';
+                    listHtml += '</div>';
                     listHtml += '</li>';
                 });
                 

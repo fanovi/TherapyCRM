@@ -27,7 +27,7 @@ $this->params['breadcrumbs'][] = $therapistName;
                         'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                     ]) ?>
                     <?= Html::a('Elimina', ['delete', 'id' => $model->id], [
-                        'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                        'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-error-500 border border-transparent rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
                         'data' => [
                             'confirm' => 'Sei sicuro di voler eliminare questa assenza?',
                             'method' => 'post',
