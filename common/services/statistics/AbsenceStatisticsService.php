@@ -252,7 +252,7 @@ class AbsenceStatisticsService
                 'treatment_type_id' => new Expression('COALESCE(treatment_type_id, 0)'), // Usa 0 invece di NULL
                 'treatment_name' => new Expression("COALESCE(MIN(treatment_name), 'Trattamento non specificato')"),
                 'treatment_code' => new Expression("COALESCE(MIN(treatment_code), 'N/A')"),
-                'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
+                'total_absences' => new Expression('COUNT(DISTINCT CASE WHEN generated_by = "therapist" THEN absence_group_key END) + COUNT(DISTINCT CASE WHEN generated_by = "patient" THEN absence_group_key END)'),
                 'therapist_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"),
                 'patient_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"),
                 'justified_rate' => new Expression('ROUND(AVG(is_justified) * 100, 1)')
@@ -375,15 +375,15 @@ class AbsenceStatisticsService
     /**
      * Tasso mensile di assenze
      */
-    public function getMonthlyRate()
+    public function getMonthlyRate($filters = [])
     {
-        // Calcola per mese corrente
-        $currentMonth = date('Y-m');
+        // Se non ci sono filtri di date, usa il mese corrente come default
+        if (empty($filters['dateFrom']) && empty($filters['dateTo'])) {
+            $filters['dateFrom'] = date('Y-m-01');
+            $filters['dateTo'] = date('Y-m-t');
+        }
 
-        $query = $this->getBaseAbsencesQuery([
-            'dateFrom' => date('Y-m-01'),
-            'dateTo' => date('Y-m-t')
-        ]);
+        $query = $this->getBaseAbsencesQuery($filters);
 
         $absences = $query
             ->select([
@@ -392,14 +392,39 @@ class AbsenceStatisticsService
             ])
             ->one();
 
-        // Conta appuntamenti totali del mese (inclusi quelli con group_session_id)
+        // Conta appuntamenti totali nel periodo filtrato (inclusi quelli con group_session_id)
         $appointmentsQuery = (new Query())
             ->select([
                 'total_appointments' => new Expression('COUNT(DISTINCT COALESCE(group_session_id, CONCAT("single_", id)))')
             ])
             ->from('appointments')
-            ->where(['between', 'appointment_datetime', date('Y-m-01 00:00:00'), date('Y-m-t 23:59:59')])
             ->andWhere(['status' => ['scheduled', 'completed', 'absent_justified', 'absent_not_justified']]);
+
+        // Applica filtri di date
+        if (!empty($filters['dateFrom'])) {
+            $appointmentsQuery->andWhere(['>=', 'appointment_datetime', $filters['dateFrom'] . ' 00:00:00']);
+        }
+        if (!empty($filters['dateTo'])) {
+            $appointmentsQuery->andWhere(['<=', 'appointment_datetime', $filters['dateTo'] . ' 23:59:59']);
+        }
+
+        // Applica altri filtri
+        if (!empty($filters['therapistId'])) {
+            $appointmentsQuery->andWhere(['therapist_id' => $filters['therapistId']]);
+        }
+        if (!empty($filters['treatmentTypeId'])) {
+            $appointmentsQuery->andWhere([
+                'OR',
+                ['treatment_type_id' => $filters['treatmentTypeId']], // Appuntamenti privati
+                [
+                    'EXISTS',
+                    (new Query())
+                        ->from(['pt' => 'plan_therapies'])
+                        ->where('pt.id = appointments.plan_therapy_id')
+                        ->andWhere(['pt.treatment_type_id' => $filters['treatmentTypeId']])
+                ] // Appuntamenti con piano terapeutico
+            ]);
+        }
 
         $appointmentData = $appointmentsQuery->one();
         $totalAppointments = $appointmentData['total_appointments'] ?? 0;
@@ -410,19 +435,19 @@ class AbsenceStatisticsService
             'total_absences' => $absences['total'] ?? 0,
             'justified_absences' => $absences['justified'] ?? 0,
             'total_appointments' => $totalAppointments,
-            'absence_rate' => $rate,
-            'month' => $currentMonth
+            'absence_rate' => $rate
         ];
     }
 
     /**
      * Top assenti (terapisti e pazienti)
      */
-    public function getTopAbsentees($limit = 10)
+    public function getTopAbsentees($filters = [], $limit = 10)
     {
-        $filters = [
-            'dateFrom' => date('Y-m-01', strtotime('-3 months'))
-        ];
+        // Se non ci sono filtri di date, usa gli ultimi 3 mesi come default
+        if (empty($filters['dateFrom']) && empty($filters['dateTo'])) {
+            $filters['dateFrom'] = date('Y-m-01', strtotime('-3 months'));
+        }
 
         // Top terapisti assenti
         $therapistQuery = $this->getBaseAbsencesQuery($filters);

@@ -124,12 +124,15 @@ class StatisticsController extends BaseController
         $searchModel->load(Yii::$app->request->queryParams);
 
         try {
-            // Pre-carica i dati
-            $monthlyRate = $this->absenceService->getMonthlyRate();
+            // Estrai filtri una volta sola
+            $filters = $this->extractFilters($searchModel);
+            
+            // Pre-carica i dati con filtri
+            $monthlyRate = $this->absenceService->getMonthlyRate($filters);
             $byReason = $this->absenceService->getByReason($searchModel);
             $byGenerator = $this->absenceService->getByGenerator($searchModel);
-            $byTreatmentType = $this->absenceService->getByTreatmentType($this->extractFilters($searchModel));
-            $topAbsentees = $this->absenceService->getTopAbsentees();
+            $byTreatmentType = $this->absenceService->getByTreatmentType($filters);
+            $topAbsentees = $this->absenceService->getTopAbsentees($filters);
 
             // Opzioni per i filtri
             $therapistOptions = $this->getTherapistOptions();
