@@ -215,6 +215,7 @@ export interface TherapistSubstitutionRequest {
   appointmentId: number;
   newTherapistId: number;
   reason?: string;
+  dontRegisterAbsence?: boolean;
 }
 
 export interface TherapistSubstitutionResponse {

@@ -21,6 +21,8 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Appointment, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+// Aggiungi questo import per il Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface TherapistSubstitutionModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ interface TherapistSubstitutionModalProps {
     appointmentId: number;
     newTherapistId: number;
     reason?: string;
+    dontRegisterAbsence?: boolean;
   }) => void;
   appointment: Appointment | null;
   therapists: Therapist[];
@@ -43,6 +46,9 @@ export const TherapistSubstitutionModal: React.FC<
   const [availableTherapists, setAvailableTherapists] = useState<Therapist[]>(
     []
   );
+
+  // Aggiorna lo stato del componente aggiungendo:
+  const [dontRegisterAbsence, setDontRegisterAbsence] = useState(false);
   const [loadingTherapists, setLoadingTherapists] = useState(false);
   const [originalTherapist, setOriginalTherapist] = useState<Therapist | null>(
     null
@@ -53,6 +59,7 @@ export const TherapistSubstitutionModal: React.FC<
     if (isOpen && appointment?.therapist) {
       setSelectedTherapistId("");
       setReason("");
+      setDontRegisterAbsence(false);
       setAvailableTherapists([]);
       setOriginalTherapist(null);
 
@@ -121,6 +128,7 @@ export const TherapistSubstitutionModal: React.FC<
         appointmentId: appointment.id,
         newTherapistId: parseInt(selectedTherapistId),
         reason: reason.trim() || undefined,
+        dontRegisterAbsence: dontRegisterAbsence, // 🔥 NUOVO
       });
 
       // Se la sostituzione è andata a buon fine, chiama anche il callback per aggiornare la UI
@@ -128,6 +136,7 @@ export const TherapistSubstitutionModal: React.FC<
         appointmentId: appointment.id,
         newTherapistId: parseInt(selectedTherapistId),
         reason: reason.trim() || undefined,
+        dontRegisterAbsence: dontRegisterAbsence, // 🔥 NUOVO
       });
 
       onClose();
@@ -147,48 +156,38 @@ export const TherapistSubstitutionModal: React.FC<
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md py-4">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserX className="h-5 w-5 text-purple-600" />
             Sostituzione Terapista
+            {appointment.status === "therapist_absent" && (
+              <span className="text-sm font-normal text-purple-600">
+                (Assente)
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Informazioni appuntamento */}
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4 text-purple-600" />
-              <span className="font-medium text-purple-800">
-                {appointment.status === "therapist_absent"
-                  ? "Terapista Assente"
-                  : "Sostituzione Terapista"}
-              </span>
-            </div>
             <div className="space-y-1 text-sm text-purple-700">
               <p>
-                <strong>Paziente:</strong> {appointment.patient?.name}
+                <strong>Paziente:</strong> {appointment.patient?.name} •
+                <strong> Terapista:</strong> {appointment.therapist?.name}
+                {originalTherapist?.specialization && (
+                  <>
+                    {" "}
+                    • <strong>Spec.:</strong> {originalTherapist.specialization}
+                  </>
+                )}
               </p>
-              <p>
-                <strong>Terapista originale:</strong>{" "}
-                {appointment.therapist?.name}
-              </p>
-              {originalTherapist?.specialization && (
-                <p>
-                  <strong>Specializzazione:</strong>{" "}
-                  {originalTherapist.specialization}
-                </p>
-              )}
               <p>
                 <strong>Data:</strong>{" "}
-                {format(appointmentDate, "dd MMMM yyyy", { locale: it })}
-              </p>
-              <p>
-                <strong>Orario:</strong> {format(appointmentDate, "HH:mm")}
-              </p>
-              <p>
-                <strong>Durata:</strong> {appointment.duration} minuti
+                {format(appointmentDate, "dd MMMM yyyy", { locale: it })} •
+                <strong> Orario:</strong> {format(appointmentDate, "HH:mm")} •
+                <strong> Durata:</strong> {appointment.duration} min
               </p>
             </div>
           </div>
@@ -220,10 +219,9 @@ export const TherapistSubstitutionModal: React.FC<
           ) : (
             <>
               {/* Messaggio informativo specializzazione */}
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-700">
-                  <strong>Filtro:</strong> Vengono mostrati solo i terapisti con
-                  specializzazione{" "}
+                  Solo terapisti con spec.{" "}
                   <strong>{originalTherapist?.specialization}</strong>
                 </p>
               </div>
@@ -238,23 +236,24 @@ export const TherapistSubstitutionModal: React.FC<
 
                 return (
                   total > 0 && (
-                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-200">
                       <p className="text-sm text-gray-700">
-                        <strong>Disponibilità:</strong> {available} disponibili,{" "}
-                        {unavailable} non disponibili su {total} totali
+                        <strong>
+                          {available}/{total}
+                        </strong>{" "}
+                        disponibili
+                        {unavailable > 0 && (
+                          <span className="text-xs text-gray-600 ml-2">
+                            (quelli non disponibili sono disabilitati)
+                          </span>
+                        )}
                       </p>
-                      {unavailable > 0 && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          I terapisti non disponibili sono mostrati ma non
-                          selezionabili
-                        </p>
-                      )}
                     </div>
                   )
                 );
               })()}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Selezione nuovo terapista */}
                 <div className="space-y-2">
                   <Label htmlFor="new-therapist">Nuovo Terapista *</Label>
@@ -304,18 +303,14 @@ export const TherapistSubstitutionModal: React.FC<
 
                 {/* Preview nuovo terapista */}
                 {selectedTherapist && (
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 text-green-800">
-                      <UserCheck className="h-4 w-4" />
-                      <span className="font-medium">
-                        Nuovo Terapista: {selectedTherapist.name}
-                      </span>
-                    </div>
-                    <p className="text-sm text-green-700 mt-1">
+                  <div className="bg-green-50 p-2 rounded-lg border border-green-200 flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-800">
+                      <strong>{selectedTherapist.name}</strong> •{" "}
                       {selectedTherapist.specialization}
                       {selectedTherapist.weeklyHours &&
-                        ` • ${selectedTherapist.weeklyHours}h/settimana`}
-                    </p>
+                        ` • ${selectedTherapist.weeklyHours}h/sett`}
+                    </span>
                   </div>
                 )}
 
@@ -329,6 +324,22 @@ export const TherapistSubstitutionModal: React.FC<
                     placeholder="Inserisci il motivo della sostituzione (opzionale)"
                     rows={3}
                   />
+                </div>
+                {/* 🔥 NUOVO: Checkbox per non registrare assenza */}
+                <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                  <Checkbox
+                    id="dont-register-absence"
+                    checked={dontRegisterAbsence}
+                    onCheckedChange={(checked) =>
+                      setDontRegisterAbsence(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="dont-register-absence"
+                    className="text-sm text-blue-800 cursor-pointer"
+                  >
+                    Non registrare assenza del terapista originale
+                  </Label>
                 </div>
 
                 {/* Pulsanti */}

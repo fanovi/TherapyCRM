@@ -76,7 +76,7 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
                     <iframe 
                         src="<?= Html::encode($iframeSrc) ?>" 
                         frameborder="0" 
-                        style="width: 100%; height: 80vh; min-height: 600px;"
+                        style="width: 125%; height: 100vh; min-height: 600px;transform:scale(0.8);transform-origin: top left;"
                         title="Calendar App"
                         allowfullscreen>
                         <p>Il tuo browser non supporta gli iframe. 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { PatientSelector } from "@/components/PatientSelector";
@@ -74,6 +74,7 @@ const Index = () => {
   const [planTherapyCheckMessage, setPlanTherapyCheckMessage] = useState<
     string | null
   >(null);
+
   // Stati per modalità ABA
   const [isABARegime, setIsABARegime] = useState(false);
   const [existingSlotAppointments, setExistingSlotAppointments] = useState<
@@ -96,6 +97,12 @@ const Index = () => {
   const [therapistAbsences, setTherapistAbsences] = useState<
     TherapistAbsence[]
   >([]);
+
+  const calendarAnchorRef = useRef<HTMLDivElement>(null);
+  const scrollRestorationRef = useRef<{
+    position: number;
+    timestamp: number;
+  } | null>(null);
 
   // Funzione helper per verificare se una data è bloccata per assenza
   const isDateBlocked = (date: Date): boolean => {
@@ -301,16 +308,39 @@ const Index = () => {
   };
 
   const saveScrollPosition = () => {
-    return window.scrollY;
+    const position = calendarAnchorRef.current?.offsetTop || 0;
+    const scrollOffset = window.scrollY - position;
+
+    scrollRestorationRef.current = {
+      position: scrollOffset,
+      timestamp: Date.now(),
+    };
+
+    return scrollOffset;
   };
 
-  const restoreScrollPosition = (position: number) => {
-    setTimeout(() => {
-      window.scrollTo({
-        top: position,
-        behavior: "instant", // Usa 'instant' per evitare animazioni
-      });
-    }, 50);
+  const restoreScrollPosition = (offsetFromCalendar: number) => {
+    // Usa requestAnimationFrame per assicurarti che il DOM sia pronto
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (calendarAnchorRef.current) {
+          const targetPosition =
+            calendarAnchorRef.current.offsetTop + offsetFromCalendar;
+
+          window.scrollTo({
+            top: targetPosition,
+            behavior: "instant",
+          });
+
+          // Verifica e riprova se necessario
+          setTimeout(() => {
+            if (Math.abs(window.scrollY - targetPosition) > 5) {
+              window.scrollTo(0, targetPosition);
+            }
+          }, 100);
+        }
+      }, 150);
+    });
   };
 
   // Gestisce il cambio di mese/data nel calendario
@@ -569,6 +599,15 @@ const Index = () => {
     }`;
     sessionStorage.setItem(storageKey, viewType);
   }, [viewType, params.id_therapist, params.id_patient]);
+
+  useEffect(() => {
+    if (
+      scrollRestorationRef.current &&
+      Date.now() - scrollRestorationRef.current.timestamp < 2000
+    ) {
+      restoreScrollPosition(scrollRestorationRef.current.position);
+    }
+  }, [refreshKey]);
 
   const combinedAppointments = useMemo((): Appointment[] => {
     if (isTherapistView) {
@@ -1019,6 +1058,7 @@ const Index = () => {
     appointmentId: number;
     newTherapistId: number;
     reason?: string;
+    dontRegisterAbsence?: boolean;
   }) => {
     try {
       const scrollPos = saveScrollPosition();
@@ -1394,7 +1434,7 @@ const Index = () => {
             </div>
           </div>
         )}
-
+        <div ref={calendarAnchorRef} />
         <DualFullCalendarView
           key={refreshKey}
           selectedTherapist={selectedTherapist}

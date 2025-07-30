@@ -11,7 +11,7 @@ $currentRoute = $currentController . '/' . $currentAction;
 $menuMappings = [
     'Dashboard' => ['site/index'],
     'Calendar' => ['calendar/index'],
-    'Statistics' => ['statistics/index'],
+    'Statistics' => ['statistics/index', 'statistics/absences', 'statistics/patients', 'statistics/treatments', 'statistics/plans'],
     'Communications' => ['communication/index', 'communication/view'],
     'Administrators' => ['user/administrators', 'user/create-administrator', 'user/view-administrator', 'user/update-administrator'],
     'Coordinators' => ['user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator'],
@@ -134,8 +134,8 @@ function isSubmenuActive($routes, $currentRoute) {
                     <?php if (Yii::$app->user->can('view_statistics')): ?>
                     <li>
                         <a
-                            href="<?= Url::to(['statistics/index']) ?>"
-                            @click="selected = (selected === 'Statistics' ? '':'Statistics')"
+                            href="#"
+                            @click.prevent="selected = (selected === 'Statistics' ? '':'Statistics')"
                             class="menu-item group"
                             :class="(selected === 'Statistics') || <?= isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
                             <svg
@@ -157,7 +157,69 @@ function isSubmenuActive($routes, $currentRoute) {
                                 :class="sidebarToggle ? 'lg:hidden' : ''">
                                 Statistiche
                             </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Statistics') || <?= isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Statistics') || <?= isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/statistics/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['statistics/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Dashboard Generale
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/statistics/absences']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['statistics/absences'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Analisi Assenze
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/statistics/patients']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['statistics/patients'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Analisi Pazienti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/statistics/treatments']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['statistics/treatments'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Analisi Trattamenti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/statistics/plans']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['statistics/plans'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Analisi Piani
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Statistics -->
