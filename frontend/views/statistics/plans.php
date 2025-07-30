@@ -83,8 +83,7 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
                     <?= $form->field($searchModel, 'status')->dropDownList([
                         '' => 'Tutti gli stati',
                         'active' => 'Attivi',
-                        'completed' => 'Completati',
-                        'suspended' => 'Sospesi'
+                        'completed' => 'Completati'
                     ], ['class' => 'form-control'])->label('Stato piano') ?>
                 </div>
                 <div class="filter-col">
@@ -233,7 +232,13 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
                             <td>
                                 <span class="badge badge-gray">#<?= $plan['id'] ?></span>
                             </td>
-                            <td class="font-bold"><?= Html::encode($plan['patient_name']) ?></td>
+                            <td class="font-bold">
+                                <?= Html::a(
+                                    Html::encode($plan['patient_name']), 
+                                    ['patient/view', 'id' => $plan['patient_id']], 
+                                    ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
+                                ) ?>
+                            </td>
                             <td class="text-center"><?= $plan['total_appointments'] ?></td>
                             <td class="text-center">
                                 <span class="badge badge-green"><?= $plan['completed_appointments'] ?></span>
@@ -327,7 +332,13 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
                             <td>
                                 <span class="badge badge-gray">#<?= $plan['id'] ?></span>
                             </td>
-                            <td class="font-bold"><?= Html::encode($plan['patient_name']) ?></td>
+                            <td class="font-bold">
+                                <?= Html::a(
+                                    Html::encode($plan['patient_name']), 
+                                    ['patient/view', 'id' => $plan['patient_id']], 
+                                    ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
+                                ) ?>
+                            </td>
                             <td><?= Yii::$app->formatter->asDate($plan['end_date'], 'dd/MM/yyyy') ?></td>
                             <td class="text-center">
                                 <span class="badge <?= $urgencyClass ?>"><?= $daysLeft ?></span>

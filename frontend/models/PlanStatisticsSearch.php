@@ -26,7 +26,7 @@ class PlanStatisticsSearch extends Model
             [['status'], 'string'],
             [['minDuration', 'maxDuration', 'therapistId', 'patientId'], 'integer', 'min' => 0],
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
-            [['status'], 'in', 'range' => ['', 'active', 'completed', 'suspended']],
+            [['status'], 'in', 'range' => ['', 'active', 'completed']],
         ];
     }
 
@@ -54,8 +54,7 @@ class PlanStatisticsSearch extends Model
         return [
             '' => 'Tutti gli stati',
             'active' => 'Attivi',
-            'completed' => 'Completati',
-            'suspended' => 'Sospesi'
+            'completed' => 'Completati'
         ];
     }
 

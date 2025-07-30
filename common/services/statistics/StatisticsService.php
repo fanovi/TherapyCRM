@@ -234,13 +234,16 @@ public function getPatientGrowthData($params = [])
 
     /**
      * Statistiche piani terapeutici
+     *
+     * @param mixed $searchModel PlanStatisticsSearch per filtri (opzionale)
      */
-    public function getPlansStatistics()
+    public function getPlansStatistics($searchModel = null)
     {
         // Statistiche di completamento
         $completionRates = (new Query())
             ->select([
                 'tp.id',
+                'p.id as patient_id',
                 "CONCAT(p.first_name, ' ', p.last_name) as patient_name",
                 'COUNT(DISTINCT a.id) as total_appointments',
                 "COUNT(DISTINCT CASE WHEN a.status = 'completed' THEN a.id END) as completed_appointments",
@@ -249,9 +252,13 @@ public function getPatientGrowthData($params = [])
             ->from('therapeutic_plans tp')
             ->innerJoin('patients p', 'tp.patient_id = p.id')
             ->leftJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
-            ->leftJoin('appointments a', 'pt.id = a.plan_therapy_id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
-            ->groupBy(['tp.id', 'p.first_name', 'p.last_name'])
+            ->leftJoin('appointments a', 'pt.id = a.plan_therapy_id');
+        
+        // Applica filtri base
+        $this->applyPlanFilters($completionRates, $searchModel);
+        
+        $completionRates = $completionRates
+            ->groupBy(['tp.id', 'p.id', 'p.first_name', 'p.last_name'])
             ->having(['>', 'COUNT(DISTINCT a.id)', 0])
             ->orderBy(['completion_rate' => SORT_DESC])
             ->limit(20)
@@ -266,7 +273,11 @@ public function getPatientGrowthData($params = [])
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('regime r', 'tp.regime_id = r.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->innerJoin('patients p', 'tp.patient_id = p.id');
+        
+        $this->applyPlanFilters($byRegime, $searchModel);
+        
+        $byRegime = $byRegime
             ->groupBy(['r.id', 'r.nome'])
             ->orderBy(['plan_count' => SORT_DESC])
             ->all();
@@ -275,13 +286,18 @@ public function getPatientGrowthData($params = [])
         $planStates = (new Query())
             ->select([
                 new Expression("CASE 
-                    WHEN end_date < CURDATE() THEN 'Scaduti'
-                    WHEN end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'In scadenza'
+                    WHEN tp.end_date < CURDATE() THEN 'Scaduti'
+                    WHEN tp.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'In scadenza'
                     ELSE 'Attivi'
                 END as state"),
                 'COUNT(*) as count'
             ])
-            ->from('therapeutic_plans')
+            ->from('therapeutic_plans tp')
+            ->innerJoin('patients p', 'tp.patient_id = p.id');
+        
+        $this->applyPlanFilters($planStates, $searchModel);
+        
+        $planStates = $planStates
             ->groupBy(['state'])
             ->all();
 
@@ -306,12 +322,17 @@ public function getPatientGrowthData($params = [])
                 'tp.id',
                 'tp.start_date',
                 'tp.end_date',
+                'p.id as patient_id',
                 "CONCAT(p.first_name, ' ', p.last_name) as patient_name",
                 new Expression('DATEDIFF(tp.end_date, CURDATE()) as days_until_expiry')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('patients p', 'tp.patient_id = p.id')
-            ->where(['between', 'tp.end_date', date('Y-m-d'), date('Y-m-d', strtotime('+60 days'))])
+            ->where(['between', 'tp.end_date', date('Y-m-d'), date('Y-m-d', strtotime('+60 days'))]);
+        
+        $this->applyPlanFilters($expiringList, $searchModel);
+        
+        $expiringList = $expiringList
             ->orderBy(['tp.end_date' => SORT_ASC])
             ->limit(10)
             ->all();
@@ -320,17 +341,22 @@ public function getPatientGrowthData($params = [])
         $byDuration = (new Query())
             ->select([
                 new Expression("CASE 
-                    WHEN DATEDIFF(end_date, start_date) < 90 THEN 'short'
-                    WHEN DATEDIFF(end_date, start_date) < 365 THEN 'medium'
+                    WHEN DATEDIFF(tp.end_date, tp.start_date) < 90 THEN 'short'
+                    WHEN DATEDIFF(tp.end_date, tp.start_date) < 365 THEN 'medium'
                     ELSE 'long'
                 END as duration_category"),
                 'COUNT(*) as count',
-                'AVG(DATEDIFF(end_date, start_date)) as avg_duration'
+                'AVG(DATEDIFF(tp.end_date, tp.start_date)) as avg_duration'
             ])
-            ->from('therapeutic_plans')
+            ->from('therapeutic_plans tp')
+            ->innerJoin('patients p', 'tp.patient_id = p.id');
+        
+        $this->applyPlanFilters($byDuration, $searchModel);
+        
+        $byDuration = $byDuration
             ->groupBy(new Expression("CASE 
-                WHEN DATEDIFF(end_date, start_date) < 90 THEN 'short'
-                WHEN DATEDIFF(end_date, start_date) < 365 THEN 'medium'
+                WHEN DATEDIFF(tp.end_date, tp.start_date) < 90 THEN 'short'
+                WHEN DATEDIFF(tp.end_date, tp.start_date) < 365 THEN 'medium'
                 ELSE 'long'
             END"))
             ->orderBy('avg_duration')
@@ -339,11 +365,16 @@ public function getPatientGrowthData($params = [])
         // Trend mensili
         $monthlyTrends = (new Query())
             ->select([
-                new Expression("DATE_FORMAT(created_at, '%Y-%m') as month"),
+                new Expression("DATE_FORMAT(tp.created_at, '%Y-%m') as month"),
                 'COUNT(*) as count'
             ])
-            ->from('therapeutic_plans')
-            ->where(['>=', 'created_at', date('Y-m-01', strtotime('-11 months'))])
+            ->from('therapeutic_plans tp')
+            ->innerJoin('patients p', 'tp.patient_id = p.id')
+            ->where(['>=', 'tp.created_at', date('Y-m-01', strtotime('-11 months'))]);
+        
+        $this->applyPlanFilters($monthlyTrends, $searchModel);
+        
+        $monthlyTrends = $monthlyTrends
             ->groupBy('month')
             ->orderBy('month')
             ->all();
@@ -473,5 +504,76 @@ public function getPatientGrowthData($params = [])
             'actions_today' => $actionsToday,
             'top_actions' => $topActions
         ];
+    }
+
+    /**
+     * Applica i filtri del search model alle query dei piani
+     *
+     * @param Query $query
+     * @param mixed $searchModel
+     */
+    protected function applyPlanFilters($query, $searchModel)
+    {
+        if (!$searchModel) {
+            // Se non ci sono filtri, usa il comportamento predefinito (solo piani attivi)
+            $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            return;
+        }
+
+        // Filtro stato
+        if (!empty($searchModel->status)) {
+            switch ($searchModel->status) {
+                case 'active':
+                    $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+                    break;
+                case 'completed':
+                    $query->andWhere(['<', 'tp.end_date', date('Y-m-d')]);
+                    break;
+                default:
+                    // Tutti gli stati - non aggiungere filtro
+                    break;
+            }
+        } else {
+            // Default: solo piani attivi se non specificato diversamente
+            $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+        }
+
+        // Filtro durata minima
+        if (!empty($searchModel->minDuration)) {
+            $query->andWhere(['>=', new Expression('DATEDIFF(tp.end_date, tp.start_date)'), $searchModel->minDuration]);
+        }
+
+        // Filtro durata massima
+        if (!empty($searchModel->maxDuration)) {
+            $query->andWhere(['<=', new Expression('DATEDIFF(tp.end_date, tp.start_date)'), $searchModel->maxDuration]);
+        }
+
+        // Filtro data inizio
+        if (!empty($searchModel->dateFrom)) {
+            $query->andWhere(['>=', 'DATE(tp.start_date)', $searchModel->dateFrom]);
+        }
+
+        // Filtro data fine
+        if (!empty($searchModel->dateTo)) {
+            $query->andWhere(['<=', 'DATE(tp.start_date)', $searchModel->dateTo]);
+        }
+
+        // Filtro paziente
+        if (!empty($searchModel->patientId)) {
+            $query->andWhere(['tp.patient_id' => $searchModel->patientId]);
+        }
+
+        // Filtro terapista
+        if (!empty($searchModel->therapistId)) {
+            // Per il filtro terapista, dobbiamo joinare con plan_therapies e poi con therapist assignments
+            $subQuery = (new Query())
+                ->select('pt.therapeutic_plan_id')
+                ->distinct()
+                ->from('plan_therapies pt')
+                ->innerJoin('appointments a', 'pt.id = a.plan_therapy_id')
+                ->where(['a.therapist_id' => $searchModel->therapistId]);
+
+            $query->andWhere(['in', 'tp.id', $subQuery]);
+        }
     }
 }

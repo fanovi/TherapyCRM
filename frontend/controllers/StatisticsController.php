@@ -306,7 +306,7 @@ class StatisticsController extends BaseController
         $searchModel->load(Yii::$app->request->queryParams);
 
         try {
-            $plansStats = $this->statisticsService->getPlansStatistics();
+            $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
 
             return $this->render('plans', [
                 'searchModel' => $searchModel,
