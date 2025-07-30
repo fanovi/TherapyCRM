@@ -168,7 +168,7 @@ class StatisticsController extends BaseController
             $demographics = $this->patientService->getDemographics($searchModel);
             $byTreatment = $this->patientService->getByTreatment($searchModel);
             $byRegime = $this->patientService->getByRegime($searchModel);
-            $multiTreatmentStats = $this->patientService->getMultiTreatmentStats(true);
+            $multiTreatmentStats = $this->patientService->getMultiTreatmentStats($searchModel);
 
             // Opzioni per i filtri
             $treatmentOptions = $this->getTreatmentOptions();

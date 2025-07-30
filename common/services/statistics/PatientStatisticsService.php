@@ -52,10 +52,18 @@ class PatientStatisticsService
             ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
             ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
 
-        // Applica filtri del search model
-        $this->applyPatientFilters($query, $searchModel);
+        // Se ci sono filtri per treatmentTypeIds, mostra solo quelli
+        if (!empty($searchModel->treatmentTypeIds)) {
+            $query->andWhere(['tt.id' => $searchModel->treatmentTypeIds]);
+        }
+
+        // Applica altri filtri del search model (senza treatmentTypeIds per evitare duplicazione)
+        $tempSearchModel = clone $searchModel;
+        $tempSearchModel->treatmentTypeIds = null;
+        $this->applyPatientFilters($query, $tempSearchModel);
 
         return $query->groupBy(['tt.id', 'tt.name', 'tt.code'])
+            ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0]) // Mostra solo trattamenti con pazienti
             ->orderBy(['patient_count' => SORT_DESC])
             ->all();
     }
@@ -186,11 +194,21 @@ class PatientStatisticsService
     /**
      * Ottiene statistiche pazienti con trattamenti multipli
      *
-     * @param bool $excludeABA
+     * @param mixed $searchModelOrExcludeABA SearchModel per filtri o bool per escludere ABA
      * @return array
      */
-    public function getMultiTreatmentStats($excludeABA = true)
+    public function getMultiTreatmentStats($searchModelOrExcludeABA = true)
     {
+        // Determina se è stato passato un searchModel o un booleano
+        $isSearchModel = is_object($searchModelOrExcludeABA) && $searchModelOrExcludeABA instanceof PatientStatisticsSearch;
+        $excludeABA = $isSearchModel ? true : $searchModelOrExcludeABA;
+        $searchModel = $isSearchModel ? $searchModelOrExcludeABA : null;
+        
+        // Se c'è un searchModel, non usare cache per rispettare i filtri
+        if ($searchModel) {
+            return $this->getMultiTreatmentStatsWithFilters($searchModel, $excludeABA);
+        }
+
         $cacheKey = 'multi_treatment_stats_' . ($excludeABA ? 'no_aba' : 'with_aba');
 
         return Yii::$app->cache->getOrSet($cacheKey, function () use ($excludeABA) {
@@ -233,6 +251,59 @@ class PatientStatisticsService
                 'stats' => $stats
             ];
         }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
+    }
+
+    /**
+     * Ottiene statistiche pazienti con trattamenti multipli applicando filtri
+     *
+     * @param PatientStatisticsSearch $searchModel
+     * @param bool $excludeABA
+     * @return array
+     */
+    protected function getMultiTreatmentStatsWithFilters($searchModel, $excludeABA = true)
+    {
+        // Query base per pazienti con trattamenti multipli
+        $query = (new Query())
+            ->select([
+                'tp.patient_id',
+                'CONCAT(p.first_name, " ", p.last_name) as patient_name',
+                'COUNT(DISTINCT pt.treatment_type_id) as treatment_count',
+                'GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name) as treatments'
+            ])
+            ->from('therapeutic_plans tp')
+            ->innerJoin('patients p', 'tp.patient_id = p.id')
+            ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
+            ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
+            ->innerJoin('statistics_patients_mv sp', 'p.id = sp.id') // Join per applicare filtri
+            ->where(['>=', 'tp.end_date', date('Y-m-d')]);
+
+        if ($excludeABA) {
+            $query->andWhere(['not like', 'tt.name', '%ABA%']);
+        }
+
+        // Applica filtri dal search model
+        $this->applyPatientFilters($query, $searchModel);
+
+        $patients = $query->groupBy(['tp.patient_id', 'p.first_name', 'p.last_name'])
+            ->having(['>', 'treatment_count', 1])
+            ->orderBy(['treatment_count' => SORT_DESC, 'patient_name' => SORT_ASC])
+            ->all();
+
+        // Statistiche aggregate
+        $stats = (new Query())
+            ->select([
+                'AVG(treatment_count) as avg_treatments',
+                'MAX(treatment_count) as max_treatments',
+                'COUNT(*) as total_multi_patients'
+            ])
+            ->from(['subquery' => $query])
+            ->where(['>', 'treatment_count', 1])
+            ->one();
+
+        return [
+            'patients' => $patients,
+            'stats' => $stats
+        ];
     }
 
     /**
@@ -346,6 +417,18 @@ class PatientStatisticsService
             } else {
                 $query->andWhere(['<=', 'sp.trattamenti_count_no_aba', 1]);
             }
+        }
+
+        if (!empty($searchModel->treatmentTypeIds)) {
+            // Filtro per tipi di trattamento - applica solo ai pazienti che hanno questi trattamenti
+            $subQuery = (new Query())
+                ->select('tp_sub.patient_id')
+                ->distinct()
+                ->from('plan_therapies pt_sub')
+                ->innerJoin('therapeutic_plans tp_sub', 'pt_sub.therapeutic_plan_id = tp_sub.id')
+                ->where(['pt_sub.treatment_type_id' => $searchModel->treatmentTypeIds]);
+
+            $query->andWhere(['IN', 'tp.patient_id', $subQuery]);
         }
 
         if ($searchModel->districtId) {
