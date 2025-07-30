@@ -1,404 +1,738 @@
 <?php
 
 use yii\helpers\Html;
+use yii\widgets\ActiveForm;
 use yii\helpers\Url;
-use frontend\assets\StatisticsAsset;
-use frontend\widgets\StatsCard;
-use frontend\widgets\ChartWidget;
 
 /* @var $this yii\web\View */
+/* @var $searchModel frontend\models\PlanStatisticsSearch */
 /* @var $plansStats array */
 
-$this->title = 'Analisi Piani Terapeutici';
+$this->title = 'Statistiche Piani Terapeutici';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-StatisticsAsset::register($this);
+// Registra Chart.js
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('@web/css/statistics.css');
 
-$this->registerJs("
-", \yii\web\View::POS_READY);
+// Inizializza variabili se non definite
+$plansStats = $plansStats ?? [
+    'by_status' => [],
+    'by_duration' => [],
+    'completion_rates' => [],
+    'expiring_list' => [],
+    'monthly_trends' => []
+];
 
+// Funzione helper per verificare se ci sono filtri attivi
+$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) || 
+                    !empty($searchModel->status) || !empty($searchModel->minDuration) || 
+                    !empty($searchModel->maxDuration);
+
+// Calcola statistiche di riepilogo
+$activeCount = 0;
+$completedCount = 0;
+$suspendedCount = 0;
+foreach ($plansStats['by_status'] as $status) {
+    if ($status['status'] === 'active') $activeCount = $status['count'];
+    elseif ($status['status'] === 'completed') $completedCount = $status['count'];
+    elseif ($status['status'] === 'suspended') $suspendedCount = $status['count'];
+}
+$totalPlans = $activeCount + $completedCount + $suspendedCount;
+
+// Calcola tasso medio di completamento
+$avgCompletion = 0;
+if (!empty($plansStats['completion_rates'])) {
+    $avgCompletion = round(array_sum(array_column($plansStats['completion_rates'], 'completion_rate')) / count($plansStats['completion_rates']), 1);
+}
+
+// Helper per verificare se ci sono dati
+$hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plansStats['completion_rates']);
 ?>
 
-<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
-  <div class="space-y-4 md:space-y-6">
+<div class="statistics-plans">
+    <!-- Header con titolo -->
+    <div class="page-header">
+        <h1><?= Html::encode($this->title) ?></h1>
+        <p class="period-text">Analisi piani attivi, completati e in scadenza</p>
+    </div>
+
+    <!-- Filtri di ricerca -->
+    <div class="filter-card">
+        <div class="filter-header">
+            <h3>Filtri di ricerca</h3>
+            <?php if ($hasActiveFilters): ?>
+                <span class="active-filters-badge">
+                    <i class="fas fa-filter"></i> Filtri attivi
+                </span>
+            <?php endif; ?>
+        </div>
+
+        <?php $form = ActiveForm::begin([
+            'method' => 'get',
+            'options' => ['class' => 'filter-form']
+        ]); ?>
+
+        <!-- Filtri stato e durata -->
+        <div class="filter-section">
+            <h4>Filtri principali</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'status')->dropDownList([
+                        '' => 'Tutti gli stati',
+                        'active' => 'Attivi',
+                        'completed' => 'Completati',
+                        'suspended' => 'Sospesi'
+                    ], ['class' => 'form-control'])->label('Stato piano') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'minDuration')->textInput([
+                        'type' => 'number',
+                        'min' => 0,
+                        'class' => 'form-control',
+                        'placeholder' => 'Min giorni'
+                    ])->label('Durata minima (giorni)') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'maxDuration')->textInput([
+                        'type' => 'number',
+                        'min' => 0,
+                        'class' => 'form-control',
+                        'placeholder' => 'Max giorni'
+                    ])->label('Durata massima (giorni)') ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtri temporali -->
+        <div class="filter-section">
+            <h4>Periodo di riferimento</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700">Data inizio</label>
+                    <div class="relative">
+                        <?= Html::activeTextInput($searchModel, 'dateFrom', [
+                            'type' => 'date',
+                            'placeholder' => 'Seleziona data',
+                            'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden',
+                            'onclick' => 'this.showPicker()'
+                        ]) ?>
+                        <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-500">
+                            <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="filter-col">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700">Data fine</label>
+                    <div class="relative">
+                        <?= Html::activeTextInput($searchModel, 'dateTo', [
+                            'type' => 'date',
+                            'placeholder' => 'Seleziona data',
+                            'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden',
+                            'onclick' => 'this.showPicker()'
+                        ]) ?>
+                        <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-500">
+                            <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pulsanti azione -->
+        <div class="filter-actions">
+            <?= Html::submitButton('<i class="fas fa-search"></i> Applica filtri', [
+                'class' => 'btn btn-primary'
+            ]) ?>
+            <?= Html::a('<i class="fas fa-undo"></i> Rimuovi filtri', ['plans'], [
+                'class' => 'btn btn-secondary'
+            ]) ?>
+        </div>
+
+        <?php ActiveForm::end(); ?>
+    </div>
+
+    <?php if (!$hasData): ?>
+        <!-- Messaggio quando non ci sono dati -->
+        <div class="no-data-message">
+            <i class="fas fa-info-circle"></i>
+            <h3>Nessun piano trovato</h3>
+            <p>
+                Non sono presenti piani per i criteri selezionati.<br>
+                Prova a modificare i filtri di ricerca per visualizzare i dati.
+            </p>
+        </div>
+    <?php else: ?>
+
+        <!-- 1. Riepilogo principale -->
+        <div class="summary-card">
+            <h3>Riepilogo Piani</h3>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value green"><?= $activeCount ?></div>
+                    <div class="stat-label">Piani Attivi</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value blue"><?= $completedCount ?></div>
+                    <div class="stat-label">Completati</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value orange"><?= count($plansStats['expiring_list']) ?></div>
+                    <div class="stat-label">In Scadenza</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value gray"><?= $avgCompletion ?>%</div>
+                    <div class="stat-label">Completamento Medio</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Grafici distribuzione -->
+        <div class="section-title">
+            <h3>Distribuzione Piani</h3>
+        </div>
+        <div class="charts-row">
+            <div class="chart-card">
+                <h4>Distribuzione per Stato</h4>
+                <div class="chart-container">
+                    <canvas id="status-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h4>Distribuzione per Durata</h4>
+                <div class="chart-container">
+                    <canvas id="duration-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Top piani per completamento -->
+        <?php if (!empty($plansStats['completion_rates'])): ?>
+        <div class="full-width-card">
+            <h3>Top 10 Piani per Tasso di Completamento</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Piano ID</th>
+                        <th>Paziente</th>
+                        <th class="text-center">Appuntamenti</th>
+                        <th class="text-center">Completati</th>
+                        <th class="text-center">Tasso</th>
+                        <th class="text-center">Stato</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($plansStats['completion_rates'], 0, 10) as $plan): ?>
+                        <tr>
+                            <td>
+                                <span class="badge badge-gray">#<?= $plan['id'] ?></span>
+                            </td>
+                            <td class="font-bold"><?= Html::encode($plan['patient_name']) ?></td>
+                            <td class="text-center"><?= $plan['total_appointments'] ?></td>
+                            <td class="text-center">
+                                <span class="badge badge-green"><?= $plan['completed_appointments'] ?></span>
+                            </td>
+                            <td class="text-center">
+                                <?php 
+                                $rate = $plan['completion_rate'];
+                                $badgeClass = $rate >= 80 ? 'badge-green' : ($rate >= 60 ? 'badge-orange' : 'badge-red');
+                                ?>
+                                <span class="badge-small <?= $badgeClass ?>">
+                                    <?= $rate ?>%
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge-small badge-blue">Attivo</span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <!-- 4. Statistiche durata -->
+        <?php if (!empty($plansStats['by_duration'])): ?>
+        <div class="section-title">
+            <h3>Analisi per Durata</h3>
+        </div>
+        <div class="analysis-row">
+            <?php foreach ($plansStats['by_duration'] as $duration): ?>
+            <div class="table-card">
+                <h4>
+                    <?php
+                    switch($duration['duration_category']) {
+                        case 'short': echo 'Piani Brevi'; break;
+                        case 'medium': echo 'Piani Medi'; break;
+                        case 'long': echo 'Piani Lunghi'; break;
+                        default: echo Html::encode($duration['duration_category']);
+                    }
+                    ?>
+                </h4>
+                <div class="duration-stats">
+                    <div class="duration-item">
+                        <span class="duration-label">Numero piani:</span>
+                        <span class="duration-value"><?= $duration['count'] ?></span>
+                    </div>
+                    <div class="duration-item">
+                        <span class="duration-label">Durata media:</span>
+                        <span class="duration-value"><?= round($duration['avg_duration']) ?> giorni</span>
+                    </div>
+                    <div class="duration-item">
+                        <span class="duration-label">Range:</span>
+                        <span class="duration-value">
+                            <?php
+                            switch($duration['duration_category']) {
+                                case 'short': echo '< 90 giorni'; break;
+                                case 'medium': echo '90-365 giorni'; break;
+                                case 'long': echo '> 365 giorni'; break;
+                            }
+                            ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- 5. Piani in scadenza -->
+        <?php if (!empty($plansStats['expiring_list'])): ?>
+        <div class="full-width-card warning">
+            <h3><i class="fas fa-exclamation-triangle"></i> Piani in Scadenza (Prossimi 60 Giorni)</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Piano ID</th>
+                        <th>Paziente</th>
+                        <th>Data Scadenza</th>
+                        <th class="text-center">Giorni Rimanenti</th>
+                        <th class="text-center">Urgenza</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($plansStats['expiring_list'] as $plan): ?>
+                        <?php
+                        $daysLeft = $plan['days_until_expiry'];
+                        $urgencyClass = $daysLeft <= 7 ? 'badge-red' : ($daysLeft <= 30 ? 'badge-orange' : 'badge-yellow');
+                        $urgencyText = $daysLeft <= 7 ? 'Critica' : ($daysLeft <= 30 ? 'Alta' : 'Media');
+                        ?>
+                        <tr>
+                            <td>
+                                <span class="badge badge-gray">#<?= $plan['id'] ?></span>
+                            </td>
+                            <td class="font-bold"><?= Html::encode($plan['patient_name']) ?></td>
+                            <td><?= Yii::$app->formatter->asDate($plan['end_date'], 'dd/MM/yyyy') ?></td>
+                            <td class="text-center">
+                                <span class="badge <?= $urgencyClass ?>"><?= $daysLeft ?></span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge-small <?= $urgencyClass ?>"><?= $urgencyText ?></span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <div class="warning-message">
+                <i class="fas fa-info-circle"></i>
+                I piani in scadenza necessitano di attenzione. Considerare il rinnovo o la conclusione dei trattamenti.
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- 6. Trend mensile -->
+        <div class="full-width-card">
+            <h3>Trend Creazione Piani (Ultimi 12 Mesi)</h3>
+            <div class="chart-container large">
+                <canvas id="trend-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- 7. Azioni export -->
+        <div class="export-section">
+            <div class="info-text">
+                <i class="fas fa-info-circle"></i>
+                I dati mostrati sono filtrati secondo i criteri selezionati
+            </div>
+            <?= Html::a(
+                '<i class="fas fa-file-excel"></i> Esporta Report Excel',
+                ['export', 'type' => 'plans'] + Yii::$app->request->queryParams,
+                ['class' => 'btn btn-success']
+            ) ?>
+        </div>
+
+    <?php endif; ?>
+</div>
+
+<!-- CSS aggiuntivo per questa view -->
+<style>
+/* Stili specifici per le statistiche durata */
+.duration-stats {
+    padding: 16px 0;
+}
+
+.duration-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.duration-item:last-child {
+    border-bottom: none;
+}
+
+.duration-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.duration-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Card di avviso */
+.full-width-card.warning {
+    border-color: #fbbf24;
+    background-color: #fffbeb;
+}
+
+.full-width-card.warning h3 {
+    color: #92400e;
+}
+
+.warning-message {
+    margin-top: 20px;
+    padding: 16px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    color: #92400e;
+    font-size: 0.875rem;
+}
+
+.warning-message i {
+    margin-right: 8px;
+}
+
+/* Badge giallo */
+.badge-yellow {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.badge-small.badge-yellow {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* Stili per i date picker personalizzati */
+.shadow-theme-xs {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.focus\:border-brand-300:focus {
+    border-color: #93c5fd;
+}
+
+.focus\:ring-brand-500\/10:focus {
+    --tw-ring-color: rgba(59, 130, 246, 0.1);
+    --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+    --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+
+.focus\:ring-3:focus {
+    --tw-ring-offset-width: 3px;
+}
+
+.focus\:outline-hidden:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+
+/* Posizionamento dell'icona calendario */
+.filter-col .relative {
+    position: relative;
+}
+
+.filter-col .pointer-events-none {
+    pointer-events: none;
+}
+
+.filter-col .absolute {
+    position: absolute;
+}
+
+.filter-col .top-1\/2 {
+    top: 50%;
+}
+
+.filter-col .right-3 {
+    right: 0.75rem;
+}
+
+.filter-col .-translate-y-1\/2 {
+    transform: translateY(-50%);
+}
+</style>
+
+<?php if ($hasData): ?>
+<?php
+// Javascript per i grafici
+$this->registerJs("
+// Configurazione globale per Chart.js
+Chart.defaults.font.size = 12;
+Chart.defaults.maintainAspectRatio = false;
+
+// Variabili per memorizzare i grafici
+let statusChart = null;
+let durationChart = null;
+let trendChart = null;
+
+// Funzione per distruggere un grafico se esiste
+function destroyChart(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+// Funzione per inizializzare i grafici
+function initializeCharts() {
+    console.log('Inizializzazione grafici piani...');
     
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
-            <i class="fas fa-clipboard-list mr-2"></i>
-            Analisi Piani Terapeutici
-        </h1>
-        <div class="flex gap-3">
-            <?= Html::a(
-                '<i class="fas fa-arrow-left mr-2"></i> Dashboard',
-                ['index'],
-                ['class' => 'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50']
-            ) ?>
-            <?= Html::a(
-                '<i class="fas fa-download mr-2"></i> Esporta',
-                ['export', 'type' => 'plans'],
-                [
-                    'class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600',
-                    'data-method' => 'post'
-                ]
-            ) ?>
-        </div>
-    </div>
+    // Grafico stato
+    loadStatusChart();
+    
+    // Grafico durata
+    loadDurationChart();
+    
+    // Grafico trend
+    loadTrendChart();
+}
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <div class="col-span-1">
-            <?php
-            $activeCount = array_sum(array_filter(array_column($plansStats['by_status'], 'count'), function($item, $key) use ($plansStats) {
-                return $plansStats['by_status'][$key]['status'] === 'active';
-            }, ARRAY_FILTER_USE_BOTH));
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Piani Attivi',
-                'value' => $activeCount,
-                'icon' => 'fas fa-play-circle',
-                'color' => 'success',
-                'footer' => 'In corso di trattamento',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
+// Carica grafico stato
+function loadStatusChart() {
+    console.log('Caricamento grafico stato...');
+    
+    var statusData = " . json_encode($plansStats['by_status'] ?? []) . ";
+    
+    if (statusData && statusData.length > 0) {
+        destroyChart(statusChart);
+        var ctx = document.getElementById('status-chart');
+        if (ctx) {
+            statusChart = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: statusData.map(function(s) { 
+                        switch(s.status) {
+                            case 'active': return 'Attivi';
+                            case 'completed': return 'Completati';
+                            case 'suspended': return 'Sospesi';
+                            default: return s.status;
+                        }
+                    }),
+                    datasets: [{
+                        label: 'Piani',
+                        data: statusData.map(function(s) { return s.count; }),
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(249, 115, 22, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(249, 115, 22, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    var value = context.parsed;
+                                    var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    var percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
 
-        <div class="col-span-1">
-            <?php
-            $completedCount = array_sum(array_filter(array_column($plansStats['by_status'], 'count'), function($item, $key) use ($plansStats) {
-                return $plansStats['by_status'][$key]['status'] === 'completed';
-            }, ARRAY_FILTER_USE_BOTH));
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Piani Completati',
-                'value' => $completedCount,
-                'icon' => 'fas fa-check-circle',
-                'color' => 'primary',
-                'footer' => 'Terminati con successo',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= StatsCard::widget([
-                'title' => 'In Scadenza',
-                'value' => count($plansStats['expiring_list']),
-                'icon' => 'fas fa-clock',
-                'color' => 'warning',
-                'footer' => 'Prossimi 60 giorni',
-                'valueFormat' => 'number'
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?php
-            $avgCompletion = count($plansStats['completion_rates']) > 0 
-                ? round(array_sum(array_column($plansStats['completion_rates'], 'completion_rate')) / count($plansStats['completion_rates']), 1)
-                : 0;
-            ?>
-            <?= StatsCard::widget([
-                'title' => 'Tasso Completamento',
-                'value' => $avgCompletion,
-                'icon' => 'fas fa-chart-bar',
-                'color' => 'info',
-                'footer' => 'Media appuntamenti',
-                'valueFormat' => 'percentage'
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div class="col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione per Stato',
-                'type' => 'doughnut',
-                'data' => [
-                    'labels' => array_map(function($item) {
-                        return $item['status'] === 'active' ? 'Attivi' : 'Completati';
-                    }, $plansStats['by_status']),
-                    'datasets' => [
-                        [
-                            'label' => 'Numero Piani',
-                            'data' => array_column($plansStats['by_status'], 'count'),
-                            'backgroundColor' => ['#1cc88a', '#4e73df']
-                        ]
-                    ]
-                ],
-                'height' => 300
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Distribuzione per Durata',
-                'type' => 'bar',
-                'data' => [
-                    'labels' => array_map(function($item) {
-                        switch($item['duration_category']) {
+// Carica grafico durata
+function loadDurationChart() {
+    console.log('Caricamento grafico durata...');
+    
+    var durationData = " . json_encode($plansStats['by_duration'] ?? []) . ";
+    
+    if (durationData && durationData.length > 0) {
+        destroyChart(durationChart);
+        var ctx = document.getElementById('duration-chart');
+        if (ctx) {
+            durationChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: durationData.map(function(d) { 
+                        switch(d.duration_category) {
                             case 'short': return 'Breve (<90gg)';
                             case 'medium': return 'Medio (90-365gg)';
                             case 'long': return 'Lungo (>365gg)';
-                            default: return $item['duration_category'];
+                            default: return d.duration_category;
                         }
-                    }, $plansStats['by_duration']),
-                    'datasets' => [
-                        [
-                            'label' => 'Numero Piani',
-                            'data' => array_column($plansStats['by_duration'], 'count'),
-                            'backgroundColor' => ['#f6c23e', '#36b9cc', '#e74a3b']
-                        ]
-                    ]
-                ],
-                'height' => 300
-            ]) ?>
-        </div>
-
-        <div class="col-span-1">
-            <?= ChartWidget::widget([
-                'title' => 'Trend Creazione Mensile',
-                'type' => 'line',
-                'data' => [
-                    'labels' => array_column($plansStats['monthly_trends'], 'month'),
-                    'datasets' => [
-                        [
-                            'label' => 'Nuovi Piani',
-                            'data' => array_column($plansStats['monthly_trends'], 'count'),
-                            'borderColor' => '#4e73df',
-                            'backgroundColor' => 'rgba(78, 115, 223, 0.1)',
-                            'fill' => true
-                        ]
-                    ]
-                ],
-                'height' => 300,
-                'options' => [
-                    'scales' => [
-                        'y' => [
-                            'beginAtZero' => true
-                        ]
-                    ]
-                ]
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Completion Rates Table -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h6 class="text-lg font-semibold text-gray-900">
-                        <i class="fas fa-percentage mr-2"></i>
-                        Top 10 Piani per Tasso di Completamento
-                    </h6>
-                </div>
-                <div class="p-6">
-                    <?php if (!empty($plansStats['completion_rates'])): ?>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Piano ID</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paziente</th>
-                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Appuntamenti Totali</th>
-                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Completati</th>
-                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tasso</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <?php foreach ($plansStats['completion_rates'] as $plan): ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"><?= $plan['id'] ?></span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900"><?= Html::encode($plan['patient_name']) ?></div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm text-gray-900"><?= $plan['total_appointments'] ?></div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><?= $plan['completed_appointments'] ?></span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        <?php 
-                                        $rate = $plan['completion_rate'];
-                                        $badgeClass = $rate >= 80 ? 'bg-green-100 text-green-800' : ($rate >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
-                                        ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $badgeClass ?>"><?= $rate ?>%</span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php else: ?>
-                    <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-info-circle text-blue-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-blue-700">Nessun dato di completamento disponibile.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h6 class="text-lg font-semibold text-gray-900">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Statistiche Durata
-                    </h6>
-                </div>
-                <div class="p-6">
-                    <?php foreach ($plansStats['by_duration'] as $duration): ?>
-                    <div class="mb-4 p-4 border border-gray-200 rounded-lg">
-                        <h6 class="text-blue-600 font-medium mb-2">
-                            <?php
-                            switch($duration['duration_category']) {
-                                case 'short': echo 'Piani Brevi (<90 giorni)'; break;
-                                case 'medium': echo 'Piani Medi (90-365 giorni)'; break;
-                                case 'long': echo 'Piani Lunghi (>365 giorni)'; break;
-                                default: echo Html::encode($duration['duration_category']);
-                            }
-                            ?>
-                        </h6>
-                        <p class="mb-2">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><?= $duration['count'] ?></span>
-                            <span class="text-sm text-gray-500 ml-2">piani</span>
-                        </p>
-                        <p class="text-sm text-gray-600">
-                            Durata media: <span class="font-medium text-gray-900"><?= round($duration['avg_duration']) ?> giorni</span>
-                        </p>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Expiring Plans -->
-    <div class="mb-6">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h6 class="text-lg font-semibold text-yellow-600">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    Piani in Scadenza (Prossimi 60 Giorni)
-                </h6>
-            </div>
-            <div class="p-6">
-                <?php if (!empty($plansStats['expiring_list'])): ?>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Piano ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paziente</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Scadenza</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Giorni Rimanenti</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Urgenza</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($plansStats['expiring_list'] as $plan): ?>
-                            <?php
-                            $daysLeft = $plan['days_until_expiry'];
-                            $urgencyClass = $daysLeft <= 7 ? 'bg-red-100 text-red-800' : ($daysLeft <= 30 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800');
-                            $urgencyText = $daysLeft <= 7 ? 'Critica' : ($daysLeft <= 30 ? 'Alta' : 'Media');
-                            ?>
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"><?= $plan['id'] ?></span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900"><?= Html::encode($plan['patient_name']) ?></div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900"><?= date('d/m/Y', strtotime($plan['end_date'])) ?></div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $urgencyClass ?>"><?= $daysLeft ?></span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $urgencyClass ?>"><?= $urgencyText ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="mt-6">
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-info-circle text-yellow-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-yellow-700">
-                                    <span class="font-medium">Attenzione:</span> I piani in scadenza necessitano di attenzione. 
-                                    Considerare il rinnovo o la conclusione dei trattamenti.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <?php else: ?>
-                <div class="bg-green-50 border border-green-200 rounded-md p-4">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-green-400"></i>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-green-700">Nessun piano in scadenza nei prossimi 60 giorni.</p>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- Monthly Trends Chart -->
-    <div class="mb-6">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h6 class="text-lg font-semibold text-gray-900">
-                    <i class="fas fa-chart-line mr-2"></i>
-                    Trend Creazione Piani Mensile (Ultimi 12 Mesi)
-                </h6>
-            </div>
-            <div class="p-6">
-                <?= ChartWidget::widget([
-                    'title' => false,
-                    'type' => 'line',
-                    'ajaxUrl' => Url::to(['chart-data', 'type' => 'plans-monthly']),
-                    'height' => 350,
-                    'options' => [
-                        'scales' => [
-                            'y' => [
-                                'beginAtZero' => true,
-                                'ticks' => [
-                                    'precision' => 0
-                                ]
-                            ]
+                    }),
+                    datasets: [{
+                        label: 'Numero piani',
+                        data: durationData.map(function(d) { return d.count; }),
+                        backgroundColor: [
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(54, 185, 204, 0.8)',
+                            'rgba(231, 74, 59, 0.8)'
                         ],
-                        'plugins' => [
-                            'legend' => [
-                                'display' => true
-                            ]
-                        ]
-                    ]
-                ]) ?>
-            </div>
-        </div>
-    </div>
-</div> 
+                        borderColor: [
+                            'rgba(251, 191, 36, 1)',
+                            'rgba(54, 185, 204, 1)',
+                            'rgba(231, 74, 59, 1)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            title: {
+                                display: true,
+                                text: 'Numero piani'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Categoria durata'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Carica grafico trend
+function loadTrendChart() {
+    console.log('Caricamento grafico trend...');
+    
+    var trendData = " . json_encode($plansStats['monthly_trends'] ?? []) . ";
+    
+    if (trendData && trendData.length > 0) {
+        destroyChart(trendChart);
+        var ctx = document.getElementById('trend-chart');
+        if (ctx) {
+            trendChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: trendData.map(function(t) { return t.month; }),
+                    datasets: [{
+                        label: 'Nuovi piani',
+                        data: trendData.map(function(t) { return t.count; }),
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            title: {
+                                display: true,
+                                text: 'Numero piani'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Mese'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Attendi che Chart.js sia caricato
+if (typeof Chart !== 'undefined') {
+    console.log('Chart.js già caricato, inizializzo i grafici');
+    initializeCharts();
+} else {
+    console.log('Attendo caricamento Chart.js...');
+    // Riprova dopo un breve delay
+    setTimeout(function() {
+        if (typeof Chart !== 'undefined') {
+            initializeCharts();
+        } else {
+            console.error('Chart.js non trovato!');
+        }
+    }, 1000);
+}
+", \yii\web\View::POS_READY);
+?>
+<?php endif; ?>

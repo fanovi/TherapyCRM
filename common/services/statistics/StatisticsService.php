@@ -285,10 +285,77 @@ public function getPatientGrowthData($params = [])
             ->groupBy(['state'])
             ->all();
 
+        // Converti plan_states in by_status per compatibilità con la vista
+        $byStatus = [];
+        foreach ($planStates as $state) {
+            $status = 'active';
+            if ($state['state'] === 'Scaduti') {
+                $status = 'completed';
+            } elseif ($state['state'] === 'In scadenza') {
+                $status = 'expiring';
+            }
+            $byStatus[] = [
+                'status' => $status,
+                'count' => $state['count']
+            ];
+        }
+
+        // Lista piani in scadenza
+        $expiringList = (new Query())
+            ->select([
+                'tp.id',
+                'tp.start_date',
+                'tp.end_date',
+                "CONCAT(p.first_name, ' ', p.last_name) as patient_name",
+                new Expression('DATEDIFF(tp.end_date, CURDATE()) as days_until_expiry')
+            ])
+            ->from('therapeutic_plans tp')
+            ->innerJoin('patients p', 'tp.patient_id = p.id')
+            ->where(['between', 'tp.end_date', date('Y-m-d'), date('Y-m-d', strtotime('+60 days'))])
+            ->orderBy(['tp.end_date' => SORT_ASC])
+            ->limit(10)
+            ->all();
+
+        // Statistiche per durata
+        $byDuration = (new Query())
+            ->select([
+                new Expression("CASE 
+                    WHEN DATEDIFF(end_date, start_date) < 90 THEN 'short'
+                    WHEN DATEDIFF(end_date, start_date) < 365 THEN 'medium'
+                    ELSE 'long'
+                END as duration_category"),
+                'COUNT(*) as count',
+                'AVG(DATEDIFF(end_date, start_date)) as avg_duration'
+            ])
+            ->from('therapeutic_plans')
+            ->groupBy(new Expression("CASE 
+                WHEN DATEDIFF(end_date, start_date) < 90 THEN 'short'
+                WHEN DATEDIFF(end_date, start_date) < 365 THEN 'medium'
+                ELSE 'long'
+            END"))
+            ->orderBy('avg_duration')
+            ->all();
+
+        // Trend mensili
+        $monthlyTrends = (new Query())
+            ->select([
+                new Expression("DATE_FORMAT(created_at, '%Y-%m') as month"),
+                'COUNT(*) as count'
+            ])
+            ->from('therapeutic_plans')
+            ->where(['>=', 'created_at', date('Y-m-01', strtotime('-11 months'))])
+            ->groupBy('month')
+            ->orderBy('month')
+            ->all();
+
         return [
             'completion_rates' => $completionRates,
             'by_regime' => $byRegime,
-            'plan_states' => $planStates
+            'plan_states' => $planStates,
+            'by_status' => $byStatus,
+            'expiring_list' => $expiringList,
+            'by_duration' => $byDuration,
+            'monthly_trends' => $monthlyTrends
         ];
     }
 

@@ -11,6 +11,7 @@ use yii\web\BadRequestHttpException;
 use frontend\models\AbsenceStatisticsSearch;
 use frontend\models\PatientStatisticsSearch;
 use frontend\models\TreatmentStatisticsSearch;
+use frontend\models\PlanStatisticsSearch;
 use common\services\statistics\StatisticsService;
 use common\services\statistics\AbsenceStatisticsService;
 use common\services\statistics\PatientStatisticsService;
@@ -294,10 +295,14 @@ class StatisticsController extends BaseController
      */
     public function actionPlans()
     {
+        $searchModel = new PlanStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
         try {
             $plansStats = $this->statisticsService->getPlansStatistics();
 
             return $this->render('plans', [
+                'searchModel' => $searchModel,
                 'plansStats' => $plansStats,
             ]);
         } catch (\Exception $e) {
