@@ -30,13 +30,13 @@ class AbsenceStatisticsService
                 'absence_hour' => new Expression('HOUR(a.appointment_datetime)'),
                 'absence_day_name' => new Expression('DAYNAME(a.appointment_datetime)'),
                 'absence_day_number' => new Expression('DAYOFWEEK(a.appointment_datetime)'),
-                'patient_id' => 'tp.patient_id',
+                'patient_id' => new Expression('COALESCE(tp.patient_id, a.patient_id)'),
                 'patient_name' => 'p.first_name',
                 'patient_surname' => 'p.last_name',
                 'therapist_id' => 't.id',
                 'therapist_name' => 'up_th.first_name',
                 'therapist_surname' => 'up_th.last_name',
-                'treatment_type_id' => 'pt.treatment_type_id',
+                'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
                 'absence_reason' => 'ab.reason',
@@ -56,11 +56,11 @@ class AbsenceStatisticsService
             ->where(['NOT IN', 'a.status', ['completed', 'deleted']]) // Escludi solo quelli completati o cancellati
             ->leftJoin(['pt' => 'plan_therapies'], 'a.plan_therapy_id = pt.id')
             ->leftJoin(['tp' => 'therapeutic_plans'], 'pt.therapeutic_plan_id = tp.id')
-            ->leftJoin(['p' => 'patients'], 'tp.patient_id = p.id')
+            ->leftJoin(['p' => 'patients'], new Expression('COALESCE(tp.patient_id, a.patient_id) = p.id'))
             ->leftJoin(['t' => 'therapists'], 'a.therapist_id = t.id')
             ->leftJoin(['u_th' => 'users'], 't.user_id = u_th.id')
             ->leftJoin(['up_th' => 'user_profiles'], 'u_th.id = up_th.user_id')
-            ->leftJoin(['tt' => 'treatment_types'], 'pt.treatment_type_id = tt.id')
+            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'))
             ->leftJoin(['ar' => 'absence_recoveries'], 'ar.original_appointment_id = a.id');
 
         // Assenze per sostituzione
@@ -75,13 +75,13 @@ class AbsenceStatisticsService
                 'absence_hour' => new Expression('HOUR(a.appointment_datetime)'),
                 'absence_day_name' => new Expression('DAYNAME(a.appointment_datetime)'),
                 'absence_day_number' => new Expression('DAYOFWEEK(a.appointment_datetime)'),
-                'patient_id' => 'tp.patient_id',
+                'patient_id' => new Expression('COALESCE(tp.patient_id, a.patient_id)'),
                 'patient_name' => 'p.first_name',
                 'patient_surname' => 'p.last_name',
                 'therapist_id' => 't_orig.id',
                 'therapist_name' => 'up_th_orig.first_name',
                 'therapist_surname' => 'up_th_orig.last_name',
-                'treatment_type_id' => 'pt.treatment_type_id',
+                'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
                 'absence_reason' => 'ab.reason',
@@ -101,11 +101,11 @@ class AbsenceStatisticsService
             )
             ->leftJoin(['pt' => 'plan_therapies'], 'a.plan_therapy_id = pt.id')
             ->leftJoin(['tp' => 'therapeutic_plans'], 'pt.therapeutic_plan_id = tp.id')
-            ->leftJoin(['p' => 'patients'], 'tp.patient_id = p.id')
+            ->leftJoin(['p' => 'patients'], new Expression('COALESCE(tp.patient_id, a.patient_id) = p.id'))
             ->leftJoin(['t_orig' => 'therapists'], 'ts.original_therapist_id = t_orig.id')
             ->leftJoin(['u_th_orig' => 'users'], 't_orig.user_id = u_th_orig.id')
             ->leftJoin(['up_th_orig' => 'user_profiles'], 'u_th_orig.id = up_th_orig.user_id')
-            ->leftJoin(['tt' => 'treatment_types'], 'pt.treatment_type_id = tt.id')
+            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'))
             ->leftJoin(['ar' => 'absence_recoveries'], 'ar.original_appointment_id = a.id');
 
         // Assenze pazienti - gestisce anche appuntamenti privati
@@ -245,17 +245,19 @@ class AbsenceStatisticsService
     {
         $query = $this->getBaseAbsencesQuery($filters);
 
+        // Log rimosso - problema identificato: appuntamenti 499, 508, 509, 524, 525, 526
+
         return $query
             ->select([
-                'treatment_type_id',
-                'treatment_name' => new Expression('MIN(treatment_name)'),
-                'treatment_code' => new Expression('MIN(treatment_code)'),
+                'treatment_type_id' => new Expression('COALESCE(treatment_type_id, 0)'), // Usa 0 invece di NULL
+                'treatment_name' => new Expression("COALESCE(MIN(treatment_name), 'Trattamento non specificato')"),
+                'treatment_code' => new Expression("COALESCE(MIN(treatment_code), 'N/A')"),
                 'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'therapist_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"),
                 'patient_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"),
                 'justified_rate' => new Expression('ROUND(AVG(is_justified) * 100, 1)')
             ])
-            ->groupBy(['treatment_type_id'])
+            ->groupBy([new Expression('COALESCE(treatment_type_id, 0)')])
             ->having(['>', 'COUNT(DISTINCT absence_group_key)', 0])
             ->orderBy(['total_absences' => SORT_DESC])
             ->limit(10)

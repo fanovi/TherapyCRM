@@ -282,4 +282,6 @@ class SearchController extends Controller
             return null;
         }
     }
+
+
 } 

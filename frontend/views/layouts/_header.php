@@ -411,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let totalPages = 1;
     let searchTimeout = null;
     let currentRequest = null;
+    let suggestionsLoaded = false;
 
     // Funzione per nascondere i risultati
     function hideResults() {
@@ -441,6 +442,105 @@ document.addEventListener('DOMContentLoaded', function() {
         searchPagination.classList.add('hidden');
     }
 
+    // Funzione per caricare i suggerimenti rapidi
+    function loadQuickSuggestions() {
+        if (suggestionsLoaded) {
+            showResults();
+            return;
+        }
+
+        showLoading();
+        showResults();
+        
+        fetch(`<?= \yii\helpers\Url::to(['/search/quick-suggestions']) ?>?limit=5`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            hideLoading();
+            
+            if (data.success && data.data.length > 0) {
+                displayQuickSuggestions(data.data);
+                suggestionsLoaded = true;
+            } else {
+                hideResults();
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error loading suggestions:', error);
+            hideResults();
+        });
+    }
+
+    // Funzione per mostrare i suggerimenti rapidi
+    function displayQuickSuggestions(suggestions) {
+        hideResultsContent();
+        
+        // Aggiungi un header per i suggerimenti
+        const headerHtml = `
+            <div class="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <svg class="inline-block w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Pazienti recenti
+            </div>
+        `;
+        
+        const resultsHtml = headerHtml + suggestions.map(result => {
+            const roleClass = getRoleClass(result.type);
+            const avatarBg = getAvatarBgColor(result.type);
+            
+            return `
+                <div class="search-result-item p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0" 
+                     data-url="${result.detail_url}" data-type="${result.type}">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center">
+                                <span class="text-sm font-medium text-white">${result.avatar_initials}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${result.name}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleClass}">${result.role}</span>
+                                ${result.last_visit ? `<span class="text-xs text-gray-400">• ${result.last_visit}</span>` : ''}
+                            </div>
+                            ${result.email ? `<p class="text-xs text-gray-400 truncate mt-1">${result.email}</p>` : ''}
+                        </div>
+                        <div class="flex-shrink-0">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        searchResultsContent.innerHTML = resultsHtml;
+        
+        // Aggiungi event listeners per i click
+        document.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const url = this.dataset.url;
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+        });
+    }
+
     // Funzione per eseguire la ricerca
     function performSearch(query, page = 1) {
         if (query.length < 2) {
@@ -456,8 +556,8 @@ document.addEventListener('DOMContentLoaded', function() {
         showLoading();
         showResults();
 
-                 // Crea l'URL per la ricerca
-         const apiUrl = `<?= \yii\helpers\Url::to(['/search/user']) ?>?q=${encodeURIComponent(query)}&page=${page}&limit=10`;
+        // Crea l'URL per la ricerca
+        const apiUrl = `<?= \yii\helpers\Url::to(['/search/user']) ?>?q=${encodeURIComponent(query)}&page=${page}&limit=10`;
 
         currentRequest = fetch(apiUrl, {
             method: 'GET',
@@ -465,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            credentials: 'same-origin' // Include cookies per l'autenticazione di sessione
+            credentials: 'same-origin'
         })
         .then(response => {
             if (!response.ok) {
@@ -613,13 +713,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-
-
     // Event listener per l'input di ricerca
     searchInput.addEventListener('input', function() {
         const query = this.value.trim();
         currentQuery = query;
         currentPage = 1;
+        suggestionsLoaded = false; // Reset suggestions flag
+        
+        // Se l'utente cancella tutto il testo, mostra di nuovo i suggerimenti
+        if (query.length === 0) {
+            loadQuickSuggestions();
+            return;
+        }
         
         // Cancella il timeout precedente
         if (searchTimeout) {
@@ -636,6 +741,9 @@ document.addEventListener('DOMContentLoaded', function() {
     searchInput.addEventListener('focus', function() {
         if (currentQuery && currentQuery.length >= 2) {
             showResults();
+        } else if (!currentQuery) {
+            // Se non c'è query, mostra i suggerimenti rapidi
+            loadQuickSuggestions();
         }
     });
 

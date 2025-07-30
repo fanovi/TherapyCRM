@@ -411,4 +411,149 @@ class SearchController extends Controller
             
         return $accountPatient;
     }
+
+    /**
+ * Suggerimenti rapidi per la ricerca (ultimi pazienti visitati o più recenti)
+ * 
+ * @return array
+ */
+public function actionQuickSuggestions()
+{
+    Yii::$app->response->format = Response::FORMAT_JSON;
+    
+    try {
+        $limit = (int) Yii::$app->request->get('limit', 5);
+        $results = [];
+        
+        // Determina il tipo di utente corrente
+        $currentUser = Yii::$app->user->identity;
+        $auth = Yii::$app->authManager;
+        $userRoles = array_keys($auth->getRolesByUser($currentUser->id));
+        
+        // Se è un terapista, mostra i suoi pazienti recenti
+        if (in_array('therapist', $userRoles)) {
+            $therapist = Therapist::findOne(['user_id' => $currentUser->id]);
+            
+            if ($therapist) {
+                // Query per ottenere i pazienti con sessioni recenti
+                $recentPatientIds = \Yii::$app->db->createCommand("
+                    SELECT DISTINCT p.id
+                    FROM patients p
+                    INNER JOIN therapy_sessions ts ON ts.patient_id = p.id
+                    WHERE ts.therapist_id = :therapist_id
+                    AND ts.status IN ('completed', 'scheduled')
+                    ORDER BY MAX(ts.scheduled_at) DESC
+                    LIMIT :limit
+                ")
+                ->bindValue(':therapist_id', $therapist->id)
+                ->bindValue(':limit', $limit)
+                ->queryColumn();
+                
+                if (!empty($recentPatientIds)) {
+                    $patients = Patient::find()
+                        ->where(['id' => $recentPatientIds])
+                        ->all();
+                    
+                    // Ordina secondo l'ordine originale
+                    $orderedPatients = [];
+                    foreach ($recentPatientIds as $id) {
+                        foreach ($patients as $patient) {
+                            if ($patient->id == $id) {
+                                $orderedPatients[] = $patient;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    foreach ($orderedPatients as $patient) {
+                        // Trova l'ultima sessione
+                        $lastSession = \Yii::$app->db->createCommand("
+                            SELECT scheduled_at
+                            FROM therapy_sessions
+                            WHERE patient_id = :patient_id
+                            AND therapist_id = :therapist_id
+                            AND status IN ('completed', 'scheduled')
+                            ORDER BY scheduled_at DESC
+                            LIMIT 1
+                        ")
+                        ->bindValue(':patient_id', $patient->id)
+                        ->bindValue(':therapist_id', $therapist->id)
+                        ->queryScalar();
+                        
+                        $results[] = [
+                            'id' => $patient->id,
+                            'type' => 'patient',
+                            'name' => $patient->getFullName(),
+                            'role' => 'Paziente',
+                            'email' => null,
+                            'phone' => null,
+                            'detail_url' => $this->generateDetailUrl('patient', $patient->id),
+                            'avatar_initials' => $this->getInitials($patient->first_name, $patient->last_name),
+                            'last_visit' => $lastSession ? Yii::$app->formatter->asRelativeTime($lastSession) : null
+                        ];
+                    }
+                }
+            }
+        } 
+        // Se è un account paziente, mostra i pazienti collegati
+        elseif (in_array('patient_family', $userRoles) || in_array('patient', $userRoles)) {
+            $accountPatients = AccountPatient::find()
+                ->with('patient')
+                ->where(['user_id' => $currentUser->id])
+                ->limit($limit)
+                ->all();
+                
+            foreach ($accountPatients as $accountPatient) {
+                $patient = $accountPatient->patient;
+                
+                $results[] = [
+                    'id' => $patient->id,
+                    'type' => 'patient',
+                    'name' => $patient->getFullName(),
+                    'role' => 'Paziente',
+                    'email' => null,
+                    'phone' => null,
+                    'detail_url' => $this->generateDetailUrl('patient', $patient->id),
+                    'avatar_initials' => $this->getInitials($patient->first_name, $patient->last_name),
+                    'last_visit' => null
+                ];
+            }
+        }
+        // Per admin, manager e coordinator, mostra gli ultimi pazienti inseriti
+        else {
+            $patients = Patient::find()
+                ->orderBy('created_at DESC')
+                ->limit($limit)
+                ->all();
+                
+            foreach ($patients as $patient) {
+                $results[] = [
+                    'id' => $patient->id,
+                    'type' => 'patient',
+                    'name' => $patient->getFullName(),
+                    'role' => 'Paziente',
+                    'email' => null,
+                    'phone' => null,
+                    'detail_url' => $this->generateDetailUrl('patient', $patient->id),
+                    'avatar_initials' => $this->getInitials($patient->first_name, $patient->last_name),
+                    'last_visit' => null
+                ];
+            }
+        }
+        
+        return [
+            'success' => true,
+            'data' => $results
+        ];
+        
+    } catch (\Exception $e) {
+        Yii::error('Error loading quick suggestions: ' . $e->getMessage(), __METHOD__);
+        return [
+            'success' => false,
+            'message' => 'Errore nel caricamento dei suggerimenti',
+            'data' => []
+        ];
+    }
+}
+    
 } 

@@ -319,8 +319,12 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                 <tbody>
                     <?php foreach ($byTreatmentType as $treatment): ?>
                         <tr>
-                            <td class="font-bold"><?= Html::encode($treatment['treatment_name']) ?></td>
-                            <td><?= Html::encode($treatment['treatment_code']) ?></td>
+                            <td class="font-bold">
+                                <?= Html::encode($treatment['treatment_name'] ?: 'Trattamento non specificato') ?>
+                            </td>
+                            <td>
+                                <?= Html::encode($treatment['treatment_code'] ?: 'N/A') ?>
+                            </td>
                             <td class="text-center">
                                 <span class="badge badge-gray"><?= $treatment['total_absences'] ?></span>
                             </td>

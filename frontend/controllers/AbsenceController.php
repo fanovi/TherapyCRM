@@ -91,6 +91,7 @@ class AbsenceController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             $transaction = Yii::$app->db->beginTransaction();
+            $model->reason = $this->getReasonLabel($model->tipo);
             
             try {
                 if ($model->save()) {
@@ -143,6 +144,20 @@ class AbsenceController extends Controller
         ]);
     }
 
+    private function getReasonLabel($reason)
+    {
+
+        $reasonLabels = [
+            Absence::TYPE_VACATION => 'Assenza per vacanza',
+            Absence::TYPE_SICK_LEAVE => 'Assenza per malattia',
+            Absence::TYPE_PERSONAL => 'Assenza per motivi personali',
+            Absence::TYPE_TRAINING => 'Assenza per formazione',
+            Absence::TYPE_OTHER => 'Altro',
+        ];
+
+        return $reasonLabels[$reason] ?? $reason;
+    }
+
     /**
      * Updates an existing Absence model.
      * If update is successful, the browser will be redirected to the 'view' page.
@@ -154,9 +169,14 @@ class AbsenceController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Assenza aggiornata con successo.');
-            return $this->redirect(['view', 'id' => $model->id]);
+        if ($model->load(Yii::$app->request->post()) ) {
+            $model->reason = $this->getReasonLabel($model->tipo);
+            if ($model->save()) {
+                Yii::$app->session->setFlash('success', 'Assenza aggiornata con successo.');
+                return $this->redirect(['view', 'id' => $model->id]);
+            } 
+            Yii::$app->session->setFlash('error', 'Errore durante l\'aggiornamento dell\'assenza: ' . $model->errors);   
+            
         }
 
         $therapists = ArrayHelper::map(
