@@ -71,6 +71,7 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
 
         <?php $form = ActiveForm::begin([
             'method' => 'get',
+            'action' => Url::to(['plans']),
             'options' => ['class' => 'filter-form']
         ]); ?>
 

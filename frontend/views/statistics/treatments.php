@@ -63,6 +63,7 @@ $activeTreatments = count($ranking);
 
         <?php $form = ActiveForm::begin([
             'method' => 'get',
+            'action' => Url::to(['treatments']),
             'options' => ['class' => 'filter-form']
         ]); ?>
 

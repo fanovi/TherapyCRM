@@ -65,6 +65,7 @@ function calculatePercentage($part, $total, $decimals = 1) {
 
         <?php $form = ActiveForm::begin([
             'method' => 'get',
+            'action' => Url::to(['patients']),
             'options' => ['class' => 'filter-form']
         ]); ?>
 

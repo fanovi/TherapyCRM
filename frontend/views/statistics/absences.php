@@ -75,6 +75,7 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
 
         <?php $form = ActiveForm::begin([
             'method' => 'get',
+            'action' => Url::to(['absences']),
             'options' => ['class' => 'filter-form']
         ]); ?>
 
