@@ -3001,62 +3001,6 @@ class TherapeuticPlanManagerController extends Controller
      * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
      * @return Appointment|null
      */
-    // private function checkSameTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
-    // {
-    //     $appointmentDate = new DateTime($appointmentDateTime);
-    //     $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
-    //     $dateEnd = $appointmentDate->format('Y-m-d 23:59:59');
-    //     $specializationId = SpecializationTreatment::find()->where(['treatment_type_id' => $treatmentTypeId])->one();
-    //     $specializationId = $specializationId->specialization_id;
-
-    //     // Cerca appuntamenti dello stesso tipo di trattamento nello stesso giorno
-    //     // sia da piano terapeutico che privati
-    //     $query = Appointment::find()
-    //         ->alias('a')
-    //         ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
-    //         ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
-    //         ->leftJoin('treatment_types tt', 'tt.id = pt.treatment_type_id')
-    //         ->leftJoin('specialization_treatments st', 'st.treatment_type_id = pt.treatment_type_id')
-    //         ->leftJoin('specialization_treatments stp', 'stp.treatment_type_id = pt.treatment_type_id')
-    //         ->where(['or',
-    //             // Appuntamenti da piano terapeutico con lo stesso treatment_type_id
-    //             ['and',
-    //                 ['a.appointment_source' => Appointment::SOURCE_THERAPEUTIC_PLAN],
-    //                 ['pt.treatment_type_id' => $treatmentTypeId],
-    //                 ['stp.specialization_id' => $specializationId],
-    //                 ['tp.patient_id' => $patientId]
-    //             ],
-    //             // Appuntamenti privati con lo stesso treatment_type_id
-    //             ['and',
-    //                 ['a.appointment_source' => Appointment::SOURCE_PRIVATE],
-    //                 ['a.treatment_type_id' => $treatmentTypeId],
-    //                 ['st.specialization_id' => $specializationId],
-    //                 ['a.patient_id' => $patientId]
-    //             ]
-    //         ])
-    //         ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-    //         ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd])
-    //         ->with([
-    //             'planTherapy.treatmentType', 
-    //             'planTherapy.therapeuticPlan.patient', 
-    //             'treatmentType', 
-    //             'patient', 
-    //             'therapist.user.profile'
-    //         ]);
-
-    //     if ($excludeAppointmentId) {
-    //         $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
-    //     }
-
-    //     $result = $query->one();
-
-    //     if ($result) {
-    //         Yii::info("Conflitto tipo trattamento rilevato: Paziente ID {$patientId}, Treatment Type ID {$treatmentTypeId}, Data {$appointmentDate->format('Y-m-d')}", __METHOD__);
-    //     }
-
-    //     return $result;
-    // }
-
     private function checkSameTreatmentTypeConflict($patientId, $treatmentTypeId, $appointmentDateTime, $excludeAppointmentId = null)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
