@@ -6,6 +6,7 @@ use Yii;
 use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
 use yii\helpers\ArrayHelper;
+use Ramsey\Uuid\Uuid;
 
 /**
  * This is the model class for table "appointments".
@@ -711,12 +712,7 @@ class Appointment extends ActiveRecord
      */
     public static function generateGroupSessionId()
     {
-        // Genera un UUID v4
-        $data = random_bytes(16);
-        $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // versione 4
-        $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // variant bits
-
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+        return Uuid::uuid4()->toString();
     }
 
     /**

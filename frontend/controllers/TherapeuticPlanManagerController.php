@@ -150,7 +150,9 @@ class TherapeuticPlanManagerController extends Controller
             $conflict = $this->checkTherapistConflict(
                 $data['therapistId'],
                 $data['appointmentDateTime'],
-                $data['durationMinutes']
+                $data['durationMinutes'],
+                null,
+                $data['groupSessionId'] ?? null
             );
 
             if ($conflict) {
@@ -258,7 +260,9 @@ class TherapeuticPlanManagerController extends Controller
             $conflict = $this->checkTherapistConflict(
                 $data['therapistId'],
                 $data['appointmentDateTime'],
-                $data['durationMinutes']
+                $data['durationMinutes'],
+                null,
+                null
             );
 
             if ($conflict) {
@@ -1655,7 +1659,8 @@ class TherapeuticPlanManagerController extends Controller
                 $data['therapistId'],
                 $data['appointmentDateTime'],
                 $data['durationMinutes'],
-                $appointment->id
+                $appointment->id,
+                $data['groupSessionId'] ?? null
             );
 
             if ($conflict) {
@@ -1827,7 +1832,9 @@ class TherapeuticPlanManagerController extends Controller
             $conflict = $this->checkTherapistConflict(
                 $data['therapistId'],
                 $appointmentDateTime,
-                $data['durationMinutes']
+                $data['durationMinutes'],
+                null,
+                null
             );
 
             if ($conflict) {
@@ -1998,7 +2005,8 @@ class TherapeuticPlanManagerController extends Controller
                 $data['therapistId'],
                 $data['appointmentDateTime'],
                 $data['durationMinutes'],
-                $appointment->id
+                $appointment->id,
+                null
             );
 
             if ($conflict) {
@@ -2156,7 +2164,8 @@ class TherapeuticPlanManagerController extends Controller
                         $data['therapistId'],
                         $newDateTime,
                         $data['durationMinutes'],
-                        $appointment->id
+                        $appointment->id,
+                        $data['groupSessionId'] ?? null
                     );
 
                     if ($conflict) {
@@ -2754,7 +2763,13 @@ class TherapeuticPlanManagerController extends Controller
                 Yii::info("Tentativo creazione appuntamento: {$appointmentDateTime}", __METHOD__);
 
                 // Verifica conflitti terapista
-                $conflict = $this->checkTherapistConflict($pattern->therapist_id, $appointmentDateTime, $pattern->duration_minutes);
+                $conflict = $this->checkTherapistConflict(
+                    $pattern->therapist_id,
+                    $appointmentDateTime,
+                    $pattern->duration_minutes,
+                    null,
+                    $data['groupSessionId'] ?? null
+                );
 
                 if ($conflict) {
                     Yii::info("Conflitto terapista rilevato per {$appointmentDateTime}", __METHOD__);
@@ -2902,6 +2917,7 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->notes = $data['notes'] ?? null;
         $appointment->status = Appointment::STATUS_SCHEDULED; // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
+        $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
 
         Yii::info("Tentativo salvataggio singolo appuntamento: " . json_encode($appointment->attributes), __METHOD__);
 
@@ -2916,6 +2932,18 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Genera un ID di sessione di gruppo se non specificato
+     * 
+     * @param array $data
+     * @return string
+     */
+    private function getGroupSessionId($data)
+    {
+        $groupSessionId = $data['groupSessionId'] ?? Appointment::generateGroupSessionId();
+        return $groupSessionId;
+    }
+
+    /**
      * Controlla conflitti terapista
      * 
      * @param int $therapistId
@@ -2924,7 +2952,7 @@ class TherapeuticPlanManagerController extends Controller
      * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
      * @return Appointment|null
      */
-    private function checkTherapistConflict($therapistId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
+    private function checkTherapistConflict($therapistId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null, $groupSessionId = null)
     {
         $startTime = new DateTime($appointmentDateTime);
         $endTime = clone $startTime;
@@ -2950,6 +2978,14 @@ class TherapeuticPlanManagerController extends Controller
 
         if ($excludeAppointmentId) {
             $query->andWhere(['!=', 'id', $excludeAppointmentId]);
+        }
+        // Se è specificato un group_session_id, escludi gli appuntamenti con lo stesso group_session_id
+        if ($groupSessionId !== null) {
+            $query->andWhere([
+                'or',
+                ['group_session_id' => null],
+                ['!=', 'group_session_id', $groupSessionId]
+            ]);
         }
 
         return $query->one();
@@ -3516,61 +3552,61 @@ class TherapeuticPlanManagerController extends Controller
     public function actionSubstituteTherapist()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-    
+
         try {
             $data = $this->getRequestData();
             $appointmentId = $data['appointmentId'] ?? null;
             $newTherapistId = $data['newTherapistId'] ?? null;
             $reason = $data['reason'] ?? null;
             $dontRegisterAbsence = $data['dontRegisterAbsence'] ?? false; // 🔥 NUOVO
-    
+
             Yii::info("Dati ricevuti per sostituzione terapista: " . json_encode($data), __METHOD__);
-    
+
             if (!$appointmentId || !$newTherapistId) {
                 return $this->errorResponse('Parametri mancanti: appointmentId e newTherapistId sono obbligatori');
             }
-    
+
             // Trova l'appuntamento
             $appointment = Appointment::findOne($appointmentId);
             if (!$appointment) {
                 return $this->errorResponse('Appuntamento non trovato');
             }
-    
+
             // Verifica che l'appuntamento sia in uno stato che permette la sostituzione
             if (!in_array($appointment->status, [Appointment::STATUS_SCHEDULED, Appointment::STATUS_THERAPIST_ABSENT])) {
                 return $this->errorResponse('La sostituzione è possibile solo per appuntamenti programmati o con terapista assente');
             }
-    
+
             // Trova il nuovo terapista
             $newTherapist = Therapist::findOne($newTherapistId);
             if (!$newTherapist) {
                 return $this->errorResponse('Nuovo terapista non trovato');
             }
-    
+
             // Verifica che il nuovo terapista sia attivo
             if (!$newTherapist->is_active) {
                 return $this->errorResponse('Il terapista selezionato non è attivo');
             }
-    
+
             $transaction = Yii::$app->db->beginTransaction();
-    
+
             try {
                 $originalTherapistId = $appointment->therapist_id;
-    
+
                 // 🔥 NUOVO: Se dontRegisterAbsence è true, fai solo il cambio semplice
                 if ($dontRegisterAbsence) {
                     // Aggiorna solo l'appuntamento con il nuovo terapista
                     $appointment->therapist_id = $newTherapistId;
                     $appointment->status = Appointment::STATUS_SCHEDULED;
-    
+
                     if (!$appointment->save()) {
                         throw new Exception('Errore nel salvataggio dell\'appuntamento: ' . json_encode($appointment->errors));
                     }
-    
+
                     $transaction->commit();
-    
+
                     Yii::info("Sostituzione terapista semplice completata (senza registrazione assenza) - Appuntamento: {$appointmentId}, Terapista originale: {$originalTherapistId}, Nuovo terapista: {$newTherapistId}", __METHOD__);
-    
+
                     return [
                         'success' => true,
                         'message' => 'Terapista sostituito con successo (assenza non registrata)',
@@ -3582,7 +3618,7 @@ class TherapeuticPlanManagerController extends Controller
                         ]
                     ];
                 }
-    
+
                 // 🔥 LOGICA ORIGINALE: Solo se dontRegisterAbsence è false
                 // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista
                 if ($appointment->status === Appointment::STATUS_SCHEDULED) {
@@ -3596,7 +3632,7 @@ class TherapeuticPlanManagerController extends Controller
                     $absence->approved_by = Yii::$app->user->id ?: 1;
                     $absence->approved_at = date('Y-m-d H:i:s');
                     $absence->created_by = Yii::$app->user->id ?: 1;
-    
+
                     if (!$absence->save()) {
                         Yii::warning("Errore nel salvataggio dell'assenza per il terapista {$appointment->therapist_id}: " . json_encode($absence->errors), __METHOD__);
                         // Non blocchiamo la sostituzione se il salvataggio dell'assenza fallisce
@@ -3604,42 +3640,42 @@ class TherapeuticPlanManagerController extends Controller
                         Yii::info("Creata assenza automatica per terapista {$appointment->therapist_id} in data {$absence->start_date}", __METHOD__);
                     }
                 }
-    
+
                 // Salva il terapista originale se non è già stato salvato
                 if (!$appointment->original_therapist_id) {
                     $appointment->original_therapist_id = $appointment->therapist_id;
                 }
-    
+
                 // Aggiorna l'appuntamento con il nuovo terapista
                 $appointment->therapist_id = $newTherapistId;
                 $appointment->status = Appointment::STATUS_SCHEDULED; // Torna allo stato programmato
-    
+
                 if (!$appointment->save()) {
                     throw new Exception('Errore nel salvataggio dell\'appuntamento: ' . json_encode($appointment->errors));
                 }
-    
+
                 // Crea o aggiorna il record di sostituzione
                 $substitution = TherapistSubstitution::findOne(['appointment_id' => $appointmentId]);
-    
+
                 if (!$substitution) {
                     $substitution = new TherapistSubstitution();
                     $substitution->appointment_id = $appointmentId;
                     $substitution->original_therapist_id = $originalTherapistId;
                 }
-    
+
                 $substitution->substitute_therapist_id = $newTherapistId;
                 $substitution->reason = $reason;
                 $substitution->substituted_by = Yii::$app->user->id ?: 1; // Default per test
                 $substitution->substituted_at = date('Y-m-d H:i:s');
-    
+
                 if (!$substitution->save()) {
                     throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
                 }
-    
+
                 $transaction->commit();
-    
+
                 Yii::info("Sostituzione terapista completata - Appuntamento: {$appointmentId}, Terapista originale: {$originalTherapistId}, Nuovo terapista: {$newTherapistId}", __METHOD__);
-    
+
                 return [
                     'success' => true,
                     'message' => 'Terapista sostituito con successo',
@@ -4176,7 +4212,9 @@ class TherapeuticPlanManagerController extends Controller
         $therapistConflict = $this->checkTherapistConflict(
             $therapistId,
             $appointmentDateTime,
-            60 // assumiamo durata standard, puoi passarla come parametro
+            60, // assumiamo durata standard, puoi passarla come parametro
+            null,
+            null
         );
 
         if ($therapistConflict) {
