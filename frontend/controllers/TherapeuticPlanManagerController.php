@@ -628,6 +628,51 @@ class TherapeuticPlanManagerController extends Controller
             ]
         ];
     }
+    /**
+     * Aggiorna l'appuntamento con un ID di sessione di gruppo
+     * 
+     * @return array
+     */
+    public function actionSetGroupAppointment()
+    {
+        try {
+            if (Yii::$app->request->isGet)
+                throw new BadRequestHttpException('Metodo non supportato');
+
+            $data = $this->getRequestData();
+
+            if (!isset($data['appointmentId'])) {
+                throw new BadRequestHttpException('appointmentId è obbligatorio');
+            }
+
+            $appointment = Appointment::findOne($data['appointmentId']);
+            if (!$appointment) {
+                throw new NotFoundHttpException('Appuntamento non trovato');
+            }
+
+            if ($appointment->group_session_id) {
+                throw new BadRequestHttpException('Appuntamento già associato a un gruppo');
+            }
+
+            $appointment->group_session_id = Appointment::generateGroupSessionId();
+
+            if (!$appointment->save()) {
+                throw new Exception('Errore nel salvataggio dell\'appuntamento di gruppo: ' . json_encode($appointment->errors));
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Appuntamento aggiornato con successo',
+                'data' => [
+                    'appointmentId' => $appointment->id,
+                    'groupSessionId' => $appointment->group_session_id
+                ]
+            ];
+        } catch (Exception $e) {
+            Yii::error("Errore creazione appuntamento di gruppo: " . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
 
     /**
      * Trova e valida TreatmentType
@@ -750,9 +795,6 @@ class TherapeuticPlanManagerController extends Controller
         Yii::info("Singolo appuntamento privato salvato con successo: ID {$appointment->id}", __METHOD__);
         return $appointment;
     }
-
-
-
 
     /**
      * Trova e valida Patient
