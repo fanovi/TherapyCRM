@@ -1524,7 +1524,8 @@ class TherapeuticPlanManagerController extends Controller
                     'patternId' => $appointment->pattern_id,
                     'isRecurring' => $appointment->pattern_id !== null,
                     'privateCycleId' => $appointment->private_cycle_id,
-                    'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
+                    'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
+                    'groupSessionId' => $appointment->group_session_id,
                 ];
             }
 

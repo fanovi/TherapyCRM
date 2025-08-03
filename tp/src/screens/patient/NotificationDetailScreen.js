@@ -179,7 +179,6 @@ const NotificationDetailScreen = () => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Card style={styles.notificationCard}>
           <Card.Content>
-            {/* Header con tipo e stato */}
             <View style={styles.header}>
               <View style={styles.typeContainer}>
                 <Icon
@@ -218,12 +217,10 @@ const NotificationDetailScreen = () => {
 
             <Divider style={styles.divider} />
 
-            {/* Titolo */}
             <Text variant="headlineSmall" style={styles.title}>
               {notification.title}
             </Text>
 
-            {/* Informazioni metadata */}
             <View style={styles.metadataContainer}>
               <View style={styles.metadataRow}>
                 <Icon
@@ -283,14 +280,12 @@ const NotificationDetailScreen = () => {
 
             <Divider style={styles.divider} />
 
-            {/* Messaggio completo */}
             <Text variant="bodyLarge" style={styles.message}>
               {notification.message}
             </Text>
           </Card.Content>
         </Card>
 
-        {/* Azioni - solo per notifiche che richiedono conferma esplicita */}
         {!notification.read_at && notification.requires_read_confirmation && (
           <Card style={styles.actionsCard}>
             <Card.Content>

@@ -2,7 +2,7 @@ import {OneSignal} from 'react-native-onesignal';
 
 class OneSignalService {
   constructor() {
-    this.appId = '517b6b4d-1c8f-40cf-a814-34830eb24aca';
+    this.appId = '8ab64a7b-8b43-41b4-8444-18922a41a7fc';
     this.isInitialized = false;
     this.currentUserId = null;
   }

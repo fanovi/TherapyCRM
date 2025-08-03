@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://5041011fbcc7.ngrok-free.app/TherapyCRM/api',
+  BASE_URL: 'https://15c69459f180.ngrok-free.app/TherapyCRM/api',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',

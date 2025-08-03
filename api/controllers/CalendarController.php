@@ -1642,7 +1642,7 @@ public function actionCompleteAppointment()
         
         // Se sono passati più di 15 minuti dalla fine dell'appuntamento, non può essere completato manualmente
         $fifteenMinutesAfterEnd = clone $appointmentEndTime;
-        $fifteenMinutesAfterEnd->modify('+15 minutes');
+        $fifteenMinutesAfterEnd->modify('+60 minutes');
         
         if ($now > $fifteenMinutesAfterEnd) {
             throw new BadRequestHttpException('Non è possibile completare un appuntamento terminato da più di 15 minuti');

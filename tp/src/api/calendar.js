@@ -129,6 +129,7 @@ export const getAppointmentStatusColor = status => {
     annullato: '#FF3B30', // Rosso
     assente_giustificato: '#FF9500', // Arancione
     assente_non_giustificato: '#FF3B30', // Rosso
+    therapist_absent: '#FF9500', // Arancione
   };
   return colors[status] || '#8E8E93'; // Grigio default
 };
@@ -145,6 +146,7 @@ export const getAppointmentStatusLabel = status => {
     annullato: 'Annullato',
     assente_giustificato: 'Assente Giustificato',
     assente_non_giustificato: 'Assente Non Giustificato',
+    therapist_absent: 'Terapista Assente',
   };
   return labels[status] || status;
 };

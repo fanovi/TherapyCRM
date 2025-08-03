@@ -665,6 +665,8 @@ const Index = () => {
       let appointmentsCreated = 1;
       let weeklyLimitExceeded: any[] = [];
 
+      console.log("appointmentData", appointmentData);
+
       if (appointmentData.isRecurring) {
         const dayOfWeek = selectedSlot.date.getDay() || 7;
         const startTime = selectedSlot.time;
@@ -678,6 +680,7 @@ const Index = () => {
           startTime,
           durationMinutes: appointmentData.duration,
           validFrom,
+          isGroup: appointmentData.isGroup,
           // validTo verrà ricavato dal backend dal piano terapeutico
         };
 
@@ -715,6 +718,7 @@ const Index = () => {
             appointmentDateTime,
             durationMinutes: appointmentData.duration,
             notes: appointmentData.notes,
+            isGroup: appointmentData.isGroup,
           };
 
           const singleResult = await therapyAPI.createAppointment(request);

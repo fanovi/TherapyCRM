@@ -155,7 +155,7 @@ const LoginScreen = () => {
               </Button>
 
               {/* Demo Buttons */}
-              <View style={styles.demoSection}>
+              {/* <View style={styles.demoSection}>
                 <Text
                   style={[
                     styles.demoTitle,
@@ -179,7 +179,7 @@ const LoginScreen = () => {
                     Terapista
                   </Button>
                 </View>
-              </View>
+              </View> */}
             </Card.Content>
           </Card>
         </View>

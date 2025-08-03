@@ -400,7 +400,7 @@ const PatientNotificationsScreen = () => {
       {/* Lista Notifiche */}
       <FlatList
         data={notifications}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={(item, index) => `${index}_${item.id}`}
         renderItem={renderNotificationItem}
         ListEmptyComponent={!loading ? renderEmptyList : null}
         ListFooterComponent={renderListFooter}

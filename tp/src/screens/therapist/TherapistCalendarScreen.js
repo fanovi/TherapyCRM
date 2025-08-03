@@ -430,9 +430,14 @@ const TherapistCalendarScreen = () => {
     // Può segnare assente se:
     // 1. È in stato confermato
     // 2. Non è nel passato (l'appuntamento non è ancora iniziato)
+    const appointmentDate = moment(appointment.datetime);
+    const yesterday = moment().subtract(1, 'day').startOf('day');
+    const tomorrow = moment().add(1, 'day').endOf('day');
+
     const canMarkAbsent =
       appointment.status === 'confermato' &&
-      !moment(appointment.datetime).isBefore(moment());
+      appointmentDate.isAfter(yesterday) &&
+      appointmentDate.isBefore(tomorrow);
 
     // Mostra il menu se almeno un'azione è disponibile
     const showMenu = canMarkAbsent || true; // Sempre mostrare per le note
@@ -720,28 +725,36 @@ const TherapistCalendarScreen = () => {
             setAbsenceDialog({visible: false, appointment: null})
           }
           style={styles.absenceDialog}>
-          <Dialog.Title>Segna Paziente Assente</Dialog.Title>
+          <Dialog.Title style={{fontSize: 18}}>Segnala Assenza</Dialog.Title>
           <Dialog.Content>
-            <ScrollView style={styles.dialogContent}>
-              <Paragraph style={styles.appointmentInfo}>
-                Stai per segnalare come assente il paziente{' '}
-                {absenceDialog.appointment?.patient.name} per l'appuntamento del{' '}
-                {absenceDialog.appointment &&
-                  moment(absenceDialog.appointment.datetime).format(
-                    'DD/MM/YYYY',
-                  )}{' '}
-                alle {absenceDialog.appointment?.time}
-              </Paragraph>
+            <View style={styles.dialogContent}>
+              {/* Info paziente compatta */}
+              <View style={styles.patientInfoRow}>
+                <Avatar.Image
+                  size={36}
+                  source={{uri: absenceDialog.appointment?.patient.avatar}}
+                  style={styles.miniAvatar}
+                />
+                <View style={styles.patientInfoText}>
+                  <Text style={styles.patientNameInfo}>
+                    {absenceDialog.appointment?.patient.name}
+                  </Text>
+                  <Text style={styles.appointmentTimeInfo}>
+                    {absenceDialog.appointment &&
+                      moment(absenceDialog.appointment.datetime).format(
+                        'DD/MM',
+                      )}{' '}
+                    alle {absenceDialog.appointment?.time}
+                  </Text>
+                </View>
+              </View>
 
-              <Divider style={styles.divider} />
+              <Divider style={styles.compactDivider} />
 
-              <Text
-                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-                Tipo di assenza *
-              </Text>
-
-              <View style={styles.absenceTypeContainer}>
-                <View style={styles.absenceTypeItem}>
+              {/* Tipo di assenza */}
+              <Text style={styles.compactSectionTitle}>Tipo</Text>
+              <View style={styles.radioRow}>
+                <View style={styles.radioOption}>
                   <RadioButton
                     value="justified"
                     status={
@@ -758,20 +771,17 @@ const TherapistCalendarScreen = () => {
                     color={theme.colors.primary}
                   />
                   <Text
-                    style={[
-                      styles.absenceTypeText,
-                      {color: theme.colors.onSurface},
-                    ]}
+                    style={styles.radioText}
                     onPress={() =>
                       setAbsenceForm(prev => ({
                         ...prev,
                         absenceType: 'justified',
                       }))
                     }>
-                    Assenza Giustificata
+                    Giustificata
                   </Text>
                 </View>
-                <View style={styles.absenceTypeItem}>
+                <View style={styles.radioOption}>
                   <RadioButton
                     value="not_justified"
                     status={
@@ -788,29 +798,25 @@ const TherapistCalendarScreen = () => {
                     color={theme.colors.primary}
                   />
                   <Text
-                    style={[
-                      styles.absenceTypeText,
-                      {color: theme.colors.onSurface},
-                    ]}
+                    style={styles.radioText}
                     onPress={() =>
                       setAbsenceForm(prev => ({
                         ...prev,
                         absenceType: 'not_justified',
                       }))
                     }>
-                    Assenza Non Giustificata
+                    Non Giustificata
                   </Text>
                 </View>
               </View>
 
-              <Text
-                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-                Motivo dell'assenza *
-              </Text>
-
-              <View style={styles.reasonsContainer}>
+              {/* Motivo */}
+              <Text style={styles.compactSectionTitle}>Motivo</Text>
+              <ScrollView
+                style={styles.reasonsScroll}
+                showsVerticalScrollIndicator={false}>
                 {getAbsenceReasons().map(reason => (
-                  <View key={reason} style={styles.reasonItem}>
+                  <View key={reason} style={styles.compactReasonItem}>
                     <RadioButton
                       value={reason}
                       status={
@@ -822,10 +828,7 @@ const TherapistCalendarScreen = () => {
                       color={theme.colors.primary}
                     />
                     <Text
-                      style={[
-                        styles.reasonText,
-                        {color: theme.colors.onSurface},
-                      ]}
+                      style={styles.compactReasonText}
                       onPress={() =>
                         setAbsenceForm(prev => ({...prev, reason}))
                       }>
@@ -833,40 +836,37 @@ const TherapistCalendarScreen = () => {
                     </Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
 
               {absenceForm.reason === 'Altro' && (
                 <TextInput
-                  label="Specifica il motivo"
+                  label="Specifica"
                   value={absenceForm.customReason}
                   onChangeText={text =>
                     setAbsenceForm(prev => ({...prev, customReason: text}))
                   }
                   mode="outlined"
-                  style={styles.customReasonInput}
+                  style={styles.compactCustomInput}
+                  dense
                   multiline
                   numberOfLines={2}
                 />
               )}
 
-              <Text
-                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-                Note aggiuntive (opzionale)
-              </Text>
-
+              {/* Note */}
               <TextInput
-                label="Aggiungi note se necessario"
+                label="Note (opzionale)"
                 value={absenceForm.notes}
                 onChangeText={text =>
                   setAbsenceForm(prev => ({...prev, notes: text}))
                 }
                 mode="outlined"
-                style={styles.notesInput}
+                style={styles.compactNotesInput}
+                dense
                 multiline
-                numberOfLines={3}
-                placeholder="Es. Dettagli aggiuntivi sull'assenza..."
+                numberOfLines={2}
               />
-            </ScrollView>
+            </View>
           </Dialog.Content>
           <Dialog.Actions style={styles.dialogActions}>
             <Button
@@ -886,7 +886,7 @@ const TherapistCalendarScreen = () => {
                 !absenceForm.reason
               }
               mode="contained">
-              {isSubmittingAbsence ? 'Segnalazione...' : 'Conferma Assenza'}
+              Conferma
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -1137,16 +1137,93 @@ const styles = StyleSheet.create({
   notesInput: {
     marginBottom: 16,
   },
-  dialogActions: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
+
   // Stili per la modale delle note
   noteDialog: {
     maxHeight: '80%',
   },
   noteInput: {
     marginBottom: 16,
+  },
+  // Stili per la modale compatta
+  absenceDialog: {
+    maxHeight: '85%',
+  },
+  dialogContent: {
+    paddingHorizontal: 0,
+  },
+  patientInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  miniAvatar: {
+    marginRight: 12,
+  },
+  patientInfoText: {
+    flex: 1,
+  },
+  patientNameInfo: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  appointmentTimeInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  compactDivider: {
+    marginVertical: 12,
+  },
+  compactSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  radioRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  radioText: {
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  reasonsScroll: {
+    maxHeight: 120,
+    marginBottom: 12,
+  },
+  compactReasonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  compactReasonText: {
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
+  compactCustomInput: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  compactNotesInput: {
+    marginTop: 8,
+  },
+  dialogActions: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
 });
 

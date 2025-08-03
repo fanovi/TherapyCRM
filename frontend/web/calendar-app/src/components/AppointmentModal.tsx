@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { AppointmentData, Therapist, Patient } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+import { Users } from "lucide-react";
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     duration: 60,
     notes: "",
     isRecurring: false,
+    isGroup: false, // Aggiunto campo per appuntamento di gruppo
   });
 
   const [appointmentType, setAppointmentType] = useState<
@@ -53,9 +55,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   >("terapia");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     if (!selectedTherapist || !patient) {
       console.error("❌ Terapista o paziente non selezionato");
       return;
@@ -112,6 +112,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         "🔍 Debug AppointmentModal - planTherapyData:",
         planTherapyData
       );
+      console.log("🔍 Debug AppointmentModal - isGroup:", formData.isGroup);
 
       // Usa la specializzazione del terapista come tipo di terapia
       const therapyType =
@@ -121,6 +122,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         ...formData,
         therapyType,
         appointmentType: isABARegime ? appointmentType : "terapia",
+        isGroup: formData.isGroup, // Passa il valore isGroup
         planTherapy: {
           planTherapyId: planTherapyData.planTherapyId,
           therapeuticPlanId: planTherapyData.therapeuticPlanId,
@@ -135,11 +137,13 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         },
       });
 
+      // Reset form
       setFormData({
         therapyType: "",
         duration: 60,
         notes: "",
         isRecurring: false,
+        isGroup: false,
       });
     } catch (error) {
       console.error("❌ Errore nel recupero piano terapia:", error);
@@ -161,6 +165,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       duration: 60,
       notes: "",
       isRecurring: false,
+      isGroup: false,
     });
   };
 
@@ -180,7 +185,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             )}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {selectedTherapist && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="text-sm font-medium text-blue-900">
@@ -207,37 +212,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             />
           </div>
 
-          {/* {isABARegime && (
-            <div className="space-y-2">
-              <Label htmlFor="appointment-type">Tipo Appuntamento</Label>
-              <Select
-                value={appointmentType}
-                onValueChange={(value) =>
-                  setAppointmentType(
-                    value as "terapia" | "parent_training" | "supervisione"
-                  )
-                }
-              >
-                <SelectTrigger id="appointment-type">
-                  <SelectValue placeholder="Seleziona tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {!existingAppointmentTypes.includes("terapia") && (
-                    <SelectItem value="terapia">Terapia</SelectItem>
-                  )}
-                  {!existingAppointmentTypes.includes("parent_training") && (
-                    <SelectItem value="parent_training">
-                      Parent Training
-                    </SelectItem>
-                  )}
-                  {!existingAppointmentTypes.includes("supervisione") && (
-                    <SelectItem value="supervisione">Supervisione</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )} */}
-
           <div className="space-y-2">
             <Label htmlFor="notes">Note (opzionale)</Label>
             <Textarea
@@ -251,17 +225,48 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="recurring"
-              checked={formData.isRecurring}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, isRecurring: checked as boolean })
-              }
-            />
-            <Label htmlFor="recurring" className="text-sm">
-              Appuntamento ricorrente
-            </Label>
+          <div className="space-y-3 border-t pt-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="recurring"
+                checked={formData.isRecurring}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isRecurring: checked as boolean })
+                }
+              />
+              <Label htmlFor="recurring" className="text-sm font-normal">
+                Appuntamento ricorrente
+              </Label>
+            </div>
+
+            {/* Mostra checkbox gruppo solo se NON è ABA e NON è privato */}
+            {!isABARegime && patient?.planTherapy && (
+              <>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="group"
+                    checked={formData.isGroup}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, isGroup: checked as boolean })
+                    }
+                  />
+                  <Label
+                    htmlFor="group"
+                    className="text-sm font-normal flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    Appuntamento di gruppo
+                  </Label>
+                </div>
+
+                {formData.isGroup && (
+                  <div className="ml-6 p-2 bg-amber-50 rounded text-xs text-amber-700">
+                    Questo appuntamento potrà ospitare più pazienti nello stesso
+                    orario
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
@@ -273,11 +278,11 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="button" disabled={loading} onClick={handleSubmit}>
               {loading ? "Caricamento..." : "Crea Appuntamento"}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

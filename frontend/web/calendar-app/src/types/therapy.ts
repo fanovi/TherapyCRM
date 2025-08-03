@@ -78,6 +78,7 @@ export interface PlanTherapy {
 }
 
 export interface Appointment {
+  groupSessionId: null;
   id: number;
   datetime: string; // formato ISO datetime dalla API
   duration: number; // duration_minutes dall'API
@@ -122,15 +123,18 @@ export interface AppointmentData {
   isRecurring?: boolean;
   planTherapy?: PlanTherapy;
   appointmentType?: "terapia" | "parent_training" | "supervisione";
+  isGroup?: boolean;
 }
 
 // Tipi per le richieste API
 export interface CreateAppointmentRequest {
   planTherapyId: number;
+  treatmentTypeId?: number;
   therapistId: number;
   appointmentDateTime: string; // YYYY-MM-DD HH:mm:ss
   durationMinutes: number;
   notes?: string;
+  isGroup?: boolean;
 }
 
 export interface CreatePatternRequest {
@@ -142,6 +146,7 @@ export interface CreatePatternRequest {
   durationMinutes: number;
   validFrom: string; // YYYY-MM-DD
   validTo?: string; // YYYY-MM-DD - opzionale, verrà ricavato dal backend se non fornito
+  isGroup?: boolean;
 }
 
 export interface UpdateAppointmentRequest {
