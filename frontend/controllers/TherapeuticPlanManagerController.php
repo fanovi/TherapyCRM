@@ -2559,6 +2559,7 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $data = $this->getRequestData();
             $appointmentId = $data['appointmentId'] ?? null;
+            $applyToGroup = $data['applyToGroup'] ?? false;  // NUOVO: parametro per gestire il gruppo
 
             if (!$appointmentId) {
                 throw new BadRequestHttpException('ID appuntamento mancante');
@@ -2573,11 +2574,12 @@ class TherapeuticPlanManagerController extends Controller
                 throw new BadRequestHttpException('Non è possibile cancellare un appuntamento completato');
             }
 
-            // Se è un appuntamento di gruppo, trova tutti gli appuntamenti del gruppo
+            // Se è un appuntamento di gruppo E applyToGroup è true, trova tutti gli appuntamenti del gruppo
             $appointmentsToDelete = [];
             $isGroupDeletion = false;
 
-            if ($appointment->group_session_id !== null) {
+            if ($appointment->group_session_id !== null && $applyToGroup) {
+                // Cancella tutto il gruppo
                 $isGroupDeletion = true;
                 $appointmentsToDelete = Appointment::find()
                     ->where(['group_session_id' => $appointment->group_session_id])
@@ -2587,13 +2589,15 @@ class TherapeuticPlanManagerController extends Controller
 
                 Yii::info("Cancellazione di gruppo rilevata - Group Session ID: {$appointment->group_session_id}, Appuntamenti da cancellare: " . count($appointmentsToDelete), __METHOD__);
             } else {
+                // Cancella solo l'appuntamento singolo
                 $appointmentsToDelete = [$appointment];
+                Yii::info("Cancellazione singolo appuntamento - ID: {$appointmentId}", __METHOD__);
             }
 
             $deletedCount = 0;
             $deletedAppointmentIds = [];
 
-            // Cancella tutti gli appuntamenti del gruppo (o solo quello singolo)
+            // Cancella gli appuntamenti selezionati
             foreach ($appointmentsToDelete as $apt) {
                 $apt->status = Appointment::STATUS_CANCELLED;
                 if ($apt->save()) {
@@ -2602,9 +2606,13 @@ class TherapeuticPlanManagerController extends Controller
 
                     // Traccia cancellazione
                     if (isset(Yii::$app->activityLog)) {
+                        $activityMessage = $isGroupDeletion
+                            ? 'Appuntamento cancellato (gruppo)'
+                            : ($appointment->group_session_id !== null ? 'Appuntamento cancellato (singolo da gruppo)' : 'Appuntamento cancellato');
+
                         Yii::$app->activityLog->record(
                             'delete_appointment',
-                            $isGroupDeletion ? 'Appuntamento cancellato (gruppo)' : 'Appuntamento cancellato',
+                            $activityMessage,
                             $apt->id
                         );
                     }
@@ -2615,7 +2623,9 @@ class TherapeuticPlanManagerController extends Controller
 
             $message = $isGroupDeletion
                 ? "Cancellati {$deletedCount} appuntamenti del gruppo con successo"
-                : 'Appuntamento cancellato con successo';
+                : ($appointment->group_session_id !== null
+                    ? 'Cancellato appuntamento singolo dal gruppo'
+                    : 'Appuntamento cancellato con successo');
 
             Yii::info("Cancellazione completata - Appuntamenti cancellati: {$deletedCount}, IDs: " . implode(',', $deletedAppointmentIds), __METHOD__);
 
@@ -2625,7 +2635,8 @@ class TherapeuticPlanManagerController extends Controller
                 'data' => [
                     'deletedCount' => $deletedCount,
                     'deletedAppointmentIds' => $deletedAppointmentIds,
-                    'isGroupDeletion' => $isGroupDeletion
+                    'isGroupDeletion' => $isGroupDeletion,
+                    'wasGroupAppointment' => $appointment->group_session_id !== null
                 ]
             ];
         } catch (Exception $e) {
