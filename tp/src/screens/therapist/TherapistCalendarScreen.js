@@ -6,6 +6,8 @@ import {
   Alert,
   RefreshControl,
   FlatList,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import {
   Text,
@@ -23,6 +25,7 @@ import {
   TextInput,
   RadioButton,
   Divider,
+  List,
 } from 'react-native-paper';
 import {Calendar} from 'react-native-calendars';
 import {useSelector} from 'react-redux';
@@ -37,6 +40,7 @@ import {
   markPatientAbsent,
   getAbsenceReasons,
 } from '../../api/calendar';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {therapistService} from '../../services/therapistService';
 
 const TherapistCalendarScreen = () => {
@@ -56,6 +60,10 @@ const TherapistCalendarScreen = () => {
     action: null,
   });
   const [menuVisible, setMenuVisible] = useState({});
+
+  const [applyToGroup, setApplyToGroup] = useState(false);
+  const [selectedGroupPatient, setSelectedGroupPatient] = useState(null);
+  const [isSelectingPatient, setIsSelectingPatient] = useState(false);
 
   // Stato per la modale di segnalazione assenza
   const [absenceDialog, setAbsenceDialog] = useState({
@@ -226,6 +234,11 @@ const TherapistCalendarScreen = () => {
       notes: '',
     });
 
+    // Se è un gruppo, default a true per applicare a tutti
+    setApplyToGroup(appointment.is_group);
+    setSelectedGroupPatient(null);
+    setIsSelectingPatient(false);
+
     setMenuVisible({});
   };
 
@@ -262,6 +275,12 @@ const TherapistCalendarScreen = () => {
       return;
     }
 
+    // Per gruppi, verifica se è stato selezionato un paziente specifico
+    if (appointment.is_group && !applyToGroup && !selectedGroupPatient) {
+      Alert.alert('Errore', 'Seleziona un paziente del gruppo');
+      return;
+    }
+
     setIsSubmittingAbsence(true);
 
     try {
@@ -270,11 +289,22 @@ const TherapistCalendarScreen = () => {
           ? absenceForm.customReason.trim()
           : absenceForm.reason;
 
+      // Determina quale appointment ID usare
+      let appointmentIdToUse = appointment.id;
+      let patientName = appointment.patient.name;
+
+      if (appointment.is_group && !applyToGroup && selectedGroupPatient) {
+        // Usa l'ID dell'appuntamento del paziente specifico
+        appointmentIdToUse = selectedGroupPatient.appointment_id;
+        patientName = selectedGroupPatient.name;
+      }
+
       const response = await markPatientAbsent(
-        appointment.id,
+        appointmentIdToUse,
         absenceForm.absenceType,
         finalReason,
         absenceForm.notes.trim(),
+        appointment.is_group ? applyToGroup : false, // Passa applyToGroup solo per gruppi
       );
 
       if (response.success) {
@@ -283,24 +313,29 @@ const TherapistCalendarScreen = () => {
             ? 'giustificata'
             : 'non giustificata';
 
-        Alert.alert(
-          'Assenza Segnalata',
-          `L'assenza ${absenceTypeLabel} del paziente ${
-            appointment.patient.name
-          } per l'appuntamento del ${moment(appointment.datetime).format(
-            'DD/MM/YYYY',
-          )} alle ${appointment.time} è stata registrata con successo.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Ricarica gli appuntamenti
-                loadAppointments();
-                loadMarkedDates();
-              },
+        let message = '';
+        if (appointment.is_group && applyToGroup) {
+          message = `L'assenza ${absenceTypeLabel} è stata registrata per tutti i ${appointment.patients_count} pazienti del gruppo.`;
+        } else if (appointment.is_group && !applyToGroup) {
+          message = `L'assenza ${absenceTypeLabel} di ${patientName} è stata registrata con successo.`;
+        } else {
+          message = `L'assenza ${absenceTypeLabel} del paziente ${patientName} per l'appuntamento del ${moment(
+            appointment.datetime,
+          ).format('DD/MM/YYYY')} alle ${
+            appointment.time
+          } è stata registrata con successo.`;
+        }
+
+        Alert.alert('Assenza Segnalata', message, [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Ricarica gli appuntamenti
+              loadAppointments();
+              loadMarkedDates();
             },
-          ],
-        );
+          },
+        ]);
       } else {
         Alert.alert(
           'Errore',
@@ -323,6 +358,8 @@ const TherapistCalendarScreen = () => {
     } finally {
       setIsSubmittingAbsence(false);
       setAbsenceDialog({visible: false, appointment: null});
+      setApplyToGroup(false);
+      setSelectedGroupPatient(null);
     }
   };
 
@@ -409,7 +446,6 @@ const TherapistCalendarScreen = () => {
   };
 
   const renderAppointmentItem = ({item: appointment}) => {
-    // Calcola se l'appuntamento può essere completato
     const now = moment();
     const appointmentStart = moment(appointment.datetime);
     const appointmentEnd = moment(appointment.datetime).add(
@@ -418,18 +454,7 @@ const TherapistCalendarScreen = () => {
     );
     const fifteenMinutesAfterEnd = moment(appointmentEnd).add(15, 'minutes');
 
-    // Può essere completato se:
-    // 1. È in stato confermato
-    // 2. È già iniziato
-    // 3. Non sono passati più di 15 minuti dalla fine
-    const canComplete =
-      appointment.status === 'confermato' &&
-      now.isAfter(appointmentStart) &&
-      now.isBefore(fifteenMinutesAfterEnd);
-
-    // Può segnare assente se:
-    // 1. È in stato confermato
-    // 2. Non è nel passato (l'appuntamento non è ancora iniziato)
+    // Logica semplice per segnare assente
     const appointmentDate = moment(appointment.datetime);
     const yesterday = moment().subtract(1, 'day').startOf('day');
     const tomorrow = moment().add(1, 'day').endOf('day');
@@ -439,9 +464,145 @@ const TherapistCalendarScreen = () => {
       appointmentDate.isAfter(yesterday) &&
       appointmentDate.isBefore(tomorrow);
 
-    // Mostra il menu se almeno un'azione è disponibile
+    const canComplete =
+      appointment.status === 'confermato' &&
+      now.isAfter(appointmentStart) &&
+      now.isBefore(fifteenMinutesAfterEnd);
+
     const showMenu = canMarkAbsent || true; // Sempre mostrare per le note
 
+    // Se è un gruppo, mostra come gruppo
+    if (appointment.is_group) {
+      return (
+        <Card style={styles.appointmentCard}>
+          <Card.Content>
+            <View style={styles.appointmentHeader}>
+              <View style={styles.timeSection}>
+                <Text
+                  style={[
+                    styles.appointmentTime,
+                    {color: theme.colors.onSurface},
+                  ]}>
+                  {appointment.time}
+                </Text>
+                <View style={styles.chipContainer}>
+                  <Chip
+                    style={[
+                      styles.statusChip,
+                      {
+                        backgroundColor: `${getAppointmentStatusColor(
+                          appointment.status,
+                        )}20`,
+                      },
+                    ]}
+                    textStyle={{
+                      color: getAppointmentStatusColor(appointment.status),
+                      fontSize: 12,
+                    }}>
+                    {getAppointmentStatusLabel(appointment.status)}
+                  </Chip>
+                  <Chip
+                    style={[
+                      styles.groupChip,
+                      {backgroundColor: theme.colors.primary + '20'},
+                    ]}
+                    textStyle={{
+                      color: theme.colors.primary,
+                      fontSize: 11,
+                    }}
+                    icon="account-group">
+                    Gruppo ({appointment.patients_count})
+                  </Chip>
+                </View>
+              </View>
+              <View style={styles.headerActions}>
+                <Avatar.Icon
+                  size={48}
+                  icon="account-group"
+                  style={[
+                    styles.groupAvatar,
+                    {backgroundColor: theme.colors.primary},
+                  ]}
+                />
+                {showMenu && (
+                  <Menu
+                    visible={menuVisible[appointment.id] || false}
+                    onDismiss={() => toggleMenu(appointment.id)}
+                    anchor={
+                      <IconButton
+                        icon="dots-vertical"
+                        size={20}
+                        onPress={() => toggleMenu(appointment.id)}
+                      />
+                    }>
+                    {canMarkAbsent && (
+                      <Menu.Item
+                        onPress={() => handleMarkAbsent(appointment)}
+                        title="Segna Assente"
+                        leadingIcon="account-remove"
+                      />
+                    )}
+                    <Menu.Item
+                      onPress={() => handleAddNote(appointment)}
+                      title="Aggiungi Note"
+                      leadingIcon="note-text"
+                    />
+                  </Menu>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.appointmentDetails}>
+              <Text
+                style={[styles.patientName, {color: theme.colors.onSurface}]}>
+                Appuntamento di Gruppo
+              </Text>
+              <Text
+                style={[
+                  styles.appointmentType,
+                  {color: theme.colors.secondary},
+                ]}>
+                {appointment.type} • {appointment.patients_count} pazienti
+              </Text>
+            </View>
+
+            {appointment.notes && (
+              <View style={styles.notesSection}>
+                <Text
+                  style={[
+                    styles.notesLabel,
+                    {color: theme.colors.onSurfaceVariant},
+                  ]}>
+                  Note:
+                </Text>
+                <Text
+                  style={[styles.notesText, {color: theme.colors.onSurface}]}>
+                  {appointment.notes}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.appointmentActions}>
+              {canComplete && (
+                <Button
+                  mode="contained"
+                  style={[
+                    styles.actionButton,
+                    {backgroundColor: theme.colors.secondary},
+                  ]}
+                  icon="check"
+                  compact
+                  onPress={() => handleCompleteAppointment(appointment)}>
+                  Completa
+                </Button>
+              )}
+            </View>
+          </Card.Content>
+        </Card>
+      );
+    }
+
+    // Appuntamento singolo - codice originale
     return (
       <Card style={styles.appointmentCard}>
         <Card.Content>
@@ -499,18 +660,6 @@ const TherapistCalendarScreen = () => {
                     title="Aggiungi Note"
                     leadingIcon="note-text"
                   />
-                  {/* Commento le azioni non richieste
-                  <Menu.Item
-                    onPress={() => openActionDialog(appointment, 'reschedule')}
-                    title="Riprogramma"
-                    leadingIcon="calendar-edit"
-                  />
-                  <Menu.Item
-                    onPress={() => openActionDialog(appointment, 'cancel')}
-                    title="Cancella"
-                    leadingIcon="cancel"
-                  />
-                  */}
                 </Menu>
               )}
             </View>
@@ -718,234 +867,451 @@ const TherapistCalendarScreen = () => {
           </Dialog.Actions>
         </Dialog>
 
-        {/* Dialog segnalazione assenza */}
-        <Dialog
+        {/* Modal segnalazione assenza */}
+        <Modal
           visible={absenceDialog.visible}
-          onDismiss={() =>
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() =>
             setAbsenceDialog({visible: false, appointment: null})
-          }
-          style={styles.absenceDialog}>
-          <Dialog.Title style={{fontSize: 18}}>Segnala Assenza</Dialog.Title>
-          <Dialog.Content>
-            <View style={styles.dialogContent}>
-              {/* Info paziente compatta */}
-              <View style={styles.patientInfoRow}>
-                <Avatar.Image
-                  size={36}
-                  source={{uri: absenceDialog.appointment?.patient.avatar}}
-                  style={styles.miniAvatar}
-                />
-                <View style={styles.patientInfoText}>
-                  <Text style={styles.patientNameInfo}>
-                    {absenceDialog.appointment?.patient.name}
-                  </Text>
-                  <Text style={styles.appointmentTimeInfo}>
-                    {absenceDialog.appointment &&
-                      moment(absenceDialog.appointment.datetime).format(
-                        'DD/MM',
-                      )}{' '}
-                    alle {absenceDialog.appointment?.time}
-                  </Text>
-                </View>
+          }>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Segnala Assenza</Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setAbsenceDialog({visible: false, appointment: null})
+                  }
+                  style={styles.closeButton}>
+                  <Icon name="close" size={24} color="#666" />
+                </TouchableOpacity>
               </View>
-
-              <Divider style={styles.compactDivider} />
-
-              {/* Tipo di assenza */}
-              <Text style={styles.compactSectionTitle}>Tipo</Text>
-              <View style={styles.radioRow}>
-                <View style={styles.radioOption}>
-                  <RadioButton
-                    value="justified"
-                    status={
-                      absenceForm.absenceType === 'justified'
-                        ? 'checked'
-                        : 'unchecked'
-                    }
-                    onPress={() =>
-                      setAbsenceForm(prev => ({
-                        ...prev,
-                        absenceType: 'justified',
-                      }))
-                    }
-                    color={theme.colors.primary}
-                  />
-                  <Text
-                    style={styles.radioText}
-                    onPress={() =>
-                      setAbsenceForm(prev => ({
-                        ...prev,
-                        absenceType: 'justified',
-                      }))
-                    }>
-                    Giustificata
-                  </Text>
-                </View>
-                <View style={styles.radioOption}>
-                  <RadioButton
-                    value="not_justified"
-                    status={
-                      absenceForm.absenceType === 'not_justified'
-                        ? 'checked'
-                        : 'unchecked'
-                    }
-                    onPress={() =>
-                      setAbsenceForm(prev => ({
-                        ...prev,
-                        absenceType: 'not_justified',
-                      }))
-                    }
-                    color={theme.colors.primary}
-                  />
-                  <Text
-                    style={styles.radioText}
-                    onPress={() =>
-                      setAbsenceForm(prev => ({
-                        ...prev,
-                        absenceType: 'not_justified',
-                      }))
-                    }>
-                    Non Giustificata
-                  </Text>
-                </View>
-              </View>
-
-              {/* Motivo */}
-              <Text style={styles.compactSectionTitle}>Motivo</Text>
               <ScrollView
-                style={styles.reasonsScroll}
+                style={styles.modalContent}
                 showsVerticalScrollIndicator={false}>
-                {getAbsenceReasons().map(reason => (
-                  <View key={reason} style={styles.compactReasonItem}>
+                {/* Info paziente compatta */}
+                <View style={styles.patientInfoRow}>
+                  <Avatar.Image
+                    size={36}
+                    source={{uri: absenceDialog.appointment?.patient.avatar}}
+                    style={styles.miniAvatar}
+                  />
+                  <View style={styles.patientInfoText}>
+                    <Text style={styles.patientNameInfo}>
+                      {absenceDialog.appointment?.patient.name}
+                    </Text>
+                    <Text style={styles.appointmentTimeInfo}>
+                      {absenceDialog.appointment &&
+                        moment(absenceDialog.appointment.datetime).format(
+                          'DD/MM',
+                        )}{' '}
+                      alle {absenceDialog.appointment?.time}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Opzione per gruppi */}
+                {/* Opzione per gruppi */}
+                {absenceDialog.appointment?.is_group && (
+                  <>
+                    <View style={styles.groupOptionContainer}>
+                      <View style={styles.groupOptionHeader}>
+                        <Icon
+                          name="account-group"
+                          size={20}
+                          color={theme.colors.primary}
+                        />
+                        <Text style={styles.groupOptionTitle}>
+                          Appuntamento di Gruppo
+                        </Text>
+                      </View>
+
+                      <View style={styles.groupOptionContent}>
+                        <Text style={styles.groupOptionDescription}>
+                          Questo è un appuntamento di gruppo con{' '}
+                          {absenceDialog.appointment.patients_count} pazienti.
+                        </Text>
+
+                        {/* Radio buttons per la scelta */}
+                        <View style={styles.groupChoiceContainer}>
+                          <TouchableOpacity
+                            style={[
+                              styles.groupChoiceOption,
+                              applyToGroup && styles.groupChoiceOptionSelected,
+                            ]}
+                            onPress={() => {
+                              setApplyToGroup(true);
+                              setIsSelectingPatient(false);
+                              setSelectedGroupPatient(null);
+                            }}>
+                            <RadioButton
+                              value="all"
+                              status={applyToGroup ? 'checked' : 'unchecked'}
+                              color={theme.colors.primary}
+                            />
+                            <View style={styles.groupChoiceTextContainer}>
+                              <Text style={styles.groupChoiceMainText}>
+                                Tutto il gruppo
+                              </Text>
+                              <Text style={styles.groupChoiceSubText}>
+                                Applica a tutti i{' '}
+                                {absenceDialog.appointment.patients_count}{' '}
+                                pazienti
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.groupChoiceOption,
+                              !applyToGroup && styles.groupChoiceOptionSelected,
+                            ]}
+                            onPress={() => {
+                              setApplyToGroup(false);
+                              setIsSelectingPatient(true);
+                              if (
+                                !selectedGroupPatient &&
+                                absenceDialog.appointment.group_patients
+                                  ?.length > 0
+                              ) {
+                                setSelectedGroupPatient(
+                                  absenceDialog.appointment.group_patients[0],
+                                );
+                              }
+                            }}>
+                            <RadioButton
+                              value="single"
+                              status={!applyToGroup ? 'checked' : 'unchecked'}
+                              color={theme.colors.primary}
+                            />
+                            <View style={styles.groupChoiceTextContainer}>
+                              <Text style={styles.groupChoiceMainText}>
+                                Paziente specifico
+                              </Text>
+                              <Text style={styles.groupChoiceSubText}>
+                                Seleziona un singolo paziente
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Dropdown per selezione paziente */}
+                        {!applyToGroup &&
+                          absenceDialog.appointment.group_patients && (
+                            <View style={styles.patientDropdownContainer}>
+                              <List.Accordion
+                                title={
+                                  selectedGroupPatient
+                                    ? selectedGroupPatient.name
+                                    : 'Seleziona paziente'
+                                }
+                                left={props => (
+                                  <List.Icon
+                                    {...props}
+                                    icon="account"
+                                    color={theme.colors.primary}
+                                  />
+                                )}
+                                expanded={isSelectingPatient}
+                                onPress={() =>
+                                  setIsSelectingPatient(!isSelectingPatient)
+                                }
+                                style={styles.patientAccordion}
+                                titleStyle={styles.patientAccordionTitle}>
+                                <View style={styles.patientListContainer}>
+                                  {absenceDialog.appointment.group_patients.map(
+                                    patient => (
+                                      <List.Item
+                                        key={patient.id}
+                                        title={patient.name}
+                                        description={
+                                          patient.status !== 'confermato'
+                                            ? getAppointmentStatusLabel(
+                                                patient.status,
+                                              )
+                                            : null
+                                        }
+                                        onPress={() => {
+                                          setSelectedGroupPatient(patient);
+                                          setIsSelectingPatient(false);
+                                        }}
+                                        style={[
+                                          styles.patientListItem,
+                                          selectedGroupPatient?.id ===
+                                            patient.id &&
+                                            styles.patientListItemSelected,
+                                        ]}
+                                        titleStyle={styles.patientListItemTitle}
+                                        descriptionStyle={
+                                          styles.patientListItemDescription
+                                        }
+                                        left={props => (
+                                          <List.Icon
+                                            {...props}
+                                            icon={
+                                              selectedGroupPatient?.id ===
+                                              patient.id
+                                                ? 'check-circle'
+                                                : 'account-circle'
+                                            }
+                                            color={
+                                              selectedGroupPatient?.id ===
+                                              patient.id
+                                                ? theme.colors.primary
+                                                : '#666'
+                                            }
+                                          />
+                                        )}
+                                      />
+                                    ),
+                                  )}
+                                </View>
+                              </List.Accordion>
+                            </View>
+                          )}
+                      </View>
+                    </View>
+
+                    <Divider style={styles.compactDivider} />
+                  </>
+                )}
+
+                {/* Tipo di assenza */}
+                <Text
+                  style={[
+                    styles.compactSectionTitle,
+                    {color: theme.colors.onSurface},
+                  ]}>
+                  Tipo
+                </Text>
+                <View style={styles.radioRow}>
+                  <View style={styles.radioOption}>
                     <RadioButton
-                      value={reason}
+                      value="justified"
                       status={
-                        absenceForm.reason === reason ? 'checked' : 'unchecked'
+                        absenceForm.absenceType === 'justified'
+                          ? 'checked'
+                          : 'unchecked'
                       }
                       onPress={() =>
-                        setAbsenceForm(prev => ({...prev, reason}))
+                        setAbsenceForm(prev => ({
+                          ...prev,
+                          absenceType: 'justified',
+                        }))
                       }
                       color={theme.colors.primary}
                     />
                     <Text
-                      style={styles.compactReasonText}
+                      style={styles.radioText}
                       onPress={() =>
-                        setAbsenceForm(prev => ({...prev, reason}))
+                        setAbsenceForm(prev => ({
+                          ...prev,
+                          absenceType: 'justified',
+                        }))
                       }>
-                      {reason}
+                      Giustificata
                     </Text>
                   </View>
-                ))}
-              </ScrollView>
+                  <View style={styles.radioOption}>
+                    <RadioButton
+                      value="not_justified"
+                      status={
+                        absenceForm.absenceType === 'not_justified'
+                          ? 'checked'
+                          : 'unchecked'
+                      }
+                      onPress={() =>
+                        setAbsenceForm(prev => ({
+                          ...prev,
+                          absenceType: 'not_justified',
+                        }))
+                      }
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={styles.radioText}
+                      onPress={() =>
+                        setAbsenceForm(prev => ({
+                          ...prev,
+                          absenceType: 'not_justified',
+                        }))
+                      }>
+                      Non Giustificata
+                    </Text>
+                  </View>
+                </View>
 
-              {absenceForm.reason === 'Altro' && (
+                {/* Motivo */}
+                <Text
+                  style={[
+                    styles.compactSectionTitle,
+                    {color: theme.colors.onSurface},
+                  ]}>
+                  Motivo
+                </Text>
+                <View style={styles.reasonsContainer}>
+                  {getAbsenceReasons().map(reason => (
+                    <View key={reason} style={styles.reasonItem}>
+                      <RadioButton
+                        value={reason}
+                        status={
+                          absenceForm.reason === reason
+                            ? 'checked'
+                            : 'unchecked'
+                        }
+                        onPress={() =>
+                          setAbsenceForm(prev => ({...prev, reason}))
+                        }
+                        color={theme.colors.primary}
+                      />
+                      <Text
+                        style={styles.reasonText}
+                        onPress={() =>
+                          setAbsenceForm(prev => ({...prev, reason}))
+                        }>
+                        {reason}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {absenceForm.reason === 'Altro' && (
+                  <TextInput
+                    label="Specifica"
+                    value={absenceForm.customReason}
+                    onChangeText={text =>
+                      setAbsenceForm(prev => ({...prev, customReason: text}))
+                    }
+                    mode="outlined"
+                    style={styles.compactCustomInput}
+                    dense
+                    multiline
+                    numberOfLines={2}
+                  />
+                )}
+
+                {/* Note */}
                 <TextInput
-                  label="Specifica"
-                  value={absenceForm.customReason}
+                  label="Note (opzionale)"
+                  value={absenceForm.notes}
                   onChangeText={text =>
-                    setAbsenceForm(prev => ({...prev, customReason: text}))
+                    setAbsenceForm(prev => ({...prev, notes: text}))
                   }
                   mode="outlined"
-                  style={styles.compactCustomInput}
+                  style={styles.compactNotesInput}
                   dense
                   multiline
                   numberOfLines={2}
                 />
-              )}
-
-              {/* Note */}
-              <TextInput
-                label="Note (opzionale)"
-                value={absenceForm.notes}
-                onChangeText={text =>
-                  setAbsenceForm(prev => ({...prev, notes: text}))
-                }
-                mode="outlined"
-                style={styles.compactNotesInput}
-                dense
-                multiline
-                numberOfLines={2}
-              />
+              </ScrollView>
+              <View style={styles.modalActions}>
+                <Button
+                  onPress={() =>
+                    setAbsenceDialog({visible: false, appointment: null})
+                  }
+                  disabled={isSubmittingAbsence}
+                  mode="outlined"
+                  style={styles.cancelButton}>
+                  Annulla
+                </Button>
+                <Button
+                  onPress={confirmMarkAbsent}
+                  buttonColor={theme.colors.error}
+                  loading={isSubmittingAbsence}
+                  disabled={
+                    isSubmittingAbsence ||
+                    !absenceForm.absenceType ||
+                    !absenceForm.reason
+                  }
+                  mode="contained"
+                  style={styles.confirmButton}>
+                  Conferma
+                </Button>
+              </View>
             </View>
-          </Dialog.Content>
-          <Dialog.Actions style={styles.dialogActions}>
-            <Button
-              onPress={() =>
-                setAbsenceDialog({visible: false, appointment: null})
-              }
-              disabled={isSubmittingAbsence}>
-              Annulla
-            </Button>
-            <Button
-              onPress={confirmMarkAbsent}
-              buttonColor={theme.colors.error}
-              loading={isSubmittingAbsence}
-              disabled={
-                isSubmittingAbsence ||
-                !absenceForm.absenceType ||
-                !absenceForm.reason
-              }
-              mode="contained">
-              Conferma
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+          </View>
+        </Modal>
 
-        {/* Dialog aggiunta note */}
-        <Dialog
+        {/* Modal aggiunta note */}
+        <Modal
           visible={noteDialog.visible}
-          onDismiss={() => setNoteDialog({visible: false, appointment: null})}
-          style={styles.noteDialog}>
-          <Dialog.Title>Aggiungi Note Appuntamento</Dialog.Title>
-          <Dialog.Content>
-            <ScrollView style={styles.dialogContent}>
-              <Paragraph style={styles.appointmentInfo}>
-                Stai aggiungendo note per l'appuntamento di{' '}
-                {noteDialog.appointment?.patient.name} del{' '}
-                {noteDialog.appointment &&
-                  moment(noteDialog.appointment.datetime).format(
-                    'DD/MM/YYYY',
-                  )}{' '}
-                alle {noteDialog.appointment?.time}
-              </Paragraph>
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() =>
+            setNoteDialog({visible: false, appointment: null})
+          }>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  Aggiungi Note Appuntamento
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setNoteDialog({visible: false, appointment: null})
+                  }
+                  style={styles.closeButton}>
+                  <Icon name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                <Paragraph style={styles.appointmentInfo}>
+                  Stai aggiungendo note per l'appuntamento di{' '}
+                  {noteDialog.appointment?.patient.name} del{' '}
+                  {noteDialog.appointment &&
+                    moment(noteDialog.appointment.datetime).format(
+                      'DD/MM/YYYY',
+                    )}{' '}
+                  alle {noteDialog.appointment?.time}
+                </Paragraph>
 
-              <Divider style={styles.divider} />
+                <Divider style={styles.divider} />
 
-              <Text
-                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-                Note dell'appuntamento
-              </Text>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {color: theme.colors.onSurface},
+                  ]}>
+                  Note dell'appuntamento
+                </Text>
 
-              <TextInput
-                label="Inserisci le note per questo appuntamento"
-                value={noteForm.note}
-                onChangeText={text =>
-                  setNoteForm(prev => ({...prev, note: text}))
-                }
-                mode="outlined"
-                style={styles.noteInput}
-                multiline
-                numberOfLines={6}
-                placeholder="Es. Osservazioni, progressi, comportamenti, ecc..."
-              />
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions style={styles.dialogActions}>
-            <Button
-              onPress={() => setNoteDialog({visible: false, appointment: null})}
-              disabled={isSubmittingNote}>
-              Annulla
-            </Button>
-            <Button
-              onPress={confirmAddNote}
-              buttonColor={theme.colors.primary}
-              loading={isSubmittingNote}
-              disabled={isSubmittingNote || !noteForm.note.trim()}
-              mode="contained">
-              {isSubmittingNote ? 'Salvataggio...' : 'Salva Note'}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+                <TextInput
+                  label="Inserisci le note per questo appuntamento"
+                  value={noteForm.note}
+                  onChangeText={text =>
+                    setNoteForm(prev => ({...prev, note: text}))
+                  }
+                  mode="outlined"
+                  style={styles.noteInput}
+                  multiline
+                  numberOfLines={6}
+                  placeholder="Es. Osservazioni, progressi, comportamenti, ecc..."
+                />
+              </ScrollView>
+              <View style={styles.modalActions}>
+                <Button
+                  onPress={() =>
+                    setNoteDialog({visible: false, appointment: null})
+                  }
+                  disabled={isSubmittingNote}
+                  mode="outlined"
+                  style={styles.cancelButton}>
+                  Annulla
+                </Button>
+                <Button
+                  onPress={confirmAddNote}
+                  buttonColor={theme.colors.primary}
+                  loading={isSubmittingNote}
+                  disabled={isSubmittingNote || !noteForm.note.trim()}
+                  mode="contained"
+                  style={styles.confirmButton}>
+                  {isSubmittingNote ? 'Salvataggio...' : 'Salva Note'}
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Portal>
     </ScreenTemplate>
   );
@@ -954,6 +1320,50 @@ const TherapistCalendarScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  groupChip: {
+    alignSelf: 'flex-start',
+  },
+  groupAvatar: {
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+  },
+  // ... e gli stili per l'opzione gruppo nella modale come prima
+  groupOptionContainer: {
+    marginBottom: 8,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  groupOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  groupOptionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  groupOptionContent: {
+    marginTop: 4,
+  },
+  groupOptionDescription: {
+    fontSize: 12,
+    marginBottom: 6,
+    lineHeight: 16,
+  },
+  groupRadioContainer: {
+    backgroundColor: 'white',
+    borderRadius: 6,
+    padding: 8,
   },
   calendarCard: {
     marginHorizontal: 16,
@@ -1084,11 +1494,62 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   // Stili per la modale di segnalazione assenza
-  absenceDialog: {
-    maxHeight: '80%',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  dialogContent: {
-    maxHeight: 400,
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '85%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  cancelButton: {
+    flex: 1,
+    marginRight: 8,
+  },
+  confirmButton: {
+    flex: 1,
+    marginLeft: 8,
   },
   appointmentInfo: {
     fontSize: 16,
@@ -1105,60 +1566,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
-  absenceTypeContainer: {
-    marginBottom: 16,
-  },
-  absenceTypeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  absenceTypeText: {
-    fontSize: 16,
-    marginLeft: 8,
-    flex: 1,
-  },
-  reasonsContainer: {
-    marginBottom: 16,
-  },
-  reasonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  reasonText: {
-    fontSize: 16,
-    marginLeft: 8,
-    flex: 1,
-  },
-  customReasonInput: {
-    marginBottom: 16,
-  },
-  notesInput: {
-    marginBottom: 16,
-  },
 
   // Stili per la modale delle note
-  noteDialog: {
-    maxHeight: '80%',
-  },
   noteInput: {
     marginBottom: 16,
-  },
-  // Stili per la modale compatta
-  absenceDialog: {
-    maxHeight: '85%',
-  },
-  dialogContent: {
-    paddingHorizontal: 0,
   },
   patientInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F7FA',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   miniAvatar: {
     marginRight: 12,
@@ -1177,53 +1596,157 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   compactDivider: {
-    marginVertical: 12,
+    marginVertical: 6,
   },
   compactSectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    marginTop: 2,
   },
   radioRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    paddingVertical: 2,
   },
   radioText: {
     fontSize: 14,
     marginLeft: 4,
   },
-  reasonsScroll: {
-    maxHeight: 120,
-    marginBottom: 12,
+  reasonsContainer: {
+    marginBottom: 8,
   },
-  compactReasonItem: {
+  reasonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 2,
   },
-  compactReasonText: {
+  reasonText: {
     fontSize: 14,
-    marginLeft: 8,
+    marginLeft: 4,
     flex: 1,
   },
   compactCustomInput: {
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 8,
   },
   compactNotesInput: {
-    marginTop: 8,
+    marginTop: 6,
+    marginBottom: 6,
   },
-  dialogActions: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+
+  // Aggiungi questi stili per la selezione paziente
+  patientSelectionContainer: {
+    marginTop: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 6,
+    padding: 8,
+  },
+  patientSelectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  patientSelectionScroll: {
+    maxHeight: 150,
+  },
+  patientSelectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
+  patientSelectionItemSelected: {
+    backgroundColor: '#E3F2FD',
+  },
+  patientSelectionInfo: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  patientSelectionName: {
+    fontSize: 14,
+    color: '#333',
+  },
+  patientSelectionStatus: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  // Stili per la selezione gruppo migliorata
+  groupChoiceContainer: {
+    marginTop: 6,
+  },
+  groupChoiceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  groupChoiceOptionSelected: {
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    backgroundColor: '#F3F9FF',
+  },
+  groupChoiceTextContainer: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  groupChoiceMainText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  groupChoiceSubText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  patientDropdownContainer: {
+    marginTop: 6,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    elevation: 1,
+  },
+  patientAccordion: {
+    backgroundColor: 'white',
+  },
+  patientAccordionTitle: {
+    fontSize: 14,
+    color: '#333',
+  },
+  patientListContainer: {
+    backgroundColor: '#F5F5F5',
+  },
+  patientListItem: {
+    backgroundColor: 'white',
+    marginHorizontal: 0,
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  patientListItemSelected: {
+    backgroundColor: '#F3F9FF',
+  },
+  patientListItemTitle: {
+    fontSize: 14,
+    color: '#333',
+  },
+  patientListItemDescription: {
+    fontSize: 12,
+    color: '#666',
   },
 });
 

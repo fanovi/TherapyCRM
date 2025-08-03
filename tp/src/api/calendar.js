@@ -411,6 +411,7 @@ export const markPatientAbsent = async (
   absenceType,
   reason,
   notes = '',
+  applyToGroup = false, // NUOVO parametro
 ) => {
   try {
     const response = await apiClient.post('/calendar/mark-patient-absent', {
@@ -418,52 +419,14 @@ export const markPatientAbsent = async (
       absence_type: absenceType,
       reason: reason,
       notes: notes,
+      apply_to_group: applyToGroup, // AGGIUNGI questo
     });
 
+    console.log('response', response);
     return response.data;
   } catch (error) {
-    console.error('Errore segnalazione assenza:', error);
-
-    // Gestione errori specifica per segnalazione assenza
-    if (error.response?.status === 401) {
-      // Errore di autenticazione - l'interceptor gestirà il logout
-      throw {
-        type: 'AUTH_ERROR',
-        message: 'Sessione scaduta. Effettua nuovamente il login.',
-      };
-    } else if (error.response?.status === 403) {
-      // Errore di permessi
-      throw {
-        type: 'PERMISSION_ERROR',
-        message: 'Non hai i permessi per segnalare questa assenza.',
-      };
-    } else if (error.response?.status === 404) {
-      // Appuntamento non trovato
-      throw {
-        type: 'ABSENCE_ERROR',
-        message: 'Appuntamento non trovato.',
-      };
-    } else if (error.response?.status >= 400 && error.response?.status < 500) {
-      // Altri errori client
-      throw {
-        type: 'ABSENCE_ERROR',
-        message:
-          error.response?.data?.error ||
-          "Errore nella segnalazione dell'assenza.",
-      };
-    } else if (!error.response) {
-      // Errore di rete
-      throw {
-        type: 'NETWORK_ERROR',
-        message: 'Errore di connessione. Verifica la tua connessione internet.',
-      };
-    } else {
-      // Errore server generico
-      throw {
-        type: 'SERVER_ERROR',
-        message: 'Errore del server. Riprova più tardi.',
-      };
-    }
+    console.error('Errore nella segnalazione assenza:', error);
+    throw error;
   }
 };
 
