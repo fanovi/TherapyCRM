@@ -400,6 +400,7 @@ class TherapeuticPlanManagerAPI {
     appointmentDateTime: string;
     durationMinutes: number;
     notes?: string;
+    applyToGroup?: boolean;
   }): Promise<{
     appointmentId: number;
     planTherapyId?: number;
@@ -461,9 +462,14 @@ class TherapeuticPlanManagerAPI {
   /**
    * Cancella logicamente un appuntamento
    */
-  async deleteAppointment(appointmentId: number): Promise<void> {
+
+  async deleteAppointment(
+    appointmentId: number,
+    options?: { applyToGroup?: boolean }
+  ): Promise<void> {
     const response = await this.post<any>("delete-appointment", {
       appointmentId,
+      ...options,
     });
 
     if (!response.success) {

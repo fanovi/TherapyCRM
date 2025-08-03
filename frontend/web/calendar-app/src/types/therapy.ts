@@ -78,9 +78,9 @@ export interface PlanTherapy {
 }
 
 export interface Appointment {
-  groupPatients: Array<{ id: number; name: string }>;
+  groupPatients: Array<{ id: number; name: string; appointmentId: number }>;
   isGroup: any;
-  groupSessionId: null;
+  groupSessionId?: string | null;
   id: number;
   datetime: string; // formato ISO datetime dalla API
   duration: number; // duration_minutes dall'API

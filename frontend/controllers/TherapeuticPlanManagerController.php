@@ -1193,6 +1193,70 @@ class TherapeuticPlanManagerController extends Controller
      *
      * @return array
      */
+    // public function actionGetAppointmentDetails($appointmentId)
+    // {
+    //     Yii::$app->response->format = Response::FORMAT_JSON;
+    //     try {
+    //         if (!$appointmentId) {
+    //             return $this->errorResponse('ID appuntamento mancante');
+    //         }
+    //         $appointment = Appointment::find()
+    //             ->alias('a')
+    //             ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+    //             ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+    //             ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+    //             ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+    //             ->leftJoin('therapists t', 't.id = a.therapist_id')
+    //             ->leftJoin('users u', 'u.id = t.user_id')
+    //             ->leftJoin('user_profiles up', 'up.user_id = u.id')
+    //             ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile'])
+    //             ->where(['a.id' => $appointmentId])
+    //             ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+    //             ->one();
+    //         if (!$appointment) {
+    //             return $this->errorResponse('Appuntamento non trovato');
+    //         }
+    //         // Ottieni il paziente e il tipo di trattamento corretti basato sul tipo di appuntamento
+    //         if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+    //             $patient = $appointment->planTherapy->therapeuticPlan->patient;
+    //             $treatmentType = $appointment->planTherapy->treatmentType;
+    //         } else {
+    //             $patient = $appointment->patient;
+    //             $treatmentType = $appointment->treatmentType;
+    //         }
+    //         $therapist = $appointment->therapist;
+    //         $profile = $therapist->user->profile;
+    //         $result = [
+    //             'id' => $appointment->id,
+    //             'datetime' => $appointment->appointment_datetime,
+    //             'duration' => $appointment->duration_minutes,
+    //             'status' => $appointment->status,
+    //             'notes' => $appointment->notes,
+    //             'appointmentSource' => $appointment->appointment_source,
+    //             'treatmentType' => $treatmentType ? $treatmentType->name : 'Non specificato',
+    //             'patient' => [
+    //                 'id' => $patient->id,
+    //                 'name' => $patient->getFullName()
+    //             ],
+    //             'therapist' => [
+    //                 'id' => $therapist->id,
+    //                 'name' => $profile->getFullName()
+    //             ],
+    //             'patternId' => $appointment->pattern_id,
+    //             'isRecurring' => $appointment->pattern_id !== null,
+    //             'privateCycleId' => $appointment->private_cycle_id,
+    //             'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
+    //             'groupSessionId' => $appointment->group_session_id\
+    //         ];
+    //         return [
+    //             'success' => true,
+    //             'data' => $result
+    //         ];
+    //     } catch (Exception $e) {
+    //         Yii::error('Errore recupero dettagli appuntamento: ' . $e->getMessage(), __METHOD__);
+    //         return $this->errorResponse($e->getMessage());
+    //     }
+    // }
     public function actionGetAppointmentDetails($appointmentId)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -1232,6 +1296,31 @@ class TherapeuticPlanManagerController extends Controller
             $therapist = $appointment->therapist;
             $profile = $therapist->user->profile;
 
+            // Recupera tutti i pazienti del gruppo se è un appuntamento di gruppo
+            $groupPatients = [];
+            if ($appointment->group_session_id !== null) {
+                $groupAppointments = Appointment::find()
+                    ->alias('a')
+                    ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                    ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                    ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
+                    ->where(['a.group_session_id' => $appointment->group_session_id])
+                    ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->all();
+
+                foreach ($groupAppointments as $groupAppt) {
+                    $groupPatient = $groupAppt->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN
+                        ? $groupAppt->planTherapy->therapeuticPlan->patient
+                        : $groupAppt->patient;
+
+                    $groupPatients[] = [
+                        'id' => $groupPatient->id,
+                        'name' => $groupPatient->getFullName(),
+                        'appointmentId' => $groupAppt->id
+                    ];
+                }
+            }
+
             $result = [
                 'id' => $appointment->id,
                 'datetime' => $appointment->appointment_datetime,
@@ -1251,7 +1340,9 @@ class TherapeuticPlanManagerController extends Controller
                 'patternId' => $appointment->pattern_id,
                 'isRecurring' => $appointment->pattern_id !== null,
                 'privateCycleId' => $appointment->private_cycle_id,
-                'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
+                'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
+                'groupSessionId' => $appointment->group_session_id,
+                'groupPatients' => $groupPatients,  // AGGIUNTO: ora include i pazienti del gruppo
             ];
 
             return [
@@ -2482,23 +2573,60 @@ class TherapeuticPlanManagerController extends Controller
                 throw new BadRequestHttpException('Non è possibile cancellare un appuntamento completato');
             }
 
-            $appointment->status = Appointment::STATUS_CANCELLED;
-            if (!$appointment->save()) {
-                throw new Exception('Errore cancellazione appuntamento');
+            // Se è un appuntamento di gruppo, trova tutti gli appuntamenti del gruppo
+            $appointmentsToDelete = [];
+            $isGroupDeletion = false;
+
+            if ($appointment->group_session_id !== null) {
+                $isGroupDeletion = true;
+                $appointmentsToDelete = Appointment::find()
+                    ->where(['group_session_id' => $appointment->group_session_id])
+                    ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                    ->andWhere(['!=', 'status', 'completed'])
+                    ->all();
+
+                Yii::info("Cancellazione di gruppo rilevata - Group Session ID: {$appointment->group_session_id}, Appuntamenti da cancellare: " . count($appointmentsToDelete), __METHOD__);
+            } else {
+                $appointmentsToDelete = [$appointment];
             }
 
-            // Traccia cancellazione
-            if (isset(Yii::$app->activityLog)) {
-                Yii::$app->activityLog->record(
-                    'delete_appointment',
-                    'Appuntamento cancellato',
-                    $appointment->id
-                );
+            $deletedCount = 0;
+            $deletedAppointmentIds = [];
+
+            // Cancella tutti gli appuntamenti del gruppo (o solo quello singolo)
+            foreach ($appointmentsToDelete as $apt) {
+                $apt->status = Appointment::STATUS_CANCELLED;
+                if ($apt->save()) {
+                    $deletedCount++;
+                    $deletedAppointmentIds[] = $apt->id;
+
+                    // Traccia cancellazione
+                    if (isset(Yii::$app->activityLog)) {
+                        Yii::$app->activityLog->record(
+                            'delete_appointment',
+                            $isGroupDeletion ? 'Appuntamento cancellato (gruppo)' : 'Appuntamento cancellato',
+                            $apt->id
+                        );
+                    }
+                } else {
+                    Yii::warning("Errore nella cancellazione dell'appuntamento ID {$apt->id}", __METHOD__);
+                }
             }
+
+            $message = $isGroupDeletion
+                ? "Cancellati {$deletedCount} appuntamenti del gruppo con successo"
+                : 'Appuntamento cancellato con successo';
+
+            Yii::info("Cancellazione completata - Appuntamenti cancellati: {$deletedCount}, IDs: " . implode(',', $deletedAppointmentIds), __METHOD__);
 
             return [
                 'success' => true,
-                'message' => 'Appuntamento cancellato con successo'
+                'message' => $message,
+                'data' => [
+                    'deletedCount' => $deletedCount,
+                    'deletedAppointmentIds' => $deletedAppointmentIds,
+                    'isGroupDeletion' => $isGroupDeletion
+                ]
             ];
         } catch (Exception $e) {
             Yii::error('Errore cancellazione appuntamento: ' . $e->getMessage(), __METHOD__);

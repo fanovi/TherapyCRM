@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Users,
   Plus,
+  AlertCircle,
 } from "lucide-react";
 import { Appointment, Patient, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
@@ -36,6 +37,7 @@ interface AppointmentEditModalProps {
   onAddTherapyInSlot?: (appointment: Appointment) => void;
   isABARegime?: boolean;
   patient?: Patient | null;
+  onSetGroupAppointment?: (appointmentId: number) => Promise<void>;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -50,7 +52,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   onAddTherapyInSlot,
   isABARegime,
   patient,
+  onSetGroupAppointment,
 }) => {
+  console.log("appointment IN MODAL", appointment);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteAllFuture, setDeleteAllFuture] = useState(false);
@@ -63,11 +67,19 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     duration: 60,
     notes: "",
   });
-  // AGGIUNGI questi nuovi state
+
+  // State per gruppi
   const [canAddToGroup, setCanAddToGroup] = useState(false);
   const [groupPatients, setGroupPatients] = useState<
-    Array<{ id: number; name: string }>
+    Array<{ id: number; name: string; appointmentId: number }>
   >([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(
+    null
+  );
+  const [currentPatientAppointment, setCurrentPatientAppointment] =
+    useState<Appointment | null>(null);
+  const [applyToWholeGroup, setApplyToWholeGroup] = useState(true);
+  const [loadingPatientDetails, setLoadingPatientDetails] = useState(false);
 
   const { showSuccess, showError } = useToast();
 
@@ -78,33 +90,83 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   // Determina se è un appuntamento di gruppo
   const isGroupAppointment =
     appointment?.groupSessionId !== null &&
-    appointment?.groupSessionId !== undefined;
+    appointment?.groupSessionId !== undefined &&
+    appointment?.groupPatients;
+
+  console.log("appointment", appointment);
+  // Funzione per caricare i dettagli dell'appuntamento del paziente selezionato
+  const loadPatientAppointmentDetails = async (appointmentId: number) => {
+    setLoadingPatientDetails(true);
+    try {
+      const details = await therapyAPI.getAppointmentDetails(appointmentId);
+      setCurrentPatientAppointment(details);
+
+      // Aggiorna il form con i dati del paziente selezionato
+      const [datePart, timePart] = details.datetime.split(" ");
+      const [hours, minutes] = timePart.split(":");
+
+      setFormData({
+        therapistId: details.therapist?.id || 0,
+        date: datePart,
+        time: `${hours}:${minutes}`,
+        duration: details.duration,
+        notes: details.notes || "",
+      });
+    } catch (error) {
+      console.error("Errore caricamento dettagli appuntamento:", error);
+      showError("Errore", "Impossibile caricare i dettagli dell'appuntamento");
+    } finally {
+      setLoadingPatientDetails(false);
+    }
+  };
 
   useEffect(() => {
     if (appointment) {
-      const [datePart, timePart] = appointment.datetime.split(" ");
-      const [hours, minutes] = timePart.split(":");
+      console.log("📝 AppointmentEditModal ricevuto appointment:", appointment);
+      console.log("📝 appointment.groupSessionId:", appointment.groupSessionId);
+      console.log("📝 appointment.groupPatients:", appointment.groupPatients);
+
+      if (appointment.groupPatients && appointment.groupPatients.length > 0) {
+        setGroupPatients(appointment.groupPatients);
+
+        // Se è un gruppo, seleziona il primo paziente per default
+        if (appointment.groupPatients.length > 1) {
+          const firstPatient = appointment.groupPatients[0];
+          setSelectedPatientId(firstPatient.id);
+          loadPatientAppointmentDetails(firstPatient.appointmentId);
+        } else {
+          // Gruppo con un solo paziente
+          setCurrentPatientAppointment(appointment);
+          setSelectedPatientId(appointment.patient?.id || null);
+        }
+      } else {
+        // Appuntamento singolo
+        setCurrentPatientAppointment(appointment);
+        setSelectedPatientId(appointment.patient?.id || null);
+        setGroupPatients([]);
+      }
+
+      // Imposta i dati del form per appuntamenti singoli
+      if (!appointment.groupPatients || appointment.groupPatients.length <= 1) {
+        const [datePart, timePart] = appointment.datetime.split(" ");
+        const [hours, minutes] = timePart.split(":");
+
+        setFormData({
+          therapistId: appointment.therapist?.id || 0,
+          date: datePart,
+          time: `${hours}:${minutes}`,
+          duration: appointment.duration,
+          notes: appointment.notes || "",
+        });
+      }
 
       if (patient) {
         checkCanAddToGroup();
       }
 
-      setFormData({
-        therapistId: appointment.therapist?.id || 0,
-        date: datePart,
-        time: `${hours}:${minutes}`,
-        duration: appointment.duration,
-        notes: appointment.notes || "",
-      });
-
-      if (appointment.groupPatients && appointment.groupPatients.length > 0) {
-        setGroupPatients(appointment.groupPatients);
-      } else {
-        setGroupPatients([]);
-      }
-
       setIsSubstitutionMode(false);
       setShowActionMenu(false);
+      setApplyToWholeGroup(true);
     }
   }, [appointment]);
 
@@ -158,7 +220,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         durationMinutes: appointment.duration,
         notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
         isGroup: true,
-        groupSessionId: appointment.groupSessionId, // Passa il group session ID esistente
+        groupSessionId: appointment.groupSessionId,
       };
 
       await therapyAPI.createAppointment(request);
@@ -195,23 +257,26 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!appointment) return;
+    if (!appointment || !currentPatientAppointment) return;
 
     setLoading(true);
     try {
       const appointmentDateTime = `${formData.date} ${formData.time}:00`;
 
       const result = await therapyAPI.updateAppointment({
-        appointmentId: appointment.id,
+        appointmentId: currentPatientAppointment.id,
         therapistId: formData.therapistId,
         appointmentDateTime,
         durationMinutes: formData.duration,
         notes: formData.notes,
+        applyToGroup: applyToWholeGroup && isGroupAppointment,
       });
 
       showSuccess(
         "Appuntamento aggiornato",
-        "L'appuntamento è stato modificato con successo"
+        applyToWholeGroup && isGroupAppointment
+          ? `Aggiornati tutti gli appuntamenti del gruppo`
+          : "L'appuntamento è stato modificato con successo"
       );
 
       onAppointmentUpdate(appointment.id.toString());
@@ -262,10 +327,15 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!appointment) return;
+    if (!appointment || !currentPatientAppointment) return;
 
     let confirmMessage = "Sei sicuro di voler eliminare questo appuntamento?";
-    if (deleteAllFuture) {
+
+    if (isGroupAppointment && applyToWholeGroup) {
+      confirmMessage = `Sei sicuro di voler eliminare tutti i ${appointment.groupPatients?.length} appuntamenti del gruppo?`;
+    } else if (isGroupAppointment && !applyToWholeGroup) {
+      confirmMessage = `Sei sicuro di voler eliminare solo l'appuntamento di ${currentPatientAppointment.patient?.name}?`;
+    } else if (deleteAllFuture) {
       if (appointment.isRecurring && appointment.patternId) {
         confirmMessage =
           "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
@@ -294,7 +364,17 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           );
         }
       } else {
-        await therapyAPI.deleteAppointment(appointment.id);
+        await therapyAPI.deleteAppointment(currentPatientAppointment.id, {
+          applyToGroup: applyToWholeGroup && isGroupAppointment,
+        });
+      }
+
+      // Mostra messaggio di successo diverso per i gruppi
+      if (isGroupAppointment && applyToWholeGroup) {
+        showSuccess(
+          "Gruppo eliminato",
+          `Tutti i ${appointment.groupPatients?.length} appuntamenti del gruppo sono stati eliminati`
+        );
       }
 
       onAppointmentDelete(appointment.id.toString());
@@ -359,6 +439,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     }
   };
 
+  // Verifica se l'appuntamento corrente può essere modificato
+  const canModifyAppointment =
+    currentPatientAppointment?.status === "scheduled";
+
   if (!isOpen || !appointment) return null;
 
   return (
@@ -402,10 +486,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 <div className="flex items-center gap-3">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                      appointment.status
+                      currentPatientAppointment?.status || appointment.status
                     )}`}
                   >
-                    {getStatusText(appointment.status)}
+                    {getStatusText(
+                      currentPatientAppointment?.status || appointment.status
+                    )}
                   </span>
                   {(appointment.isRecurring || appointment.privateCycleId) && (
                     <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
@@ -422,49 +508,156 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 </div>
               </div>
 
+              {/* Selezione paziente per gruppi */}
+              {isGroupAppointment &&
+                appointment.groupPatients &&
+                appointment.groupPatients.length > 1 && (
+                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-blue-900">
+                        Appuntamento di gruppo
+                      </h3>
+                      <span className="text-sm text-blue-600">
+                        {appointment.groupPatients.length} pazienti
+                      </span>
+                    </div>
+
+                    {/* Selector paziente */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-blue-800">
+                        Visualizza dettagli paziente:
+                      </label>
+                      <select
+                        value={selectedPatientId || ""}
+                        onChange={(e) => {
+                          const patientId = parseInt(e.target.value);
+                          setSelectedPatientId(patientId);
+
+                          // Trova l'appointmentId per questo paziente
+                          const patientData = appointment.groupPatients?.find(
+                            (p) => p.id === patientId
+                          );
+                          if (patientData) {
+                            loadPatientAppointmentDetails(
+                              patientData.appointmentId
+                            );
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={loadingPatientDetails}
+                      >
+                        {appointment.groupPatients.map((patient) => (
+                          <option key={patient.id} value={patient.id}>
+                            {patient.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Toggle applica a tutto il gruppo */}
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                      <label className="flex items-center gap-3 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={applyToWholeGroup}
+                          onChange={(e) =>
+                            setApplyToWholeGroup(e.target.checked)
+                          }
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">
+                            Applica azioni a tutto il gruppo
+                          </span>
+                          <p className="text-xs text-gray-500">
+                            {applyToWholeGroup
+                              ? `Le modifiche verranno applicate a tutti i ${appointment.groupPatients.length} pazienti`
+                              : `Le modifiche verranno applicate solo a ${currentPatientAppointment?.patient?.name}`}
+                          </p>
+                        </div>
+                      </label>
+                      {applyToWholeGroup ? (
+                        <Users className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-600" />
+                      )}
+                    </div>
+
+                    {/* Avviso stato appuntamento */}
+                    {currentPatientAppointment && !canModifyAppointment && (
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-orange-600" />
+                          <div className="text-sm text-orange-700">
+                            <p className="font-medium">
+                              Appuntamento non modificabile
+                            </p>
+                            <p className="text-xs">
+                              L'appuntamento di{" "}
+                              {currentPatientAppointment.patient?.name} è in
+                              stato "
+                              {getStatusText(currentPatientAppointment.status)}"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               {/* Info principali in griglia compatta */}
               <div className="grid grid-cols-2 gap-3">
                 {/* Paziente/i */}
                 <div className="col-span-2 p-3 bg-blue-50 rounded-lg">
-                  {appointment.groupPatients &&
-                  appointment.groupPatients.length > 1 ? (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="w-5 h-5 text-blue-600" />
-                        <span className="text-xs text-blue-600 font-semibold">
-                          Gruppo ({appointment.groupPatients.length} pazienti)
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {appointment.groupPatients.map((groupPatient) => (
-                          <div
-                            key={groupPatient.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-full text-sm"
-                          >
-                            <span>{groupPatient.name}</span>
-                            {!isTherapistView && (
-                              <button
-                                onClick={() => {}}
-                                className="text-red-500 hover:text-red-700 ml-1"
-                                title="Rimuovi dal gruppo"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  {loadingPatientDetails ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-blue-600">
+                        Caricamento...
+                      </span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">
-                          {appointment.patient?.name || "Paziente sconosciuto"}
+                    <>
+                      {!isGroupAppointment ? (
+                        <div className="flex items-center gap-3">
+                          <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">
+                              {currentPatientAppointment?.patient?.name ||
+                                "Paziente sconosciuto"}
+                            </div>
+                            <div className="text-xs text-blue-600">
+                              Paziente
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-blue-600">Paziente</div>
-                      </div>
-                    </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Users className="w-5 h-5 text-blue-600" />
+                            <span className="text-xs text-blue-600 font-semibold">
+                              Dettagli per:{" "}
+                              {currentPatientAppointment?.patient?.name}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Stato:{" "}
+                            <span
+                              className={`font-medium ${
+                                currentPatientAppointment?.status ===
+                                "scheduled"
+                                  ? "text-green-600"
+                                  : "text-orange-600"
+                              }`}
+                            >
+                              {getStatusText(
+                                currentPatientAppointment?.status || ""
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -473,19 +666,23 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   <User className="w-5 h-5 text-green-600 flex-shrink-0" />
                   <div className="min-w-0">
                     <div className="font-semibold text-gray-900 text-sm truncate">
-                      {appointment.therapist?.name || "N/A"}
+                      {currentPatientAppointment?.therapist?.name ||
+                        appointment.therapist?.name ||
+                        "N/A"}
                     </div>
                     <div className="text-xs text-green-600">Terapista</div>
                   </div>
                 </div>
 
                 {/* Trattamento */}
-                {appointment.treatmentType && (
+                {(currentPatientAppointment?.treatmentType ||
+                  appointment.treatmentType) && (
                   <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg">
                     <Stethoscope className="w-5 h-5 text-indigo-600 flex-shrink-0" />
                     <div className="min-w-0">
                       <div className="font-semibold text-gray-900 text-sm truncate">
-                        {appointment.treatmentType}
+                        {currentPatientAppointment?.treatmentType ||
+                          appointment.treatmentType}
                       </div>
                       <div className="text-xs text-indigo-600">Trattamento</div>
                     </div>
@@ -497,14 +694,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   <Calendar className="w-5 h-5 text-purple-600 flex-shrink-0" />
                   <div className="min-w-0">
                     <div className="font-semibold text-gray-900 text-sm">
-                      {new Date(appointment.datetime).toLocaleDateString(
-                        "it-IT",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        }
-                      )}
+                      {new Date(
+                        currentPatientAppointment?.datetime ||
+                          appointment.datetime
+                      ).toLocaleDateString("it-IT", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </div>
                     <div className="text-xs text-purple-600">Data</div>
                   </div>
@@ -514,8 +711,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
                   <div className="min-w-0">
                     <div className="font-semibold text-gray-900 text-sm">
-                      {formatTime(appointment.datetime)} •{" "}
-                      {appointment.duration}min
+                      {formatTime(
+                        currentPatientAppointment?.datetime ||
+                          appointment.datetime
+                      )}{" "}
+                      •{" "}
+                      {currentPatientAppointment?.duration ||
+                        appointment.duration}
+                      min
                     </div>
                     <div className="text-xs text-orange-600">Orario</div>
                   </div>
@@ -523,13 +726,13 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
               </div>
 
               {/* Note (se presenti) */}
-              {appointment.notes && (
+              {(currentPatientAppointment?.notes || appointment.notes) && (
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-xs font-semibold text-gray-600 mb-1">
                     Note
                   </div>
                   <div className="text-sm text-gray-900">
-                    {appointment.notes}
+                    {currentPatientAppointment?.notes || appointment.notes}
                   </div>
                 </div>
               )}
@@ -541,6 +744,16 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-sm text-purple-800">
                     ⚠️ Stai modificando un appuntamento privato
+                  </p>
+                </div>
+              )}
+
+              {isGroupAppointment && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    {applyToWholeGroup
+                      ? `⚠️ Stai modificando tutti i ${appointment.groupPatients?.length} appuntamenti del gruppo`
+                      : `⚠️ Stai modificando solo l'appuntamento di ${currentPatientAppointment?.patient?.name}`}
                   </p>
                 </div>
               )}
@@ -628,59 +841,43 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
         {/* Footer con azioni compatte */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
-          {!isEditing && appointment.status === "scheduled" && (
+          {!isEditing && canModifyAppointment && (
             <>
               {/* Checkbox per cancellazione ricorrenti */}
               {((appointment?.isRecurring && appointment?.patternId) ||
-                (appointment?.isPrivate && appointment?.privateCycleId)) && (
-                <div className="mb-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={deleteAllFuture}
-                      onChange={(e) => setDeleteAllFuture(e.target.checked)}
-                      className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
-                    />
-                    <span className="flex items-center gap-1">
-                      <Repeat className="h-3 w-3" />
-                      {appointment?.isPrivate
-                        ? "Cancella tutti gli appuntamenti del ciclo"
-                        : "Cancella tutti gli appuntamenti futuri"}
-                    </span>
-                  </label>
-                </div>
-              )}
+                (appointment?.isPrivate && appointment?.privateCycleId)) &&
+                !isGroupAppointment && (
+                  <div className="mb-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={deleteAllFuture}
+                        onChange={(e) => setDeleteAllFuture(e.target.checked)}
+                        className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <span className="flex items-center gap-1">
+                        <Repeat className="h-3 w-3" />
+                        {appointment?.isPrivate
+                          ? "Cancella tutti gli appuntamenti del ciclo"
+                          : "Cancella tutti gli appuntamenti futuri"}
+                      </span>
+                    </label>
+                  </div>
+                )}
 
               {/* Checkbox per rendere di gruppo - NUOVA */}
               {!isGroupAppointment &&
                 !isABARegime &&
                 !isPrivateAppointment &&
-                appointment.appointmentSource === "therapeutic_plan" && (
+                appointment.appointmentSource === "therapeutic_plan" &&
+                onSetGroupAppointment && (
                   <div className="mb-3">
                     <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                       <input
                         type="checkbox"
                         onChange={async (e) => {
                           if (e.target.checked) {
-                            try {
-                              setLoading(true);
-                              await therapyAPI.setGroupAppointment(
-                                appointment.id
-                              );
-                              showSuccess(
-                                "Appuntamento di gruppo",
-                                "L'appuntamento è stato impostato come appuntamento di gruppo"
-                              );
-                              onAppointmentUpdate(appointment.id.toString());
-                              onClose();
-                            } catch (error) {
-                              showError(
-                                "Errore",
-                                "Non è stato possibile impostare l'appuntamento come gruppo"
-                              );
-                            } finally {
-                              setLoading(false);
-                            }
+                            await onSetGroupAppointment(appointment.id);
                           }
                         }}
                         className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
@@ -729,7 +926,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   )}
 
                   {appointment.appointmentSource === "therapeutic_plan" &&
-                    onAddTherapyInSlot && (
+                    onAddTherapyInSlot &&
+                    isABARegime && (
                       <button
                         onClick={() => {
                           onClose();
@@ -758,10 +956,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             </>
           )}
 
-          {!isEditing && appointment.status !== "scheduled" && (
+          {!isEditing && !canModifyAppointment && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500 italic">
-                Non modificabile (stato: {getStatusText(appointment.status)})
+                Non modificabile (stato:{" "}
+                {getStatusText(
+                  currentPatientAppointment?.status || appointment.status
+                )}
+                )
               </p>
               <button
                 onClick={onClose}
@@ -798,7 +1000,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         isOpen={isSubstitutionMode}
         onClose={() => setIsSubstitutionMode(false)}
         onConfirm={handleTherapistSubstitution}
-        appointment={appointment}
+        appointment={currentPatientAppointment || appointment}
         therapists={therapists}
       />
     </div>

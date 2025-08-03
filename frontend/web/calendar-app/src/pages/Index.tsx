@@ -989,35 +989,15 @@ const Index = () => {
   };
 
   const handleAppointmentClick = async (appointmentId: string) => {
-    console.log("🔍 Click su appuntamento:", appointmentId);
-
-    // Prima prova a trovarlo localmente
-    let appointment = combinedAppointments.find(
-      (apt) => apt.id.toString() === appointmentId
-    );
-
-    // Se non lo trova, recuperalo dal backend
-    if (!appointment) {
-      console.log(
-        "🔍 Appuntamento non trovato localmente, recupero dal backend"
+    try {
+      // Sempre recupera i dettagli completi dal backend per assicurarsi di avere tutte le info sui gruppi
+      const appointment = await therapyAPI.getAppointmentDetails(
+        parseInt(appointmentId)
       );
-      try {
-        // Assumendo che creerai un endpoint tipo: /get-appointment-details?appointmentId=X
-        appointment = await therapyAPI.getAppointmentDetails(
-          parseInt(appointmentId)
-        );
-        console.log("🔍 Appuntamento recuperato dal backend:", appointment);
-      } catch (error) {
-        console.error("Errore recupero dettagli appuntamento:", error);
-        showError(
-          "Errore",
-          "Impossibile recuperare i dettagli dell'appuntamento"
-        );
-        return;
-      }
-    }
+      console.log("🔍 Appuntamento recuperato dal backend:", appointment);
+      console.log("🔍 groupSessionId:", appointment.groupSessionId);
+      console.log("🔍 groupPatients:", appointment.groupPatients);
 
-    if (appointment) {
       setSelectedAppointment(appointment);
 
       if (appointment.status === "therapist_absent") {
@@ -1025,6 +1005,13 @@ const Index = () => {
       } else {
         setIsEditModalOpen(true);
       }
+    } catch (error) {
+      console.error("Errore recupero dettagli appuntamento:", error);
+      showError(
+        "Errore",
+        "Impossibile recuperare i dettagli dell'appuntamento"
+      );
+      return;
     }
   };
 
@@ -1032,6 +1019,35 @@ const Index = () => {
     await reloadCurrentVisibleAppointments();
   };
 
+  // Aggiungi questa funzione dopo handleAppointmentDelete
+  const handleSetGroupAppointment = async (appointmentId: number) => {
+    const scrollPos = saveScrollPosition();
+    try {
+      setLoading(true);
+      await therapyAPI.setGroupAppointment(appointmentId);
+
+      showSuccess(
+        "Appuntamento di gruppo",
+        "L'appuntamento è stato impostato come appuntamento di gruppo"
+      );
+
+      // Ricarica gli appuntamenti
+      await reloadCurrentVisibleAppointments();
+      setRefreshKey((prev) => prev + 1);
+      restoreScrollPosition(scrollPos);
+
+      // Chiudi la modale
+      setIsEditModalOpen(false);
+      setSelectedAppointment(null);
+    } catch (error) {
+      showError(
+        "Errore",
+        "Non è stato possibile impostare l'appuntamento come gruppo"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
   // Dopo handleAppointmentUpdate, aggiungi:
   const handleAddTherapyInSlot = (appointment: Appointment) => {
     const date = new Date(appointment.datetime);
@@ -1509,6 +1525,7 @@ const Index = () => {
           onAppointmentUpdate={handleAppointmentUpdate}
           onAppointmentDelete={handleAppointmentDelete}
           onTherapistSubstitution={handleTherapistSubstitution}
+          onSetGroupAppointment={handleSetGroupAppointment} // NUOVO
           isTherapistView={isTherapistView}
         />
 
