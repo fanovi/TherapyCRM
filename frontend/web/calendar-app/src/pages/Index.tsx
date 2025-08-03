@@ -1016,14 +1016,13 @@ const Index = () => {
   };
 
   const handleAppointmentUpdate = async (appointmentId: string) => {
-    await reloadCurrentVisibleAppointments();
+    // await reloadCurrentVisibleAppointments();
   };
 
   // Aggiungi questa funzione dopo handleAppointmentDelete
   const handleSetGroupAppointment = async (appointmentId: number) => {
     const scrollPos = saveScrollPosition();
     try {
-      setLoading(true);
       await therapyAPI.setGroupAppointment(appointmentId);
 
       showSuccess(
@@ -1031,7 +1030,7 @@ const Index = () => {
         "L'appuntamento è stato impostato come appuntamento di gruppo"
       );
 
-      // Ricarica gli appuntamenti
+      // NON chiamare onAppointmentUpdate, usa solo reloadCurrentVisibleAppointments
       await reloadCurrentVisibleAppointments();
       setRefreshKey((prev) => prev + 1);
       restoreScrollPosition(scrollPos);
@@ -1044,8 +1043,6 @@ const Index = () => {
         "Errore",
         "Non è stato possibile impostare l'appuntamento come gruppo"
       );
-    } finally {
-      setLoading(false);
     }
   };
   // Dopo handleAppointmentUpdate, aggiungi:

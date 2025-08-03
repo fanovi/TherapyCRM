@@ -91,7 +91,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const isGroupAppointment =
     appointment?.groupSessionId !== null &&
     appointment?.groupSessionId !== undefined &&
-    appointment?.groupPatients;
+    appointment?.groupPatients &&
+    appointment.groupPatients.length > 0;
 
   console.log("appointment", appointment);
   // Funzione per caricare i dettagli dell'appuntamento del paziente selezionato
@@ -284,7 +285,6 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       onClose();
     } catch (error) {
       console.error("Errore aggiornamento appuntamento:", error);
-      onAppointmentUpdate(appointment.id.toString());
 
       if (error instanceof Error && "conflict" in error) {
         const conflict = (error as any).conflict;
