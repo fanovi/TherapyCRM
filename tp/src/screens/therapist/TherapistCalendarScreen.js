@@ -281,6 +281,20 @@ const TherapistCalendarScreen = () => {
       return;
     }
 
+    // Verifica se il paziente selezionato è già assente
+    if (appointment.is_group && !applyToGroup && selectedGroupPatient) {
+      if (
+        selectedGroupPatient.status === 'assente_giustificato' ||
+        selectedGroupPatient.status === 'assente_non_giustificato'
+      ) {
+        Alert.alert(
+          'Paziente già assente',
+          `${selectedGroupPatient.name} è già stato segnato come assente.`,
+        );
+        return;
+      }
+    }
+
     setIsSubmittingAbsence(true);
 
     try {
@@ -459,10 +473,32 @@ const TherapistCalendarScreen = () => {
     const yesterday = moment().subtract(1, 'day').startOf('day');
     const tomorrow = moment().add(1, 'day').endOf('day');
 
+    // Per i gruppi, controlla se almeno un paziente ha stato 'confermato' o 'scheduled'
+    const canMarkAbsentGroup =
+      appointment.is_group && appointment.group_patients
+        ? appointment.group_patients.some(
+            patient =>
+              (patient.status === 'confermato' ||
+                patient.status === 'scheduled') &&
+              moment(appointment.datetime).isAfter(yesterday) &&
+              moment(appointment.datetime).isBefore(tomorrow),
+          )
+        : false;
+
     const canMarkAbsent =
-      appointment.status === 'confermato' &&
+      (appointment.status === 'confermato' || canMarkAbsentGroup) &&
       appointmentDate.isAfter(yesterday) &&
       appointmentDate.isBefore(tomorrow);
+
+    // Debug temporaneo per vedere gli stati
+    if (appointment.is_group && appointment.group_patients) {
+      console.log(
+        'Gruppo pazienti stati:',
+        appointment.group_patients.map(p => ({name: p.name, status: p.status})),
+      );
+      console.log('canMarkAbsentGroup:', canMarkAbsentGroup);
+      console.log('canMarkAbsent:', canMarkAbsent);
+    }
 
     const canComplete =
       appointment.status === 'confermato' &&
@@ -564,6 +600,76 @@ const TherapistCalendarScreen = () => {
                 ]}>
                 {appointment.type} • {appointment.patients_count} pazienti
               </Text>
+
+              {/* Stati dei pazienti del gruppo */}
+              {appointment.group_patients &&
+                appointment.group_patients.length > 0 && (
+                  <View style={styles.groupPatientsStatus}>
+                    <View style={styles.groupPatientsHeader}>
+                      <Text
+                        style={[
+                          styles.groupPatientsTitle,
+                          {color: theme.colors.onSurfaceVariant},
+                        ]}>
+                        Stati pazienti:
+                      </Text>
+                      {canMarkAbsentGroup && (
+                        <Chip
+                          style={[
+                            styles.groupActionChip,
+                            {backgroundColor: theme.colors.primary + '20'},
+                          ]}
+                          textStyle={{
+                            color: theme.colors.primary,
+                            fontSize: 10,
+                          }}>
+                          Azione disponibile
+                        </Chip>
+                      )}
+                    </View>
+                    <View style={styles.groupPatientsList}>
+                      {appointment.group_patients.map((patient, index) => (
+                        <View key={patient.id} style={styles.groupPatientItem}>
+                          <View style={styles.groupPatientInfo}>
+                            <Text
+                              style={[
+                                styles.groupPatientName,
+                                {
+                                  color:
+                                    patient.status === 'absent_justified' ||
+                                    patient.status === 'absent_not_justified'
+                                      ? '#999'
+                                      : theme.colors.onSurface,
+                                },
+                              ]}>
+                              {patient.name}
+                              {(patient.status === 'absent_justified' ||
+                                patient.status === 'absent_not_justified') &&
+                                ' (già assente)'}
+                            </Text>
+                            <Chip
+                              style={[
+                                styles.groupPatientStatusChip,
+                                {
+                                  backgroundColor: `${getAppointmentStatusColor(
+                                    patient.status,
+                                  )}20`,
+                                },
+                              ]}
+                              textStyle={{
+                                color: getAppointmentStatusColor(
+                                  patient.status,
+                                ),
+                                fontSize: 10,
+                              }}>
+                              {getAppointmentStatusLabel(patient.status)}
+                            </Chip>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
             </View>
 
             {appointment.notes && (
@@ -1038,24 +1144,47 @@ const TherapistCalendarScreen = () => {
                                           selectedGroupPatient?.id ===
                                             patient.id &&
                                             styles.patientListItemSelected,
+                                          (patient.status ===
+                                            'assente_giustificato' ||
+                                            patient.status ===
+                                              'assente_non_giustificato') &&
+                                            styles.patientListItemDisabled,
                                         ]}
                                         onPress={() => {
-                                          setSelectedGroupPatient(patient);
-                                          setIsSelectingPatient(false);
+                                          // Non permettere selezione se già assente
+                                          if (
+                                            patient.status !==
+                                              'assente_giustificato' &&
+                                            patient.status !==
+                                              'assente_non_giustificato'
+                                          ) {
+                                            setSelectedGroupPatient(patient);
+                                            setIsSelectingPatient(false);
+                                          }
                                         }}>
                                         <View
                                           style={styles.patientListItemContent}>
                                           <Icon
                                             name={
-                                              selectedGroupPatient?.id ===
-                                              patient.id
+                                              patient.status ===
+                                                'assente_giustificato' ||
+                                              patient.status ===
+                                                'assente_non_giustificato'
+                                                ? 'account-remove'
+                                                : selectedGroupPatient?.id ===
+                                                  patient.id
                                                 ? 'check-circle'
                                                 : 'account-circle'
                                             }
                                             size={20}
                                             color={
-                                              selectedGroupPatient?.id ===
-                                              patient.id
+                                              patient.status ===
+                                                'assente_giustificato' ||
+                                              patient.status ===
+                                                'assente_non_giustificato'
+                                                ? '#999'
+                                                : selectedGroupPatient?.id ===
+                                                  patient.id
                                                 ? theme.colors.primary
                                                 : '#666'
                                             }
@@ -1063,10 +1192,24 @@ const TherapistCalendarScreen = () => {
                                           <View
                                             style={styles.patientListItemText}>
                                             <Text
-                                              style={
-                                                styles.patientListItemTitle
-                                              }>
+                                              style={[
+                                                styles.patientListItemTitle,
+                                                {
+                                                  color:
+                                                    patient.status ===
+                                                      'assente_giustificato' ||
+                                                    patient.status ===
+                                                      'assente_non_giustificato'
+                                                      ? '#999'
+                                                      : theme.colors.onSurface,
+                                                },
+                                              ]}>
                                               {patient.name}
+                                              {(patient.status ===
+                                                'assente_giustificato' ||
+                                                patient.status ===
+                                                  'assente_non_giustificato') &&
+                                                ' (già assente)'}
                                             </Text>
                                             {patient.status !==
                                               'confermato' && (
@@ -1797,6 +1940,10 @@ const styles = StyleSheet.create({
   patientListItemSelected: {
     backgroundColor: '#F3F9FF',
   },
+  patientListItemDisabled: {
+    backgroundColor: '#F5F5F5',
+    opacity: 0.6,
+  },
   patientListItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1814,6 +1961,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 2,
+  },
+  // Stili per gli stati dei pazienti del gruppo
+  groupPatientsStatus: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  groupPatientsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  groupPatientsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  groupActionChip: {
+    alignSelf: 'flex-start',
+  },
+  groupPatientsList: {
+    gap: 6,
+  },
+  groupPatientItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  groupPatientInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  groupPatientName: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  groupPatientStatusChip: {
+    alignSelf: 'flex-start',
+    marginLeft: 8,
   },
 });
 

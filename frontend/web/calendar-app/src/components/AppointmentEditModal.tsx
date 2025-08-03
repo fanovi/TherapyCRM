@@ -176,7 +176,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       setCanAddToGroup(false);
       return;
     }
-
+    console.log(appointment);
     // Verifica condizioni base
     if (
       appointment.groupSessionId !== null &&
@@ -914,7 +914,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     </button>
                   )}
 
-                  {canAddToGroup && (
+                  {canAddToGroup && !appointment.groupSessionId && (
                     <button
                       onClick={handleAddToGroup}
                       disabled={loading}
