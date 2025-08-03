@@ -1000,61 +1000,59 @@ const TherapistCalendarScreen = () => {
                         {!applyToGroup &&
                           absenceDialog.appointment.group_patients && (
                             <View style={styles.patientDropdownContainer}>
-                              <List.Accordion
-                                title={
-                                  selectedGroupPatient
-                                    ? selectedGroupPatient.name
-                                    : 'Seleziona paziente'
-                                }
-                                left={props => (
-                                  <List.Icon
-                                    {...props}
-                                    icon="account"
-                                    color={theme.colors.primary}
-                                  />
-                                )}
-                                expanded={isSelectingPatient}
+                              <TouchableOpacity
+                                style={styles.patientDropdownHeader}
                                 onPress={() =>
                                   setIsSelectingPatient(!isSelectingPatient)
-                                }
-                                style={styles.patientAccordion}
-                                titleStyle={styles.patientAccordionTitle}>
+                                }>
+                                <View style={styles.patientDropdownTitle}>
+                                  <Icon
+                                    name="account"
+                                    size={20}
+                                    color={theme.colors.primary}
+                                  />
+                                  <Text style={styles.patientDropdownTitleText}>
+                                    {selectedGroupPatient
+                                      ? selectedGroupPatient.name
+                                      : 'Seleziona paziente'}
+                                  </Text>
+                                </View>
+                                <Icon
+                                  name={
+                                    isSelectingPatient
+                                      ? 'chevron-up'
+                                      : 'chevron-down'
+                                  }
+                                  size={20}
+                                  color="#666"
+                                />
+                              </TouchableOpacity>
+                              {isSelectingPatient && (
                                 <View style={styles.patientListContainer}>
                                   {absenceDialog.appointment.group_patients.map(
                                     patient => (
-                                      <List.Item
+                                      <TouchableOpacity
                                         key={patient.id}
-                                        title={patient.name}
-                                        description={
-                                          patient.status !== 'confermato'
-                                            ? getAppointmentStatusLabel(
-                                                patient.status,
-                                              )
-                                            : null
-                                        }
-                                        onPress={() => {
-                                          setSelectedGroupPatient(patient);
-                                          setIsSelectingPatient(false);
-                                        }}
                                         style={[
                                           styles.patientListItem,
                                           selectedGroupPatient?.id ===
                                             patient.id &&
                                             styles.patientListItemSelected,
                                         ]}
-                                        titleStyle={styles.patientListItemTitle}
-                                        descriptionStyle={
-                                          styles.patientListItemDescription
-                                        }
-                                        left={props => (
-                                          <List.Icon
-                                            {...props}
-                                            icon={
+                                        onPress={() => {
+                                          setSelectedGroupPatient(patient);
+                                          setIsSelectingPatient(false);
+                                        }}>
+                                        <View
+                                          style={styles.patientListItemContent}>
+                                          <Icon
+                                            name={
                                               selectedGroupPatient?.id ===
                                               patient.id
                                                 ? 'check-circle'
                                                 : 'account-circle'
                                             }
+                                            size={20}
                                             color={
                                               selectedGroupPatient?.id ===
                                               patient.id
@@ -1062,12 +1060,32 @@ const TherapistCalendarScreen = () => {
                                                 : '#666'
                                             }
                                           />
-                                        )}
-                                      />
+                                          <View
+                                            style={styles.patientListItemText}>
+                                            <Text
+                                              style={
+                                                styles.patientListItemTitle
+                                              }>
+                                              {patient.name}
+                                            </Text>
+                                            {patient.status !==
+                                              'confermato' && (
+                                              <Text
+                                                style={
+                                                  styles.patientListItemDescription
+                                                }>
+                                                {getAppointmentStatusLabel(
+                                                  patient.status,
+                                                )}
+                                              </Text>
+                                            )}
+                                          </View>
+                                        </View>
+                                      </TouchableOpacity>
                                     ),
                                   )}
                                 </View>
-                              </List.Accordion>
+                              )}
                             </View>
                           )}
                       </View>
@@ -1078,13 +1096,20 @@ const TherapistCalendarScreen = () => {
                 )}
 
                 {/* Tipo di assenza */}
-                <Text
-                  style={[
-                    styles.compactSectionTitle,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  Tipo
-                </Text>
+                <View style={styles.sectionHeader}>
+                  <Icon
+                    name="radiobox-marked"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.compactSectionTitle,
+                      {color: theme.colors.onSurface},
+                    ]}>
+                    Tipo *
+                  </Text>
+                </View>
                 <View style={styles.radioRow}>
                   <View style={styles.radioOption}>
                     <RadioButton
@@ -1143,13 +1168,20 @@ const TherapistCalendarScreen = () => {
                 </View>
 
                 {/* Motivo */}
-                <Text
-                  style={[
-                    styles.compactSectionTitle,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  Motivo
-                </Text>
+                <View style={styles.sectionHeader}>
+                  <Icon
+                    name="clipboard-text"
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.compactSectionTitle,
+                      {color: theme.colors.onSurface},
+                    ]}>
+                    Motivo *
+                  </Text>
+                </View>
                 <View style={styles.reasonsContainer}>
                   {getAbsenceReasons().map(reason => (
                     <View key={reason} style={styles.reasonItem}>
@@ -1551,6 +1583,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   appointmentInfo: {
     fontSize: 16,
     marginBottom: 16,
@@ -1601,35 +1638,42 @@ const styles = StyleSheet.create({
   compactSectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 6,
-    marginTop: 2,
+    marginLeft: 6,
   },
   radioRow: {
     flexDirection: 'row',
     marginBottom: 8,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 8,
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   radioText: {
     fontSize: 14,
     marginLeft: 4,
+    fontWeight: '500',
   },
   reasonsContainer: {
     marginBottom: 8,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 8,
   },
   reasonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   reasonText: {
     fontSize: 14,
     marginLeft: 4,
     flex: 1,
+    fontWeight: '500',
   },
   compactCustomInput: {
     marginTop: 6,
@@ -1721,12 +1765,23 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     elevation: 1,
   },
-  patientAccordion: {
+  patientDropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: 'white',
   },
-  patientAccordionTitle: {
+  patientDropdownTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  patientDropdownTitleText: {
     fontSize: 14,
     color: '#333',
+    marginLeft: 8,
   },
   patientListContainer: {
     backgroundColor: '#F5F5F5',
@@ -1734,19 +1789,31 @@ const styles = StyleSheet.create({
   patientListItem: {
     backgroundColor: 'white',
     marginHorizontal: 0,
-    marginVertical: 2,
-    borderRadius: 8,
+    marginVertical: 1,
+    borderRadius: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   patientListItemSelected: {
     backgroundColor: '#F3F9FF',
   },
+  patientListItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  patientListItemText: {
+    flex: 1,
+    marginLeft: 8,
+  },
   patientListItemTitle: {
     fontSize: 14,
     color: '#333',
+    fontWeight: '500',
   },
   patientListItemDescription: {
     fontSize: 12,
     color: '#666',
+    marginTop: 2,
   },
 });
 
