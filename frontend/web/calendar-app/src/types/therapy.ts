@@ -78,6 +78,7 @@ export interface PlanTherapy {
 }
 
 export interface Appointment {
+  isGroup: any;
   groupSessionId: null;
   id: number;
   datetime: string; // formato ISO datetime dalla API

@@ -1494,6 +1494,7 @@ const Index = () => {
         />
 
         <AppointmentEditModal
+          isABARegime={isABARegime}
           onAddTherapyInSlot={isABARegime ? handleAddTherapyInSlot : undefined}
           isOpen={isEditModalOpen}
           onClose={() => {

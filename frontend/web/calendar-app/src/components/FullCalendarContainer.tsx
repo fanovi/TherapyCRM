@@ -241,10 +241,19 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             supervisione: " (S)",
           };
 
+          const isGroupSession =
+            appointment.groupSessionId !== null &&
+            appointment.groupSessionId !== undefined;
+
           const typeAbbr =
             typeAbbreviations[appointment.appointmentType || "terapia"];
-          const title =
-            (appointment.therapist?.name || "Appuntamento") + typeAbbr;
+          const baseTitle =
+            appointment.therapist?.name ||
+            appointment.patient?.name ||
+            "Appuntamento";
+          const title = isGroupSession
+            ? `👥 ${baseTitle}`
+            : baseTitle + typeAbbr;
 
           return {
             id: appointment.id.toString(),
@@ -273,6 +282,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
                 appointment.isPrivate ||
                 appointment.appointmentSource === "private",
               isEditable: isEditable, // Passa questa info per il modal
+              isGroupSession: appointment.isGroup,
+              groupSessionId: appointment.groupSessionId,
             },
           };
         }
@@ -615,6 +626,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const isEditable = props.isEditable !== false;
     const treatmentType = props.type || "Non specificato";
 
+    console.log("props", props);
+
     // Ottieni il colore basato sul tipo di trattamento
     const treatmentColor = getTreatmentColor(treatmentType);
 
@@ -636,6 +649,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
         >
           <div className="font-semibold truncate flex items-center gap-1">
             {isPrivate && <span className="text-purple-200">🔒</span>}
+            {props.isGroupSession && <span className="text-blue-500">👥</span>}
             {eventInfo.event.title}
             {props.appointmentType === "parent_training" && " (PT)"}
             {props.appointmentType === "supervisione" && " (S)"}
@@ -656,6 +670,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       >
         <div className="font-semibold truncate flex items-center gap-1">
           {isPrivate && <span>🔒</span>}
+
           {eventInfo.event.title}
           {!isEditable && <span>✓</span>}
         </div>
@@ -747,6 +762,50 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   .fc-event-title {
     white-space: normal;
   }
+
+  /* Stili per appuntamenti di gruppo */
+.fc-event.group-session-event {
+  border-width: 3px !important;
+  border-style: solid !important;
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Aggiungi un piccolo badge nell'angolo */
+.fc-event.group-session-event::after {
+  content: "👥";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #1E40AF;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+/* Tooltip al hover */
+.fc-event.group-session-event:hover::before {
+  content: "Sessione di gruppo";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1F2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+  z-index: 20;
+}
 `}</style>
         <FullCalendar
           ref={calendarRef}

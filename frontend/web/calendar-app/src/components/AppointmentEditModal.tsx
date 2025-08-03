@@ -34,6 +34,7 @@ interface AppointmentEditModalProps {
   }) => void;
   isTherapistView?: boolean;
   onAddTherapyInSlot?: (appointment: Appointment) => void;
+  isABARegime?: boolean;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -46,6 +47,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   onTherapistSubstitution,
   isTherapistView = false,
   onAddTherapyInSlot,
+  isABARegime,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -518,6 +520,48 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   </label>
                 </div>
               )}
+
+              {/* Checkbox per rendere di gruppo - NUOVA */}
+              {!isGroupAppointment &&
+                !isABARegime &&
+                !isPrivateAppointment &&
+                appointment.appointmentSource === "therapeutic_plan" && (
+                  <div className="mb-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        onChange={async (e) => {
+                          if (e.target.checked) {
+                            try {
+                              setLoading(true);
+                              await therapyAPI.setGroupAppointment(
+                                appointment.id
+                              );
+                              showSuccess(
+                                "Appuntamento di gruppo",
+                                "L'appuntamento è stato impostato come appuntamento di gruppo"
+                              );
+                              onAppointmentUpdate(appointment.id.toString());
+                              onClose();
+                            } catch (error) {
+                              showError(
+                                "Errore",
+                                "Non è stato possibile impostare l'appuntamento come gruppo"
+                              );
+                            } finally {
+                              setLoading(false);
+                            }
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        Rendi appuntamento di gruppo
+                      </span>
+                    </label>
+                  </div>
+                )}
 
               {/* Azioni principali */}
               <div className="flex items-center justify-between">

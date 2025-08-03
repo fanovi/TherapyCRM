@@ -102,6 +102,12 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
       // Determina se l'appuntamento è modificabile (solo scheduled può essere spostato)
       const isEditable = appointment.status === "scheduled";
 
+      const isGroupSession =
+        appointment.groupSessionId !== null &&
+        appointment.groupSessionId !== undefined;
+
+      console.log("isGroupSession", isGroupSession);
+
       // Determina se l'appuntamento permette click (scheduled o therapist_absent)
       const isClickable =
         appointment.status === "scheduled" ||
@@ -130,19 +136,28 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         }
       };
 
+      const baseTitle =
+        appointment.therapist?.name ||
+        appointment.patient?.name ||
+        "Appuntamento";
+      const title = isGroupSession ? `👥 Gruppo ${baseTitle}` : baseTitle;
+
       return {
         id: appointment.id.toString(),
-        title:
-          appointment.therapist?.name ||
-          appointment.patient?.name ||
-          "Appuntamento",
+        title: title,
         start: startTime.toISOString(),
         end: endTime.toISOString(),
         backgroundColor: getStatusColor(appointment.status),
-        borderColor: getStatusColor(appointment.status),
+        borderColor: isGroupSession
+          ? "#1E40AF"
+          : getStatusColor(appointment.status), // Bordo blu scuro per gruppi
+
         textColor: "#ffffff",
         editable: isEditable, // Importante: disabilita drag & drop per non scheduled
-        classNames: isEditable ? [] : ["non-editable-event"],
+        classNames: [
+          ...(isEditable ? [] : ["non-editable-event"]),
+          ...(isGroupSession ? ["group-session-event"] : []), // Classe CSS per sessioni di gruppo
+        ],
         extendedProps: {
           patient_name: appointment.patient?.name || "N/A",
           therapist_name: appointment.therapist?.name || "N/A",
@@ -158,6 +173,8 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           isClickable: isClickable,
           appointmentSource: appointment.appointmentSource,
           isPrivate: appointment.isPrivate,
+          isGroupSession: isGroupSession, // Aggiungi flag per gruppo
+          groupSessionId: appointment.groupSessionId,
         },
       };
     });

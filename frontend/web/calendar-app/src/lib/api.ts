@@ -803,6 +803,26 @@ class TherapeuticPlanManagerAPI {
 
     return response.data.absences;
   }
+
+  /**
+   * Imposta un appuntamento come appuntamento di gruppo
+   */
+  async setGroupAppointment(appointmentId: number): Promise<{
+    appointmentId: number;
+    groupSessionId: string;
+  }> {
+    const response = await this.post<any>("set-group-appointment", {
+      appointmentId,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nell'impostazione dell'appuntamento di gruppo"
+      );
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton
