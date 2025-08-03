@@ -15,7 +15,7 @@ import {
   Users,
   Plus,
 } from "lucide-react";
-import { Appointment, Therapist } from "@/types/therapy";
+import { Appointment, Patient, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 import { TherapistSubstitutionModal } from "./TherapistSubstitutionModal";
@@ -35,6 +35,7 @@ interface AppointmentEditModalProps {
   isTherapistView?: boolean;
   onAddTherapyInSlot?: (appointment: Appointment) => void;
   isABARegime?: boolean;
+  patient?: Patient | null;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -48,6 +49,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   isTherapistView = false,
   onAddTherapyInSlot,
   isABARegime,
+  patient,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     duration: 60,
     notes: "",
   });
+  // AGGIUNGI questi nuovi state
+  const [canAddToGroup, setCanAddToGroup] = useState(false);
+  const [groupPatients, setGroupPatients] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
 
   const { showSuccess, showError } = useToast();
 
@@ -78,6 +85,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       const [datePart, timePart] = appointment.datetime.split(" ");
       const [hours, minutes] = timePart.split(":");
 
+      if (patient) {
+        checkCanAddToGroup();
+      }
+
       setFormData({
         therapistId: appointment.therapist?.id || 0,
         date: datePart,
@@ -86,10 +97,90 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         notes: appointment.notes || "",
       });
 
+      if (appointment.groupPatients && appointment.groupPatients.length > 0) {
+        setGroupPatients(appointment.groupPatients);
+      } else {
+        setGroupPatients([]);
+      }
+
       setIsSubstitutionMode(false);
       setShowActionMenu(false);
     }
   }, [appointment]);
+
+  const checkCanAddToGroup = async () => {
+    if (!appointment || !patient) {
+      setCanAddToGroup(false);
+      return;
+    }
+
+    // Verifica condizioni base
+    if (
+      appointment.groupSessionId !== null &&
+      !isABARegime &&
+      !isPrivateAppointment
+    ) {
+      try {
+        // Chiama l'API per verificare se il paziente è già nel gruppo
+        const isInGroup = await therapyAPI.checkPatientInGroup(
+          appointment.groupSessionId,
+          patient.id
+        );
+
+        setCanAddToGroup(!isInGroup);
+      } catch (error) {
+        console.error("Errore verifica gruppo:", error);
+        setCanAddToGroup(false);
+      }
+    } else {
+      setCanAddToGroup(false);
+    }
+  };
+
+  const handleAddToGroup = async () => {
+    if (!appointment || !patient) return;
+
+    try {
+      setLoading(true);
+
+      // Recupera il plan therapy per il paziente corrente
+      const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
+        patient.id,
+        appointment.therapist.id
+      );
+
+      // Usa createAppointment passando il groupSessionId esistente
+      const request = {
+        planTherapyId: planTherapyData.planTherapyId,
+        treatmentTypeId: planTherapyData.treatmentTypeId,
+        therapistId: appointment.therapist.id,
+        appointmentDateTime: appointment.datetime,
+        durationMinutes: appointment.duration,
+        notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
+        isGroup: true,
+        groupSessionId: appointment.groupSessionId, // Passa il group session ID esistente
+      };
+
+      await therapyAPI.createAppointment(request);
+
+      showSuccess(
+        "Paziente aggiunto",
+        "Il paziente è stato aggiunto al gruppo"
+      );
+      onAppointmentUpdate(appointment.id.toString());
+      onClose();
+    } catch (error) {
+      console.error("Errore aggiunta al gruppo:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Errore sconosciuto";
+      showError(
+        "Errore",
+        `Non è stato possibile aggiungere il paziente al gruppo: ${errorMessage}`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTherapistSubstitution = async (substitutionData: {
     appointmentId: number;
@@ -322,20 +413,59 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                       Ricorrente
                     </span>
                   )}
+
+                  {appointment.groupSessionId && (
+                    <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-mono">
+                      GroupID: {appointment.groupSessionId}
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Info principali in griglia compatta */}
               <div className="grid grid-cols-2 gap-3">
-                {/* Paziente */}
-                <div className="col-span-2 flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                  <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-semibold text-gray-900 truncate">
-                      {appointment.patient?.name || "Paziente sconosciuto"}
+                {/* Paziente/i */}
+                <div className="col-span-2 p-3 bg-blue-50 rounded-lg">
+                  {appointment.groupPatients &&
+                  appointment.groupPatients.length > 1 ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-blue-600" />
+                        <span className="text-xs text-blue-600 font-semibold">
+                          Gruppo ({appointment.groupPatients.length} pazienti)
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {appointment.groupPatients.map((groupPatient) => (
+                          <div
+                            key={groupPatient.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-full text-sm"
+                          >
+                            <span>{groupPatient.name}</span>
+                            {!isTherapistView && (
+                              <button
+                                onClick={() => {}}
+                                className="text-red-500 hover:text-red-700 ml-1"
+                                title="Rimuovi dal gruppo"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-xs text-blue-600">Paziente</div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 truncate">
+                          {appointment.patient?.name || "Paziente sconosciuto"}
+                        </div>
+                        <div className="text-xs text-blue-600">Paziente</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Terapista */}
@@ -584,6 +714,17 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     >
                       <UserX className="w-4 h-4" />
                       Sostituisci
+                    </button>
+                  )}
+
+                  {canAddToGroup && (
+                    <button
+                      onClick={handleAddToGroup}
+                      disabled={loading}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
+                    >
+                      <Users className="w-4 h-4" />
+                      Aggiungi al gruppo
                     </button>
                   )}
 

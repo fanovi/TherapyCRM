@@ -78,6 +78,7 @@ export interface PlanTherapy {
 }
 
 export interface Appointment {
+  groupPatients: Array<{ id: number; name: string }>;
   isGroup: any;
   groupSessionId: null;
   id: number;

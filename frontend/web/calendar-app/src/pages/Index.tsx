@@ -600,6 +600,8 @@ const Index = () => {
     sessionStorage.setItem(storageKey, viewType);
   }, [viewType, params.id_therapist, params.id_patient]);
 
+  console.log("patient **************", patient);
+
   useEffect(() => {
     if (
       scrollRestorationRef.current &&
@@ -1494,6 +1496,7 @@ const Index = () => {
         />
 
         <AppointmentEditModal
+          patient={isTherapistView ? selectedPatient : patient}
           isABARegime={isABARegime}
           onAddTherapyInSlot={isABARegime ? handleAddTherapyInSlot : undefined}
           isOpen={isEditModalOpen}

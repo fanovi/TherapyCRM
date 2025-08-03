@@ -823,6 +823,52 @@ class TherapeuticPlanManagerAPI {
 
     return response.data;
   }
+
+  /**
+   * Aggiunge un paziente a un gruppo esistente clonando l'appuntamento
+   */
+  async addPatientToGroup(
+    appointmentId: number,
+    patientId: number
+  ): Promise<{
+    appointmentId: number;
+    groupSessionId: string;
+  }> {
+    const response = await this.post<any>("add-patient-to-group", {
+      appointmentId,
+      patientId,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nell'aggiungere il paziente al gruppo"
+      );
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Verifica se un paziente è già in un gruppo
+   */
+  async checkPatientInGroup(
+    groupSessionId: string,
+    patientId: number
+  ): Promise<boolean> {
+    const response = await this.get<{ success: boolean; isInGroup: boolean }>(
+      "check-patient-in-group",
+      {
+        groupSessionId,
+        patientId,
+      }
+    );
+
+    if (!response.success) {
+      throw new Error("Errore verifica gruppo");
+    }
+
+    return response.isInGroup;
+  }
 }
 
 // Esporta un'istanza singleton

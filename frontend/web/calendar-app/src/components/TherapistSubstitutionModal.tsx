@@ -40,6 +40,10 @@ interface TherapistSubstitutionModalProps {
 export const TherapistSubstitutionModal: React.FC<
   TherapistSubstitutionModalProps
 > = ({ isOpen, onClose, onConfirm, appointment, therapists }) => {
+  const isGroupAppointment =
+    appointment?.groupSessionId !== null &&
+    appointment?.groupPatients &&
+    appointment.groupPatients.length > 1;
   const [selectedTherapistId, setSelectedTherapistId] = useState<string>("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -161,6 +165,11 @@ export const TherapistSubstitutionModal: React.FC<
           <DialogTitle className="flex items-center gap-2">
             <UserX className="h-5 w-5 text-purple-600" />
             Sostituzione Terapista
+            {isGroupAppointment && (
+              <span className="text-sm font-normal text-blue-600">
+                (Gruppo - {appointment.groupPatients?.length} pazienti)
+              </span>
+            )}
             {appointment.status === "therapist_absent" && (
               <span className="text-sm font-normal text-purple-600">
                 (Assente)
@@ -171,18 +180,48 @@ export const TherapistSubstitutionModal: React.FC<
 
         <div className="space-y-3">
           {/* Informazioni appuntamento */}
+
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
             <div className="space-y-1 text-sm text-purple-700">
-              <p>
-                <strong>Paziente:</strong> {appointment.patient?.name} •
-                <strong> Terapista:</strong> {appointment.therapist?.name}
-                {originalTherapist?.specialization && (
-                  <>
-                    {" "}
-                    • <strong>Spec.:</strong> {originalTherapist.specialization}
-                  </>
-                )}
-              </p>
+              {isGroupAppointment ? (
+                <>
+                  <p>
+                    <strong>Appuntamento di gruppo:</strong>{" "}
+                  </p>
+                  <div className="ml-2">
+                    {appointment.groupPatients?.map((patient, index) => (
+                      <span key={patient.id}>
+                        {patient.name}
+                        {index < appointment.groupPatients!.length - 1
+                          ? ", "
+                          : ""}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2">
+                    <strong>Terapista:</strong> {appointment.therapist?.name}
+                    {originalTherapist?.specialization && (
+                      <>
+                        {" "}
+                        • <strong>Spec.:</strong>{" "}
+                        {originalTherapist.specialization}
+                      </>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p>
+                  <strong>Paziente:</strong> {appointment.patient?.name} •
+                  <strong> Terapista:</strong> {appointment.therapist?.name}
+                  {originalTherapist?.specialization && (
+                    <>
+                      {" "}
+                      • <strong>Spec.:</strong>{" "}
+                      {originalTherapist.specialization}
+                    </>
+                  )}
+                </p>
+              )}
               <p>
                 <strong>Data:</strong>{" "}
                 {format(appointmentDate, "dd MMMM yyyy", { locale: it })} •
@@ -191,6 +230,21 @@ export const TherapistSubstitutionModal: React.FC<
               </p>
             </div>
           </div>
+
+          {isGroupAppointment && (
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="text-xs mt-1">
+                    La sostituzione verrà applicata a tutti i{" "}
+                    {appointment.groupPatients?.length} pazienti del gruppo
+                    contemporaneamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Loading terapisti */}
           {loadingTherapists ? (
@@ -364,7 +418,6 @@ export const TherapistSubstitutionModal: React.FC<
               </form>
             </>
           )}
-
           {/* Pulsanti alternativi se non ci sono terapisti disponibili */}
           {!loadingTherapists && availableTherapists.length === 0 && (
             <div className="flex gap-3 pt-4">
