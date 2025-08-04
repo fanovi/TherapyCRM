@@ -2,10 +2,10 @@
 
 namespace frontend\models;
 
+use common\models\User;
 use yii\base\InvalidArgumentException;
 use yii\base\Model;
 use Yii;
-use common\models\User;
 
 /**
  * Password reset form
@@ -13,12 +13,10 @@ use common\models\User;
 class ResetPasswordForm extends Model
 {
     public $password;
+    public $password_repeat;
 
-    /**
-     * @var \common\models\User
-     */
+    /** @var \common\models\User */
     private $_user;
-
 
     /**
      * Creates a form model given a token.
@@ -47,6 +45,19 @@ class ResetPasswordForm extends Model
         return [
             ['password', 'required'],
             ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength']],
+            ['password_repeat', 'required'],
+            ['password_repeat', 'compare', 'compareAttribute' => 'password', 'message' => 'Le password non coincidono.'],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function attributeLabels()
+    {
+        return [
+            'password' => 'Nuova Password',
+            'password_repeat' => 'Conferma Password',
         ];
     }
 

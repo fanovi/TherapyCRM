@@ -154,6 +154,14 @@ const LoginScreen = () => {
                 )}
               </Button>
 
+              <Button
+                mode="text"
+                onPress={() => navigation.navigate('ForgotPassword')}
+                style={styles.forgotButton}
+                icon="help-circle">
+                Password dimenticata?
+              </Button>
+
               {/* Demo Buttons */}
               {/* <View style={styles.demoSection}>
                 <Text
@@ -259,8 +267,11 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: 8,
-    marginBottom: 24,
+    marginBottom: 16,
     borderRadius: 8,
+  },
+  forgotButton: {
+    marginBottom: 24,
   },
   buttonContent: {
     height: 48,

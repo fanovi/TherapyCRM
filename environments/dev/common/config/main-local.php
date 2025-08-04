@@ -12,32 +12,42 @@ return [
         'mailer' => [
             'class' => \yii\symfonymailer\Mailer::class,
             'viewPath' => '@common/mail',
-            // send all mails to a file by default.
-            'useFileTransport' => true,
-            // You have to set
+            // Configurazione Gmail SMTP per invio email reali
+            'useFileTransport' => false,
+            'transport' => [
+                'dsn' => 'smtps://rispoli.mar2803@gmail.com:oxfa eavb dkic ldqv@smtp.gmail.com:465',
+            ],
+            // Configurazione Mailgun (commentata per ora)
+            // 'transport' => [
+            //     'dsn' => 'smtp://api:639225f51b67980f85eb58411a717409-812b35f5-9914033d@smtp.mailgun.org:587',
+            // ],
+            // Configurazione alternativa per test (usa il sandbox domain)
+            // 'transport' => [
+            //     'dsn' => 'smtp://api:639225f51b67980f85eb58411a717409-812b35f5-9914033d@smtp.mailgun.org:587',
+            //     'options' => [
+            //         'domain' => 'sandbox123456789.mailgun.org', // Sostituisci con il tuo sandbox domain
+            //     ],
+            // ],
+            // Configurazione alternativa per altri provider:
+            // Gmail con password app:
+            // 'transport' => [
+            //     'dsn' => 'gmail+smtp://your-email@gmail.com:your-app-password@default',
+            // ],
             //
-            // 'useFileTransport' => false,
+            // Outlook/Hotmail:
+            // 'transport' => [
+            //     'dsn' => 'smtp://your-email@outlook.com:your-password@smtp-mail.outlook.com:587',
+            // ],
             //
-            // and configure a transport for the mailer to send real emails.
+            // SendGrid:
+            // 'transport' => [
+            //     'dsn' => 'sendgrid+smtp://your-api-key@default',
+            // ],
             //
-            // SMTP server example:
-            //    'transport' => [
-            //        'scheme' => 'smtps',
-            //        'host' => '',
-            //        'username' => '',
-            //        'password' => '',
-            //        'port' => 465,
-            //        'dsn' => 'native://default',
-            //    ],
-            //
-            // DSN example:
-            //    'transport' => [
-            //        'dsn' => 'smtp://user:pass@smtp.example.com:25',
-            //    ],
-            //
-            // See: https://symfony.com/doc/current/mailer.html#using-built-in-transports
-            // Or if you use a 3rd party service, see:
-            // https://symfony.com/doc/current/mailer.html#using-a-3rd-party-transport
+            // Mailgun:
+            // 'transport' => [
+            //     'dsn' => 'smtp://your-username:your-password@smtp.mailgun.org:587',
+            // ],
         ],
     ],
 ];

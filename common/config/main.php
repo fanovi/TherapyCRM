@@ -2,7 +2,7 @@
 return [
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
-        '@npm'   => '@vendor/npm-asset',
+        '@npm' => '@vendor/npm-asset',
     ],
     'vendorPath' => dirname(dirname(__DIR__)) . '/vendor',
     'components' => [
@@ -11,7 +11,7 @@ return [
         ],
         'jwt' => [
             'class' => 'common\components\JwtComponent',
-            'privateKeyPath' => dirname(__DIR__) .  '/keys/private.key',
+            'privateKeyPath' => dirname(__DIR__) . '/keys/private.key',
             'publicKeyPath' => dirname(__DIR__) . '/keys/public.key',
         ],
         'authManager' => [
@@ -24,6 +24,10 @@ return [
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',
+        ],
+        'mailer' => [
+            'class' => \yii\symfonymailer\Mailer::class,
+            'viewPath' => '@common/mail',
         ],
         'formatter' => [
             'class' => 'yii\i18n\Formatter',

@@ -67,6 +67,10 @@ const authSlice = createSlice({
     setInitialized: state => {
       state.isInitialized = true;
     },
+    resetPasswordRequestSuccess: state => {
+      state.isLoading = false;
+      state.error = null;
+    },
   },
 });
 
@@ -79,6 +83,7 @@ export const {
   clearError,
   setCurrentRole,
   setInitialized,
+  resetPasswordRequestSuccess,
 } = authSlice.actions;
 
 export default authSlice.reducer;

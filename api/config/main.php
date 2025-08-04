@@ -46,7 +46,7 @@ return [
             'targets' => [
                 [
                     'class' => \yii\log\FileTarget::class,
-                    'levels' => ['error', 'warning'],
+                    'levels' => ['error', 'warning', 'info'],
                 ],
             ],
         ],
@@ -71,23 +71,19 @@ return [
                 'POST notifications/send-template' => 'notification/send-template',
                 'POST notifications/broadcast' => 'notification/broadcast',
                 'POST notifications/create-test' => 'notification/create-test',
-                
                 // Request routes
                 'GET requests/types' => 'requests/types',
                 'GET requests' => 'requests/index',
                 'GET requests/<id:\d+>' => 'requests/view',
-                'GET requests/<id>' => 'requests/view', // Cattura ID non numerici per gestione errori
+                'GET requests/<id>' => 'requests/view',  // Cattura ID non numerici per gestione errori
                 'POST requests' => 'requests/create',
-                
                 // Swagger routes
                 'GET swagger' => 'swagger/index',
                 'GET swagger/json' => 'swagger/json',
-                
                 // Auth routes
                 'POST auth/login' => 'auth/login',
                 'POST auth/logout' => 'auth/logout',
                 'GET auth/verify' => 'auth/verify',
-                
                 // Calendar routes
                 'POST calendar/patient-appointments' => 'calendar/patient-appointments',
                 'POST calendar/patient-marked-dates' => 'calendar/patient-marked-dates',
@@ -95,7 +91,6 @@ return [
                 'POST calendar/therapist-appointments' => 'calendar/therapist-appointments',
                 'POST calendar/therapist-marked-dates' => 'calendar/therapist-marked-dates',
                 'POST calendar/mark-patient-absent' => 'calendar/mark-patient-absent',
-                
                 // Altre route qui...
             ],
         ],

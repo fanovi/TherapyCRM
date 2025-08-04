@@ -6,7 +6,8 @@ export const API_CONFIG = {
     LOGOUT: '/auth/logout',
     VERIFY: '/auth/verify',
     CHANGE_FIRST_PASSWORD: '/auth/change-first-password',
-    RESET_PASSWORD: '/auth/reset-password', // Future implementation
+    REQUEST_PASSWORD_RESET: '/auth/request-password-reset',
+    RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh', // Future implementation
 
     // Notifications

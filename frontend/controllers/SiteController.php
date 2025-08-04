@@ -2,25 +2,25 @@
 
 namespace frontend\controllers;
 
-use frontend\models\ResendVerificationEmailForm;
-use frontend\models\VerifyEmailForm;
-use Yii;
-use yii\base\InvalidArgumentException;
-use yii\web\BadRequestHttpException;
-use yii\filters\VerbFilter;
-use yii\filters\AccessControl;
-use frontend\models\LoginForm;
-use frontend\models\PasswordResetRequestForm;
-use frontend\models\ResetPasswordForm;
-use frontend\models\SignupForm;
-use frontend\models\ContactForm;
-use common\models\Patient;
-use common\models\Therapist;
 use common\models\Appointment;
 use common\models\DocumentRequest;
-use common\models\TherapeuticPlan;
 use common\models\Notification;
+use common\models\Patient;
+use common\models\TherapeuticPlan;
+use common\models\Therapist;
 use common\models\User;
+use frontend\models\ContactForm;
+use frontend\models\LoginForm;
+use frontend\models\PasswordResetRequestForm;
+use frontend\models\ResendVerificationEmailForm;
+use frontend\models\ResetPasswordForm;
+use frontend\models\SignupForm;
+use frontend\models\VerifyEmailForm;
+use yii\base\InvalidArgumentException;
+use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
+use yii\web\BadRequestHttpException;
+use Yii;
 
 /**
  * Site controller
@@ -33,14 +33,14 @@ class SiteController extends BaseController
     public function behaviors()
     {
         $behaviors = parent::behaviors();
-        
+
         // Sovrascrivere le regole di accesso per permettere accesso pubblico a azioni specifiche
         $behaviors['access']['rules'] = [
             [
                 // Permettere accesso alla pagina di login, error e azioni di registrazione per tutti
                 'actions' => ['login', 'error', 'signup', 'request-password-reset', 'reset-password', 'verify-email', 'resend-verification-email'],
                 'allow' => true,
-                'roles' => ['?', '@'], // ? = guest, @ = authenticated
+                'roles' => ['?', '@'],  // ? = guest, @ = authenticated
             ],
             [
                 // Tutte le altre azioni solo per utenti autenticati
@@ -48,7 +48,7 @@ class SiteController extends BaseController
                 'roles' => ['@'],
             ],
         ];
-        
+
         // Aggiungere comportamenti specifici per verbi
         $behaviors['verbs'] = [
             'class' => VerbFilter::class,
@@ -56,7 +56,7 @@ class SiteController extends BaseController
                 'logout' => ['post'],
             ],
         ];
-        
+
         return $behaviors;
     }
 
@@ -68,7 +68,7 @@ class SiteController extends BaseController
         if ($action->id === 'error' || $action->id === 'login') {
             $this->layout = 'blank';
         }
-        
+
         return parent::beforeAction($action);
     }
 
@@ -117,7 +117,7 @@ class SiteController extends BaseController
             ->where(['between', 'appointment_datetime', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
             ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
             ->count();
-        
+
         $completedAppointmentsToday = Appointment::find()
             ->where(['between', 'appointment_datetime', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
             ->andWhere(['status' => Appointment::STATUS_COMPLETED])
@@ -146,7 +146,7 @@ class SiteController extends BaseController
         $pendingDocumentRequests = DocumentRequest::find()
             ->where(['in', 'status', [DocumentRequest::STATUS_INVIATA, DocumentRequest::STATUS_PRESA_IN_CARICO]])
             ->count();
-        
+
         $completedDocumentRequestsThisMonth = DocumentRequest::find()
             ->where(['status' => DocumentRequest::STATUS_CONSEGNATO])
             ->andWhere(['>=', 'created_at', date('Y-m-01 00:00:00')])
@@ -156,12 +156,12 @@ class SiteController extends BaseController
             ->where(['status' => DocumentRequest::STATUS_CONSEGNATO])
             ->andWhere(['between', 'created_at', date('Y-m-01 00:00:00', strtotime('-1 month')), date('Y-m-t 23:59:59', strtotime('-1 month'))])
             ->count();
-        
+
         $requestsGrowthPercentage = $lastMonthCompletedRequests > 0 ? round((($completedDocumentRequestsThisMonth - $lastMonthCompletedRequests) / $lastMonthCompletedRequests) * 100, 2) : 0;
 
         // Piani terapeutici attivi
         $activeTherapeuticPlans = TherapeuticPlan::find()
-            //->where(['status' => 'active'])
+            // ->where(['status' => 'active'])
             ->count();
 
         // Notifiche non lette dell'utente
@@ -192,16 +192,16 @@ class SiteController extends BaseController
             ->groupBy(['status'])
             ->asArray()
             ->all();
-        
+
         // Converto gli ID stato in nomi leggibili e filtro stati con 0 richieste
         $statusLabels = DocumentRequest::getStatusLabels();
         $requestsData = [];
         $hasRealData = false;
-        
+
         // Usa solo dati reali dal database
         if (!empty($documentRequestsByStatus)) {
             foreach ($documentRequestsByStatus as $item) {
-                $count = (int)$item['count'];
+                $count = (int) $item['count'];
                 if ($count > 0) {  // Solo stati con richieste effettive
                     $requestsData[] = [
                         'status_name' => $statusLabels[$item['status']] ?? 'Sconosciuto',
@@ -211,7 +211,7 @@ class SiteController extends BaseController
                 }
             }
         }
-        
+
         // Se non ci sono dati reali, il grafico non verrà mostrato
         // La vista controllerà se $requestsData è vuoto per nascondere il componente
 
@@ -346,28 +346,38 @@ class SiteController extends BaseController
     }
 
     /**
-     * Resets password.
+     * Reset password page
      *
      * @param string $token
      * @return mixed
-     * @throws BadRequestHttpException
      */
-    public function actionResetPassword($token)
+    public function actionResetPassword($token = null)
     {
-        try {
-            $model = new ResetPasswordForm($token);
-        } catch (InvalidArgumentException $e) {
-            throw new BadRequestHttpException($e->getMessage());
+        // Se non c'è token, mostra errore
+        if (!$token) {
+            Yii::$app->session->setFlash('error', 'Link di reset password non valido.');
+            return $this->redirect(['site/login']);
         }
 
-        if ($model->load(Yii::$app->request->post()) && $model->validate() && $model->resetPassword()) {
-            Yii::$app->session->setFlash('success', 'New password saved.');
+        // Verifica se il token è valido
+        $user = User::findByPasswordResetToken($token);
+        if (!$user) {
+            Yii::$app->session->setFlash('error', 'Link di reset password scaduto o non valido.');
+            return $this->redirect(['site/login']);
+        }
 
-            return $this->goHome();
+        // Crea il form di reset password
+        $model = new ResetPasswordForm($token);
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate() && $model->resetPassword()) {
+            Yii::$app->session->setFlash('success', 'Password resettata con successo. Puoi ora effettuare il login.');
+            return $this->redirect(['site/login']);
         }
 
         return $this->render('resetPassword', [
             'model' => $model,
+            'token' => $token,
+            'user' => $user
         ]);
     }
 
@@ -415,7 +425,7 @@ class SiteController extends BaseController
         ]);
     }
 
-    //TODO da rimuovere
+    // TODO da rimuovere
     public function actionForm()
     {
         return $this->render('form');

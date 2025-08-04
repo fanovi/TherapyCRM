@@ -211,12 +211,102 @@ export const authService = {
     }
   },
 
-  async resetPassword(userId, data) {
-    // This endpoint might not exist yet in your API
-    // For now, we'll throw an error indicating it needs to be implemented
-    throw new Error(
-      'Funzionalità di reset password non ancora implementata nel server',
-    );
+  async requestPasswordReset(email) {
+    try {
+      const formData = new FormData();
+      formData.append('email', email);
+
+      const response = await apiCall(
+        API_CONFIG.ENDPOINTS.REQUEST_PASSWORD_RESET,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      return response;
+    } catch (error) {
+      console.error('Request password reset error:', error);
+      throw error;
+    }
+  },
+
+  async resetPassword(resetToken, newPassword, confirmPassword) {
+    try {
+      const formData = new FormData();
+      formData.append('reset_token', resetToken);
+      formData.append('new_password', newPassword);
+      formData.append('confirm_password', confirmPassword);
+
+      const response = await apiCall(API_CONFIG.ENDPOINTS.RESET_PASSWORD, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.success && response.data) {
+        const {user, access_token, token_type, expires_in} = response.data;
+
+        console.log('🔍 === RESET PASSWORD TOKEN EXTRACTION ===');
+        console.log('🎫 access_token tipo:', typeof access_token);
+
+        // Estrai il token JWT vero dall'oggetto access_token
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          actualToken = access_token.token;
+          console.log(
+            '✅ Token estratto da access_token.token:',
+            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
+          );
+        } else if (typeof access_token === 'string') {
+          actualToken = access_token;
+          console.log(
+            '✅ Token è già una stringa:',
+            actualToken.substring(0, 30) + '...',
+          );
+        }
+
+        // Transform API response to match app's expected format
+        const transformedUser = {
+          id: user.id.toString(),
+          email: user.email,
+          role: user.user_type === 'paziente' ? 'patient' : 'therapist',
+          firstName: user.nome,
+          lastName: user.cognome,
+          fullName: `${user.nome} ${user.cognome}`,
+          codiceFiscale: user.codice_fiscale || '',
+          telefono: user.telefono || '',
+          dataNascita: user.data_nascita || '',
+          indirizzo: user.indirizzo || '',
+          status: user.status || 'attivo',
+          isFirstLogin: false,
+          isPasswordResetRequired: false,
+          // Add additional fields for therapists
+          ...(user.user_type === 'terapista' && {
+            specializzazione: user.specializzazione || '',
+            numeroAlbo: user.numero_albo || '',
+          }),
+        };
+
+        return {
+          user: transformedUser,
+          token: actualToken,
+          tokenType: token_type,
+          expiresIn: expires_in,
+          requiresPasswordChange: false,
+        };
+      }
+
+      throw new Error('Risposta del server non valida');
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
   },
 
   async changePassword(tempToken, newPassword, confirmPassword) {

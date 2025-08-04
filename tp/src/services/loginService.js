@@ -5,6 +5,7 @@ import {
   loginFailure,
   changePasswordSuccess,
   logoutUser,
+  resetPasswordRequestSuccess,
 } from '../slices/authSlice';
 import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
@@ -149,6 +150,78 @@ export const loginService = {
       return response;
     } catch (error) {
       console.error('❌ Password change failed:', error.message);
+      dispatch(loginFailure(error.message));
+      throw error;
+    }
+  },
+
+  async requestPasswordReset(dispatch, email) {
+    dispatch(loginStart());
+
+    try {
+      console.log('🔐 Starting password reset request...');
+      const response = await authService.requestPasswordReset(email);
+
+      console.log('✅ Password reset request completed');
+      dispatch(resetPasswordRequestSuccess());
+
+      return response;
+    } catch (error) {
+      console.error('❌ Password reset request failed:', error.message);
+      dispatch(loginFailure(error.message));
+      throw error;
+    }
+  },
+
+  async resetPassword(dispatch, {resetToken, newPassword, confirmPassword}) {
+    dispatch(loginStart());
+
+    try {
+      console.log('🔐 Starting password reset...');
+      const response = await authService.resetPassword(
+        resetToken,
+        newPassword,
+        confirmPassword,
+      );
+
+      console.log('✅ Password reset completed successfully');
+
+      // Ensure all values are strings
+      const authToken = response.token ? String(response.token) : '';
+      const userString = JSON.stringify(response.user);
+
+      console.log('💾 Saving password reset auth data:', {
+        hasAuthToken: !!authToken,
+        authTokenLength: authToken.length,
+        hasUserString: !!userString,
+      });
+
+      // Salva il nuovo token e aggiorna i dati utente
+      await AsyncStorage.multiSet([
+        ['authToken', authToken],
+        ['user', userString],
+      ]);
+
+      dispatch(
+        loginSuccess({
+          user: response.user,
+          token: response.token,
+          requiresPasswordChange: false,
+        }),
+      );
+
+      // Gestisci i pazienti dopo il reset password
+      if (response.user.patients && response.user.patients.length > 0) {
+        console.log(
+          '👥 Setting patients after password reset:',
+          response.user.patients.length,
+        );
+        dispatch(setPatientsFromLogin(response.user.patients));
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Password reset failed:', error.message);
       dispatch(loginFailure(error.message));
       throw error;
     }
