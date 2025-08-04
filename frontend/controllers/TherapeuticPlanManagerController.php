@@ -2005,6 +2005,16 @@ class TherapeuticPlanManagerController extends Controller
         $applyToGroup = $data['applyToGroup'] ?? false;
         $appointmentsToUpdate = [$appointment];
 
+        // Controllo per rimuovere groupSessionId se applyToGroup è false e la data/ora è cambiata
+        $shouldRemoveGroupSessionId = false;
+        if (!$applyToGroup && $appointment->group_session_id !== null) {
+            $dateTimeChanged = $data['appointmentDateTime'] != $appointment->appointment_datetime;
+            if ($dateTimeChanged) {
+                $shouldRemoveGroupSessionId = true;
+                Yii::info("Rimozione groupSessionId - applyToGroup: false, groupSessionId esistente: {$appointment->group_session_id}, data/ora cambiata", __METHOD__);
+            }
+        }
+
         if ($appointment->group_session_id !== null && $applyToGroup) {
             // Trova tutti gli appuntamenti con lo stesso group_session_id
             $groupAppointments = Appointment::find()
@@ -2031,6 +2041,12 @@ class TherapeuticPlanManagerController extends Controller
                 $appointmentToUpdate->appointment_datetime = $data['appointmentDateTime'];
                 $appointmentToUpdate->duration_minutes = $data['durationMinutes'];
                 $appointmentToUpdate->notes = $data['notes'] ?? null;
+
+                // Rimuovi groupSessionId se necessario (solo per l'appuntamento principale)
+                if ($shouldRemoveGroupSessionId && $appointmentToUpdate->id === $appointment->id) {
+                    $appointmentToUpdate->group_session_id = null;
+                    Yii::info("GroupSessionId rimosso dall'appuntamento {$appointmentToUpdate->id}", __METHOD__);
+                }
 
                 if (!$appointmentToUpdate->save()) {
                     $errors = $appointmentToUpdate->getFirstErrors();
