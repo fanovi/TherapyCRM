@@ -4798,9 +4798,9 @@ class TherapeuticPlanManagerController extends Controller
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->where(['a.group_session_id' => $groupSessionId])
-                ->andWhere(['OR',
-                    ['tp.patient_id' => $patientId],
-                    ['a.patient_id' => $patientId]])
+                ->andWhere(
+                    ['a.patient_id' => $patientId]
+                )
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                 ->exists();
 
