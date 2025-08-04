@@ -2001,46 +2001,72 @@ class TherapeuticPlanManagerController extends Controller
             }
         }
 
+        // Gestione aggiornamento gruppo se applicabile
+        $applyToGroup = $data['applyToGroup'] ?? false;
+        $appointmentsToUpdate = [$appointment];
+
+        if ($appointment->group_session_id !== null && $applyToGroup) {
+            // Trova tutti gli appuntamenti con lo stesso group_session_id
+            $groupAppointments = Appointment::find()
+                ->where(['group_session_id' => $appointment->group_session_id])
+                ->andWhere(['!=', 'id', $appointment->id])  // Escludi l'appuntamento corrente
+                ->all();
+
+            $appointmentsToUpdate = array_merge([$appointment], $groupAppointments);
+            Yii::info("Aggiornamento di gruppo rilevato - Group Session ID: {$appointment->group_session_id}, Appuntamenti da aggiornare: " . count($appointmentsToUpdate), __METHOD__);
+        }
+
         // Inizia transazione
         $transaction = Yii::$app->db->beginTransaction();
 
         try {
-            $oldValues = $appointment->getAttributes();
+            $updatedAppointments = [];
 
-            // Aggiorna tutti i campi dell'appuntamento
-            $appointment->plan_therapy_id = $newPlanTherapyId;
-            $appointment->therapist_id = $data['therapistId'];
-            $appointment->appointment_datetime = $data['appointmentDateTime'];
-            $appointment->duration_minutes = $data['durationMinutes'];
-            $appointment->notes = $data['notes'] ?? null;
+            foreach ($appointmentsToUpdate as $appointmentToUpdate) {
+                $oldValues = $appointmentToUpdate->getAttributes();
 
-            if (!$appointment->save()) {
-                $errors = $appointment->getFirstErrors();
-                Yii::error('Errori validazione appuntamento: ' . json_encode($errors), __METHOD__);
-                throw new Exception('Errore salvataggio appuntamento: ' . implode(', ', $errors));
+                // Aggiorna tutti i campi dell'appuntamento
+                $appointmentToUpdate->plan_therapy_id = $newPlanTherapyId;
+                $appointmentToUpdate->therapist_id = $data['therapistId'];
+                $appointmentToUpdate->appointment_datetime = $data['appointmentDateTime'];
+                $appointmentToUpdate->duration_minutes = $data['durationMinutes'];
+                $appointmentToUpdate->notes = $data['notes'] ?? null;
+
+                if (!$appointmentToUpdate->save()) {
+                    $errors = $appointmentToUpdate->getFirstErrors();
+                    Yii::error('Errori validazione appuntamento: ' . json_encode($errors), __METHOD__);
+                    throw new Exception('Errore salvataggio appuntamento: ' . implode(', ', $errors));
+                }
+
+                $updatedAppointments[] = $appointmentToUpdate->id;
+
+                // Traccia modifiche per ogni appuntamento
+                if (isset(Yii::$app->activityLog)) {
+                    Yii::$app->activityLog->record(
+                        'update_appointment',
+                        'Appuntamento modificato',
+                        $appointmentToUpdate->id,
+                        $oldValues,
+                        $appointmentToUpdate->getAttributes()
+                    );
+                }
             }
-
-            // Traccia modifiche
-            if (isset(Yii::$app->activityLog)) {
-                Yii::$app->activityLog->record(
-                    'update_appointment',
-                    'Appuntamento modificato',
-                    $appointment->id,
-                    $oldValues,
-                    $appointment->getAttributes()
-                );
-            }
-
-            Yii::info("Appuntamento {$appointment->id} modificato con successo. Nuovo plan_therapy_id: {$newPlanTherapyId}", __METHOD__);
 
             $transaction->commit();
 
+            $message = count($updatedAppointments) > 1
+                ? 'Appuntamenti di gruppo aggiornati con successo'
+                : 'Appuntamento aggiornato con successo';
+
+            Yii::info('Appuntamenti aggiornati: ' . implode(', ', $updatedAppointments) . ". Nuovo plan_therapy_id: {$newPlanTherapyId}", __METHOD__);
+
             return [
                 'success' => true,
-                'message' => 'Appuntamento aggiornato con successo',
+                'message' => $message,
                 'data' => [
-                    'appointmentId' => $appointment->id,
-                    'planTherapyId' => $newPlanTherapyId
+                    'appointmentIds' => $updatedAppointments,
+                    'planTherapyId' => $newPlanTherapyId,
+                    'wasGroupUpdate' => count($updatedAppointments) > 1
                 ]
             ];
         } catch (Exception $e) {
@@ -4698,7 +4724,7 @@ class TherapeuticPlanManagerController extends Controller
             return [
                 'error' => true,
                 'message' => 'Piano terapia non trovato',
-                'code' => 'HOURS_LIMIT_EXCEEDED'
+                'code' => 'PLAN_THERAPY_NOT_FOUND'
             ];
         }
 
@@ -4707,7 +4733,7 @@ class TherapeuticPlanManagerController extends Controller
             return [
                 'error' => true,
                 'message' => 'Piano terapeutico o regime non trovato',
-                'code' => 'HOURS_LIMIT_EXCEEDED'
+                'code' => 'PLAN_THERAPY_NOT_FOUND_2'
             ];
         }
 

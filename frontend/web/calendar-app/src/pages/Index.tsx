@@ -1133,6 +1133,7 @@ const Index = () => {
         appointmentDateTime: newDateTime,
         durationMinutes: appointment.duration,
         notes: appointment.notes,
+        applyToGroup: appointment.groupSessionId ? true : false,
       };
 
       console.log("🔄 Spostamento appuntamento:", {

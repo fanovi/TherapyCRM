@@ -914,7 +914,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     </button>
                   )}
 
-                  {canAddToGroup && !appointment.groupSessionId && (
+                  {canAddToGroup && appointment.groupSessionId && (
                     <button
                       onClick={handleAddToGroup}
                       disabled={loading}
