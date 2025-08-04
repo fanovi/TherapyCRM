@@ -1516,6 +1516,7 @@ class AuthController extends Controller
 
             if ($user->save()) {
                 Yii::info("Password reset token generated for user: {$user->id}", __METHOD__);
+                // Restituisci solo il token puro, non l'URL completo
                 return $user->password_reset_token;
             } else {
                 Yii::error("Failed to save password reset token for user: {$user->id}", __METHOD__);
@@ -1569,55 +1570,16 @@ class AuthController extends Controller
     }
 
     /**
-     * Test endpoint per verificare l'invio email
-     */
-    public function actionTestEmail()
-    {
-        try {
-            // Test di debug
-            Yii::info('Starting email test', __METHOD__);
-
-            $mailer = Yii::$app->mailer;
-            Yii::info('Mailer configured: ' . get_class($mailer), __METHOD__);
-
-            $emailSent = $mailer
-                ->compose()
-                ->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name . ' robot'])
-                ->setTo('rispoli.mar2803@gmail.com')
-                ->setSubject('Test Email - ' . Yii::$app->name)
-                ->setTextBody('Questo è un test email per verificare la configurazione Gmail SMTP.')
-                ->send();
-
-            Yii::info('Email send result: ' . ($emailSent ? 'true' : 'false'), __METHOD__);
-
-            if ($emailSent) {
-                return [
-                    'success' => true,
-                    'message' => 'Test email inviata con successo'
-                ];
-            } else {
-                return [
-                    'success' => false,
-                    'message' => 'Test email fallita'
-                ];
-            }
-        } catch (\Exception $e) {
-            Yii::error('Email test error: ' . $e->getMessage(), __METHOD__);
-            return [
-                'success' => false,
-                'message' => 'Errore: ' . $e->getMessage()
-            ];
-        }
-    }
-
-    /**
      * Invia email con il link di reset password
      */
     private function sendPasswordResetEmail($user, $resetToken)
     {
         try {
+            // Il resetToken dovrebbe essere già il token puro
+            $pureToken = $resetToken;
+
             // Costruisci l'URL di reset per la pagina web
-            $resetUrl = Yii::$app->params['frontendUrl'] . '/site/reset-password?token=' . $resetToken;
+            $resetUrl = Yii::$app->params['frontendUrl'] . '/site/reset-password?token=' . $pureToken;
 
             $emailSent = Yii::$app
                 ->mailer
@@ -1625,8 +1587,8 @@ class AuthController extends Controller
                 ->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name . ' robot'])
                 ->setTo($user->email)
                 ->setSubject('Reset password per ' . Yii::$app->name)
-                ->setHtmlBody($this->generatePasswordResetEmailHtml($user, $resetToken, $resetUrl))
-                ->setTextBody($this->generatePasswordResetEmailText($user, $resetToken, $resetUrl))
+                ->setHtmlBody($this->generatePasswordResetEmailHtml($user, $pureToken, $resetUrl))
+                ->setTextBody($this->generatePasswordResetEmailText($user, $pureToken, $resetUrl))
                 ->send();
 
             if ($emailSent) {

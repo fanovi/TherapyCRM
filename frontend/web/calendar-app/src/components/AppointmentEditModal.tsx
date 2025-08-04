@@ -26,7 +26,7 @@ interface AppointmentEditModalProps {
   onClose: () => void;
   appointment: Appointment | null;
   therapists: Therapist[];
-  onAppointmentUpdate: (appointmentId: string) => void;
+  onAppointmentUpdate: (appointmentId: string, refresh: boolean) => void;
   onAppointmentDelete: (appointmentId: string) => void;
   onTherapistSubstitution?: (substitutionData: {
     appointmentId: number;

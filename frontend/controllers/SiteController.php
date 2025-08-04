@@ -353,6 +353,9 @@ class SiteController extends BaseController
      */
     public function actionResetPassword($token = null)
     {
+        // Usa layout vuoto per questa pagina
+        $this->layout = 'blank';
+
         // Se non c'è token, mostra errore
         if (!$token) {
             Yii::$app->session->setFlash('error', 'Link di reset password non valido.');
@@ -370,14 +373,17 @@ class SiteController extends BaseController
         $model = new ResetPasswordForm($token);
 
         if ($model->load(Yii::$app->request->post()) && $model->validate() && $model->resetPassword()) {
-            Yii::$app->session->setFlash('success', 'Password resettata con successo. Puoi ora effettuare il login.');
-            return $this->redirect(['site/login']);
+            return $this->render('resetPassword', [
+                'model' => $model,
+                'token' => $token,
+                'success' => true
+            ]);
         }
 
         return $this->render('resetPassword', [
             'model' => $model,
             'token' => $token,
-            'user' => $user
+            'success' => false
         ]);
     }
 
