@@ -301,7 +301,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           : "L'appuntamento è stato modificato con successo"
       );
 
-      onAppointmentUpdate(appointment.id.toString());
+      onAppointmentUpdate(appointment.id.toString(), true);
       setIsEditing(false);
       onClose();
     } catch (error) {

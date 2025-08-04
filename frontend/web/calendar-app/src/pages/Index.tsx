@@ -1015,8 +1015,16 @@ const Index = () => {
     }
   };
 
-  const handleAppointmentUpdate = async (appointmentId: string) => {
-    // await reloadCurrentVisibleAppointments();
+  const handleAppointmentUpdate = async (
+    appointmentId: string,
+    refresh: boolean = false
+  ) => {
+    const scrollPos = saveScrollPosition();
+    if (refresh) {
+      await reloadCurrentVisibleAppointments();
+      setRefreshKey((prev) => prev + 1);
+      restoreScrollPosition(scrollPos);
+    }
   };
 
   // Aggiungi questa funzione dopo handleAppointmentDelete
