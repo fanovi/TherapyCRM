@@ -65,7 +65,7 @@ class SiteController extends BaseController
      */
     public function beforeAction($action)
     {
-        if ($action->id === 'error' || $action->id === 'login') {
+        if ($action->id === 'error' || $action->id === 'login' || $action->id === 'request-password-reset') {
             $this->layout = 'blank';
         }
 
@@ -332,12 +332,12 @@ class SiteController extends BaseController
         $model = new PasswordResetRequestForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail()) {
-                Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
+                Yii::$app->session->setFlash('success', 'Controlla la tua email per le istruzioni successive.');
 
                 return $this->goHome();
             }
 
-            Yii::$app->session->setFlash('error', 'Sorry, we are unable to reset password for the provided email address.');
+            Yii::$app->session->setFlash('error', "Spiacenti, non riusciamo a resettare la password per l'indirizzo email fornito.");
         }
 
         return $this->render('requestPasswordResetToken', [
@@ -369,6 +369,20 @@ class SiteController extends BaseController
             return $this->redirect(['site/login']);
         }
 
+        // Determina il ruolo dell'utente
+        $auth = Yii::$app->authManager;
+        $userRoles = $auth->getRolesByUser($user->id);
+        $userRoleNames = array_keys($userRoles);
+
+        // Determina se l'utente è admin/manager (non deve vedere il token per app mobile)
+        $isAdminOrManager = false;
+        foreach ($userRoleNames as $roleName) {
+            if (in_array($roleName, ['admin', 'manager'])) {
+                $isAdminOrManager = true;
+                break;
+            }
+        }
+
         // Crea il form di reset password
         $model = new ResetPasswordForm($token);
 
@@ -376,14 +390,16 @@ class SiteController extends BaseController
             return $this->render('resetPassword', [
                 'model' => $model,
                 'token' => $token,
-                'success' => true
+                'success' => true,
+                'isAdminOrManager' => $isAdminOrManager
             ]);
         }
 
         return $this->render('resetPassword', [
             'model' => $model,
             'token' => $token,
-            'success' => false
+            'success' => false,
+            'isAdminOrManager' => $isAdminOrManager
         ]);
     }
 

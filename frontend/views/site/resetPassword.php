@@ -201,6 +201,7 @@ $this->title = 'Reset Password';
             <?php ActiveForm::end(); ?>
             <?php endif; ?>
 
+            <?php if (!$isAdminOrManager): ?>
             <div class="mt-6">
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
@@ -247,6 +248,7 @@ $this->title = 'Reset Password';
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="mt-6 text-center">
                 <p class="text-sm text-gray-600 dark:text-gray-400">

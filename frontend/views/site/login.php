@@ -1,7 +1,10 @@
 <?php
 
 /** @var yii\web\View $this */
-/** @var frontend\models\LoginForm $model */
+
+/**
+ * @var frontend\models\LoginForm $model
+ */
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
@@ -117,6 +120,14 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
 
         <!-- Footer Links -->
+        <div class="text-center">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                <a href="<?= Yii::$app->urlManager->createUrl(['site/request-password-reset']) ?>" class="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                    Hai dimenticato la password?
+                </a>
+            </p>
+        </div>
+        
         <!-- <div class="text-center">
             <p class="text-sm text-gray-600 dark:text-gray-400">
                 Hai problemi ad accedere?
