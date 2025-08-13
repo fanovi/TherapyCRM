@@ -1,4 +1,4 @@
-package com.tp
+package com.tp.cgm.badil
 
 import android.app.Application
 import com.facebook.react.PackageList
