@@ -1,5 +1,9 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
+
+// Set Node.js path explicitly for React Native
+System.setProperty("node.executable", "/Users/marcorispoli/.nvm/versions/node/v21.7.1/bin/node")
+
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'tp'
 include ':app'

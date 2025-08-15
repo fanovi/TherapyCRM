@@ -6,6 +6,8 @@ buildscript {
         targetSdkVersion = 35
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.0.21"
+        // Node.js configuration
+        nodeExecutable = "/Users/marcorispoli/.nvm/versions/node/v21.7.1/bin/node"
     }
     repositories {
         google()

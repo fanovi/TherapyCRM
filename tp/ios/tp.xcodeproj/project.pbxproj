@@ -405,6 +405,7 @@
 				DEVELOPMENT_TEAM = R4BVQ2243R;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = tp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "CGM San Luca";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -434,6 +435,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R4BVQ2243R;
 				INFOPLIST_FILE = tp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "CGM San Luca";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
