@@ -124,6 +124,8 @@ const ResetPasswordScreen = () => {
                     style={[styles.userName, {color: theme.colors.onSurface}]}>
                     {user?.firstName && user?.lastName
                       ? `${user.firstName} ${user.lastName}`
+                      : user?.fullName === 'undefined undefined'
+                      ? user?.email?.split('@')[0] || 'Utente'
                       : user?.fullName || 'Utente'}
                   </Text>
                   <Text

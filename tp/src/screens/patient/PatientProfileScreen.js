@@ -11,6 +11,8 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {loginService} from '../../services/loginService';
 import ScreenTemplate from '../../components/ScreenTemplate';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {debugUserData, getUserDisplayName, getUserInitials, getUserRole, getUserField} from '../../utils/userUtils';
 
 const PatientProfileScreen = () => {
   const dispatch = useDispatch();
@@ -18,18 +20,33 @@ const PatientProfileScreen = () => {
   const {patients, currentPatient} = useSelector(state => state.patient);
   const theme = useTheme();
 
+  // Debug dettagliato usando utility
+  debugUserData(user, 'PatientProfileScreen User Debug');
+  
+  // Debug anche AsyncStorage
+  const checkAsyncStorage = async () => {
+    try {
+      const userString = await AsyncStorage.getItem('user');
+      console.log('💾 User from AsyncStorage raw:', userString);
+      if (userString) {
+        const parsedUser = JSON.parse(userString);
+        console.log('💾 User from AsyncStorage parsed:', parsedUser);
+        console.log('💾 AsyncStorage user keys:', Object.keys(parsedUser));
+      }
+    } catch (error) {
+      console.error('❌ Error reading AsyncStorage:', error);
+    }
+  };
+  
+  React.useEffect(() => {
+    checkAsyncStorage();
+  }, []);
+
   const handleLogout = async () => {
     await loginService.logout(dispatch);
   };
 
-  const getInitials = name => {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map(n => n.charAt(0))
-      .join('')
-      .toUpperCase();
-  };
+  // Le utility sono ora importate dal modulo utils/userUtils.js
 
   const formatDate = dateString => {
     if (!dateString) return 'Non specificata';
@@ -50,19 +67,19 @@ const PatientProfileScreen = () => {
             <View style={styles.avatarSection}>
               <Avatar.Text
                 size={80}
-                label={getInitials(user?.fullName || user?.name || 'P')}
+                label={getUserInitials(getUserDisplayName(user))}
                 style={[styles.avatar, {backgroundColor: theme.colors.primary}]}
               />
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>
-                  {user?.fullName ||
-                    `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
-                    'Paziente'}
+                  {getUserDisplayName(user)}
                 </Text>
                 <Text style={styles.userEmail}>
                   {user?.email || 'Email non disponibile'}
                 </Text>
-                <Text style={styles.userRole}>Paziente</Text>
+                <Text style={styles.userRole}>
+                  {getUserRole(user)}
+                </Text>
               </View>
             </View>
           </Card.Content>
@@ -77,28 +94,28 @@ const PatientProfileScreen = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Codice Fiscale:</Text>
               <Text style={styles.infoValue}>
-                {user?.codiceFiscale || 'Non specificato'}
+                {getUserField(user, ['codiceFiscale', 'codice_fiscale'])}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Telefono:</Text>
               <Text style={styles.infoValue}>
-                {user?.telefono || 'Non specificato'}
+                {getUserField(user, ['telefono', 'phone', 'telephone'])}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Data di Nascita:</Text>
               <Text style={styles.infoValue}>
-                {formatDate(user?.dataNascita)}
+                {formatDate(getUserField(user, ['dataNascita', 'data_nascita', 'birth_date'], null))}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Indirizzo:</Text>
               <Text style={styles.infoValue}>
-                {user?.indirizzo || 'Non specificato'}
+                {getUserField(user, ['indirizzo', 'address'])}
               </Text>
             </View>
           </Card.Content>

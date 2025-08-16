@@ -231,45 +231,61 @@ export const loginService = {
     try {
       console.log('🚪 Starting logout process...');
 
-      // Reset dei pazienti prima del logout completo
-      dispatch(resetPatients());
-      console.log('👥 Patients data reset');
-
-      // Chiama l'API di logout (se il token è ancora valido)
+      // 1. Prova a invalidare il token sul server (importante per sicurezza)
       try {
-        await authService.logout();
-        console.log('✅ Logout API call successful');
-      } catch (error) {
+        const token = await AsyncStorage.getItem('authToken');
+        if (token) {
+          console.log('🔐 Invalidating token on server...');
+          await fetch(
+            `${require('../config/api').API_CONFIG.BASE_URL}/auth/logout`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+            },
+          );
+          console.log('✅ Token invalidated on server');
+        } else {
+          console.log('⚠️ No token found to invalidate');
+        }
+      } catch (apiError) {
         console.warn(
-          '⚠️ Logout API call failed (token might be expired):',
-          error.message,
+          '⚠️ Server logout failed (token might be expired):',
+          apiError.message,
         );
         // Non bloccare il logout se l'API fallisce
       }
 
-      // Pulisci lo storage locale
-      await AsyncStorage.multiRemove([
-        'authToken',
-        'refreshToken',
-        'user',
-        'tempToken',
-      ]);
+      // 2. Pulisci AsyncStorage
+      await AsyncStorage.clear();
+      console.log('🧹 AsyncStorage cleared');
 
-      // Aggiorna lo stato Redux
+      // 3. Reset pazienti
+      dispatch(resetPatients());
+      console.log('👥 Patients data reset');
+
+      // 4. Reset stato auth
       dispatch(logoutUser());
+      console.log('🔄 Auth state reset');
 
       console.log('✅ Logout completed successfully');
     } catch (error) {
       console.error('❌ Logout error:', error);
-      // Anche in caso di errore, pulisci lo stato locale
-      dispatch(resetPatients());
-      await AsyncStorage.multiRemove([
-        'authToken',
-        'refreshToken',
-        'user',
-        'tempToken',
-      ]);
-      dispatch(logoutUser());
+
+      // Fallback: forza la pulizia anche in caso di errore
+      try {
+        await AsyncStorage.clear();
+        dispatch(resetPatients());
+        dispatch(logoutUser());
+        console.log('🧹 Force cleanup completed');
+      } catch (finalError) {
+        // Ultima risorsa: almeno reset Redux
+        console.error('❌ Final cleanup error:', finalError);
+        dispatch(logoutUser());
+      }
     }
   },
 };

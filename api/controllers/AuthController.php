@@ -1050,18 +1050,42 @@ class AuthController extends Controller
         $updateResult = $this->updateUserPassword($user['id'], $user['user_type'], $newPassword);
 
         if ($updateResult) {
+            // Recupera l'utente aggiornato dal database per costruire i dati corretti
+            $userModel = User::findOne($user['id']);
+            if (!$userModel) {
+                return [
+                    'success' => false,
+                    'message' => 'Errore: utente non trovato dopo aggiornamento password',
+                    'error_code' => 'USER_NOT_FOUND'
+                ];
+            }
+
+            // Costruisce i dati utente usando la stessa logica del login normale
+            $userData = $this->buildUserData($userModel);
+            if (!$userData) {
+                return [
+                    'success' => false,
+                    'message' => 'Errore: impossibile costruire dati utente',
+                    'error_code' => 'USER_DATA_BUILD_FAILED'
+                ];
+            }
+
+            // Aggiorna i campi specifici per il cambio password
+            $userData['first_login'] = false;  // Non è più primo login
+            $userData['isFirstLogin'] = false; // Campo per compatibilità con app
+            $userData['isPasswordResetRequired'] = false; // Password non richiede più reset
+
             // Genera token di accesso normale dopo il cambio password
-            $user['first_login'] = false;  // Non è più primo login
             $accessToken = $this->generateAccessToken([
-                'user_id' => $user['id'],
-                'email' => $user['email']
+                'user_id' => $userData['id'],
+                'email' => $userData['email']
             ]);
 
             return [
                 'success' => true,
                 'message' => 'Password cambiata con successo',
                 'data' => [
-                    'user' => $user,
+                    'user' => $userData,
                     'access_token' => $accessToken,
                     'token_type' => 'Bearer',
                     'expires_in' => 3600

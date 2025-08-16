@@ -71,9 +71,10 @@ const AppNavigator = () => {
       if (!result.valid) {
         console.log('❌ Token non valido -> Login');
         console.log('   - Reason:', result.error);
-        // Pulisci storage e vai al login
+        // Pulisci storage e vai al login (usa action sincrono)
         await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'user']);
-        dispatch(logoutUser());
+        const {logoutUser: logoutUserAction} = await import('../slices/authSlice');
+        dispatch(logoutUserAction());
         setIsLoading(false);
         return;
       }

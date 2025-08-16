@@ -21,6 +21,7 @@ import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import {clearError} from '../../slices/authSlice';
 import {loginService} from '../../services/loginService';
+import {logo} from '../../assets/images';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -98,10 +99,10 @@ const LoginScreen = () => {
           {/* Logo/Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>🏥</Text>
+              <Image source={logo} style={styles.logo} />
             </View>
             <Text style={[styles.title, {color: theme.colors.onSurface}]}>
-              CMS Terapisti
+              CGM San Luca
             </Text>
             <Text
               style={[styles.subtitle, {color: theme.colors.onSurfaceVariant}]}>
@@ -236,6 +237,11 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 40,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

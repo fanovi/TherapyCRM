@@ -43,7 +43,7 @@ Il sistema delle notifiche non mostra la lista all'utente perché **mancavano le
 
 ```bash
 # Test senza autenticazione (deve restituire 401)
-curl -X GET "https://348b-5-158-70-31.ngrok-free.app/TherapyCRM/api/notifications/unread" \
+curl -X GET "https://heavily-wealthy-buzzard.ngrok-free.app/TherapyCRM/api/notifications/unread" \
      -H "Content-Type: application/json" \
      -H "ngrok-skip-browser-warning: true"
 

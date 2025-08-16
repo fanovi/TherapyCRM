@@ -349,6 +349,13 @@ export const authService = {
           );
         }
 
+        // Debug del backend response per changePassword
+        console.log('🔍 === CHANGE PASSWORD USER DATA DEBUG ===');
+        console.log('🔍 Backend user object:', user);
+        console.log('🔍 user.nome:', user.nome);
+        console.log('🔍 user.cognome:', user.cognome);
+        console.log('🔍 user.user_type:', user.user_type);
+
         // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
@@ -419,31 +426,11 @@ export const authService = {
   },
 
   async logout() {
-    try {
-      // Prova a chiamare l'endpoint di logout se il token è ancora valido
-      try {
-        const token = await getValidToken();
-        await apiCall(API_CONFIG.ENDPOINTS.LOGOUT, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      } catch (error) {
-        // Ignora errori di logout se il token è già scaduto
-        console.log(
-          'Logout API call failed (token potrebbe essere scaduto):',
-          error.message,
-        );
-      }
-
-      // Rimuovi sempre il token dal Keychain
-      await Keychain.resetInternetCredentials('cms-terapisti-token');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Non lanciare errore per logout, assicurati solo che il token sia rimosso
-      await Keychain.resetInternetCredentials('cms-terapisti-token');
-    }
+    console.log(
+      '🚪 AuthService logout - deprecated, use loginService.logout instead',
+    );
+    // Questa funzione è deprecata - il logout principale è ora in loginService
+    // Non fare nulla per evitare conflitti
   },
 
   // Additional utility methods
