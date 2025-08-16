@@ -1072,8 +1072,8 @@ class AuthController extends Controller
 
             // Aggiorna i campi specifici per il cambio password
             $userData['first_login'] = false;  // Non è più primo login
-            $userData['isFirstLogin'] = false; // Campo per compatibilità con app
-            $userData['isPasswordResetRequired'] = false; // Password non richiede più reset
+            $userData['isFirstLogin'] = false;  // Campo per compatibilità con app
+            $userData['isPasswordResetRequired'] = false;  // Password non richiede più reset
 
             // Genera token di accesso normale dopo il cambio password
             $accessToken = $this->generateAccessToken([

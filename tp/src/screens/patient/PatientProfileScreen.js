@@ -12,7 +12,13 @@ import {useDispatch, useSelector} from 'react-redux';
 import {loginService} from '../../services/loginService';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {debugUserData, getUserDisplayName, getUserInitials, getUserRole, getUserField} from '../../utils/userUtils';
+import {
+  debugUserData,
+  getUserDisplayName,
+  getUserInitials,
+  getUserRole,
+  getUserField,
+} from '../../utils/userUtils';
 
 const PatientProfileScreen = () => {
   const dispatch = useDispatch();
@@ -22,7 +28,7 @@ const PatientProfileScreen = () => {
 
   // Debug dettagliato usando utility
   debugUserData(user, 'PatientProfileScreen User Debug');
-  
+
   // Debug anche AsyncStorage
   const checkAsyncStorage = async () => {
     try {
@@ -37,7 +43,7 @@ const PatientProfileScreen = () => {
       console.error('❌ Error reading AsyncStorage:', error);
     }
   };
-  
+
   React.useEffect(() => {
     checkAsyncStorage();
   }, []);
@@ -71,15 +77,11 @@ const PatientProfileScreen = () => {
                 style={[styles.avatar, {backgroundColor: theme.colors.primary}]}
               />
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>
-                  {getUserDisplayName(user)}
-                </Text>
+                <Text style={styles.userName}>{getUserDisplayName(user)}</Text>
                 <Text style={styles.userEmail}>
                   {user?.email || 'Email non disponibile'}
                 </Text>
-                <Text style={styles.userRole}>
-                  {getUserRole(user)}
-                </Text>
+                <Text style={styles.userRole}>{getUserRole(user)}</Text>
               </View>
             </View>
           </Card.Content>
@@ -108,7 +110,13 @@ const PatientProfileScreen = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Data di Nascita:</Text>
               <Text style={styles.infoValue}>
-                {formatDate(getUserField(user, ['dataNascita', 'data_nascita', 'birth_date'], null))}
+                {formatDate(
+                  getUserField(
+                    user,
+                    ['dataNascita', 'data_nascita', 'birth_date'],
+                    null,
+                  ),
+                )}
               </Text>
             </View>
 
