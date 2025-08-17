@@ -39,7 +39,7 @@ const PatientHomeScreen = () => {
       }>
       {/* Banner per i permessi delle notifiche */}
       <DashboardNotificationBanner />
-      
+
       {/* Componente Debug temporaneo */}
       {/* <DebugPatientInfo /> */}
       {/* Quick Actions */}
