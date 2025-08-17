@@ -52,6 +52,10 @@ const useOneSignal = () => {
     sendTags: oneSignalService.sendTags.bind(oneSignalService),
     requestPermissions:
       oneSignalService.requestPermissions.bind(oneSignalService),
+    requestPermissionsExplicitly:
+      oneSignalService.requestPermissionsExplicitly.bind(oneSignalService),
+    checkNotificationPermissions:
+      oneSignalService.checkNotificationPermissions.bind(oneSignalService),
     getDeviceId: oneSignalService.getDeviceId.bind(oneSignalService),
   };
 };

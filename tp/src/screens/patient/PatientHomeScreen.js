@@ -12,6 +12,7 @@ import {
 import {useSelector, useDispatch} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import DebugPatientInfo from '../../components/DebugPatientInfo';
+import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 import {loginService} from '../../services/loginService';
 
 const PatientHomeScreen = () => {
@@ -36,6 +37,9 @@ const PatientHomeScreen = () => {
           onPress={handleLogout}
         />
       }>
+      {/* Banner per i permessi delle notifiche */}
+      <DashboardNotificationBanner />
+      
       {/* Componente Debug temporaneo */}
       {/* <DebugPatientInfo /> */}
       {/* Quick Actions */}

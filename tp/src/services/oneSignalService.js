@@ -16,10 +16,7 @@ class OneSignalService {
     }
 
     try {
-      // Rimuovi la richiesta di consenso su iOS se non necessaria
-      OneSignal.Notifications.requestPermission(true);
-
-      // Inizializza OneSignal con l'App ID
+      // Inizializza OneSignal con l'App ID PRIMA di richiedere permessi
       OneSignal.initialize(this.appId);
 
       // Setup notification handlers
@@ -162,6 +159,14 @@ class OneSignalService {
    */
   async requestPermissions() {
     try {
+      // Verifica che OneSignal sia inizializzato prima di richiedere permessi
+      if (!this.isInitialized) {
+        console.warn(
+          '⚠️ OneSignal non ancora inizializzato, impossibile richiedere permessi',
+        );
+        return false;
+      }
+
       const permission = await OneSignal.Notifications.requestPermission(true);
       if (__DEV__) {
         console.log('🔔 Permessi notifiche:', permission);
@@ -169,6 +174,61 @@ class OneSignalService {
       return permission;
     } catch (error) {
       console.error('Errore richiesta permessi:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Richiede i permessi in modo esplicito (da chiamare manualmente)
+   */
+  async requestPermissionsExplicitly() {
+    try {
+      if (!this.isInitialized) {
+        console.warn(
+          '⚠️ OneSignal non ancora inizializzato, impossibile richiedere permessi',
+        );
+        return false;
+      }
+
+      console.log('🔔 Richiesta esplicita permessi notifiche...');
+      const permission = await OneSignal.Notifications.requestPermission(true);
+
+      if (__DEV__) {
+        console.log('🔔 Risultato richiesta permessi:', permission);
+      }
+
+      return permission;
+    } catch (error) {
+      console.error('❌ Errore richiesta permessi esplicita:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Controlla se i permessi sono già stati concessi
+   */
+  async checkNotificationPermissions() {
+    try {
+      if (!this.isInitialized) {
+        console.log(
+          '⚠️ OneSignal non ancora inizializzato per controllo permessi',
+        );
+        return false;
+      }
+
+      const permission = await OneSignal.Notifications.permission;
+
+      if (__DEV__) {
+        console.log(
+          '🔍 OneSignal.Notifications.permission restituisce:',
+          permission,
+        );
+      }
+
+      // OneSignal restituisce true se i permessi sono concessi, false altrimenti
+      return permission === true;
+    } catch (error) {
+      console.error('❌ Errore controllo permessi:', error);
       return false;
     }
   }

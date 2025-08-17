@@ -19,6 +19,7 @@ import {useSelector, useDispatch} from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import {loginService} from '../../services/loginService';
 import {therapistService} from '../../services/therapistService';
+import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 
 const TherapistHomeScreen = () => {
   const dispatch = useDispatch();
@@ -130,6 +131,9 @@ const TherapistHomeScreen = () => {
             </Button>
           </View>
         )}
+
+        {/* Banner per i permessi delle notifiche */}
+        <DashboardNotificationBanner />
 
         {/* Statistiche */}
         <View style={styles.section}>
