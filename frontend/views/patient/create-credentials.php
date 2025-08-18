@@ -22,14 +22,14 @@ $this->params['breadcrumbs'][] = $this->title;
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
-            
+
             <nav>
                 <ol class="flex items-center gap-1.5">
                     <li>
                         <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/site/index']) ?>">
                             Home
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </a>
                     </li>
@@ -37,7 +37,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/patient/index']) ?>">
                             Pazienti
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </a>
                     </li>
@@ -45,7 +45,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/patient/view', 'id' => $patient->id]) ?>">
                             <?= Html::encode($patient->fullName) ?>
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </a>
                     </li>
@@ -69,13 +69,14 @@ $this->params['breadcrumbs'][] = $this->title;
     ]); ?>
 
     <style>
-    .has-error .form-control {
-        border-color: #ef4444 !important;
-        box-shadow: 0 0 0 1px #ef4444 !important;
-    }
-    .help-block-error {
-        color: #ef4444 !important;
-    }
+        .has-error .form-control {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 1px #ef4444 !important;
+        }
+
+        .help-block-error {
+            color: #ef4444 !important;
+        }
     </style>
 
     <!-- Informazioni Paziente -->
@@ -88,24 +89,24 @@ $this->params['breadcrumbs'][] = $this->title;
                 Dati del paziente per cui creare le credenziali di accesso.
             </p>
         </div>
-        
+
         <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div class="sm:col-span-1">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Nome</label>
                     <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->first_name) ?></div>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Cognome</label>
                     <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->last_name) ?></div>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Codice Fiscale</label>
                     <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode($patient->fiscal_code ?: '-') ?></div>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5">Data di Nascita</label>
                     <div class="text-sm text-gray-900 dark:text-white/90"><?= Html::encode(Yii::$app->formatter->asDate($patient->birth_date)) ?></div>
@@ -124,7 +125,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 Inserisci email e password per l'accesso all'app mobile.
             </p>
         </div>
-        
+
         <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div class="sm:col-span-2">
@@ -167,7 +168,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 Dati della persona che utilizzerà l'account.
             </p>
         </div>
-        
+
         <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div class="sm:col-span-1">
@@ -178,7 +179,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <?= $form->field($profile, 'last_name')->textInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
@@ -187,7 +188,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <?= $form->field($profile, 'fiscal_code')->textInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
@@ -196,7 +197,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
-                
+
                 <div class="sm:col-span-1">
                     <?= $form->field($profile, 'phone')->textInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
@@ -219,7 +220,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 Specifica il tipo di relazione e i permessi.
             </p>
         </div>
-        
+
         <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div class="sm:col-span-2">
@@ -230,7 +231,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
-                
+
                 <div class="sm:col-span-2">
                     <?= $form->field($accountPatient, 'has_parental_authority', [
                         'template' => '<div class="flex items-center">{input}{label}</div>{error}{hint}',
@@ -254,12 +255,15 @@ $this->params['breadcrumbs'][] = $this->title;
     <!-- Action Buttons -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
-                ['view', 'id' => $patient->id], [
-                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
-            ]) ?>
+            <?= Html::a(
+                '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
+                ['view', 'id' => $patient->id],
+                [
+                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+                ]
+            ) ?>
         </div>
-        
+
         <div class="flex space-x-3">
             <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Crea Credenziali', [
                 'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
@@ -274,6 +278,55 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <?php
 $this->registerJs("
+// Funzione per mostrare notifiche toast (stesso stile di Statistics)
+function showNotification(message, type = 'info') {
+    // Notifica vanilla con lo stesso stile di Statistics
+    var notification = document.createElement('div');
+    notification.className = 'vanilla-notification notification-' + type;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: white;
+        font-size: 14px;
+        z-index: 99999;
+        opacity: 0;
+        transition: opacity 0.3s;
+        max-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    `;
+    
+    // Colori per tipo (stesso stile di Statistics)
+    var colors = {
+        'success': '#1cc88a',
+        'error': '#e74a3b',
+        'warning': '#f6c23e',
+        'info': '#36b9cc'
+    };
+    
+    notification.style.backgroundColor = colors[type] || colors.info;
+    
+    document.body.appendChild(notification);
+    
+    // Mostra con animazione
+    setTimeout(function() {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Rimuovi dopo 3 secondi
+    setTimeout(function() {
+        notification.style.opacity = '0';
+        setTimeout(function() {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
 $(document).ready(function() {
     $('#credentials-form').on('beforeSubmit', function(e) {
         e.preventDefault();
@@ -292,8 +345,8 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    // Show success message
-                    alert('Credenziali create con successo!');
+                    // Show success message with toast
+                    showNotification('Credenziali create con successo!', 'success');
                     
                     // Download PDF automatically
                     if (response.downloadUrl) {
@@ -308,14 +361,14 @@ $(document).ready(function() {
                         }
                     }, 1000);
                 } else {
-                    alert('Errore: ' + (response.message || 'Errore sconosciuto'));
+                    showNotification('Errore: ' + (response.error || response.message || 'Errore sconosciuto'), 'error');
                     \$submitBtn.prop('disabled', false);
                     \$submitBtn.html('<svg class=\"mr-2 h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"></path></svg>Crea Credenziali');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('AJAX Error:', error);
-                alert('Errore di comunicazione con il server. Riprova.');
+                showNotification('Errore di comunicazione con il server. Riprova.', 'error');
                 \$submitBtn.prop('disabled', false);
                 \$submitBtn.html('<svg class=\"mr-2 h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"></path></svg>Crea Credenziali');
             }
@@ -325,4 +378,4 @@ $(document).ready(function() {
     });
 });
 ");
-?> 
+?>

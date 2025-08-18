@@ -5,14 +5,15 @@ use yii\db\Migration;
 /**
  * Adds therapeutic plan expiry notification templates
  */
-class m240727_100001_add_therapeutic_plan_expiry_templates extends Migration
+class m250201_000029_add_therapeutic_plan_expiry_templates extends Migration
 {
     /**
      * {@inheritdoc}
      */
     public function safeUp()
     {
-        $this->batchInsert('{{%notification_templates}}', 
+        $this->batchInsert(
+            '{{%notification_templates}}',
             ['code', 'type', 'title_template', 'message_template', 'days_before', 'is_active'],
             [
                 [

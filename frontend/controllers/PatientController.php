@@ -79,7 +79,7 @@ class PatientController extends Controller
         }
 
         $patient = new Patient(['scenario' => 'create']);
-        
+
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
@@ -108,7 +108,7 @@ class PatientController extends Controller
         }
 
         $model = $this->findModel($id);
-        
+
         // Load associated accounts
         $accountPatients = AccountPatient::find()
             ->where(['patient_id' => $id])
@@ -132,7 +132,7 @@ class PatientController extends Controller
 
         $patient = $this->findModel($id);
         $patient->scenario = 'update';
-        
+
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
@@ -161,7 +161,7 @@ class PatientController extends Controller
         }
 
         $patient = $this->findModel($id);
-        
+
         if ($patient->delete()) {
             Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
         } else {
@@ -192,33 +192,35 @@ class PatientController extends Controller
 
         $postData = Yii::$app->request->post();
         Yii::info('POST data received: ' . print_r($postData, true));
-        
-        if ($user->load($postData) && 
-            $profile->load($postData) && 
-            $accountPatient->load($postData)) {
-            
+
+        if (
+            $user->load($postData) &&
+            $profile->load($postData) &&
+            $accountPatient->load($postData)
+        ) {
+
             Yii::info('Models loaded successfully - User: ' . print_r($user->attributes, true));
             Yii::info('Profile: ' . print_r($profile->attributes, true));
             Yii::info('AccountPatient: ' . print_r($accountPatient->attributes, true));
-            
+
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 // Save password before hashing for PDF generation
                 $plainPassword = $user->password;
-                
+
                 // Set username (use email as username)
                 $user->username = $user->email;
-                
+
                 // Set password hash and auth key before saving user
                 $user->setPassword($user->password);
                 $user->generateAuthKey();
-                
+
                 // Set requires_password_change to true for new accounts
                 if ($user->hasAttribute('requires_password_change')) {
                     $user->requires_password_change = 1;
                     Yii::info('Campo requires_password_change impostato a true per nuovo utente');
                 }
-                
+
                 // Save user
                 if (!$user->save()) {
                     throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
@@ -245,10 +247,10 @@ class PatientController extends Controller
                 }
 
                 $transaction->commit();
-                
+
                 // Generate PDF with credentials automatically
                 $this->generateCredentialsPdf($user, $plainPassword);
-                
+
                 // Handle AJAX requests for automatic PDF download
                 if (Yii::$app->request->isAjax) {
                     Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
@@ -259,13 +261,22 @@ class PatientController extends Controller
                         'redirectUrl' => \yii\helpers\Url::to(['view', 'id' => $patient->id])
                     ];
                 }
-                
+
                 Yii::$app->session->setFlash('success', 'Credenziali create con successo!');
                 return $this->redirect(['view', 'id' => $patient->id]);
-
             } catch (\Exception $e) {
                 $transaction->rollBack();
                 Yii::error('Errore durante la creazione credenziali: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+
+                // Handle AJAX requests for errors
+                if (Yii::$app->request->isAjax) {
+                    Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                    return [
+                        'success' => false,
+                        'error' => $e->getMessage()
+                    ];
+                }
+
                 Yii::$app->session->setFlash('error', 'Errore: ' . $e->getMessage());
             }
         } else {
@@ -295,11 +306,11 @@ class PatientController extends Controller
         if ($userId === null) {
             $userId = Yii::$app->request->post('userId');
         }
-        
+
         if (!$userId) {
             throw new \yii\web\BadRequestHttpException('Missing userId parameter');
         }
-        
+
         if (!Yii::$app->user->can('update_patient')) {
             Yii::error('Permessi insufficienti per utente: ' . Yii::$app->user->id);
             throw new ForbiddenHttpException('Non hai i permessi per resettare password.');
@@ -316,30 +327,30 @@ class PatientController extends Controller
         // Generate new random password
         $newPassword = $this->generateRandomPassword();
         Yii::info('Nuova password generata: ' . $newPassword);
-        
+
         // Set the new password and require password change on first login
         $user->setPassword($newPassword);
-        
+
         // Check if user has requires_password_change field and set it to true
         if ($user->hasAttribute('requires_password_change')) {
             $user->requires_password_change = 1;
             Yii::info('Campo requires_password_change impostato a true');
         }
-        
+
         if ($user->save()) {
             Yii::info('Password salvata con successo per utente: ' . $user->email);
-            
+
             // Revoke all existing auth tokens for this user
             $revokedTokens = AuthToken::updateAll(
-                ['is_revoked' => 1], 
+                ['is_revoked' => 1],
                 ['user_id' => $user->id, 'is_revoked' => 0]
             );
             Yii::info('Revocati ' . $revokedTokens . ' token esistenti per utente: ' . $user->email);
-            
+
             // Generate PDF with credentials
             Yii::info('Inizio generazione PDF...');
             $this->generateCredentialsPdf($user, $newPassword);
-            
+
             Yii::$app->session->setFlash('success', 'Password resettata e PDF generato con successo. Tutti i token di accesso precedenti sono stati revocati.');
             Yii::info('Flash message impostato');
         } else {
@@ -352,13 +363,13 @@ class PatientController extends Controller
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return ['status' => 'success', 'message' => 'Password resettata con successo'];
         }
-        
+
         // Find patient ID to redirect back for non-AJAX requests
         $accountPatient = AccountPatient::findOne(['user_id' => $userId]);
         if ($accountPatient) {
             return $this->redirect(['view', 'id' => $accountPatient->patient_id]);
         }
-        
+
         return $this->redirect(['index']);
     }
 
@@ -382,23 +393,23 @@ class PatientController extends Controller
     {
         try {
             Yii::info('Inizio generazione PDF per utente: ' . $user->email);
-            
+
             // Create HTML content for PDF
             $html = $this->renderPartial('_credentials_pdf', [
                 'user' => $user,
                 'password' => $password,
                 'generatedAt' => date('d/m/Y H:i'),
             ]);
-            
+
             Yii::info('HTML generato per PDF, lunghezza: ' . strlen($html));
-            
+
             // Create mPDF instance with custom temp directory
             $tempDir = Yii::getAlias('@frontend/runtime/mpdf');
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0777, true);
                 Yii::info('Creata directory temporanea: ' . $tempDir);
             }
-            
+
             $mpdf = new \Mpdf\Mpdf([
                 'mode' => 'utf-8',
                 'format' => 'A4',
@@ -411,35 +422,34 @@ class PatientController extends Controller
                 'margin_footer' => 10,
                 'tempDir' => $tempDir,
             ]);
-            
+
             Yii::info('mPDF istanziato correttamente');
-            
+
             // Set document properties
             $mpdf->SetTitle('Credenziali di Accesso - TherapyCRM');
             $mpdf->SetAuthor('TherapyCRM');
             $mpdf->SetCreator('TherapyCRM System');
-            
+
             // Write HTML to PDF
             $mpdf->WriteHTML($html);
-            
+
             Yii::info('HTML scritto in mPDF');
-            
+
             // Generate filename
             $filename = 'credenziali_' . str_replace(['@', '.'], ['_', '_'], $user->email) . '_' . date('Y-m-d_H-i-s') . '.pdf';
-            
+
             // Generate PDF content
             $pdfContent = $mpdf->Output('', 'S');
-            
+
             Yii::info('PDF generato, dimensione: ' . strlen($pdfContent) . ' bytes');
-            
+
             // Store PDF data in session for download
             Yii::$app->session->set('pdf_data', [
                 'content' => $pdfContent,
                 'filename' => $filename
             ]);
-            
+
             Yii::info('PDF salvato in sessione con nome: ' . $filename);
-            
         } catch (\Exception $e) {
             Yii::error('Errore nella generazione PDF: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
             Yii::$app->session->setFlash('error', 'Errore nella generazione del PDF: ' . $e->getMessage());
@@ -452,9 +462,9 @@ class PatientController extends Controller
     public function actionDownloadCredentialsPdf()
     {
         Yii::info('Tentativo di download PDF - Inizio');
-        
+
         $pdfData = Yii::$app->session->get('pdf_data');
-        
+
         if (!$pdfData) {
             Yii::error('PDF non trovato in sessione');
             throw new NotFoundHttpException('PDF non trovato. Rigenerare le credenziali.');
@@ -466,7 +476,7 @@ class PatientController extends Controller
         Yii::$app->session->remove('pdf_data');
 
         Yii::info('Headers e content impostati per download PDF');
-        
+
         // Use Yii response to send PDF properly
         return Yii::$app->response->sendContentAsFile(
             $pdfData['content'],
@@ -492,7 +502,7 @@ class PatientController extends Controller
         }
 
         $data = Yii::$app->request->post();
-        
+
         // Validazione input
         if (empty($data['patient_ids']) || empty($data['title']) || empty($data['message'])) {
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
@@ -516,7 +526,7 @@ class PatientController extends Controller
         try {
             // Ottieni tutti gli user_id collegati ai pazienti selezionati
             $userIds = $this->getUsersLinkedToPatients($patientIds);
-            
+
             if (empty($userIds)) {
                 Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
                 return [
@@ -536,9 +546,9 @@ class PatientController extends Controller
             );
 
             // Log dell'operazione
-            Yii::info('Invio notifiche ai pazienti: ' . implode(',', $patientIds) . 
-                     ' - Utenti destinatari: ' . implode(',', $userIds) . 
-                     ' - Risultato: ' . print_r($result, true), __METHOD__);
+            Yii::info('Invio notifiche ai pazienti: ' . implode(',', $patientIds) .
+                ' - Utenti destinatari: ' . implode(',', $userIds) .
+                ' - Risultato: ' . print_r($result, true), __METHOD__);
 
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return [
@@ -553,10 +563,9 @@ class PatientController extends Controller
                     'errors' => $result['errors'] ?? []
                 ]
             ];
-
         } catch (\Exception $e) {
             Yii::error('Errore invio notifiche ai pazienti: ' . $e->getMessage(), __METHOD__);
-            
+
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return [
                 'success' => false,
@@ -591,4 +600,4 @@ class PatientController extends Controller
 
         throw new NotFoundHttpException('La pagina richiesta non esiste.');
     }
-} 
+}
