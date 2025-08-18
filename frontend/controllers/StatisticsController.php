@@ -126,7 +126,7 @@ class StatisticsController extends BaseController
         try {
             // Estrai filtri una volta sola
             $filters = $this->extractFilters($searchModel);
-            
+
             // Pre-carica i dati con filtri
             $monthlyRate = $this->absenceService->getMonthlyRate($filters);
             $byReason = $this->absenceService->getByReason($searchModel);
@@ -812,7 +812,11 @@ class StatisticsController extends BaseController
                 ->all(),
             'id',
             function ($model) {
-                return $model->user->profile->first_name . ' ' . $model->user->profile->last_name;
+                $profile = $model->user->profile ?? null;
+                if ($profile) {
+                    return ($profile->first_name ?? 'N/A') . ' ' . ($profile->last_name ?? '');
+                }
+                return 'Terapista #' . $model->id;
             }
         );
     }
@@ -826,7 +830,7 @@ class StatisticsController extends BaseController
                 ->all(),
             'id',
             function ($model) {
-                return $model->first_name . ' ' . $model->last_name;
+                return ($model->first_name ?? 'N/A') . ' ' . ($model->last_name ?? '');
             }
         );
     }

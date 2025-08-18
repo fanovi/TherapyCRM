@@ -31,11 +31,11 @@ class AbsenceStatisticsService
                 'absence_day_name' => new Expression('DAYNAME(a.appointment_datetime)'),
                 'absence_day_number' => new Expression('DAYOFWEEK(a.appointment_datetime)'),
                 'patient_id' => new Expression('COALESCE(tp.patient_id, a.patient_id)'),
-                'patient_name' => 'p.first_name',
-                'patient_surname' => 'p.last_name',
+                'patient_name' => new Expression("COALESCE(p.first_name, 'N/A')"),
+                'patient_surname' => new Expression("COALESCE(p.last_name, '')"),
                 'therapist_id' => 't.id',
-                'therapist_name' => 'up_th.first_name',
-                'therapist_surname' => 'up_th.last_name',
+                'therapist_name' => new Expression("COALESCE(up_th.first_name, 'N/A')"),
+                'therapist_surname' => new Expression("COALESCE(up_th.last_name, '')"),
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
@@ -76,11 +76,11 @@ class AbsenceStatisticsService
                 'absence_day_name' => new Expression('DAYNAME(a.appointment_datetime)'),
                 'absence_day_number' => new Expression('DAYOFWEEK(a.appointment_datetime)'),
                 'patient_id' => new Expression('COALESCE(tp.patient_id, a.patient_id)'),
-                'patient_name' => 'p.first_name',
-                'patient_surname' => 'p.last_name',
+                'patient_name' => new Expression("COALESCE(p.first_name, 'N/A')"),
+                'patient_surname' => new Expression("COALESCE(p.last_name, '')"),
                 'therapist_id' => 't_orig.id',
-                'therapist_name' => 'up_th_orig.first_name',
-                'therapist_surname' => 'up_th_orig.last_name',
+                'therapist_name' => new Expression("COALESCE(up_th_orig.first_name, 'N/A')"),
+                'therapist_surname' => new Expression("COALESCE(up_th_orig.last_name, '')"),
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
@@ -121,11 +121,11 @@ class AbsenceStatisticsService
                 'absence_day_name' => new Expression('DAYNAME(a.appointment_datetime)'),
                 'absence_day_number' => new Expression('DAYOFWEEK(a.appointment_datetime)'),
                 'patient_id' => new Expression('COALESCE(tp.patient_id, a.patient_id)'),
-                'patient_name' => 'p.first_name',
-                'patient_surname' => 'p.last_name',
+                'patient_name' => new Expression("COALESCE(p.first_name, 'N/A')"),
+                'patient_surname' => new Expression("COALESCE(p.last_name, '')"),
                 'therapist_id' => 't.id',
-                'therapist_name' => 'up_th.first_name',
-                'therapist_surname' => 'up_th.last_name',
+                'therapist_name' => new Expression("COALESCE(up_th.first_name, 'N/A')"),
+                'therapist_surname' => new Expression("COALESCE(up_th.last_name, '')"),
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
@@ -454,7 +454,7 @@ class AbsenceStatisticsService
         $topTherapists = $therapistQuery
             ->select([
                 'id' => 'therapist_id',
-                'name' => new Expression("CONCAT(COALESCE(therapist_name, ''), ' ', COALESCE(therapist_surname, ''))"),
+                'name' => new Expression("TRIM(CONCAT(COALESCE(therapist_name, 'N/A'), ' ', COALESCE(therapist_surname, '')))"),
                 'count' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'type' => new Expression("'therapist'")
             ])
@@ -471,7 +471,7 @@ class AbsenceStatisticsService
         $topPatients = $patientQuery
             ->select([
                 'id' => 'patient_id',
-                'name' => new Expression("CONCAT(COALESCE(patient_name, ''), ' ', COALESCE(patient_surname, ''))"),
+                'name' => new Expression("TRIM(CONCAT(COALESCE(patient_name, 'N/A'), ' ', COALESCE(patient_surname, '')))"),
                 'count' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'type' => new Expression("'patient'")
             ])
