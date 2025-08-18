@@ -1,0 +1,135 @@
+{
+  "app_info": {
+    "name": "TherapyCRM",
+    "display_name": "TherapyCRM",
+    "package_id": "com.tp.cgm.badil",
+    "version": "1.0",
+    "version_code": 1,
+    "build_date": "2025-08-17T20:03:46+02:00",
+    "min_sdk": 21,
+    "target_sdk": 34
+  },
+  "store_release": {
+    "google_play": {
+      "required_files": [
+        "app-release.aab"
+      ],
+      "file_path": "RELEASE_PACKAGE/app-release.aab",
+      "file_size_mb": 31,
+      "upload_instructions": [
+        "Accedi a Google Play Console",
+        "Vai a Release → Production",
+        "Crea nuovo bundle",
+        "Carica app-release.aab",
+        "Compila descrizione e metadati",
+        "Invia per revisione"
+      ],
+      "required_metadata": {
+        "short_description": "App per la gestione di terapie e appuntamenti medici",
+        "full_description": "TherapyCRM è un'applicazione completa per la gestione di terapie, appuntamenti medici e comunicazioni tra pazienti e terapeuti. Include calendario integrato, notifiche push e sistema di messaggistica.",
+        "category": "Salute e fitness",
+        "content_rating": "3+",
+        "price": "Gratuita",
+        "screenshots_min": 2,
+        "icon_512x512": "Richiesto",
+        "featured_graphic": "Opzionale"
+      }
+    },
+    "amazon_appstore": {
+      "required_files": [
+        "app-release.apk"
+      ],
+      "file_path": "RELEASE_PACKAGE/app-release.apk",
+      "file_size_mb": 62,
+      "upload_instructions": [
+        "Accedi ad Amazon Developer Console",
+        "Crea nuova app",
+        "Carica app-release.apk",
+        "Compila metadati e descrizioni",
+        "Invia per approvazione"
+      ]
+    },
+    "huawei_appgallery": {
+      "required_files": [
+        "app-release.apk"
+      ],
+      "file_path": "RELEASE_PACKAGE/app-release.apk",
+      "file_size_mb": 62,
+      "upload_instructions": [
+        "Accedi ad AppGallery Connect",
+        "Crea nuova app",
+        "Carica app-release.apk",
+        "Compila informazioni richieste",
+        "Invia per revisione"
+      ]
+    },
+    "samsung_galaxy_store": {
+      "required_files": [
+        "app-release.apk"
+      ],
+      "file_path": "RELEASE_PACKAGE/app-release.apk",
+      "file_size_mb": 62,
+      "upload_instructions": [
+        "Accedi a Samsung Developers",
+        "Crea nuova app",
+        "Carica app-release.apk",
+        "Compila metadati",
+        "Invia per approvazione"
+      ]
+    }
+  },
+  "build_files": {
+    "apk": {
+      "path": "RELEASE_PACKAGE/app-release.apk",
+      "size_mb": 62,
+      "use_case": "Installazione diretta, store alternativi, test"
+    },
+    "aab": {
+      "path": "RELEASE_PACKAGE/app-release.aab",
+      "size_mb": 31,
+      "use_case": "Google Play Store (formato richiesto)"
+    },
+    "keystore": {
+      "path": "RELEASE_PACKAGE/release.keystore",
+      "use_case": "Backup keystore per build future"
+    }
+  },
+  "testing_instructions": {
+    "pre_release_testing": [
+      "Installa APK su dispositivo reale: adb install RELEASE_PACKAGE/app-release.apk",
+      "Verifica tutte le funzionalità principali",
+      "Testa notifiche push",
+      "Verifica integrazione calendario",
+      "Testa login e autenticazione",
+      "Verifica navigazione tra schermate"
+    ],
+    "device_testing": [
+      "Testa su Android 7+ (API 24+)",
+      "Verifica su diversi formati schermo",
+      "Testa orientamento portrait e landscape",
+      "Verifica su dispositivi con poca RAM"
+    ]
+  },
+  "security_notes": {
+    "keystore_backup": "Conserva in sicurezza il keystore di release",
+    "password_backup": "Salva le password del keystore in luogo sicuro",
+    "future_updates": "Usa sempre lo stesso keystore per aggiornamenti"
+  },
+  "version_management": {
+    "next_release": {
+      "version_code": 2,
+      "version_name": "1.1",
+      "update_instructions": [
+        "Modifica android/app/build.gradle",
+        "Incrementa versionCode e versionName",
+        "Esegui ./build-release.sh all",
+        "Verifica nuovi file generati"
+      ]
+    }
+  },
+  "contact_info": {
+    "developer": "TherapyCRM Team",
+    "support_email": "support@therapycrm.com",
+    "website": "https://therapycrm.com"
+  }
+}
