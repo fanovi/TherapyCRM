@@ -121,7 +121,8 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
                 <div class="sm:col-span-1">
                     <?= $form->field($patient, 'fiscal_code')->textInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'RSSMRO80A01H501X'
+                        'placeholder' => 'RSSMRO80A01H501X',
+                        'id' => 'fiscal-code-input'
                     ])->label('Codice Fiscale', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
@@ -167,4 +168,18 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
     </div>
 
     <?php ActiveForm::end(); ?>
-</div> 
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
+    const fiscalCodeInput = document.getElementById('fiscal-code-input');
+    
+    if (fiscalCodeInput) {
+        fiscalCodeInput.addEventListener('keyup', function() {
+            const currentValue = this.value;
+            this.value = currentValue.toUpperCase();
+        });
+    }
+});
+</script> 
