@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "http://localhost/TherapyCRM/therapeutic-plan-manager";
+  private baseURL = "http://cgm-dev.it/therapeutic-plan-manager";
 
   /**
    * Effettua una richiesta HTTP
