@@ -196,7 +196,7 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
                             <input type="checkbox" 
                                    name="Therapist[is_active]" 
                                    value="1" 
-                                   <?= $therapist->is_active ? 'checked' : '' ?>
+                                   <?= (!$isUpdate && $therapist->isNewRecord) ? 'checked' : ($isUpdate ? ($therapist->is_active ? 'checked' : '') : 'checked') ?>
                                    class="rounded border-gray-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50">
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Terapista Attivo</span>
                         </label>
