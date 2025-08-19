@@ -1,16 +1,31 @@
 <?php
 
-use yii\helpers\Html;
 use yii\grid\GridView;
+use yii\helpers\Html;
 use yii\widgets\Pjax;
 
 /** @var yii\web\View $this */
 /** @var frontend\models\TherapistSearch $searchModel */
 /** @var yii\data\ActiveDataProvider $dataProvider */
-
 $this->title = 'Terapisti';
 $this->params['breadcrumbs'][] = $this->title;
-?>
+?>    <!-- Flash Messages -->
+<?php if (Yii::$app->session->hasFlash('success')): ?>
+    <div class="mb-6 rounded-lg bg-green-50 p-4 border border-green-200 dark:bg-green-900/20 dark:border-green-800">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm font-medium text-green-800 dark:text-green-200">
+                    <?= Yii::$app->session->getFlash('success') ?>
+                </p>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
     <!-- Breadcrumb Start -->
@@ -21,8 +36,8 @@ $this->params['breadcrumbs'][] = $this->title;
             <!-- Action Button -->
             <?php if (Yii::$app->user->can('create_therapist')): ?>
             <div>
-                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Terapista', 
-                    ['create'], [
+                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuovo Terapista',
+                        ['create'], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
                 ]) ?>
             </div>
@@ -78,7 +93,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra nome...'],
-                        'value' => function($model) {
+                        'value' => function ($model) {
                             return $model->user && $model->user->profile ? $model->user->profile->first_name : '';
                         }
                     ],
@@ -89,7 +104,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra cognome...'],
-                        'value' => function($model) {
+                        'value' => function ($model) {
                             return $model->user && $model->user->profile ? $model->user->profile->last_name : '';
                         }
                     ],
@@ -100,7 +115,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
                         'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra email...'],
-                        'value' => function($model) {
+                        'value' => function ($model) {
                             return $model->user ? $model->user->email : '';
                         }
                     ],
@@ -110,14 +125,13 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'specialization_name', 
-                            \frontend\models\TherapistSearch::getSpecializationsList(), 
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'specialization_name',
+                            \frontend\models\TherapistSearch::getSpecializationsList(),
                             [
                                 'prompt' => 'Tutte',
                                 'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
-                            ]
-                        ),
-                        'value' => function($model) {
+                            ]),
+                        'value' => function ($model) {
                             return $model->specialization ? $model->specialization->name : '';
                         }
                     ],
@@ -127,13 +141,12 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[110px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'weekly_hours_contract', 
-                            \frontend\models\TherapistSearch::getHoursList(), 
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'weekly_hours_contract',
+                            \frontend\models\TherapistSearch::getHoursList(),
                             [
                                 'prompt' => 'Tutte',
                                 'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
-                            ]
-                        ),
+                            ]),
                     ],
                     // [
                     //     'attribute' => 'calendar_color',
@@ -157,15 +170,14 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'is_active', 
-                            \frontend\models\TherapistSearch::getStatusList(), 
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'is_active',
+                            \frontend\models\TherapistSearch::getStatusList(),
                             [
                                 'prompt' => 'Tutti',
                                 'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
-                            ]
-                        ),
+                            ]),
                         'format' => 'raw',
-                        'content' => function($model) {
+                        'content' => function ($model) {
                             $statusClass = $model->is_active ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
                             $statusText = $model->is_active ? 'Attivo' : 'Inattivo';
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $statusText . '</span>';
@@ -183,8 +195,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         },
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>', 
-                                    $url, [
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>',
+                                        $url, [
                                     'title' => 'Visualizza terapista',
                                     'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                     'data-bs-toggle' => 'tooltip',
@@ -192,9 +204,10 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]);
                             },
                             'update' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('update_therapist')) return '';
-                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', 
-                                    $url, [
+                                if (!Yii::$app->user->can('update_therapist'))
+                                    return '';
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
+                                        $url, [
                                     'title' => 'Modifica terapista',
                                     'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
                                     'data-bs-toggle' => 'tooltip',
@@ -202,8 +215,9 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]);
                             },
                             'reset-password' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('update_therapist')) return '';
-                                
+                                if (!Yii::$app->user->can('update_therapist'))
+                                    return '';
+
                                 return Html::button('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v-2l8.257-8.257C18.22 5.781 19.22 5 20.5 5.5s1.5 2.5.5 3.5L15 7z"></path></svg>', [
                                     'title' => 'Reset Password e Genera PDF',
                                     'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
@@ -213,15 +227,16 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]);
                             },
                             'toggle-status' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('delete_therapist')) return '';
-                                
+                                if (!Yii::$app->user->can('delete_therapist'))
+                                    return '';
+
                                 // Build the correct URL for toggle-status action
                                 $toggleUrl = ['toggle-status', 'id' => $model->id];
-                                
+
                                 if ($model->is_active) {
                                     // Show deactivate button for active therapists
-                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', 
-                                        $toggleUrl, [
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                                            $toggleUrl, [
                                         'title' => 'Disattiva terapista',
                                         'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
                                         'data-bs-toggle' => 'tooltip',
@@ -233,8 +248,8 @@ $this->params['breadcrumbs'][] = $this->title;
                                     ]);
                                 } else {
                                     // Show activate button for inactive therapists
-                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', 
-                                        $toggleUrl, [
+                                    return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+                                            $toggleUrl, [
                                         'title' => 'Attiva terapista',
                                         'class' => 'text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-600 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20',
                                         'data-bs-toggle' => 'tooltip',
@@ -247,12 +262,13 @@ $this->params['breadcrumbs'][] = $this->title;
                                 }
                             },
                             'calendar-link' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('manage_calendar')) return '';
+                                if (!Yii::$app->user->can('manage_calendar'))
+                                    return '';
                                 $url = ['calendar/therapist/' . $model->id];
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-</svg>', 
-                                    $url, [
+</svg>',
+                                        $url, [
                                     'title' => 'Link al calendario',
                                     'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                 ]);
@@ -278,7 +294,7 @@ window.resetTherapistPassword = function(userId) {
     var actionUrl = '" . \yii\helpers\Url::to(['reset-password']) . "' + '?userId=' + userId;
     
     // Use AJAX to reset password and generate PDF
-    $.ajax({
+    \$.ajax({
         url: actionUrl,
         type: 'POST',
         data: {
