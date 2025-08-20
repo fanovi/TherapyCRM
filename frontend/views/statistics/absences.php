@@ -427,7 +427,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici...');
     
     // Grafico orario
     loadHourlyChart();
@@ -441,13 +440,11 @@ function initializeCharts() {
 
 // Carica grafico orario
 function loadHourlyChart() {
-    console.log('Caricamento grafico orario...');
     $.ajax({
         url: '" . Url::to(['chart-data', 'type' => 'absence-hourly']) . "',
         data: " . json_encode(array_merge(Yii::$app->request->queryParams, ['AbsenceStatisticsSearch' => $searchModel->attributes])) . ",
         dataType: 'json',
         success: function(response) {
-            console.log('Risposta hourly:', response);
             if (response.success && response.data) {
                 destroyChart(hourlyChart);
                 var ctx = document.getElementById('hourly-chart');
@@ -511,13 +508,11 @@ function loadHourlyChart() {
 
 // Carica grafico per giorno
 function loadDayChart() {
-    console.log('Caricamento grafico giornaliero...');
     $.ajax({
         url: '" . Url::to(['chart-data', 'type' => 'absence-by-day']) . "',
         data: " . json_encode(array_merge(Yii::$app->request->queryParams, ['AbsenceStatisticsSearch' => $searchModel->attributes])) . ",
         dataType: 'json',
         success: function(response) {
-            console.log('Risposta day:', response);
             if (response.success && response.data) {
                 destroyChart(dayChart);
                 var ctx = document.getElementById('day-chart');
@@ -615,13 +610,11 @@ function loadDayChart() {
 
 // Carica grafico trend
 function loadTrendChart() {
-    console.log('Caricamento grafico trend...');
     $.ajax({
         url: '" . Url::to(['chart-data', 'type' => 'absence-trend']) . "',
         data: " . json_encode(array_merge(Yii::$app->request->queryParams, ['AbsenceStatisticsSearch' => $searchModel->attributes])) . ",
         dataType: 'json',
         success: function(response) {
-            console.log('Risposta trend:', response);
             if (response.success && response.data) {
                 destroyChart(trendChart);
                 var ctx = document.getElementById('trend-chart');
@@ -698,10 +691,8 @@ function loadTrendChart() {
 
 // Attendi che Chart.js sia caricato
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     // Riprova dopo un breve delay
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {

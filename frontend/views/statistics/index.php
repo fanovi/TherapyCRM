@@ -213,7 +213,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici dashboard...');
     
     // Grafico crescita pazienti
     loadGrowthChart();
@@ -407,10 +406,8 @@ function loadAgeChart() {
 
 // Inizializza quando Chart.js è pronto
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {
             initializeCharts();

@@ -47,19 +47,12 @@
                 filter: true,
                 persistAuthorization: true,
                 requestInterceptor: (request) => {
-                    console.log('Request:', request);
-                    // Log del token per debugging
-                    if (request.headers && request.headers.Authorization) {
-                        console.log('Authorization header presente');
-                    }
                     return request;
                 },
                 responseInterceptor: (response) => {
-                    console.log('Response:', response);
                     return response;
                 },
                 onComplete: function() {
-                    console.log('Swagger UI caricato completamente');
                     
                     // Aggiungi istruzioni per l'autenticazione
                     setTimeout(() => {

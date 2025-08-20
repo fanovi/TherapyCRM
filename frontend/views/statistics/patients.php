@@ -702,7 +702,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici pazienti...');
     
     // Grafico età
     loadAgeChart();
@@ -713,7 +712,6 @@ function initializeCharts() {
 
 // Carica grafico età
 function loadAgeChart() {
-    console.log('Caricamento grafico età...');
     
     // Prepara i dati dalle statistiche demografiche
     var ageGroups = " . json_encode($demographics['age_groups'] ?? []) . ";
@@ -776,7 +774,6 @@ function loadAgeChart() {
 
 // Carica grafico genere
 function loadGenderChart() {
-    console.log('Caricamento grafico genere...');
     
     // Prepara i dati dalle statistiche demografiche
     var genderData = " . json_encode($demographics['gender_distribution'] ?? []) . ";
@@ -836,10 +833,8 @@ function loadGenderChart() {
 
 // Attendi che Chart.js sia caricato
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     // Riprova dopo un breve delay
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {

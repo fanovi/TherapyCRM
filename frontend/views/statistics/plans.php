@@ -519,7 +519,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici piani...');
     
     // Grafico stato
     loadStatusChart();
@@ -533,7 +532,6 @@ function initializeCharts() {
 
 // Carica grafico stato
 function loadStatusChart() {
-    console.log('Caricamento grafico stato...');
     
     var statusData = " . json_encode($plansStats['by_status'] ?? []) . ";
     
@@ -599,7 +597,6 @@ function loadStatusChart() {
 
 // Carica grafico durata
 function loadDurationChart() {
-    console.log('Caricamento grafico durata...');
     
     var durationData = " . json_encode($plansStats['by_duration'] ?? []) . ";
     
@@ -669,7 +666,6 @@ function loadDurationChart() {
 
 // Carica grafico trend
 function loadTrendChart() {
-    console.log('Caricamento grafico trend...');
     
     var trendData = " . json_encode($plansStats['monthly_trends'] ?? []) . ";
     
@@ -732,10 +728,8 @@ function loadTrendChart() {
 
 // Attendi che Chart.js sia caricato
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     // Riprova dopo un breve delay
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {

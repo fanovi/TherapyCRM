@@ -433,7 +433,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici trattamenti...');
     
     // Grafico distribuzione ore
     loadHoursChart();
@@ -550,10 +549,8 @@ function loadSettingChart() {
 
 // Inizializza quando Chart.js è pronto
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {
             initializeCharts();

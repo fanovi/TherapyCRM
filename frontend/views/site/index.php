@@ -271,7 +271,6 @@ function destroyChart(chart) {
 
 // Funzione per inizializzare i grafici
 function initializeCharts() {
-    console.log('Inizializzazione grafici dashboard...');
     
     // Grafico appuntamenti
     loadAppointmentsChart();
@@ -282,7 +281,6 @@ function initializeCharts() {
 
 // Carica grafico appuntamenti
 function loadAppointmentsChart() {
-    console.log('Caricamento grafico appuntamenti...');
     
     var dailyData = " . json_encode($dailyAppointments) . ";
     var dayLabels = " . json_encode($dayLabels) . ";
@@ -362,7 +360,6 @@ function loadAppointmentsChart() {
 " . ($hasRealRequestsData ? "
 // Carica grafico richieste
 function loadRequestsChart() {
-    console.log('Caricamento grafico richieste...');
     
     var requestsData = " . json_encode($requestsData) . ";
     
@@ -433,10 +430,8 @@ function loadRequestsChart() {
 
 // Attendi che Chart.js sia caricato
 if (typeof Chart !== 'undefined') {
-    console.log('Chart.js già caricato, inizializzo i grafici');
     initializeCharts();
 } else {
-    console.log('Attendo caricamento Chart.js...');
     // Riprova dopo un breve delay
     setTimeout(function() {
         if (typeof Chart !== 'undefined') {

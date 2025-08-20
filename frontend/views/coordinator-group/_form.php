@@ -160,13 +160,11 @@ $this->registerJs("
     // Validazione form - almeno un terapista deve essere selezionato
     $('#submit-btn').on('click', function(e) {
         var selectedTherapists = $('.therapist-checkbox:checked').length;
-        console.log('Submit clicked, selected therapists:', selectedTherapists);
         if (selectedTherapists === 0) {
             e.preventDefault();
             alert('Seleziona almeno un terapista per il gruppo.');
             return false;
         }
-        console.log('Form validation passed, submitting...');
     });
 ");
 ?>

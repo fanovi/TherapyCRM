@@ -110,7 +110,6 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
     $script = <<<JS
 // I parametri sono già disponibili tramite data-query-params
 // React li leggerà direttamente senza modificare l'URL
-console.log('Calendar app loaded with params:', document.getElementById('root').dataset.queryParams);
 JS;
     $this->registerJs($script, \yii\web\View::POS_END);
     ?>
@@ -118,24 +117,16 @@ JS;
     <?php
     // Script per comunicazione con l'iframe se necessario
     $script = <<<JS
-console.log('Calendar app loaded in iframe mode');
-console.log('Iframe URL: <?= Html::encode($iframeSrc) ?>');
 
 // Funzione per ridimensionare l'iframe se necessario
 function resizeIframe() {
     const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
-    if (iframe) {
-        // Puoi aggiungere logica per ridimensionamento dinamico se necessario
-        console.log('Iframe loaded:', iframe.src);
-    }
 }
 
 // Ascolta eventi dall'iframe se necessario (per comunicazione cross-frame)
 window.addEventListener('message', function(event) {
     // Verifica l'origine per sicurezza
     if (event.origin !== 'http://localhost:8080') return;
-    
-    console.log('Message from iframe:', event.data);
     
     // Gestisci messaggi specifici dall'iframe
     if (event.data.type === 'resize') {

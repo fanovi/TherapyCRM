@@ -64,7 +64,7 @@ use yii\helpers\Html;
       <!-- Hamburger Toggle BTN -->
 
       <a href="<?= Url::home(true) ?>" class="lg:hidden">
-        <img class="dark:hidden" src="<?= Url::to('@web/images/logo/logo.svg') ?>" alt="Logo" />
+        <img class="dark:hidden" src="<?= Url::to('@web/images/logo/cropped-flavicon-192x192.png') ?>" alt="Logo" />
         <img
           class="hidden dark:block"
           src="<?= Url::to('@web/images/logo/logo-dark.svg') ?>"

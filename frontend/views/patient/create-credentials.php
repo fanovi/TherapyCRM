@@ -350,7 +350,6 @@ $(document).ready(function() {
                     
                     // Download PDF automatically
                     if (response.downloadUrl) {
-                        console.log('Opening PDF download:', response.downloadUrl);
                         window.open(response.downloadUrl, '_blank');
                     }
                     
