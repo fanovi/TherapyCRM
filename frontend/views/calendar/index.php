@@ -10,10 +10,10 @@ $this->title = 'Gestione Terapie';
 $this->params['breadcrumbs'][] = $this->title;
 
 // Modalità iframe per sviluppo
-$useIframe = true; // Cambia a false per usare la versione integrata
+$useIframe = true;  // Cambia a false per usare la versione integrata
 
 // Costruisci l'URL dell'iframe con i parametri come rotta React
-$iframeSrc = 'http://localhost:8080/';
+$iframeSrc = 'https://calendar-cgm.badil.it/';
 if ($idTherapist) {
     $iframeSrc .= 'therapist/' . $idTherapist;
 } elseif ($idPatient) {
@@ -108,9 +108,9 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
 
     // Script per passare i parametri a React tramite data attributes
     $script = <<<JS
-// I parametri sono già disponibili tramite data-query-params
-// React li leggerà direttamente senza modificare l'URL
-JS;
+        // I parametri sono già disponibili tramite data-query-params
+        // React li leggerà direttamente senza modificare l'URL
+        JS;
     $this->registerJs($script, \yii\web\View::POS_END);
     ?>
 <?php else: ?>
@@ -118,28 +118,28 @@ JS;
     // Script per comunicazione con l'iframe se necessario
     $script = <<<JS
 
-// Funzione per ridimensionare l'iframe se necessario
-function resizeIframe() {
-    const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
-}
-
-// Ascolta eventi dall'iframe se necessario (per comunicazione cross-frame)
-window.addEventListener('message', function(event) {
-    // Verifica l'origine per sicurezza
-    if (event.origin !== 'http://localhost:8080') return;
-    
-    // Gestisci messaggi specifici dall'iframe
-    if (event.data.type === 'resize') {
-        const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
-        if (iframe && event.data.height) {
-            iframe.style.height = event.data.height + 'px';
+        // Funzione per ridimensionare l'iframe se necessario
+        function resizeIframe() {
+            const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
         }
-    }
-});
 
-// Carica iframe
-document.addEventListener('DOMContentLoaded', resizeIframe);
-JS;
+        // Ascolta eventi dall'iframe se necessario (per comunicazione cross-frame)
+        window.addEventListener('message', function(event) {
+            // Verifica l'origine per sicurezza
+            if (event.origin !== 'http://localhost:8080') return;
+            
+            // Gestisci messaggi specifici dall'iframe
+            if (event.data.type === 'resize') {
+                const iframe = document.querySelector('.calendar-iframe-wrapper iframe');
+                if (iframe && event.data.height) {
+                    iframe.style.height = event.data.height + 'px';
+                }
+            }
+        });
+
+        // Carica iframe
+        document.addEventListener('DOMContentLoaded', resizeIframe);
+        JS;
     $this->registerJs($script, \yii\web\View::POS_END);
     ?>
 <?php endif; ?>
