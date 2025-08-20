@@ -343,22 +343,22 @@
 }
 
 /* Personalizzazioni aggiuntive per integrazione Tailwind */
-.calendar-app-wrapper .fc-button-primary {
+#root .fc-button-primary {
   background-color: rgb(59 130 246);
   border-color: rgb(59 130 246);
   color: white;
 }
 
-.calendar-app-wrapper .fc-button-primary:hover {
+#root .fc-button-primary:hover {
   background-color: rgb(37 99 235);
   border-color: rgb(37 99 235);
 }
 
-.calendar-app-wrapper .fc-button-primary:focus {
+#root .fc-button-primary:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
 
-.calendar-app-wrapper .fc-button-primary:disabled {
+#root .fc-button-primary:disabled {
   background-color: rgb(156 163 175);
   border-color: rgb(156 163 175);
 }
