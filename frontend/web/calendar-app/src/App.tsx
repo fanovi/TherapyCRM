@@ -14,7 +14,7 @@ const isStandalone =
   window.location.port === "5173" ||
   window.location.port === "3000" ||
   window.location.port === "8080";
-const basename = isStandalone ? "" : "/calendar";
+const basename = isStandalone ? "" : "";
 
 // Debug info in console
 if (isStandalone) {

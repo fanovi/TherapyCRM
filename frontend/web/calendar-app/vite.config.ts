@@ -31,35 +31,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "./dist",
       emptyOutDir: true,
-      ...(isProduction
-        ? {
-            // Configurazione per produzione (bundle IIFE)
-            lib: {
-              entry: path.resolve(__dirname, "src/main.tsx"),
-              name: "CalendarApp",
-              fileName: () => "index.js",
-              formats: ["iife"],
-            },
-            rollupOptions: {
-              external: [], // Non esternalizzare nulla per il bundle IIFE
-              output: {
-                globals: {},
-              },
-            },
-          }
-        : {
-            // Configurazione per sviluppo (ES modules normale)
-            rollupOptions: {
-              output: {
-                entryFileNames: "index.js",
-                chunkFileNames: "[name]-[hash].js",
-                assetFileNames: (assetInfo) => {
-                  if (assetInfo.name === "index.css") return "index.css";
-                  return "[name]-[hash][extname]";
-                },
-              },
-            },
-          }),
     },
   };
 });
