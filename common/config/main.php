@@ -19,8 +19,8 @@ return [
         ],
         'oneSignal' => [
             'class' => 'common\components\OneSignalService',
-            'appId' => '517b6b4d-1c8f-40cf-a814-34830eb24aca',
-            'restApiKey' => 'os_v2_app_kf5wwti4r5am7kaugsbq5mskzicz5jhjntyuke4m3vdyeiwiwx7fxjcmzxolepvcevylcaqddtpsj57j2v3lszs34hesqvjpzfima4i',
+            'appId' => '8ab64a7b-8b43-41b4-8444-18922a41a7fc',
+            'restApiKey' => 'os_v2_app_rk3eu64lina3jbcedcjcuqnh7s55ycbimsaec2uukpprwqs4iyicqgswdpdoupi54te5skfcn2ojoqhnf7xd3urwfwpcvmmu5xvoggi',
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',

@@ -217,28 +217,6 @@ const TherapistProfileScreen = () => {
 
             <View style={styles.actionButtons}>
               <Button
-                mode="outlined"
-                icon="account-edit"
-                style={styles.actionButton}
-                onPress={() => {
-                  // TODO: Implementare modifica profilo
-                  console.log('Modifica profilo');
-                }}>
-                Modifica Profilo
-              </Button>
-
-              <Button
-                mode="outlined"
-                icon="lock-reset"
-                style={styles.actionButton}
-                onPress={() => {
-                  // TODO: Implementare cambio password
-                  console.log('Cambia password');
-                }}>
-                Cambia Password
-              </Button>
-
-              <Button
                 mode="contained"
                 icon="logout"
                 style={[styles.actionButton, styles.logoutButton]}
