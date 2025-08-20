@@ -13,6 +13,7 @@ $menuMappings = [
     'Calendar' => ['calendar/index'],
     'Statistics' => ['statistics/index', 'statistics/absences', 'statistics/patients', 'statistics/treatments', 'statistics/plans'],
     'Communications' => ['communication/index', 'communication/view'],
+    'Notifications' => ['notification/index', 'notification/view'],
     'Administrators' => ['user/administrators', 'user/create-administrator', 'user/view-administrator', 'user/update-administrator'],
     'Coordinators' => ['user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator'],
     'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
@@ -25,14 +26,28 @@ $menuMappings = [
 ];
 
 // Funzione per controllare se un menu è attivo
-function isMenuActive($menuKey, $currentRoute, $mappings) {
-    if (!isset($mappings[$menuKey])) return false;
+function isMenuActive($menuKey, $currentRoute, $mappings)
+{
+    if (!isset($mappings[$menuKey]))
+        return false;
     return in_array($currentRoute, $mappings[$menuKey]);
 }
 
 // Funzione per controllare se un sottomenu è attivo
-function isSubmenuActive($routes, $currentRoute) {
+function isSubmenuActive($routes, $currentRoute)
+{
     return in_array($currentRoute, $routes);
+}
+
+// Funzione per determinare il menu attivo corrente
+function getCurrentActiveMenu($currentRoute, $mappings)
+{
+    foreach ($mappings as $menuKey => $routes) {
+        if (in_array($currentRoute, $routes)) {
+            return $menuKey;
+        }
+    }
+    return 'Dashboard';  // Default
 }
 ?>
 <!-- ===== Sidebar Start ===== -->
@@ -65,15 +80,11 @@ function isSubmenuActive($routes, $currentRoute) {
     <div
         class="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <!-- Sidebar Menu -->
-        <nav x-data="{selected: $persist('<?= isMenuActive('Dashboard', $currentRoute, $menuMappings) ? 'Dashboard' : (isMenuActive('Calendar', $currentRoute, $menuMappings) ? 'Calendar' : (isMenuActive('Statistics', $currentRoute, $menuMappings) ? 'Statistics' : (isMenuActive('Communications', $currentRoute, $menuMappings) ? 'Communications' : (isMenuActive('Administrators', $currentRoute, $menuMappings) ? 'Administrators' : (isMenuActive('Coordinators', $currentRoute, $menuMappings) ? 'Coordinators' : (isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'CoordinatorGroups' : (isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'Therapists' : (isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'MyTherapists' : (isMenuActive('Patients', $currentRoute, $menuMappings) ? 'Patients' : (isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'TherapeuticPlans' : (isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'DocumentRequests' : 'Dashboard'))))))))))) ?>')}">
+        <nav x-data="{selected: $persist('<?= getCurrentActiveMenu($currentRoute, $menuMappings) ?>')}">
             <!-- Menu Group -->
             <div>
                 <h3 class="mb-4 text-xs uppercase leading-[20px] text-gray-400">
-                    <span
-                        class="menu-group-title"
-                        :class="sidebarToggle ? 'lg:hidden' : ''">
-                        MENU
-                    </span>
+                   
 
                     <svg
                         :class="sidebarToggle ? 'lg:block hidden' : 'hidden'"
@@ -224,6 +235,49 @@ function isSubmenuActive($routes, $currentRoute) {
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Statistics -->
+
+                    <!-- Menu Item Notifications -->
+                    <?php if (Yii::$app->user->can('view_notifications')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/notification/index']) ?>"
+                            @click="selected = (selected === 'Notifications' ? '':'Notifications')"
+                            class="menu-item group"
+                            :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 2C13.1046 2 14 2.89543 14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 10.8954 2 12 2ZM12 8C14.7614 8 17 10.2386 17 13V16.5C17 16.7761 17.2239 17 17.5 17H19C19.5523 17 20 17.4477 20 18C20 18.5523 19.5523 19 19 19H5C4.44772 19 4 18.5523 4 18C4 17.4477 4.44772 17 5 17H6.5C6.77614 17 7 16.7761 7 16.5V13C7 10.2386 9.23858 8 12 8ZM12 20C11.4477 20 11 20.4477 11 21C11 21.5523 11.4477 22 12 22C12.5523 22 13 21.5523 13 21C13 20.4477 12.5523 20 12 20Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Notifiche Sistema
+                                <?php
+                                // Mostra badge con notifiche non lette
+                                $unreadNotifications = \common\models\Notification::find()
+                                    ->where(['not', ['sender_user_id' => null]])  // Solo notifiche con mittente
+                                    ->andWhere(['read_at' => null])
+                                    ->count();
+
+                                if ($unreadNotifications > 0) {
+                                    echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">' . $unreadNotifications . '</span>';
+                                }
+                                ?>
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Notifications -->
 
                     <!-- Menu Item Administrators -->
                     <?php if (Yii::$app->user->can('create_admin')): ?>
@@ -832,7 +886,7 @@ function isSubmenuActive($routes, $currentRoute) {
                                     $unreadCount = \common\models\DocumentRequest::find()
                                         ->where(['status' => \common\models\RequestStatus::STATUS_INVIATA])
                                         ->count();
-                                    
+
                                     if ($unreadCount > 0) {
                                         echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">' . $unreadCount . '</span>';
                                     }
