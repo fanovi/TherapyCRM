@@ -69,10 +69,6 @@ class NotificationController extends BaseController
                 $query->andWhere(['read_at' => null]);
             } elseif ($status === 'read') {
                 $query->andWhere(['not', ['read_at' => null]]);
-            } elseif ($status === 'unsent') {
-                $query->andWhere(['sent_at' => null]);
-            } elseif ($status === 'sent') {
-                $query->andWhere(['not', ['sent_at' => null]]);
             }
         }
 
@@ -93,8 +89,6 @@ class NotificationController extends BaseController
 
         $totalCount = $baseQuery->count();
         $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
-        $sentCount = (clone $baseQuery)->andWhere(['not', ['sent_at' => null]])->count();
-        $unsentCount = (clone $baseQuery)->andWhere(['sent_at' => null])->count();
 
         // Statistiche per tipo
         $typeStats = [];
@@ -109,8 +103,6 @@ class NotificationController extends BaseController
             'dataProvider' => $dataProvider,
             'totalCount' => $totalCount,
             'unreadCount' => $unreadCount,
-            'sentCount' => $sentCount,
-            'unsentCount' => $unsentCount,
             'typeStats' => $typeStats,
             'currentType' => $type ?: 'all',
             'currentStatus' => $status ?: 'all',
@@ -147,16 +139,12 @@ class NotificationController extends BaseController
 
             $totalCount = $baseQuery->count();
             $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
-            $sentCount = (clone $baseQuery)->andWhere(['not', ['sent_at' => null]])->count();
-            $unsentCount = (clone $baseQuery)->andWhere(['sent_at' => null])->count();
 
             return [
                 'success' => true,
                 'data' => [
                     'total_count' => $totalCount,
                     'unread_count' => $unreadCount,
-                    'sent_count' => $sentCount,
-                    'unsent_count' => $unsentCount,
                     'timestamp' => date('Y-m-d H:i:s')
                 ]
             ];

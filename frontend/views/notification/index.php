@@ -100,26 +100,15 @@ $this->registerJsVar('apiStatsUrl', Url::to(['notification/stats-api']));
                     'style' => $currentStatus === 'read' ? 'background-color: var(--color-brand-50);' : ''
                 ]) ?>
                 
-                <?= Html::a('Inviate (' . $sentCount . ')',
-                        ['notification/index', 'status' => 'sent', 'type' => $currentType !== 'all' ? $currentType : null], [
-                    'class' => 'px-2 py-1 text-xs rounded-md transition-colors '
-                        . ($currentStatus === 'sent' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'),
-                    'style' => $currentStatus === 'sent' ? 'background-color: var(--color-brand-50);' : ''
-                ]) ?>
-                
-                <?= Html::a('Non inviate (' . $unsentCount . ')',
-                        ['notification/index', 'status' => 'unsent', 'type' => $currentType !== 'all' ? $currentType : null], [
-                    'class' => 'px-2 py-1 text-xs rounded-md transition-colors '
-                        . ($currentStatus === 'unsent' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'),
-                    'style' => $currentStatus === 'unsent' ? 'background-color: var(--color-brand-50);' : ''
-                ]) ?>
+
+
             </div>
         </div>
     </div>
 
     <!-- Statistiche -->
     <div class="mb-6">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <!-- Totale -->
             <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                 <div class="flex items-center">
@@ -154,39 +143,9 @@ $this->registerJsVar('apiStatsUrl', Url::to(['notification/stats-api']));
                 </div>
             </div>
 
-            <!-- Inviate -->
-            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Inviate</p>
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-white"><?= $sentCount ?></p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Non inviate -->
-            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Non inviate</p>
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-white"><?= $unsentCount ?></p>
-                    </div>
-                </div>
-            </div>
+
+
         </div>
     </div>
 
