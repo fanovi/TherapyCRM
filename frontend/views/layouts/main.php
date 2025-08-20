@@ -3,7 +3,7 @@
 /** @var \yii\web\View $this */
 /** @var string $content */
 
-use common\widgets\Alert;
+use yii\helpers\Url;
 use frontend\assets\AppAsset;
 use yii\helpers\Html;
 
@@ -19,7 +19,9 @@ AppAsset::register($this);
         name="viewport"
         content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <link rel="icon" href="favicon.ico">
+    <link rel="icon" href="<?= Url::to('@web/images/logo/cropped-flavicon-32x32.png') ?>" sizes="32x32" />
+    <link rel="icon" href="<?= Url::to('@web/images/logo/cropped-flavicon-192x192.png') ?>" sizes="192x192" />
+    <link rel="apple-touch-icon" href="<?= Url::to('@web/images/logo/cropped-flavicon-180x180.png') ?>" />
     <?php $this->registerCsrfMetaTags() ?>
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
@@ -30,6 +32,7 @@ AppAsset::register($this);
 $currentController = Yii::$app->controller->id;
 $sidebarClosed = ($currentController === 'calendar');
 ?>
+
 <body
     x-data="{ page: 'ecommerce', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': <?= $sidebarClosed ? 'true' : 'false' ?>, 'scrollTop': false }"
     x-init="
@@ -62,7 +65,7 @@ $sidebarClosed = ($currentController === 'calendar');
             <!-- Small Device Overlay End -->
 
             <?= $this->render('_header') ?>
-            
+
             <main>
                 <?= $content ?>
             </main>
