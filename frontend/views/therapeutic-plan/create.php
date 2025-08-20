@@ -16,7 +16,7 @@ $this->title = 'Crea Piano Terapeutico';
 $this->params['breadcrumbs'][] = ['label' => 'Piani Terapeutici', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
-<div class="therapeutic-plan-create">
+<div class="mx-auto max-w-4xl p-4 md:p-6 therapeutic-plan-create">
     <?= Alert::widget() ?>
     <?= $this->render('_form', [
         'model' => $model,

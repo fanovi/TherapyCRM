@@ -43,7 +43,7 @@ $totalHours = array_sum(array_column($ranking, 'total_weekly_hours'));
 $activeTreatments = count($ranking);
 ?>
 
-<div class="statistics-treatments">
+<div class="mx-auto max-w-4xl p-4 md:p-6 statistics-treatments">
     <!-- Header con titolo -->
     <div class="page-header">
         <h1><?= Html::encode($this->title) ?></h1>

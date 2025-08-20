@@ -48,7 +48,7 @@ function calculatePercentage($part, $total, $decimals = 1) {
 }
 ?>
 
-<div class="statistics-patients">
+<div class="mx-auto max-w-4xl p-4 md:p-6 statistics-patients">
     <!-- Header con titolo -->
     <div class="page-header">
         <h1><?= Html::encode($this->title) ?></h1>

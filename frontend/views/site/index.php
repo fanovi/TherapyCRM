@@ -35,7 +35,7 @@ $appointmentCompletionRate = $totalAppointmentsToday > 0
     : 0;
 ?>
 
-<div class="dashboard-index">
+<div class="mx-auto max-w-4xl p-4 md:p-6 dashboard-index">
     <!-- Header con titolo -->
    
 <!-- CSS aggiuntivo per questa view -->
