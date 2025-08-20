@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "http://cgm-dev.it/therapeutic-plan-manager";
+  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
   /**
    * Effettua una richiesta HTTP
