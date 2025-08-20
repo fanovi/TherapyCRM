@@ -72,7 +72,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 }) => {
   const [internalCurrentView, setInternalCurrentView] = useState<
     "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek"
-  >("dayGridMonth");
+  >("timeGridWeek");
 
   // Usa vista esterna se fornita, altrimenti usa quella interna
   const currentView = externalCurrentView || internalCurrentView;
@@ -535,7 +535,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       return selectedStart < eventEnd && selectedEnd > eventStart;
     });
 
-    if (hasConflict && currentView !== "dayGridMonth") {
+    if (hasConflict) {
       toast({
         title: "Slot occupato",
         description:
@@ -694,14 +694,6 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       {/* Toolbar personalizzata */}
       <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
         <div className="flex items-center gap-2">
-          <Button
-            variant={currentView === "dayGridMonth" ? "default" : "outline"}
-            size="sm"
-            onClick={() => changeView("dayGridMonth")}
-          >
-            <Grid className="h-4 w-4 mr-1" />
-            Mese
-          </Button>
           <Button
             variant={currentView === "timeGridWeek" ? "default" : "outline"}
             size="sm"
