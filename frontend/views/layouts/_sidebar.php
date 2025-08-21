@@ -71,7 +71,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
             <img
                 class="logo-icon"
                 :class="sidebarToggle ? 'lg:block' : 'hidden'"
-                src="<?= Url::to('@web/images/logo/logo-icon.svg') ?>"
+                src="<?= Url::to('@web/images/logo/cropped-flavicon-192x192.png') ?>"
                 alt="Logo" />
         </a>
     </div>
