@@ -265,7 +265,7 @@ $this->registerCss("
                         </div>
                         
                         <!-- Terapia di Gruppo -->
-                        <div>
+                        <div style="display: none;">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Tipo Terapia
                             </label>
