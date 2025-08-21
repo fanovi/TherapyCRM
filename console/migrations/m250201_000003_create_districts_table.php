@@ -21,11 +21,8 @@ class m250201_000003_create_districts_table extends Migration
 
         // Inserisci alcuni dati di esempio
         $this->batchInsert('{{%districts}}', ['code', 'name', 'asl_reference'], [
-            ['D001', 'Distretto Centro', 'ASL Roma 1'],
-            ['D002', 'Distretto Nord', 'ASL Roma 2'],
-            ['D003', 'Distretto Sud', 'ASL Roma 3'],
-            ['D004', 'Distretto Est', 'ASL Roma 4'],
-            ['D005', 'Distretto Ovest', 'ASL Roma 5'],
+            ['65', 'ASL 65 Battipaglia', 'Battipaglia'],
+            ['000', 'Altro', 'Altro'],
         ]);
     }
 
