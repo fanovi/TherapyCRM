@@ -283,6 +283,74 @@ export const cancelPatientAppointment = async (
 };
 
 /**
+ * Recupera i prossimi appuntamenti di un paziente
+ * @param {number} patientId - ID del paziente
+ * @param {number} limit - Numero massimo di appuntamenti da recuperare (default: 3)
+ * @returns {Promise<Object>}
+ */
+export const getPatientUpcomingAppointments = async (patientId, limit = 3) => {
+  try {
+    console.log('\n=== RECUPERO PROSSIMI APPUNTAMENTI PAZIENTE ===');
+    console.log('📅 Patient ID:', patientId);
+    console.log('📅 Limit:', limit);
+    console.log('🎯 URL ENDPOINT:', '/calendar/patient-upcoming-appointments');
+    console.log(
+      '🌐 URL COMPLETO:',
+      apiClient.defaults.baseURL + '/calendar/patient-upcoming-appointments',
+    );
+
+    const response = await apiClient.post(
+      '/calendar/patient-upcoming-appointments',
+      {
+        patient_id: patientId,
+        limit: limit,
+      },
+    );
+
+    console.log('\n=== RISPOSTA PROSSIMI APPUNTAMENTI ===');
+    console.log('📥 Success:', response.data.success);
+    console.log('📥 Count:', response.data.meta?.count || 0);
+    console.log('📥 Data:', response.data.data);
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      '\n❌ Errore recuperando prossimi appuntamenti paziente:',
+      error,
+    );
+
+    // Gestione errori più specifica per evitare logout non necessario
+    if (error.type === 'AUTH_ERROR') {
+      // Errore di autenticazione - lascia che l'interceptor gestisca il logout
+      throw error;
+    } else if (error.type === 'NETWORK_ERROR') {
+      // Errore di rete - non forzare logout
+      throw {
+        type: 'CALENDAR_ERROR',
+        message: 'Errore di connessione. Verifica la tua connessione internet.',
+        originalError: error,
+      };
+    } else if (error.type === 'SERVER_ERROR') {
+      // Errore del server - non forzare logout per errori non di autenticazione
+      throw {
+        type: 'CALENDAR_ERROR',
+        message:
+          error.message ||
+          'Errore del server durante il caricamento degli appuntamenti',
+        originalError: error,
+      };
+    } else {
+      // Errore generico
+      throw {
+        type: 'CALENDAR_ERROR',
+        message: 'Errore imprevisto durante il caricamento degli appuntamenti',
+        originalError: error,
+      };
+    }
+  }
+};
+
+/**
  * Opzioni predefinite per i motivi di cancellazione
  */
 export const getCancellationReasons = () => [

@@ -87,6 +87,7 @@ return [
                 // Calendar routes
                 'POST calendar/patient-appointments' => 'calendar/patient-appointments',
                 'POST calendar/patient-marked-dates' => 'calendar/patient-marked-dates',
+                'POST calendar/patient-upcoming-appointments' => 'calendar/patient-upcoming-appointments',
                 'POST calendar/cancel-appointment' => 'calendar/cancel-appointment',
                 'POST calendar/therapist-appointments' => 'calendar/therapist-appointments',
                 'POST calendar/therapist-marked-dates' => 'calendar/therapist-marked-dates',

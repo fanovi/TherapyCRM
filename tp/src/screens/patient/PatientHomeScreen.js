@@ -1,19 +1,26 @@
-import React from 'react';
-import {View, StyleSheet} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import {
   Text,
   Card,
-  Button,
   Avatar,
   Chip,
   IconButton,
   useTheme,
+  ActivityIndicator,
 } from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import DebugPatientInfo from '../../components/DebugPatientInfo';
 import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 import {loginService} from '../../services/loginService';
+import {getPatientUpcomingAppointments} from '../../api/calendar';
 
 const PatientHomeScreen = () => {
   const dispatch = useDispatch();
@@ -21,8 +28,144 @@ const PatientHomeScreen = () => {
   const {currentPatient} = useSelector(state => state.patient);
   const theme = useTheme();
 
+  // Stati per gli appuntamenti
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
   const handleLogout = async () => {
     await loginService.logout(dispatch);
+  };
+
+  // Funzione per caricare i prossimi appuntamenti
+  const loadUpcomingAppointments = async (isRefresh = false) => {
+    if (!currentPatient?.id) {
+      console.log('❌ Paziente non selezionato');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      console.log(
+        '🔄 Caricamento prossimi appuntamenti per paziente:',
+        currentPatient.id,
+      );
+      console.log(
+        '🌐 URL CHIAMATO: https://app-cgm.badil.it/api/calendar/patient-upcoming-appointments',
+      );
+      console.log('📋 PARAMETRI:', {
+        patient_id: currentPatient.id,
+        limit: 3,
+      });
+      const response = await getPatientUpcomingAppointments(
+        currentPatient.id,
+        3,
+      );
+
+      if (response.success && response.data) {
+        setAppointments(response.data);
+        console.log('✅ Appuntamenti caricati:', response.data);
+      } else {
+        setAppointments([]);
+        console.log('⚠️ Nessun appuntamento trovato');
+      }
+    } catch (err) {
+      console.error('❌ Errore caricamento appuntamenti:', err);
+      setError(err.message || 'Errore nel caricamento degli appuntamenti');
+      setAppointments([]);
+
+      // Mostra alert solo se non è un errore di rete
+      if (err.type !== 'NETWORK_ERROR') {
+        Alert.alert(
+          'Errore',
+          err.message || 'Impossibile caricare gli appuntamenti',
+          [{text: 'OK'}],
+        );
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Carica gli appuntamenti all'avvio
+  useEffect(() => {
+    loadUpcomingAppointments();
+  }, [currentPatient?.id]);
+
+  // Funzione per formattare la data
+  const formatAppointmentDate = (date, time) => {
+    if (!date) return 'Data non disponibile';
+
+    try {
+      const appointmentDate = new Date(date);
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      };
+      return appointmentDate.toLocaleDateString('it-IT', options);
+    } catch (error) {
+      return date;
+    }
+  };
+
+  // Funzione per formattare l'orario
+  const formatAppointmentTime = (time, duration = null) => {
+    if (!time) return 'Orario non disponibile';
+
+    try {
+      // Se time è già in formato HH:MM, usalo direttamente
+      let formattedTime = time;
+      if (time.includes(':')) {
+        formattedTime = time.substring(0, 5); // Prendi solo HH:MM
+      }
+
+      if (duration) {
+        const [hours, minutes] = formattedTime.split(':');
+        const startTime = new Date();
+        startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        const endTime = new Date(startTime.getTime() + duration * 60000);
+        const endTimeStr = endTime.toTimeString().substring(0, 5);
+        return `${formattedTime} - ${endTimeStr}`;
+      }
+
+      return formattedTime;
+    } catch (error) {
+      return time;
+    }
+  };
+
+  // Funzione per ottenere il colore dello stato
+  const getStatusColor = status => {
+    switch (status?.toLowerCase()) {
+      case 'confermato':
+        return '#E3F2FD';
+      case 'completato':
+        return '#E8F5E8';
+      case 'annullato':
+        return '#FFEBEE';
+      case 'assente_giustificato':
+        return '#FFF3E0';
+      case 'assente_non_giustificato':
+        return '#FFEBEE';
+      default:
+        return '#F5F5F5';
+    }
+  };
+
+  // Funzione per refresh
+  const onRefresh = () => {
+    loadUpcomingAppointments(true);
   };
 
   return (
@@ -96,42 +239,122 @@ const PatientHomeScreen = () => {
       </View> */}
 
       {/* Prossimi Appuntamenti */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Prossimi Appuntamenti</Text>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Prossimi Appuntamenti</Text>
 
-        <Card style={styles.appointmentCard}>
-          <Card.Content>
-            <View style={styles.appointmentHeader}>
-              <View>
-                <Text style={styles.appointmentDate}>Lunedì 15 Gennaio</Text>
-                <Text style={styles.appointmentTime}>10:30 - 11:30</Text>
-              </View>
-              <Chip icon="doctor" style={styles.statusChip}>
-                Confermato
-              </Chip>
+          {loading && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>
+                Caricamento appuntamenti...
+              </Text>
             </View>
+          ) : error && appointments.length === 0 ? (
+            <Card style={styles.errorCard}>
+              <Card.Content>
+                <View style={styles.errorContainer}>
+                  <Avatar.Icon
+                    size={48}
+                    icon="alert-circle-outline"
+                    style={styles.errorIcon}
+                  />
+                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorSubtext}>
+                    Scorri verso il basso per riprovare
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+          ) : appointments.length === 0 ? (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <View style={styles.emptyContainer}>
+                  <Avatar.Icon
+                    size={48}
+                    icon="calendar-blank"
+                    style={styles.emptyIcon}
+                  />
+                  <Text style={styles.emptyText}>
+                    Nessun appuntamento programmato
+                  </Text>
+                  <Text style={styles.emptySubtext}>
+                    I tuoi prossimi appuntamenti appariranno qui
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+          ) : (
+            appointments.map((appointment, index) => (
+              <Card
+                key={appointment.id || index}
+                style={styles.appointmentCard}>
+                <Card.Content>
+                  <View style={styles.appointmentHeader}>
+                    <View>
+                      <Text style={styles.appointmentDate}>
+                        {formatAppointmentDate(appointment.date)}
+                      </Text>
+                      <Text style={styles.appointmentTime}>
+                        {formatAppointmentTime(
+                          appointment.time,
+                          appointment.duration_minutes,
+                        )}
+                      </Text>
+                    </View>
+                    <Chip
+                      icon="doctor"
+                      style={[
+                        styles.statusChip,
+                        {backgroundColor: getStatusColor(appointment.status)},
+                      ]}>
+                      {appointment.status || 'Confermato'}
+                    </Chip>
+                  </View>
 
-            <View style={styles.appointmentDetails}>
-              <Avatar.Icon
-                size={40}
-                icon="account-tie"
-                style={styles.doctorAvatar}
-              />
-              <View style={styles.doctorInfo}>
-                <Text style={styles.doctorName}>Dr. Giulia Verdi</Text>
-                <Text style={styles.appointmentType}>Fisioterapia</Text>
-              </View>
-            </View>
+                  <View style={styles.appointmentDetails}>
+                    <Avatar.Icon
+                      size={40}
+                      icon="account-tie"
+                      style={styles.doctorAvatar}
+                    />
+                    <View style={styles.doctorInfo}>
+                      <Text style={styles.doctorName}>
+                        {appointment.therapist?.name ||
+                          `${appointment.therapist?.first_name || ''} ${
+                            appointment.therapist?.last_name || ''
+                          }`.trim() ||
+                          'Terapista non assegnato'}
+                      </Text>
+                      <Text style={styles.appointmentType}>
+                        {appointment.type ||
+                          appointment.appointment_type ||
+                          'Terapia'}
+                      </Text>
+                      {appointment.location && (
+                        <Text style={styles.appointmentLocation}>
+                          📍 {appointment.location}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
 
-            <Button
-              mode="outlined"
-              style={styles.appointmentButton}
-              icon="map-marker">
-              Visualizza Dettagli
-            </Button>
-          </Card.Content>
-        </Card>
-      </View>
+                  {appointment.notes && (
+                    <View style={styles.notesContainer}>
+                      <Text style={styles.notesLabel}>Note:</Text>
+                      <Text style={styles.notesText}>{appointment.notes}</Text>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+            ))
+          )}
+        </View>
+      </ScrollView>
 
       {/* Stato Salute */}
       {/* <View style={styles.section}>
@@ -282,6 +505,90 @@ const styles = StyleSheet.create({
   },
   healthStatus: {
     backgroundColor: '#E8F5E8',
+  },
+  // Nuovi stili per gli appuntamenti dinamici
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorCard: {
+    borderRadius: 12,
+    elevation: 2,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  errorIcon: {
+    backgroundColor: '#FFEBEE',
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  emptyCard: {
+    borderRadius: 12,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyIcon: {
+    backgroundColor: '#F5F5F5',
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  appointmentLocation: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  notesContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  notesLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 4,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
   },
 });
 

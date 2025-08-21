@@ -96,28 +96,24 @@ class CalendarController extends ActiveController
             // Metodo più efficiente usando ActiveRecord relationships
             $appointments = $this->getPatientAppointmentsOptimized($patientId, $date);
 
+            // Debug per tracciare gli appuntamenti trovati
+            Yii::info('=== DEBUG PATIENT APPOINTMENTS ===', __METHOD__);
+            Yii::info('Patient ID: ' . $patientId, __METHOD__);
+            Yii::info('Date: ' . $date, __METHOD__);
+            Yii::info('Appointments found: ' . count($appointments), __METHOD__);
+            foreach ($appointments as $idx => $appointment) {
+                Yii::info("Appointment $idx - ID: {$appointment->id}, Source: {$appointment->appointment_source}, Patient ID: {$appointment->patient_id}, Plan Therapy ID: {$appointment->plan_therapy_id}", __METHOD__);
+            }
+
             // Formatta i dati per l'app mobile
             $formattedAppointments = [];
             foreach ($appointments as $appointment) {
                 $datetime = new \DateTime($appointment->appointment_datetime);
 
-                // Determina il tipo di trattamento
-                $treatmentName = 'Terapia';
-                $treatmentCode = null;
-
-                // Determina il tipo di trattamento
-                $treatmentName = 'Terapia';
-                $treatmentCode = null;
-
-                if ($appointment->appointment_type === 'private' && $appointment->treatmentType) {
-                    // Per appuntamenti privati usa direttamente treatment_type_id
-                    $treatmentName = $appointment->treatmentType->name;
-                    $treatmentCode = $appointment->treatmentType->code;
-                } elseif ($appointment->planTherapy && $appointment->planTherapy->treatmentType) {
-                    // Per appuntamenti normali usa planTherapy
-                    $treatmentName = $appointment->planTherapy->treatmentType->name;
-                    $treatmentCode = $appointment->planTherapy->treatmentType->code;
-                }
+                // Usa il metodo del modello per ottenere il tipo di trattamento
+                $treatmentType = $appointment->getActualTreatmentType();
+                $treatmentName = $treatmentType ? $treatmentType->name : 'Terapia';
+                $treatmentCode = $treatmentType ? $treatmentType->code : null;
 
                 // Controlli di sicurezza per evitare errori su oggetti null
                 $therapistName = 'Terapista non disponibile';
@@ -135,13 +131,15 @@ class CalendarController extends ActiveController
                     $therapistSpecialization = $appointment->therapist->specialization->name ?? null;
                 }
 
+                // Usa il metodo del modello per ottenere il paziente (che ora è sempre in patient_id)
+                $patient = $appointment->patient;
                 $patientName = 'Paziente non disponibile';
                 $patientFirstName = '';
                 $patientLastName = '';
 
-                if ($appointment->patient) {
-                    $patientFirstName = $appointment->patient->first_name ?? '';
-                    $patientLastName = $appointment->patient->last_name ?? '';
+                if ($patient) {
+                    $patientFirstName = $patient->first_name ?? '';
+                    $patientLastName = $patient->last_name ?? '';
                     $patientName = trim($patientFirstName . ' ' . $patientLastName) ?: 'Paziente non disponibile';
                 }
 
@@ -965,46 +963,48 @@ class CalendarController extends ActiveController
     }
 
     /**
-     * Metodo ottimizzato per recuperare appuntamenti del paziente usando ActiveRecord relationships
+     * Metodo semplificato per recuperare appuntamenti del paziente
      */
     private function getPatientAppointmentsOptimized($patientId, $date)
     {
         return Appointment::find()
-            ->joinWith([
-                'planTherapy.therapeuticPlan.patient',
-                'planTherapy.treatmentType',
-                'therapist.user.profile',
-                'therapist.specialization'
-            ])
-            ->where(['patients.id' => $patientId])
-            ->andWhere(['DATE(appointments.appointment_datetime)' => $date])
-            ->andWhere(['!=', 'appointments.status', Appointment::STATUS_CANCELLED])
-            ->andWhere(['IS NOT', 'patients.first_name', null])
-            ->andWhere(['IS NOT', 'patients.last_name', null])
-            ->andWhere(['IS NOT', 'user_profiles.first_name', null])
-            ->andWhere(['IS NOT', 'user_profiles.last_name', null])
-            ->orderBy('appointments.appointment_datetime ASC')
+            ->with(['planTherapy.treatmentType', 'treatmentType', 'therapist.user.profile', 'therapist.specialization', 'patient'])
+            ->where(['patient_id' => $patientId])
+            ->andWhere(['DATE(appointment_datetime)' => $date])
+            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->orderBy('appointment_datetime ASC')
             ->all();
     }
 
     /**
-     * Metodo ottimizzato per recuperare date marcate del paziente
+     * Metodo semplificato per recuperare date marcate del paziente
      */
     private function getPatientMarkedDatesOptimized($patientId, $firstDay, $lastDay)
     {
-        $results = Appointment::find()
+        $query = Appointment::find()
             ->select([
-                'DATE(appointments.appointment_datetime) as appointment_date',
+                'DATE(appointment_datetime) as appointment_date',
                 'COUNT(*) as appointment_count'
             ])
-            ->joinWith('planTherapy.therapeuticPlan.patient')
-            ->where(['patients.id' => $patientId])
-            ->andWhere(['between', 'DATE(appointments.appointment_datetime)', $firstDay, $lastDay])
-            ->andWhere(['!=', 'appointments.status', Appointment::STATUS_CANCELLED])
-            ->groupBy('DATE(appointments.appointment_datetime)')
+            ->where(['patient_id' => $patientId])
+            ->andWhere(['between', 'DATE(appointment_datetime)', $firstDay, $lastDay])
+            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->groupBy('DATE(appointment_datetime)')
             ->orderBy('appointment_date ASC')
-            ->asArray()
-            ->all();
+            ->asArray();
+
+        // Debug: mostra la query SQL generata
+        Yii::info('=== DEBUG SQL QUERY ===', __METHOD__);
+        Yii::info('SQL: ' . $query->createCommand()->getRawSql(), __METHOD__);
+
+        $results = $query->all();
+
+        // Debug per tracciare gli appuntamenti trovati
+        Yii::info('=== DEBUG PATIENT MARKED DATES ===', __METHOD__);
+        Yii::info('Patient ID: ' . $patientId, __METHOD__);
+        Yii::info('Period: ' . $firstDay . ' to ' . $lastDay, __METHOD__);
+        Yii::info('Results found: ' . count($results), __METHOD__);
+        Yii::info('Results data: ' . json_encode($results), __METHOD__);
 
         // Formatta per react-native-calendars
         $markedDates = [];
@@ -2109,6 +2109,98 @@ class CalendarController extends ActiveController
             ];
         } catch (\Exception $e) {
             Yii::error('Errore recupero pazienti terapista: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * POST /api/calendar/patient-upcoming-appointments
+     * Recupera i prossimi appuntamenti di un paziente
+     *
+     * Body:
+     * {
+     *   "patient_id": 123,
+     *   "limit": 3
+     * }
+     */
+    public function actionPatientUpcomingAppointments()
+    {
+        $request = Yii::$app->request;
+        $data = $request->getBodyParams();
+
+        $patientId = $data['patient_id'] ?? null;
+        $limit = $data['limit'] ?? 5;
+
+        if (!$patientId) {
+            throw new BadRequestHttpException('Parametro patient_id è obbligatorio');
+        }
+
+        // Validazione limite - massimo 3 appuntamenti per l'app mobile
+        if (!is_numeric($limit) || $limit < 1 || $limit > 3) {
+            $limit = 3;
+        }
+
+        try {
+            // Recupera i prossimi appuntamenti del paziente (semplificato)
+            $appointments = Appointment::find()
+                ->with(['therapist.user.profile', 'planTherapy.treatmentType', 'treatmentType', 'patient'])
+                ->where(['patient_id' => $patientId])
+                ->andWhere(['>=', 'appointment_datetime', date('Y-m-d H:i:s')])
+                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+                ->orderBy(['appointment_datetime' => SORT_ASC])
+                ->limit($limit)
+                ->all();
+
+            $formattedAppointments = [];
+            foreach ($appointments as $appointment) {
+                $datetime = new \DateTime($appointment->appointment_datetime);
+
+                // Usa il metodo del modello per ottenere il tipo di trattamento
+                $treatmentType = $appointment->getActualTreatmentType();
+
+                // Informazioni del terapista
+                $therapistInfo = null;
+                if ($appointment->therapist && $appointment->therapist->user && $appointment->therapist->user->profile) {
+                    $profile = $appointment->therapist->user->profile;
+                    $therapistInfo = [
+                        'id' => $appointment->therapist->id,
+                        'name' => trim($profile->first_name . ' ' . $profile->last_name),
+                        'first_name' => $profile->first_name,
+                        'last_name' => $profile->last_name,
+                        'specialization' => $appointment->therapist->specialization ?? null,
+                    ];
+                }
+
+                $formattedAppointments[] = [
+                    'id' => $appointment->id,
+                    'date' => $datetime->format('Y-m-d'),
+                    'time' => $datetime->format('H:i'),
+                    'datetime' => $appointment->appointment_datetime,
+                    'duration_minutes' => $appointment->duration_minutes,
+                    'status' => $this->getStatusLabel($appointment->status),
+                    'type' => $treatmentType ? $treatmentType->name : 'Terapia',
+                    'appointment_type' => $appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN ? 'piano_terapeutico' : 'diretto',
+                    'treatment_code' => $treatmentType ? $treatmentType->code : null,
+                    'notes' => $appointment->notes,
+                    'location' => $appointment->location,
+                    'therapist' => $therapistInfo,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $formattedAppointments,
+                'meta' => [
+                    'patient_id' => (int) $patientId,
+                    'count' => count($formattedAppointments),
+                    'limit' => (int) $limit,
+                ]
+            ];
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero prossimi appuntamenti paziente: ' . $e->getMessage(), __METHOD__);
             return [
                 'success' => false,
                 'error' => $e->getMessage()
