@@ -13,44 +13,63 @@ use yii\widgets\ActiveForm;
 /* @var $settings array */
 /* @var $postedTherapies array */
 
-// Aggiungi CSS per gli errori
-$this->registerCss("
-    .has-error .help-block {
-        color: #dc2626 !important;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-    .has-error .form-control,
-    .has-error select,
-    .has-error input {
-        border-color: #dc2626 !important;
-    }
-    .dark .has-error .help-block {
-        color: #f87171 !important;
-    }
-    .dark .has-error .form-control,
-    .dark .has-error select,
-    .dark .has-error input {
-        border-color: #dc2626 !important;
-    }
-");
 ?>
 
-
-
-
-<div class="therapeutic-plan-form">
+<div class="mx-auto max-w-4xl p-4 md:p-6">
 
     <?php $form = ActiveForm::begin([
         'id' => 'therapeutic-plan-form',
+        'enableClientValidation' => true,
+        'validateOnSubmit' => true,
+        'validateOnChange' => true,
+        'validateOnBlur' => true,
         'options' => ['class' => 'space-y-6'],
         'fieldConfig' => [
-            'template' => '{label}{input}{error}',
-            'labelOptions' => ['class' => 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'],
-            'inputOptions' => ['class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200'],
-            'errorOptions' => ['class' => 'mt-1 text-sm text-red-600 dark:text-red-400'],
+            'options' => ['class' => 'mb-4'],
+            'errorOptions' => [
+                'class' => 'text-red-600 text-sm mt-1 font-medium help-block-error'
+            ],
+            'inputOptions' => ['class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2'],
         ],
     ]); ?>
+
+    <style>
+    /* Stili per i campi con errori */
+    .has-error input,
+    .has-error select,
+    .has-error textarea {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 1px #dc2626 !important;
+    }
+    
+    .has-error input:focus,
+    .has-error select:focus,
+    .has-error textarea:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1) !important;
+    }
+    
+    /* Assicuriamoci che i messaggi di errore siano rossi */
+    .help-block-error {
+        color: #dc2626 !important;
+        font-weight: 500 !important;
+        margin-top: 0.25rem !important;
+        font-size: 0.875rem !important;
+    }
+    
+    /* Stili per i messaggi di errore di Yii2 */
+    .error-summary ul {
+        color: #dc2626;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .error-summary li {
+        color: #dc2626 !important;
+        font-weight: 500;
+    }
+    </style>
 
     <!-- Dati Piano -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -63,8 +82,8 @@ $this->registerCss("
             </p>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Paziente -->
                 <div class="form-group relative">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -74,7 +93,7 @@ $this->registerCss("
                     <!-- Search input -->
                     <input type="text" 
                            id="patient-search" 
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200"
+                           class="block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2"
                            placeholder="Cerca paziente per nome, cognome o codice fiscale..."
                            autocomplete="off">
                     
@@ -111,7 +130,6 @@ $this->registerCss("
                         $regimes,
                         [
                             'prompt' => 'Seleziona un regime...',
-                            'class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200',
                             'id' => 'regime-select',
                         ]
                     )->label('Regime <span class="text-red-500">*</span>', ['encode' => false]) ?>
@@ -123,16 +141,15 @@ $this->registerCss("
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                 <!-- Data Inizio -->
                 <div class="form-group">
-                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Data Inizio <span class="text-red-500">*</span>
                     </label>
 
                     <div class="relative">
                         <?= $form->field($model, 'start_date')->input('date', [
-                            'class' => 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                             'placeholder' => 'Seleziona data',
                             'value' => $model->start_date ? date('Y-m-d', strtotime($model->start_date)) : '',
                             'onclick' => 'this.showPicker()'
@@ -151,7 +168,6 @@ $this->registerCss("
                         'type' => 'number',
                         'min' => 1,
                         'max' => 9999,
-                        'class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200',
                         'placeholder' => 'Inserisci la durata in giorni',
                     ])->label('Durata (giorni) <span class="text-red-500">*</span>', ['encode' => false]) ?>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -164,7 +180,6 @@ $this->registerCss("
             <div class="form-group mt-6">
                 <?= $form->field($model, 'notes')->textarea([
                     'rows' => 4,
-                    'class' => 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 resize-none',
                     'placeholder' => 'Inserisci eventuali note aggiuntive per il piano terapeutico...',
                 ])->label('Note') ?>
             </div>
@@ -212,7 +227,7 @@ $this->registerCss("
             </div>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div id="therapies-container" class="space-y-6">
                 <!-- I form delle terapie verranno aggiunti qui dinamicamente -->
             </div>
@@ -229,13 +244,13 @@ $this->registerCss("
                         </button>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <!-- Tipo Trattamento -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Tipo Trattamento <span class="text-red-500">*</span>
                             </label>
-                            <select name="PlanTherapy[{index}][treatment_type_id]" class="treatment-type w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" required>
+                            <select name="PlanTherapy[{index}][treatment_type_id]" class="treatment-type block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" required>
                                 <option value="">Seleziona tipo...</option>
                                 <?php foreach ($treatmentTypes as $id => $name): ?>
                                     <option value="<?= $id ?>"><?= Html::encode($name) ?></option>
@@ -248,7 +263,7 @@ $this->registerCss("
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 <span class="hours-label">Ore Settimanali</span> <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" min="0.5" max="50" step="0.5" required>
+                            <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" min="0.5" max="50" step="0.5" required>
                         </div>
                         
                         <!-- Setting -->
@@ -256,7 +271,7 @@ $this->registerCss("
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Setting <span class="text-red-500">*</span>
                             </label>
-                            <select name="PlanTherapy[{index}][setting_id]" class="setting w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200" required>
+                            <select name="PlanTherapy[{index}][setting_id]" class="setting block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" required>
                                 <option value="">Seleziona setting...</option>
                                 <?php foreach ($settings as $id => $name): ?>
                                     <option value="<?= $id ?>"><?= Html::encode($name) ?></option>
@@ -281,7 +296,7 @@ $this->registerCss("
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Note
                         </label>
-                        <textarea name="PlanTherapy[{index}][notes]" class="notes w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-colors duration-200 resize-none" rows="2"></textarea>
+                        <textarea name="PlanTherapy[{index}][notes]" class="notes block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" rows="2"></textarea>
                     </div>
                 </div>
             </template>
@@ -527,31 +542,21 @@ $this->registerCss("
         </div>
     </div>
 
-    <!-- Pulsanti -->
-    <div class="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <?= Html::a(
-            'Annulla',
-            ['index'],
-            [
-                'class' => 'inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300 dark:hover:bg-white/[0.05]'
-            ]
-        ) ?>
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
+        <div>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
+                ['index'], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+            ]) ?>
+        </div>
         
-        <?= Html::submitButton(
-            $model->isNewRecord ? 
-                '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                Crea Piano Terapeutico' : 
-                '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                Salva Modifiche',
-            [
-                'class' => 'inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600',
+        <div class="flex space-x-3">
+            <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' . ($model->isNewRecord ? 'Crea Piano Terapeutico' : 'Salva Modifiche'), [
+                'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
                 'id' => 'submit-btn'
-            ]
-        ) ?>
+            ]) ?>
+        </div>
     </div>
 
     <?php ActiveForm::end(); ?>

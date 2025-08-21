@@ -52,17 +52,49 @@ $isUpdate = $isUpdate ?? false;
         'validateOnBlur' => true,
         'options' => ['class' => 'space-y-6'],
         'fieldConfig' => [
-            'errorOptions' => ['class' => 'text-red-500 text-sm mt-1 help-block-error'],
+            'options' => ['class' => 'mb-4'],
+            'errorOptions' => [
+                'class' => 'text-red-600 text-sm mt-1 font-medium help-block-error'
+            ],
+            'inputOptions' => ['class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2'],
         ],
     ]); ?>
 
     <style>
-    .has-error .form-control {
-        border-color: #ef4444 !important;
-        box-shadow: 0 0 0 1px #ef4444 !important;
+    /* Stili per i campi con errori */
+    .has-error input,
+    .has-error select,
+    .has-error textarea {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 1px #dc2626 !important;
     }
+    
+    .has-error input:focus,
+    .has-error select:focus,
+    .has-error textarea:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1) !important;
+    }
+    
+    /* Assicuriamoci che i messaggi di errore siano rossi */
     .help-block-error {
-        color: #ef4444 !important;
+        color: #dc2626 !important;
+        font-weight: 500 !important;
+        margin-top: 0.25rem !important;
+        font-size: 0.875rem !important;
+    }
+    
+    /* Stili per i messaggi di errore di Yii2 */
+    .error-summary ul {
+        color: #dc2626;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .error-summary li {
+        color: #dc2626 !important;
+        font-weight: 500;
     }
     </style>
 
@@ -78,42 +110,30 @@ $isUpdate = $isUpdate ?? false;
             </p>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div class="sm:col-span-1">
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                     <?= $form->field($user, 'email')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci email amministratore'
-                    ])->label('Email', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Email') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($user, 'username')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci username'
-                    ])->label('Username', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Username') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($user, 'password')->passwordInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci password'
-                    ])->label('Password', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Password') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($user, 'password_repeat')->passwordInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Ripeti password'
-                    ])->label('Conferma Password', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Conferma Password') ?>
                 </div>
             </div>
         </div>
@@ -131,52 +151,37 @@ $isUpdate = $isUpdate ?? false;
             </p>
         </div>
         
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div class="sm:col-span-1">
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                     <?= $form->field($profile, 'first_name')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci nome'
-                    ])->label('Nome', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Nome') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($profile, 'last_name')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci cognome'
-                    ])->label('Cognome', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Cognome') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($profile, 'phone')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci telefono'
-                    ])->label('Telefono', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Telefono') ?>
                 </div>
                 
-                <div class="sm:col-span-1">
+                <div>
                     <?= $form->field($profile, 'fiscal_code')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci codice fiscale'
-                    ])->label('Codice Fiscale', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Codice Fiscale') ?>
                 </div>
                 
                 <div class="sm:col-span-2">
                     <?= $form->field($profile, 'address')->textArea([
                         'rows' => 3,
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'placeholder' => 'Inserisci indirizzo completo'
-                    ])->label('Indirizzo', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
+                    ])->label('Indirizzo') ?>
                 </div>
             </div>
         </div>

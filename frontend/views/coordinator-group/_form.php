@@ -23,42 +23,103 @@ $allTherapists = Therapist::find()
 
 ?>
 
-<div class="coordinator-group-form">
+<div class="mx-auto max-w-4xl p-4 md:p-6">
 
     <?php $form = ActiveForm::begin([
+        'id' => 'coordinator-group-form',
+        'enableClientValidation' => true,
+        'validateOnSubmit' => true,
+        'validateOnChange' => true,
+        'validateOnBlur' => true,
         'options' => ['class' => 'space-y-6'],
         'fieldConfig' => [
-            'template' => '<div class="form-group">{label}{input}{error}</div>',
-            'labelOptions' => ['class' => 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'],
-            'inputOptions' => ['class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-brand-500 dark:focus:border-brand-500'],
-            'errorOptions' => ['class' => 'text-red-600 text-sm mt-1'],
+            'options' => ['class' => 'mb-4'],
+            'errorOptions' => [
+                'class' => 'text-red-600 text-sm mt-1 font-medium help-block-error'
+            ],
+            'inputOptions' => ['class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2'],
         ],
     ]); ?>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Nome Gruppo -->
-        <div class="md:col-span-1">
-            <?= $form->field($model, 'name')->textInput([
-                'maxlength' => true,
-                'placeholder' => 'es. Gruppo Terapisti Nord'
-            ]) ?>
-        </div>
+    <style>
+    /* Stili per i campi con errori */
+    .has-error input,
+    .has-error select,
+    .has-error textarea {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 1px #dc2626 !important;
+    }
+    
+    .has-error input:focus,
+    .has-error select:focus,
+    .has-error textarea:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1) !important;
+    }
+    
+    /* Assicuriamoci che i messaggi di errore siano rossi */
+    .help-block-error {
+        color: #dc2626 !important;
+        font-weight: 500 !important;
+        margin-top: 0.25rem !important;
+        font-size: 0.875rem !important;
+    }
+    
+    /* Stili per i messaggi di errore di Yii2 */
+    .error-summary ul {
+        color: #dc2626;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .error-summary li {
+        color: #dc2626 !important;
+        font-weight: 500;
+    }
+    </style>
 
-        <!-- Coordinatore -->
-        <div class="md:col-span-1">
-            <?= $form->field($model, 'coordinator_user_id')->dropDownList($coordinators, [
-                'prompt' => 'Seleziona un coordinatore...',
-                'class' => 'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-brand-500 dark:focus:border-brand-500'
-            ]) ?>
+    <!-- Informazioni Gruppo -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Informazioni Gruppo
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Configura le informazioni base del gruppo coordinatori.
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <?= $form->field($model, 'name')->textInput([
+                        'maxlength' => true,
+                        'placeholder' => 'es. Gruppo Terapisti Nord'
+                    ])->label('Nome Gruppo') ?>
+                </div>
+
+                <div>
+                    <?= $form->field($model, 'coordinator_user_id')->dropDownList($coordinators, [
+                        'prompt' => 'Seleziona un coordinatore...'
+                    ])->label('Coordinatore') ?>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Selezione Terapisti -->
-    <div class="border-t pt-6">
-        <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Terapisti del Gruppo</h4>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Seleziona i terapisti che faranno parte di questo gruppo e assegna loro un ruolo.
-        </p>
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Terapisti del Gruppo
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Seleziona i terapisti che faranno parte di questo gruppo.
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
 
         <!-- Controlli Selezione -->
         <div class="flex gap-2 mb-4">
@@ -123,18 +184,24 @@ $allTherapists = Therapist::find()
                 <p class="mt-2">Nessun terapista attivo trovato</p>
             </div>
         <?php endif; ?>
+        </div>
     </div>
 
-    <!-- Pulsanti Azione -->
-    <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-800">
-        <?= Html::a('Annulla', ['index'], [
-            'class' => 'px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
-        ]) ?>
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
+        <div>
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
+                ['index'], [
+                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+            ]) ?>
+        </div>
         
-        <?= Html::submitButton($model->isNewRecord ? 'Crea Gruppo' : 'Aggiorna Gruppo', [
-            'class' => 'px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
-            'id' => 'submit-btn'
-        ]) ?>
+        <div class="flex space-x-3">
+            <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' . ($model->isNewRecord ? 'Crea Gruppo' : 'Aggiorna Gruppo'), [
+                'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
+                'id' => 'submit-btn'
+            ]) ?>
+        </div>
     </div>
 
     <?php ActiveForm::end(); ?>
