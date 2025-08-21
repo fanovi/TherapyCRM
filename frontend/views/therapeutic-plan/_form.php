@@ -443,6 +443,20 @@ $this->registerCss("
                 // Evento per aggiungere nuova terapia
                 document.getElementById('add-therapy').addEventListener('click', function() {
                     addTherapyWithData();
+                    
+                    // Scroll verso la nuova terapia aggiunta
+                    setTimeout(function() {
+                        const container = document.getElementById('therapies-container');
+                        const therapies = container.querySelectorAll('.therapy-item');
+                        const lastTherapy = therapies[therapies.length - 1];
+                        
+                        if (lastTherapy) {
+                            lastTherapy.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+                        }
+                    }, 100);
                 });
 
                 // Aggiungi almeno una terapia se non ce ne sono
