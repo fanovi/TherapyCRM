@@ -43,11 +43,11 @@ class Patient extends ActiveRecord
         return [
             [
                 'class' => TimestampBehavior::class,
-                'value' => function() {
+                'value' => function () {
                     return date('Y-m-d H:i:s');
                 },
             ],
-            
+
             // Activity Logging
             [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
@@ -55,7 +55,7 @@ class Patient extends ActiveRecord
                     'created_at',
                     'updated_at',
                 ],
-                'entityNameCallback' => function($model) {
+                'entityNameCallback' => function ($model) {
                     return 'Paziente';
                 },
             ],
@@ -79,16 +79,21 @@ class Patient extends ActiveRecord
     public function rules()
     {
         return [
-            [['first_name', 'last_name', 'birth_date'], 'required'],
-            [['birth_date'], 'date', 'format' => 'php:Y-m-d'],
+            [['first_name', 'last_name', 'birth_date'], 'required', 'message' => '{attribute} è obbligatorio.'],
+            [['birth_date'], 'date', 'format' => 'php:Y-m-d', 'message' => 'La data di nascita deve essere in formato valido.'],
             [['birth_date'], 'validateBirthDate'],
-            [['district_id'], 'integer'],
+            [['district_id'], 'integer', 'message' => 'Il distretto deve essere un numero valido.'],
             [['notes'], 'string'],
-            [['first_name', 'last_name'], 'string', 'max' => 100],
+            [['first_name', 'last_name'], 'string', 'max' => 100, 'message' => '{attribute} non può superare i 100 caratteri.'],
             [['first_name', 'last_name'], 'match', 'pattern' => '/^[a-zA-ZÀ-ÿ\s\'-]+$/u', 'message' => 'Il nome può contenere solo lettere, spazi, apostrofi e trattini'],
-            [['fiscal_code'], 'string', 'max' => 16],
-            [['fiscal_code'], 'match', 'pattern' => '/^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/', 'message' => 'Codice fiscale non valido'],
-            [['fiscal_code'], 'unique'],
+            [['fiscal_code'], 'string', 'max' => 20, 'message' => 'Il codice fiscale non può superare i 20 caratteri.'],
+            [
+                ['fiscal_code'],
+                'match',
+                'pattern' => '/^[A-Z0-9]{5,20}$/',
+                'message' => 'Codice fiscale non valido (solo lettere maiuscole e numeri, lunghezza 5-20 caratteri)'
+            ],
+            [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
             [['district_id'], 'exist', 'skipOnError' => true, 'targetClass' => District::class, 'targetAttribute' => ['district_id' => 'id']],
         ];
     }
@@ -101,7 +106,7 @@ class Patient extends ActiveRecord
         if (!empty($this->$attribute)) {
             $birthDate = \DateTime::createFromFormat('Y-m-d', $this->$attribute);
             $today = new \DateTime();
-            
+
             if ($birthDate > $today) {
                 $this->addError($attribute, 'La data di nascita non può essere nel futuro');
             } elseif ($birthDate < $today->modify('-120 years')) {
@@ -191,7 +196,7 @@ class Patient extends ActiveRecord
 
         $birthDate = new \DateTime($this->birth_date);
         $today = new \DateTime();
-        
+
         return $today->diff($birthDate)->y;
     }
 
@@ -215,7 +220,7 @@ class Patient extends ActiveRecord
         return ArrayHelper::map(
             static::find()->orderBy('last_name, first_name')->all(),
             'id',
-            function($model) {
+            function ($model) {
                 return $model->last_name . ' ' . $model->first_name;
             }
         );
@@ -297,4 +302,4 @@ class Patient extends ActiveRecord
     {
         return new PatientQuery(get_called_class());
     }
-} 
+}

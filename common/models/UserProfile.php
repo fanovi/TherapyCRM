@@ -64,7 +64,7 @@ class UserProfile extends ActiveRecord
             [['address', 'phone'], 'string'],
             [['created_at', 'updated_at'], 'safe'],
             [['first_name', 'last_name'], 'string', 'max' => 100, 'message' => '{attribute} non può superare i 100 caratteri.'],
-            [['fiscal_code'], 'string', 'max' => 16, 'message' => 'Il codice fiscale non può superare i 16 caratteri.'],
+            [['fiscal_code'], 'string', 'max' => 20, 'message' => 'Il codice fiscale non può superare i 20 caratteri.'],
             [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id'], 'message' => 'Utente non valido.'],
         ];
