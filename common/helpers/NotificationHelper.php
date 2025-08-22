@@ -210,22 +210,27 @@ class NotificationHelper
 
         try {
             // Query per trovare pazienti che hanno superato la soglia di assenze
-            // Questa query dipende dalla struttura delle tabelle absences e appointments
             $sql = "
                 SELECT 
                     p.id as patient_id,
                     CONCAT(p.first_name, ' ', p.last_name) as patient_name,
                     tp.created_by,
                     COUNT(a.id) as total_appointments,
-                    COUNT(abs.id) as total_absences,
-                    ROUND((COUNT(abs.id) / COUNT(a.id)) * 100, 2) as absence_percentage
+                    COUNT(CASE WHEN a.status IN ('absent_justified', 'absent_not_justified') THEN 1 END) as total_absences,
+                    CASE 
+                        WHEN COUNT(a.id) > 0 THEN
+                            ROUND((COUNT(CASE WHEN a.status IN ('absent_justified', 'absent_not_justified') THEN 1 END) / COUNT(a.id)) * 100, 2)
+                        ELSE 0
+                    END as absence_percentage
                 FROM patients p
                 JOIN therapeutic_plans tp ON p.id = tp.patient_id
-                JOIN appointments a ON tp.id = a.therapeutic_plan_id
-                LEFT JOIN absences abs ON a.id = abs.appointment_id
-                WHERE tp.status = 'active'
-                GROUP BY p.id, tp.created_by
-                HAVING absence_percentage >= :threshold
+                JOIN plan_therapies pt ON tp.id = pt.therapeutic_plan_id
+                JOIN appointments a ON pt.id = a.plan_therapy_id
+                WHERE tp.end_date > CURDATE()
+                  AND a.appointment_datetime < NOW()
+                  AND a.status NOT IN ('cancelled', 'scheduled')
+                GROUP BY p.id, tp.created_by, p.first_name, p.last_name
+                HAVING COUNT(a.id) > 0 AND absence_percentage >= :threshold
             ";
 
             $command = Yii::$app->db->createCommand($sql);
