@@ -228,6 +228,7 @@ class TherapeuticPlanExpiryController extends Controller
                         'user_id' => $userId,
                         'days_before' => $daysBefore,
                         'notification_id' => $notificationIds[$index] ?? null,
+                        'sent_at' => date('Y-m-d H:i:s'),
                     ]);
 
                     if ($planNotification->save()) {
