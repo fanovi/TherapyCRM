@@ -223,12 +223,15 @@ class TherapeuticPlanExpiryController extends Controller
                 }
 
                 foreach ($userIds as $index => $userId) {
+                    // Imposta il fuso orario di Roma per l'orario di invio
+                    $dateTime = new \DateTime('now', new \DateTimeZone('Europe/Rome'));
+                    
                     $planNotification = new TherapeuticPlanNotification([
                         'therapeutic_plan_id' => $plan->id,
                         'user_id' => $userId,
                         'days_before' => $daysBefore,
                         'notification_id' => $notificationIds[$index] ?? null,
-                        'sent_at' => date('Y-m-d H:i:s'),
+                        'sent_at' => $dateTime->format('Y-m-d H:i:s'),
                     ]);
 
                     if ($planNotification->save()) {
