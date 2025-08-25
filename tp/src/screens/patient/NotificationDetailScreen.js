@@ -35,7 +35,7 @@ const NotificationDetailScreen = () => {
 
   // Segna automaticamente come letta quando la notifica viene caricata
   useEffect(() => {
-    if (notification && !notification.read_at) {
+    if (notification && !notification?.read_at) {
       handleMarkAsRead();
     }
   }, [notification]);
@@ -49,7 +49,33 @@ const NotificationDetailScreen = () => {
       console.log('📱 NotificationDetail: Risposta ricevuta:', response);
 
       if (response.success && response.data) {
+        // Debug dettagliato dei dati ricevuti
+        console.log(
+          '📱 NotificationDetail: Notifica recuperata:',
+          response.data,
+        );
+        console.log(
+          '📱 NotificationDetail: Tipo notification_type:',
+          typeof response.data.notification_type,
+          response.data.notification_type,
+        );
+        console.log(
+          '📱 NotificationDetail: Tipo title:',
+          typeof response.data.title,
+          response.data.title,
+        );
+        console.log(
+          '📱 NotificationDetail: Tipo message:',
+          typeof response.data.message,
+          response.data.message,
+        );
+        console.log(
+          '📱 NotificationDetail: Sender object:',
+          response.data.sender,
+        );
+
         setNotification(response.data);
+        setLoading(false);
       } else {
         console.warn('📱 NotificationDetail: Risposta non valida:', response);
         Alert.alert(
@@ -62,18 +88,16 @@ const NotificationDetailScreen = () => {
       console.error('❌ NotificationDetail: Errore recupero dettaglio:', error);
       Alert.alert('Errore', 'Errore di connessione');
       navigation.goBack();
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleMarkAsRead = async () => {
-    if (!notification || notification.read_at) return;
+    if (!notification || notification?.read_at) return;
 
     try {
       setActionLoading(true);
 
-      if (notification.requires_read_confirmation) {
+      if (notification?.requires_read_confirmation) {
         await confirmNotificationRead(notification.id);
         console.log('📱 NotificationDetail: Lettura confermata');
       } else {
@@ -98,6 +122,7 @@ const NotificationDetailScreen = () => {
   };
 
   const getNotificationIcon = type => {
+    if (!type) return 'info';
     switch (type) {
       case 'reminder':
         return 'schedule';
@@ -111,6 +136,7 @@ const NotificationDetailScreen = () => {
   };
 
   const getNotificationColor = type => {
+    if (!type) return theme.colors.primary;
     switch (type) {
       case 'reminder':
         return theme.colors.secondary;
@@ -124,7 +150,9 @@ const NotificationDetailScreen = () => {
   };
 
   const getTypeLabel = type => {
-    switch (type) {
+    if (!type) return 'Informazione';
+    const typeStr = String(type); // Forza conversione a stringa
+    switch (typeStr) {
       case 'reminder':
         return 'Promemoria';
       case 'deadline':
@@ -139,14 +167,20 @@ const NotificationDetailScreen = () => {
 
   const formatDate = dateString => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      console.warn('Errore formattazione data:', error);
+      return 'N/A';
+    }
   };
 
   if (loading) {
@@ -160,7 +194,7 @@ const NotificationDetailScreen = () => {
     );
   }
 
-  if (!notification) {
+  if (!notification || !notification.id) {
     return (
       <ScreenTemplate title="Dettaglio Notifica" showBackButton>
         <View style={styles.errorContainer}>
@@ -170,6 +204,21 @@ const NotificationDetailScreen = () => {
       </ScreenTemplate>
     );
   }
+
+  // Verifica che tutti i dati critici siano presenti e del tipo corretto
+  const safeNotification = {
+    ...notification,
+    title: String(notification?.title || 'Titolo non disponibile'),
+    message: String(notification?.message || 'Messaggio non disponibile'),
+    notification_type: String(notification?.notification_type || 'info'),
+    created_at: notification?.created_at || null,
+    read_at: notification?.read_at || null,
+    viewed_at: notification?.viewed_at || null,
+    requires_read_confirmation: Boolean(
+      notification?.requires_read_confirmation,
+    ),
+    sender: notification?.sender || null,
+  };
 
   return (
     <ScreenTemplate
@@ -182,9 +231,11 @@ const NotificationDetailScreen = () => {
             <View style={styles.header}>
               <View style={styles.typeContainer}>
                 <Icon
-                  name={getNotificationIcon(notification.notification_type)}
+                  name={getNotificationIcon(safeNotification.notification_type)}
                   size={28}
-                  color={getNotificationColor(notification.notification_type)}
+                  color={getNotificationColor(
+                    safeNotification.notification_type,
+                  )}
                   style={styles.typeIcon}
                 />
                 <Chip
@@ -193,21 +244,23 @@ const NotificationDetailScreen = () => {
                     styles.typeChip,
                     {
                       borderColor: getNotificationColor(
-                        notification.notification_type,
+                        safeNotification.notification_type,
                       ),
                     },
                   ]}>
-                  {getTypeLabel(notification.notification_type)}
+                  <Text>
+                    {getTypeLabel(safeNotification.notification_type)}
+                  </Text>
                 </Chip>
               </View>
 
-              {!notification.read_at && (
+              {!safeNotification.read_at && (
                 <View
                   style={[
                     styles.unreadIndicator,
                     {
                       backgroundColor: getNotificationColor(
-                        notification.notification_type,
+                        safeNotification.notification_type,
                       ),
                     },
                   ]}
@@ -218,7 +271,7 @@ const NotificationDetailScreen = () => {
             <Divider style={styles.divider} />
 
             <Text variant="headlineSmall" style={styles.title}>
-              {notification.title}
+              {safeNotification.title}
             </Text>
 
             <View style={styles.metadataContainer}>
@@ -229,11 +282,11 @@ const NotificationDetailScreen = () => {
                   color={theme.colors.onSurfaceVariant}
                 />
                 <Text variant="bodySmall" style={styles.metadataText}>
-                  Creata: {formatDate(notification.created_at)}
+                  Creata: {String(formatDate(safeNotification.created_at))}
                 </Text>
               </View>
 
-              {notification.sender && (
+              {safeNotification.sender?.username && (
                 <View style={styles.metadataRow}>
                   <Icon
                     name="person"
@@ -241,12 +294,12 @@ const NotificationDetailScreen = () => {
                     color={theme.colors.onSurfaceVariant}
                   />
                   <Text variant="bodySmall" style={styles.metadataText}>
-                    Da: {notification.sender.username}
+                    Da: {String(safeNotification.sender.username)}
                   </Text>
                 </View>
               )}
 
-              {notification.read_at && (
+              {safeNotification.read_at && (
                 <View style={styles.metadataRow}>
                   <Icon
                     name="check-circle"
@@ -259,12 +312,12 @@ const NotificationDetailScreen = () => {
                       styles.metadataText,
                       {color: theme.colors.primary},
                     ]}>
-                    Letta: {formatDate(notification.read_at)}
+                    Letta: {String(formatDate(safeNotification.read_at))}
                   </Text>
                 </View>
               )}
 
-              {notification.viewed_at && (
+              {safeNotification.viewed_at && (
                 <View style={styles.metadataRow}>
                   <Icon
                     name="visibility"
@@ -272,7 +325,8 @@ const NotificationDetailScreen = () => {
                     color={theme.colors.onSurfaceVariant}
                   />
                   <Text variant="bodySmall" style={styles.metadataText}>
-                    Visualizzata: {formatDate(notification.viewed_at)}
+                    Visualizzata:{' '}
+                    {String(formatDate(safeNotification.viewed_at))}
                   </Text>
                 </View>
               )}
@@ -281,31 +335,32 @@ const NotificationDetailScreen = () => {
             <Divider style={styles.divider} />
 
             <Text variant="bodyLarge" style={styles.message}>
-              {notification.message}
+              {safeNotification.message}
             </Text>
           </Card.Content>
         </Card>
 
-        {!notification.read_at && notification.requires_read_confirmation && (
-          <Card style={styles.actionsCard}>
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.actionsTitle}>
-                Azioni
-              </Text>
-              <Button
-                mode="contained"
-                onPress={handleMarkAsRead}
-                loading={actionLoading}
-                disabled={actionLoading}
-                icon="check-circle"
-                style={styles.actionButton}>
-                Conferma Lettura
-              </Button>
-            </Card.Content>
-          </Card>
-        )}
+        {!safeNotification.read_at &&
+          safeNotification.requires_read_confirmation && (
+            <Card style={styles.actionsCard}>
+              <Card.Content>
+                <Text variant="titleMedium" style={styles.actionsTitle}>
+                  Azioni
+                </Text>
+                <Button
+                  mode="contained"
+                  onPress={handleMarkAsRead}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                  icon="check-circle"
+                  style={styles.actionButton}>
+                  Conferma Lettura
+                </Button>
+              </Card.Content>
+            </Card>
+          )}
 
-        {notification.read_at && (
+        {safeNotification.read_at && (
           <Card style={styles.readCard}>
             <Card.Content>
               <View style={styles.readContainer}>
