@@ -67,9 +67,7 @@ class User extends ActiveRecord implements IdentityInterface
         return [
             [
                 'class' => TimestampBehavior::class,
-                'value' => function() {
-                    return date('Y-m-d H:i:s');
-                },
+                'value' => time(),
             ],
              // Activity Logging
              [
