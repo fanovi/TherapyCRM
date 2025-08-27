@@ -156,7 +156,8 @@ $pageTitle = $isUpdate ? 'Modifica Coordinatore' : 'Nuovo Coordinatore';
 
                 <div>
                     <?= $form->field($profile, 'fiscal_code')->textInput([
-                        'placeholder' => 'RSSMRA80A01H501X'
+                        'placeholder' => 'RSSMRA80A01H501X',
+                        'id' => 'fiscal-code-input'
                     ])->label('Codice Fiscale') ?>
                 </div>
 
@@ -298,4 +299,18 @@ $pageTitle = $isUpdate ? 'Modifica Coordinatore' : 'Nuovo Coordinatore';
     }
     </style>
 
-</div> 
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
+    const fiscalCodeInput = document.getElementById('fiscal-code-input');
+    
+    if (fiscalCodeInput) {
+        fiscalCodeInput.addEventListener('keyup', function() {
+            const currentValue = this.value;
+            this.value = currentValue.toUpperCase();
+        });
+    }
+});
+</script> 

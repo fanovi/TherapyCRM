@@ -173,7 +173,8 @@ $isUpdate = $isUpdate ?? false;
                 
                 <div>
                     <?= $form->field($profile, 'fiscal_code')->textInput([
-                        'placeholder' => 'Inserisci codice fiscale'
+                        'placeholder' => 'Inserisci codice fiscale',
+                        'id' => 'fiscal-code-input'
                     ])->label('Codice Fiscale') ?>
                 </div>
                 
@@ -235,4 +236,18 @@ $isUpdate = $isUpdate ?? false;
     </div>
 
     <?php ActiveForm::end(); ?>
-</div> 
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
+    const fiscalCodeInput = document.getElementById('fiscal-code-input');
+    
+    if (fiscalCodeInput) {
+        fiscalCodeInput.addEventListener('keyup', function() {
+            const currentValue = this.value;
+            this.value = currentValue.toUpperCase();
+        });
+    }
+});
+</script> 
