@@ -562,6 +562,8 @@ if (typeof Chart !== 'undefined') {
         </div>
     </div>
 
+
+    <?php /*TODO */ if(false): ?>
     <!-- 4. Prossimi appuntamenti -->
     <div class="full-width-card">
         <div class="card-header-with-action">
@@ -628,7 +630,8 @@ if (typeof Chart !== 'undefined') {
             </table>
         <?php endif; ?>
     </div>
-
+    <?php endif; ?>
+    
     <!-- 5. Azioni rapide -->
     <div class="export-section">
         <div class="info-text">
