@@ -87,13 +87,18 @@ class UserController extends Controller
                     throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
 
-                // Crittografa i dati sensibili prima di salvare
+                // Set user_id and validate profile BEFORE encryption
+                $profile->user_id = $user->id;
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
                 $this->encryptSensitiveData($profile);
 
-                // Save profile
-                $profile->user_id = $user->id;
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nel salvare il profilo.');
                 }
 
                 // Assign admin role
@@ -160,11 +165,17 @@ class UserController extends Controller
                     throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
 
-                // Crittografa i dati sensibili prima di salvare
+                // Validate profile BEFORE encryption
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
                 $this->encryptSensitiveData($profile);
 
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
                 $transaction->commit();
@@ -284,13 +295,18 @@ class UserController extends Controller
                     throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
 
-                // Crittografa i dati sensibili prima di salvare
+                // Set user_id and validate profile BEFORE encryption
+                $profile->user_id = $user->id;
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
                 $this->encryptSensitiveData($profile);
 
-                // Save profile
-                $profile->user_id = $user->id;
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nel salvare il profilo.');
                 }
 
                 // Assign coordinator role
@@ -355,11 +371,17 @@ class UserController extends Controller
                     throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
 
-                // Crittografa i dati sensibili prima di salvare
+                // Validate profile BEFORE encryption
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
                 $this->encryptSensitiveData($profile);
 
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
                 $transaction->commit();

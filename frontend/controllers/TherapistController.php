@@ -312,11 +312,17 @@ class TherapistController extends Controller
                     throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
                 }
 
-                // Crittografa i dati sensibili prima di salvare
+                // Validate profile BEFORE encryption
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
                 $this->encryptSensitiveData($profile);
 
-                if (!$profile->save()) {
-                    throw new \Exception('Errore nell\'aggiornare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
                 if (!$therapist->save()) {
