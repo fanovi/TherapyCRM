@@ -91,7 +91,7 @@ class AbsenceController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             $transaction = Yii::$app->db->beginTransaction();
-            $model->reason = $this->getReasonLabel($model->tipo);
+            $model->reason = $this->getReasonLabel($model->type);
             
             try {
                 if ($model->save()) {
@@ -170,7 +170,7 @@ class AbsenceController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) ) {
-            $model->reason = $this->getReasonLabel($model->tipo);
+            $model->reason = $this->getReasonLabel($model->type);
             if ($model->save()) {
                 Yii::$app->session->setFlash('success', 'Assenza aggiornata con successo.');
                 return $this->redirect(['view', 'id' => $model->id]);
