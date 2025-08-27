@@ -635,6 +635,7 @@ if (typeof Chart !== 'undefined') {
             <i class="fas fa-info-circle"></i>
             Dashboard aggiornata in tempo reale
         </div>
+        <?php /*TODO */ if(false): ?>
         <div class="quick-actions">
             <?= Html::a(
                 '<i class="fas fa-user-plus"></i> Nuovo Paziente',
@@ -652,5 +653,6 @@ if (typeof Chart !== 'undefined') {
                 ['class' => 'btn btn-info']
             ) ?>
         </div>
+        <?php endif; ?>
     </div>
 </div>
