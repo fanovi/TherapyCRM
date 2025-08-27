@@ -413,7 +413,8 @@ class TherapeuticPlanController extends BaseController
                         $overlapCheck = $this->checkPlanOverlap(
                             $model->patient_id,
                             $model->start_date,
-                            $model->duration_days
+                            $model->duration_days,
+                            $model->id
                         );
 
                         if (!$overlapCheck['isValid']) {
