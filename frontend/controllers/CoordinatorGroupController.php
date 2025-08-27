@@ -180,6 +180,8 @@ class CoordinatorGroupController extends Controller
 
         $model = $this->findModel($id);
         $coordinators = $this->getCoordinatorsList();
+        
+
 
         // Get current group therapists for form pre-population
         $currentGroupTherapists = GroupTherapist::find()
@@ -193,6 +195,8 @@ class CoordinatorGroupController extends Controller
         if ($model->load(Yii::$app->request->post())) {
             $newSelectedTherapists = Yii::$app->request->post('therapists', []);
             $newRoles = Yii::$app->request->post('roles', []);
+
+
 
             // Validazione: almeno un terapista deve essere selezionato
             if (empty($newSelectedTherapists)) {
@@ -209,20 +213,29 @@ class CoordinatorGroupController extends Controller
             try {
                 // Salva il gruppo
                 if (!$model->save()) {
-                    throw new \Exception('Errore nel salvare il gruppo: ' . implode(', ', $model->getFirstErrors()));
+                    $errors = $model->getFirstErrors();
+                    throw new \Exception('Errore nel salvare il gruppo: ' . implode(', ', $errors));
                 }
 
-                // Disattiva tutti i terapisti attuali (imposta data fine)
-                GroupTherapist::updateAll(
-                    ['assigned_to' => date('Y-m-d')],
-                    ['group_id' => $id, 'assigned_to' => null]
-                );
+                // Gestisci i terapisti: disattiva quelli non più selezionati, attiva/crea quelli selezionati
+                
+                // 1. Disattiva i terapisti che non sono più selezionati
+                if (!empty($selectedTherapists)) {
+                    $therapistsToDeactivate = array_diff($selectedTherapists, $newSelectedTherapists);
+                    if (!empty($therapistsToDeactivate)) {
+                        GroupTherapist::updateAll(
+                            ['assigned_to' => date('Y-m-d')],
+                            ['group_id' => $id, 'therapist_id' => $therapistsToDeactivate, 'assigned_to' => null]
+                        );
+                    }
+                }
 
-                // Aggiungi i terapisti selezionati
+                // 2. Attiva/crea i terapisti selezionati
                 foreach ($newSelectedTherapists as $therapistId) {
+                    // Cerca se esiste già un record per questo terapista (attivo o non attivo)
+                    // IMPORTANTE: Può esistere solo un record per group_id+therapist_id (constraint unique)
                     $groupTherapist = GroupTherapist::find()
                         ->where(['group_id' => $id, 'therapist_id' => $therapistId])
-                        ->andWhere(['IS', 'assigned_to', null])
                         ->one();
 
                     if (!$groupTherapist) {
@@ -231,11 +244,15 @@ class CoordinatorGroupController extends Controller
                         $groupTherapist->group_id = $id;
                         $groupTherapist->therapist_id = $therapistId;
                         $groupTherapist->assigned_from = date('Y-m-d');
-                        $groupTherapist->assigned_by = Yii::$app->user->id;
-                    } else {
-                        // Riattiva il record esistente
                         $groupTherapist->assigned_to = null;
                         $groupTherapist->assigned_by = Yii::$app->user->id;
+                    } elseif ($groupTherapist->assigned_to !== null) {
+                        // Riattiva il record esistente (era disattivato)
+                        $groupTherapist->assigned_to = null;
+                        $groupTherapist->assigned_by = Yii::$app->user->id;
+                    } else {
+                        // Il terapista è già attivo, non fare nulla
+                        continue;
                     }
 
                     if (!$groupTherapist->save()) {

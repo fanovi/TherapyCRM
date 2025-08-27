@@ -111,7 +111,9 @@ class CoordinatorGroup extends ActiveRecord
     public function getTherapists()
     {
         return $this->hasMany(Therapist::class, ['id' => 'therapist_id'])
-            ->viaTable('{{%group_therapists}}', ['group_id' => 'id']);
+            ->viaTable('{{%group_therapists}}', ['group_id' => 'id'], function($query) {
+                $query->andWhere(['IS', 'assigned_to', null]);
+            });
     }
 
     /**

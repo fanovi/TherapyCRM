@@ -36,6 +36,8 @@ $this->params['breadcrumbs'][] = 'Modifica';
             <?= $this->render('_form', [
                 'model' => $model,
                 'coordinators' => $coordinators,
+                'selectedTherapists' => $selectedTherapists ?? [],
+                'therapistRoles' => $therapistRoles ?? [],
             ]) ?>
         </div>
     </div>
