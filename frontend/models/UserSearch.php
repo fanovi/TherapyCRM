@@ -113,13 +113,9 @@ class UserSearch extends User
             'users.id' => $this->id,
         ]);
 
-        // Status filter - handle both string and integer values
+        // Status filter - use string values matching the database ENUM
         if (!empty($this->status)) {
-            if ($this->status === 'active') {
-                $query->andWhere(['users.status' => 10]); // STATUS_ACTIVE
-            } elseif ($this->status === 'inactive') {
-                $query->andWhere(['users.status' => 9]); // STATUS_INACTIVE
-            }
+            $query->andWhere(['users.status' => $this->status]);
         }
 
         $query->andFilterWhere(['like', 'users.username', $this->username])
