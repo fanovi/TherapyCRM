@@ -1394,7 +1394,7 @@ class TherapeuticPlanManagerController extends Controller
             $therapeuticPlan = TherapeuticPlan::find()
                 ->with(['regime'])  // Aggiungi questa riga
                 ->where(['patient_id' => $patient->id])
-                ->andWhere(['<=', 'start_date', date('Y-m-d')])
+                //->andWhere(['<=', 'start_date', date('Y-m-d')]) //TODO: rimuovere questa riga
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
