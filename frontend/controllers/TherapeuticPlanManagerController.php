@@ -1394,7 +1394,7 @@ class TherapeuticPlanManagerController extends Controller
             $therapeuticPlan = TherapeuticPlan::find()
                 ->with(['regime'])  // Aggiungi questa riga
                 ->where(['patient_id' => $patient->id])
-                //->andWhere(['<=', 'start_date', date('Y-m-d')]) //TODO: rimuovere questa riga
+                // ->andWhere(['<=', 'start_date', date('Y-m-d')]) //TODO: rimuovere questa riga
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
@@ -1489,16 +1489,16 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Patient ID e Therapist ID sono obbligatori');
             }
 
-            // Trova il piano terapeutico attivo del paziente
+            // Trova il piano terapeutico del paziente (include anche quelli che iniziano nel futuro)
             $therapeuticPlan = TherapeuticPlan::find()
                 ->where(['patient_id' => $patientId])
-                ->andWhere(['<=', 'start_date', date('Y-m-d')])
+                // Rimosso controllo start_date per permettere piani futuri
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
 
             if (!$therapeuticPlan) {
-                return $this->errorResponse('Nessun piano terapeutico attivo trovato');
+                return $this->errorResponse('Nessun piano terapeutico trovato per questo paziente');
             }
 
             // Trova il terapista e la sua specializzazione
