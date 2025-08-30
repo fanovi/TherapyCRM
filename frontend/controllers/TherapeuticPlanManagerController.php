@@ -142,6 +142,7 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica entità correlate
             $planTherapy = $this->findPlanTherapy($data['planTherapyId']);
             $this->validateTherapeuticPlan($planTherapy->therapeuticPlan);
+            $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
             $therapist = $this->findTherapist($data['therapistId']);
 
             $this->validateTherapist($data);
@@ -226,7 +227,7 @@ class TherapeuticPlanManagerController extends Controller
                 ]
             ];
         } catch (Exception $e) {
-            Yii::error('Errore creazione appuntamento: ' . $e->getMessage(), __METHOD__);
+            Yii::error('Errore creazione appuntamento: ' . $e->getMessage(). PHP_EOL . $e->getTraceAsString(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -4827,5 +4828,29 @@ class TherapeuticPlanManagerController extends Controller
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    private function validateStartDate($appointmentDateTime, $planTherapy)
+    {
+        $plan = TherapeuticPlan::find()
+        ->leftJoin('plan_therapies', 'plan_therapies.therapeutic_plan_id = therapeutic_plans.id')
+            ->where(['plan_therapies.id' => $planTherapy])
+            ->one();
+        if (!$plan) {
+            return [
+                'error' => true,
+                'message' => "Piano terapeutico non trovato.",
+                'code' => 'PLAN_THERAPY_NOT_FOUND'
+            ];
+        }
+        $appointmentDate = new DateTime($appointmentDateTime);
+        $planTherapyDate = new DateTime($plan->start_date);
+        $planTherapyEndDate = new DateTime($plan->end_date);
+
+        if ($appointmentDate < $planTherapyDate || $appointmentDate > $planTherapyEndDate) {
+            throw new BadRequestHttpException('La data dell\'appuntamento non è valida per il piano terapeutico.');
+        }
+
+        return null;
     }
 }
