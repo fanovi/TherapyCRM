@@ -456,6 +456,214 @@ class UserController extends Controller
         return $this->redirect(['coordinators']);
     }
 
+    // ============ MANAGER METHODS ============
+
+    /**
+     * Lists managers
+     */
+    public function actionManagers()
+    {
+        if (!Yii::$app->user->can('create_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i manager.');
+        }
+
+        $searchModel = new \frontend\models\UserSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams, 'manager');
+
+        // Decrittografa i dati sensibili per tutti i modelli nella lista
+        foreach ($dataProvider->getModels() as $user) {
+            if ($user->profile) {
+                $this->decryptSensitiveData($user->profile);
+            }
+        }
+
+        return $this->render('managers/index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Creates a new manager
+     */
+    public function actionCreateManager()
+    {
+        if (!Yii::$app->user->can('create_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per creare manager.');
+        }
+
+        $user = new User(['scenario' => 'create']);
+        $profile = new UserProfile();
+
+        if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                // Save user
+                if (!$user->save()) {
+                    throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                // Set user_id and validate profile BEFORE encryption
+                $profile->user_id = $user->id;
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
+                $this->encryptSensitiveData($profile);
+
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nel salvare il profilo.');
+                }
+
+                // Assign manager role
+                $auth = Yii::$app->authManager;
+                $managerRole = $auth->getRole('manager');
+                $auth->assign($managerRole, $user->id);
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Manager creato con successo.');
+                return $this->redirect(['managers']);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('managers/create', [
+            'user' => $user,
+            'profile' => $profile,
+        ]);
+    }
+
+    /**
+     * Displays a single manager
+     */
+    public function actionViewManager($id)
+    {
+        if (!Yii::$app->user->can('view_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i manager.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        // Decodifica i dati sensibili del profilo utente
+        $this->decryptSensitiveData($user->profile);
+        
+        return $this->render('managers/view', [
+            'model' => $user,
+        ]);
+    }
+
+    /**
+     * Updates an existing manager
+     */
+    public function actionUpdateManager($id)
+    {
+        if (!Yii::$app->user->can('update_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per modificare manager.');
+        }
+
+        $user = $this->findUserModel($id);
+        $profile = $user->profile ?: new UserProfile(['user_id' => $user->id]);
+
+        // Decodifica i dati sensibili per mostrarli nel form
+        $this->decryptSensitiveData($profile);
+
+        if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if (!$user->save()) {
+                    throw new \Exception('Errore nell\'aggiornare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                }
+
+                // Validate profile BEFORE encryption
+                if (!$profile->validate()) {
+                    throw new \Exception('Errore nella validazione del profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                // Crittografa i dati sensibili solo dopo tutte le validazioni
+                $this->encryptSensitiveData($profile);
+
+                // Save profile (without validation since we already validated)
+                if (!$profile->save(false)) {
+                    throw new \Exception('Errore nell\'aggiornare il profilo.');
+                }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Manager aggiornato con successo.');
+                return $this->redirect(['view-manager', 'id' => $user->id]);
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('managers/update', [
+            'user' => $user,
+            'profile' => $profile,
+        ]);
+    }
+
+    /**
+     * Deletes an existing manager
+     */
+    public function actionDeleteManager($id)
+    {
+        if (!Yii::$app->user->can('delete_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per eliminare manager.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        if ($user->delete()) {
+            Yii::$app->session->setFlash('success', 'Manager eliminato con successo.');
+        } else {
+            Yii::$app->session->setFlash('error', 'Errore nell\'eliminare il manager.');
+        }
+
+        return $this->redirect(['managers']);
+    }
+
+    /**
+     * Toggles the active status of an existing manager.
+     * If the manager is active, it will be deactivated, and vice versa.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionToggleStatusManager($id)
+    {
+        if (!Yii::$app->user->can('delete_manager')) {
+            throw new ForbiddenHttpException('Non hai i permessi per gestire lo stato dei manager.');
+        }
+
+        $user = $this->findUserModel($id);
+        
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Toggle active status - usa i valori stringa corretti (ENUM database)
+            $newStatus = ($user->status == User::STATUS_ACTIVE) ? User::STATUS_INACTIVE : User::STATUS_ACTIVE;
+            $user->status = $newStatus;
+            
+            if ($user->save(false)) {
+                $transaction->commit();
+                $message = ($newStatus == User::STATUS_ACTIVE) ? 'Manager attivato con successo.' : 'Manager disattivato con successo.';
+                Yii::$app->session->setFlash('success', $message);
+            } else {
+                throw new \Exception('Errore nel cambiare lo stato del manager.');
+            }
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::$app->session->setFlash('error', $e->getMessage());
+        }
+
+        return $this->redirect(['managers']);
+    }
+
 
 
 

@@ -15,6 +15,7 @@ $menuMappings = [
     'Communications' => ['communication/index', 'communication/view'],
     'Notifications' => ['notification/index', 'notification/view'],
     'Administrators' => ['user/administrators', 'user/create-administrator', 'user/view-administrator', 'user/update-administrator'],
+    'Managers' => ['user/managers', 'user/create-manager', 'user/view-manager', 'user/update-manager'],
     'Coordinators' => ['user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator'],
     'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
     'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
@@ -424,6 +425,89 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Coordinators -->
+
+                    <!-- Menu Item Managers -->
+                    <?php if (Yii::$app->user->can('create_manager')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Managers' ? '':'Managers')"
+                            class="menu-item group"
+                            :class="(selected === 'Managers') || <?= isMenuActive('Managers', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Managers') || <?= isMenuActive('Managers', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    fill="currentColor" />
+                                <path
+                                    d="M18 8a3 3 0 11-6 0 3 3 0 016 0zM18 15v6M21 18h-6"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Manager
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Managers') || <?= isMenuActive('Managers', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Managers') || <?= isMenuActive('Managers', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/managers']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/managers'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Manager
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/user/create-manager']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['user/create-manager'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuovo Manager
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Managers -->
 
                     <!-- Menu Item Coordinator Groups -->
                     <?php if (Yii::$app->user->can('view_coordinator_group')): ?>
