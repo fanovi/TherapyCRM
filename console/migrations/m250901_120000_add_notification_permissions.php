@@ -9,7 +9,7 @@ use yii\db\Migration;
  * - view_notifications: Visualizzare notifiche inviate dal sistema
  * - manage_notifications: Gestire notifiche del sistema (riservato per future funzionalità)
  */
-class m250131_120000_add_notification_permissions extends Migration
+class m250901_120000_add_notification_permissions extends Migration
 {
     /**
      * {@inheritdoc}
