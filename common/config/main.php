@@ -1,5 +1,6 @@
 <?php
 return [
+    'language' => 'it-IT',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm' => '@vendor/npm-asset',
@@ -37,6 +38,7 @@ return [
             'thousandSeparator' => '.',
             'currencyCode' => 'EUR',
             'defaultTimeZone' => 'Europe/Rome',
+            'locale' => 'it-IT',
         ],
     ],
 ];

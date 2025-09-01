@@ -57,7 +57,10 @@ class Notification extends ActiveRecord
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
                 ],
                 'value' => function() {
-                    return date('Y-m-d H:i:s');
+                    // Usa il timezone del formatter per consistenza
+                    $timezone = Yii::$app->formatter->defaultTimeZone ?: 'Europe/Rome';
+                    $date = new \DateTime('now', new \DateTimeZone($timezone));
+                    return $date->format('Y-m-d H:i:s');
                 }
             ],
             [
@@ -131,7 +134,9 @@ class Notification extends ActiveRecord
     public function markAsRead()
     {
         if (!$this->read_at) {
-            $this->read_at = date('Y-m-d H:i:s');
+            $timezone = Yii::$app->formatter->defaultTimeZone ?: 'Europe/Rome';
+            $date = new \DateTime('now', new \DateTimeZone($timezone));
+            $this->read_at = $date->format('Y-m-d H:i:s');
             $this->save(false);
         }
     }
@@ -142,7 +147,9 @@ class Notification extends ActiveRecord
     public function markAsViewed()
     {
         if (!$this->viewed_at) {
-            $this->viewed_at = date('Y-m-d H:i:s');
+            $timezone = Yii::$app->formatter->defaultTimeZone ?: 'Europe/Rome';
+            $date = new \DateTime('now', new \DateTimeZone($timezone));
+            $this->viewed_at = $date->format('Y-m-d H:i:s');
             $this->save(false);
         }
     }
@@ -153,7 +160,9 @@ class Notification extends ActiveRecord
     public function markAsSent()
     {
         if (!$this->sent_at) {
-            $this->sent_at = date('Y-m-d H:i:s');
+            $timezone = Yii::$app->formatter->defaultTimeZone ?: 'Europe/Rome';
+            $date = new \DateTime('now', new \DateTimeZone($timezone));
+            $this->sent_at = $date->format('Y-m-d H:i:s');
             $this->save(false);
         }
     }
