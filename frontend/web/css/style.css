@@ -6517,3 +6517,8 @@ span.flatpickr-weekday,
 .dark .badge-read {
   @apply bg-gray-800 text-gray-400;
 }
+
+#w0-error-0 {
+  border-color: red !important;
+  color: red !important;
+}
