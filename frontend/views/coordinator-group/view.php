@@ -30,7 +30,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <?php if (Yii::$app->user->can('delete_coordinator_group')): ?>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Elimina', 
                     'javascript:void(0)', [
-                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-error-500 border border-transparent rounded-lg hover:bg-error-500 focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2',
                     'onclick' => 'deleteGroup(' . $model->id . ')',
                     'id' => 'delete-group-btn'
                 ]) ?>
@@ -169,7 +169,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <?php
 $this->registerJs("
-function deleteGroup(groupId) {
+window.deleteGroup = function(groupId) {
     if (!confirm('Sei sicuro di voler eliminare questo gruppo coordinatore?\\n\\nATTENZIONE: \\n- Tutti i terapisti assegnati verranno automaticamente rimossi dal gruppo\\n- Questa azione non può essere annullata')) {
         return;
     }
