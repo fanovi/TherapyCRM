@@ -548,7 +548,7 @@ tr[style*="background-color: #f0fdf4"]:hover {
         @click="closeModal()"
     ></div>
     <div
-        class="modal-dialog modal-dialog-scrollable modal-lg no-scrollbar relative flex w-full max-w-[500px] flex-col overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 lg:p-8"
+        class="modal-dialog modal-dialog-scrollable no-scrollbar relative mx-4 flex w-full max-w-md flex-col overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900 sm:mx-0 sm:max-w-lg"
     >
         <!-- close btn -->
         <button
@@ -595,11 +595,15 @@ tr[style*="background-color: #f0fdf4"]:hover {
             
             <div class="mt-6 modal-body">
                 <!-- Status Options -->
-                <div class="space-y-3">
+                <div class="space-y-6">
+                    <h6 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Seleziona il nuovo stato:</h6>
                     <template x-for="[statusId, statusName] in Object.entries(availableStatuses)" :key="statusId">
                         <div 
-                            class="flex items-center p-4 border rounded-lg cursor-pointer transition-colors border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-                            :class="{ 'bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800': selectedStatus == statusId }"
+                            class="flex items-center p-5 border-2 rounded-xl cursor-pointer transition-all duration-200 border-gray-200 hover:bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:hover:bg-gray-800 dark:hover:border-gray-600"
+                            :class="{ 
+                                'bg-brand-50 border-brand-300 ring-2 ring-brand-100 dark:bg-brand-900/30 dark:border-brand-700 dark:ring-brand-800/50': selectedStatus == statusId,
+                                'transform hover:scale-[1.02]': selectedStatus != statusId 
+                            }"
                             @click="selectStatus(statusId)"
                         >
                             <input 
@@ -608,14 +612,20 @@ tr[style*="background-color: #f0fdf4"]:hover {
                                 name="status" 
                                 :value="statusId"
                                 :checked="selectedStatus == statusId"
-                                class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600"
+                                class="h-5 w-5 text-brand-600 focus:ring-brand-500 focus:ring-offset-2 border-gray-300 dark:border-gray-600 dark:bg-gray-700"
                                 @change="selectStatus(statusId)"
                             >
                             <label 
                                 :for="'status_' + statusId" 
-                                class="ml-3 block text-sm font-medium text-gray-900 dark:text-white cursor-pointer flex-1"
+                                class="ml-4 block text-sm font-medium text-gray-900 dark:text-white cursor-pointer flex-1 select-none"
                                 x-text="statusName"
                             ></label>
+                            <!-- Checkmark icon for selected status -->
+                            <div x-show="selectedStatus == statusId" class="ml-2">
+                                <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -644,10 +654,10 @@ tr[style*="background-color: #f0fdf4"]:hover {
                 </div>
             </div>
             
-            <div class="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
+            <div class="flex flex-col gap-3 mt-8 modal-footer sm:flex-row sm:justify-end sm:gap-3">
                 <button
                     type="button"
-                    class="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+                    class="order-2 flex w-full justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-gray-400 sm:order-1 sm:w-auto"
                     @click="closeModal()"
                 >
                     Annulla
@@ -656,20 +666,20 @@ tr[style*="background-color: #f0fdf4"]:hover {
                     type="button"
                     :disabled="isLoading || !selectedStatus"
                     @click="confirmUpdate()"
-                    class="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                    class="order-1 flex w-full justify-center rounded-lg bg-brand-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-brand-600 dark:hover:bg-brand-700 sm:order-2 sm:w-auto"
                 >
                     <span x-show="!isLoading" class="flex items-center gap-2">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
-                        Conferma
+                        Conferma Aggiornamento
                     </span>
                     <span x-show="isLoading" class="flex items-center gap-2">
                         <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Aggiornamento...
+                        Aggiornamento in corso...
                     </span>
                 </button>
             </div>
