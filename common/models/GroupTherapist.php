@@ -45,7 +45,7 @@ class GroupTherapist extends ActiveRecord
                     'assigned_to',    // Data gestita manualmente
                 ],
                 'entityNameCallback' => function($model) {
-                    return 'Gruppo Terapista';
+                    return 'GruppoTerapista';
                 },
             ],
         ];  

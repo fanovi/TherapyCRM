@@ -56,7 +56,7 @@ class RequestType extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Tipo Richiesta';
+                    return 'TipoRichiesta';
                 },
             ],
         ];

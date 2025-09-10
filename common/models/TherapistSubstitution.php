@@ -43,7 +43,7 @@ class TherapistSubstitution extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['substituted_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Sostituzione Terapista';
+                    return 'SostituzioneTerapista';
                 },
             ],
         ];

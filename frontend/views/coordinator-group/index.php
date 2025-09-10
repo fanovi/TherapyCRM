@@ -143,10 +143,11 @@ $this->params['breadcrumbs'][] = $this->title;
                             'delete' => function ($url, $model, $key) {
                                 if (!Yii::$app->user->can('delete_coordinator_group')) return '';
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>', 
-                                    $url, [
+                                    'javascript:void(0)', [
                                     'title' => 'Elimina gruppo',
-                                    'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20',
-                                    'onclick' => 'return confirm("Sei sicuro di voler eliminare questo gruppo coordinatore?")',
+                                    'class' => 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 delete-group-btn',
+                                    'data-group-id' => $model->id,
+                                    'data-delete-url' => \yii\helpers\Url::to(['delete', 'id' => $model->id])
                                 ]);
                             },
                         ],
@@ -158,4 +159,69 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
     <!-- Content End -->
-</div> 
+</div>
+
+<?php
+$this->registerJs("
+// Event delegation per gestire i click sui bottoni di eliminazione anche dopo Pjax reload
+$(document).on('click', '.delete-group-btn', function(e) {
+    e.preventDefault();
+    
+    var \$btn = $(this);
+    var groupId = \$btn.data('group-id');
+    var deleteUrl = \$btn.data('delete-url');
+    
+    if (!confirm('Sei sicuro di voler eliminare questo gruppo coordinatore?\\n\\nATTENZIONE: \\n- Tutti i terapisti assegnati verranno automaticamente rimossi dal gruppo\\n- Questa azione non può essere annullata')) {
+        return;
+    }
+    
+    // Disable button and show loading
+    var originalHtml = \$btn.html();
+    \$btn.prop('disabled', true);
+    \$btn.html('<svg class=\"animate-spin w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>');
+    
+    $.ajax({
+        url: deleteUrl,
+        type: 'POST',
+        data: {
+            _csrf: $('meta[name=csrf-token]').attr('content')
+        },
+        success: function(response) {
+            if (response.success) {
+                // Show success message
+                alert('Gruppo coordinatore eliminato con successo.');
+                // Reload the grid
+                $.pjax.reload({container:'#coordinator-group-grid-pjax'});
+            } else {
+                // Re-enable button
+                \$btn.prop('disabled', false);
+                \$btn.html(originalHtml);
+                alert(response.message || 'Errore durante l\\'eliminazione del gruppo.');
+            }
+        },
+        error: function(xhr, status, error) {
+            // Re-enable button
+            \$btn.prop('disabled', false);
+            \$btn.html(originalHtml);
+            
+            var errorMessage = 'Errore durante l\\'eliminazione del gruppo.';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            } else if (xhr.responseText) {
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMessage = response.message;
+                    }
+                } catch (e) {
+                    // Keep default error message
+                }
+            }
+            
+            alert(errorMessage);
+            console.error('Delete error:', error, xhr.responseText);
+        }
+    });
+});
+");
+?> 

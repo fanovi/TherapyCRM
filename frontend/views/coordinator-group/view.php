@@ -29,9 +29,10 @@ $this->params['breadcrumbs'][] = $this->title;
                 
                 <?php if (Yii::$app->user->can('delete_coordinator_group')): ?>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Elimina', 
-                    ['delete', 'id' => $model->id], [
+                    'javascript:void(0)', [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-                    'onclick' => 'return confirm("Sei sicuro di voler eliminare questo gruppo coordinatore?")'
+                    'onclick' => 'deleteGroup(' . $model->id . ')',
+                    'id' => 'delete-group-btn'
                 ]) ?>
                 <?php endif; ?>
             </div>
@@ -164,4 +165,56 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
     <!-- Content End -->
-</div> 
+</div>
+
+<?php
+$this->registerJs("
+function deleteGroup(groupId) {
+    if (!confirm('Sei sicuro di voler eliminare questo gruppo coordinatore?\\n\\nATTENZIONE: \\n- Tutti i terapisti assegnati verranno automaticamente rimossi dal gruppo\\n- Questa azione non può essere annullata')) {
+        return;
+    }
+    
+    // Disable button and show loading
+    var btn = $('#delete-group-btn');
+    var originalText = btn.html();
+    btn.prop('disabled', true);
+    btn.html('<svg class=\"animate-spin -ml-1 mr-2 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg> Eliminazione...');
+    
+    $.ajax({
+        url: '" . \yii\helpers\Url::to(['delete', 'id' => $model->id]) . "',
+        type: 'POST',
+        data: {
+            _csrf: $('meta[name=csrf-token]').attr('content')
+        },
+        success: function(response) {
+            // Show success message
+            alert('Gruppo coordinatore eliminato con successo.');
+            // Redirect to index
+            window.location.href = '" . \yii\helpers\Url::to(['index']) . "';
+        },
+        error: function(xhr, status, error) {
+            // Re-enable button
+            btn.prop('disabled', false);
+            btn.html(originalText);
+            
+            var errorMessage = 'Errore durante l\\'eliminazione del gruppo.';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            } else if (xhr.responseText) {
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMessage = response.message;
+                    }
+                } catch (e) {
+                    // Keep default error message
+                }
+            }
+            
+            alert(errorMessage);
+            console.error('Delete error:', error, xhr.responseText);
+        }
+    });
+}
+");
+?> 

@@ -60,7 +60,7 @@ class DocumentRequest extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Richiesta Documento';
+                    return 'RichiestaDocumento';
                 },
             ],
         ];

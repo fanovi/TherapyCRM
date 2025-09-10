@@ -48,7 +48,7 @@ class AbsenceCounter extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Contatore Assenze';
+                    return 'ContatoreAssenze';
                 },
             ],
         ];

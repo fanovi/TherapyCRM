@@ -157,7 +157,7 @@ class TreatmentType extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Tipo Trattamento';
+                    return 'TipoTrattamento';
                 },
             ],
         ];

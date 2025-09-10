@@ -123,7 +123,7 @@ class NotificationTemplate extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => [],
                 'entityNameCallback' => function($model) {
-                    return 'Template Notifica';
+                    return 'TemplateNotifica';
                 },
             ],
         ];

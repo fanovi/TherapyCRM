@@ -12,6 +12,7 @@ use common\models\CoordinatorGroup;
 use common\models\GroupTherapist;
 use common\models\User;
 use common\models\Therapist;
+use common\models\ActivityLog;
 use frontend\models\CoordinatorGroupSearch;
 
 /**
@@ -288,22 +289,118 @@ class CoordinatorGroupController extends Controller
     public function actionDelete($id)
     {
         if (!Yii::$app->user->can('delete_coordinator_group')) {
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                return ['success' => false, 'message' => 'Non hai i permessi per eliminare gruppi coordinatori.'];
+            }
             throw new ForbiddenHttpException('Non hai i permessi per eliminare gruppi coordinatori.');
         }
 
         $model = $this->findModel($id);
         
-        // Controlla se ci sono terapisti assegnati
-        $therapistCount = $model->getTherapists()->count();
-        if ($therapistCount > 0) {
-            Yii::$app->session->setFlash('error', "Impossibile eliminare il gruppo: sono presenti $therapistCount terapisti assegnati. Rimuovere prima tutti i terapisti dal gruppo.");
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Prima rimuovi tutte le assegnazioni dei terapisti al gruppo
+            $therapistCount = $model->getTherapists()->count();
+            $removedTherapists = [];
+            
+            if ($therapistCount > 0) {
+                Yii::info("Removing $therapistCount therapist assignments before deleting group {$model->id}", 'coordinator-group');
+                
+                // Ottieni tutti i record di assegnazione per il logging/storico
+                $assignments = GroupTherapist::find()
+                    ->with(['therapist.user.profile'])
+                    ->where(['group_id' => $id])
+                    ->all();
+                    
+                foreach ($assignments as $assignment) {
+                    $therapistName = 'N/D';
+                    if ($assignment->therapist && $assignment->therapist->user && $assignment->therapist->user->profile) {
+                        $therapistName = $assignment->therapist->user->profile->first_name . ' ' . $assignment->therapist->user->profile->last_name;
+                    }
+                    
+                    $removedTherapists[] = [
+                        'therapist_id' => $assignment->therapist_id,
+                        'therapist_name' => $therapistName,
+                        'assigned_from' => $assignment->assigned_from,
+                        'assigned_by' => $assignment->assigned_by
+                    ];
+                    
+                    Yii::info("Removing therapist assignment: Group {$assignment->group_id} - Therapist {$assignment->therapist_id} ($therapistName) (assigned from {$assignment->assigned_from})", 'coordinator-group');
+                }
+                
+                // Elimina completamente tutti i record di assegnazione per questo gruppo
+                // Questo è necessario per rispettare il vincolo di chiave esterna
+                $deletedCount = GroupTherapist::deleteAll(['group_id' => $id]);
+                
+                Yii::info("Successfully deleted $deletedCount therapist assignments for group {$model->id}", 'coordinator-group');
+            }
+            
+            // Prepara i dati per il log dell'attività prima di eliminare il modello
+            $oldValues = [
+                'id' => $model->id,
+                'name' => $model->name,
+                'coordinator_user_id' => $model->coordinator_user_id,
+                'coordinator_name' => $model->coordinator && $model->coordinator->profile 
+                    ? $model->coordinator->profile->first_name . ' ' . $model->coordinator->profile->last_name 
+                    : ($model->coordinator ? $model->coordinator->email : 'N/D'),
+                'therapist_count' => $therapistCount,
+                'removed_therapists' => $removedTherapists,
+                'created_at' => $model->created_at,
+                'updated_at' => $model->updated_at
+            ];
+            
+            // Poi elimina il gruppo
+            if (!$model->delete()) {
+                throw new \Exception('Errore durante l\'eliminazione del gruppo dal database.');
+            }
+            
+            // Registra l'attività di eliminazione
+            $activityLog = new ActivityLog([
+                'user_id' => Yii::$app->user->id,
+                'action' => ActivityLog::ACTION_DELETE,
+                'entity_name' => 'CoordinatorGroup',
+                'entity_id' => $oldValues['id'],
+                'old_values' => json_encode($oldValues),
+                'new_values' => null,
+                'ip_address' => Yii::$app->request->getUserIP(),
+                'user_agent' => Yii::$app->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$activityLog->save()) {
+                Yii::warning('Failed to save activity log for group deletion: ' . json_encode($activityLog->getErrors()), 'coordinator-group');
+            }
+            
+            $transaction->commit();
+            
+            $successMessage = $therapistCount > 0 
+                ? "Gruppo coordinatore eliminato con successo. Rimossi $therapistCount terapisti dal gruppo."
+                : 'Gruppo coordinatore eliminato con successo.';
+            
+            Yii::info("Successfully deleted coordinator group {$model->id} with $therapistCount therapists removed", 'coordinator-group');
+            
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                return ['success' => true, 'message' => $successMessage];
+            }
+            
+            Yii::$app->session->setFlash('success', $successMessage);
+            return $this->redirect(['index']);
+            
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::error('Error deleting coordinator group: ' . $e->getMessage(), 'coordinator-group');
+            $errorMessage = 'Errore durante l\'eliminazione del gruppo: ' . $e->getMessage();
+            
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                return ['success' => false, 'message' => $errorMessage];
+            }
+            
+            Yii::$app->session->setFlash('error', $errorMessage);
             return $this->redirect(['view', 'id' => $id]);
         }
-
-        $model->delete();
-        Yii::$app->session->setFlash('success', 'Gruppo coordinatore eliminato con successo.');
-
-        return $this->redirect(['index']);
     }
 
 

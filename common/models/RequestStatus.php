@@ -51,7 +51,7 @@ class RequestStatus extends ActiveRecord
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at'],
                 'entityNameCallback' => function($model) {
-                    return 'Stato Richiesta';
+                    return 'StatoRichiesta';
                 },
             ],
         ];
