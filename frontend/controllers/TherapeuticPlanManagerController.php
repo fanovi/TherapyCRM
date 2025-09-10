@@ -1913,6 +1913,11 @@ class TherapeuticPlanManagerController extends Controller
             Yii::info("Nuovo plan_therapy_id determinato: {$newPlanTherapyId}", __METHOD__);
         }
 
+        // Verifica validità della data rispetto al piano terapeutico se cambia la data
+        if ($data['appointmentDateTime'] != $appointment->appointment_datetime) {
+            $this->validateStartDate($data['appointmentDateTime'], $newPlanTherapyId);
+        }
+
         // Verifica conflitti se cambiano data/ora/terapista
         if (
             $data['appointmentDateTime'] != $appointment->appointment_datetime ||
@@ -3031,18 +3036,16 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         // TEMPORANEAMENTE DISABILITATO PER TESTING
-        // TODO: Riabilitare questa validazione quando i dati di test saranno corretti
+        // Validazione range date del pattern rispetto al piano terapeutico
+        $planStart = new DateTime($plan->start_date);
+        $planEnd = new DateTime($plan->getCalculatedEndDate());
 
-        /*
-         * $planStart = new DateTime($plan->start_date);
-         * $planEnd = new DateTime($plan->getCalculatedEndDate());
-         *
-         * if ($fromDate < $planStart || $toDate > $planEnd) {
-         *     throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico');
-         * }
-         */
+        if ($fromDate < $planStart || $toDate > $planEnd) {
+            throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico (' . 
+                $plan->start_date . ' - ' . $plan->getCalculatedEndDate() . ')');
+        }
 
-        Yii::info("Validazione date temporaneamente disabilitata per testing - Pattern: {$validFrom} - {$validTo}", __METHOD__);
+        Yii::info("Validazione date pattern completata - Pattern: {$validFrom} - {$validTo}, Piano: {$plan->start_date} - {$plan->getCalculatedEndDate()}", __METHOD__);
     }
 
     /**
@@ -3209,6 +3212,10 @@ class TherapeuticPlanManagerController extends Controller
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
         $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
+        
+        // Validazione data rispetto al piano terapeutico
+        $this->validateStartDate($appointmentDateTime, $pattern->plan_therapy_id);
+        
         $appointment = new Appointment();
         $appointment->pattern_id = $pattern->id;
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
@@ -3254,6 +3261,9 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error("Errore nel parsing della data: {$appointmentDateTime}", __METHOD__);
             throw new Exception("Formato data/ora non valido: {$appointmentDateTime}");
         }
+
+        // Validazione data rispetto al piano terapeutico
+        $this->validateStartDate($appointmentDateTime, $data['planTherapyId']);
 
         $appointment = new Appointment();
         $appointment->plan_therapy_id = $data['planTherapyId'];
@@ -4339,6 +4349,9 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
             $this->validateTherapist($data);
+            
+            // Validazione data rispetto al piano terapeutico
+            $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
 
             // Verifica limite ore per tipologia trattamento TEST ABA
             $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
