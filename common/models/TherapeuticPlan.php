@@ -120,6 +120,7 @@ class TherapeuticPlan extends ActiveRecord
 
         $hasSupervision = false;
         $hasParentTraining = false;
+        $otherTherapiesCount = 0;
 
         foreach ($therapies as $therapy) {
             if (empty($therapy['treatment_type_id'])) {
@@ -135,10 +136,11 @@ class TherapeuticPlan extends ActiveRecord
             
             if (strpos($treatmentName, 'SUPERVIS') !== false) {
                 $hasSupervision = true;
-            }
-            
-            if (strpos($treatmentName, 'PARENT') !== false || strpos($treatmentName, 'TRAINING') !== false) {
+            } elseif (strpos($treatmentName, 'PARENT') !== false || strpos($treatmentName, 'TRAINING') !== false) {
                 $hasParentTraining = true;
+            } else {
+                // Conta le terapie che non sono supervisione né parent training
+                $otherTherapiesCount++;
             }
         }
 
@@ -148,6 +150,10 @@ class TherapeuticPlan extends ActiveRecord
 
         if (!$hasParentTraining) {
             $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire ore di PARENT TRAINING.');
+        }
+
+        if ($otherTherapiesCount === 0) {
+            $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire almeno una terapia oltre alla supervisione e al parent training.');
         }
     }
 

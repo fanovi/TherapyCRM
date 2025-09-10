@@ -403,128 +403,150 @@ class TherapeuticPlanController extends BaseController
 
         if ($this->request->isPost) {
             $isValid = true;
-            $transaction = Yii::$app->db->beginTransaction();
+            $error = null;
 
             try {
-                if ($model->load($this->request->post()) && $model->save()) {
+                // Carica i dati del form
+                if (!$model->load($this->request->post())) {
+                    throw new \Exception('Errore nel caricamento dei dati del form.');
+                }
 
-                    // Verifica sovrapposizione piani PRIMA di tutto il resto
-                    if ($model->patient_id && $model->start_date && $model->duration_days) {
-                        $overlapCheck = $this->checkPlanOverlap(
-                            $model->patient_id,
-                            $model->start_date,
-                            $model->duration_days,
-                            $model->id
+                // Verifica sovrapposizione piani PRIMA di tutto il resto
+                if ($model->patient_id && $model->start_date && $model->duration_days) {
+                    $overlapCheck = $this->checkPlanOverlap(
+                        $model->patient_id,
+                        $model->start_date,
+                        $model->duration_days,
+                        $model->id
+                    );
+
+                    if (!$overlapCheck['isValid']) {
+                        $conflictingPlan = $overlapCheck['conflictingPlan'];
+                        $error = sprintf(
+                            'Esiste già un piano terapeutico per questo paziente dal %s al %s (Piano #%d - %s) che si sovrappone con le date selezionate.',
+                            Yii::$app->formatter->asDate($conflictingPlan['start_date']),
+                            Yii::$app->formatter->asDate($conflictingPlan['end_date']),
+                            $conflictingPlan['id'],
+                            $conflictingPlan['regime']
                         );
+                        throw new \Exception($error);
+                    }
+                }
 
-                        if (!$overlapCheck['isValid']) {
-                            $conflictingPlan = $overlapCheck['conflictingPlan'];
-                            $error = sprintf(
-                                'Esiste già un piano terapeutico per questo paziente dal %s al %s (Piano #%d - %s) che si sovrappone con le date selezionate.',
-                                Yii::$app->formatter->asDate($conflictingPlan['start_date']),
-                                Yii::$app->formatter->asDate($conflictingPlan['end_date']),
-                                $conflictingPlan['id'],
-                                $conflictingPlan['regime']
-                            );
-                            throw new \Exception($error);
+                // Valida le terapie
+                $therapies = Yii::$app->request->post('PlanTherapy', []);
+                if (empty($therapies)) {
+                    throw new \Exception('È necessario inserire almeno una terapia.');
+                }
+
+                // Passa le terapie al modello per la validazione ABA
+                $model->setTherapiesForValidation($therapies);
+
+                // Verifica duplicati
+                $treatmentTypes = [];
+                foreach ($therapies as $therapy) {
+                    if (!empty($therapy['treatment_type_id'])) {
+                        if (in_array($therapy['treatment_type_id'], $treatmentTypes)) {
+                            throw new \Exception('Non è possibile assegnare lo stesso tipo di trattamento più volte.');
+                        }
+                        $treatmentTypes[] = $therapy['treatment_type_id'];
+                    }
+                }
+
+                // Valida il modello (include validazione ABA)
+                if (!$model->validate()) {
+                    $errors = [];
+                    foreach ($model->errors as $field => $fieldErrors) {
+                        $errors[] = implode(', ', $fieldErrors);
+                    }
+                    throw new \Exception('Errori di validazione: ' . implode('; ', $errors));
+                }
+
+                $transaction = Yii::$app->db->beginTransaction();
+
+                // Salva il modello principale
+                if (!$model->save(false)) { // false per skip validation dato che l'abbiamo già fatta
+                    throw new \Exception('Errore nel salvataggio del piano terapeutico: ' . json_encode($model->errors));
+                }
+
+                // Verifica se ci sono appuntamenti per le terapie da rimuovere
+                $currentTherapies = \common\models\PlanTherapy::find()
+                    ->where(['therapeutic_plan_id' => $model->id])
+                    ->all();
+
+                $currentTherapyIds = array_map(function ($therapy) {
+                    return $therapy->treatment_type_id;
+                }, $currentTherapies);
+
+                $newTherapyIds = array_map(function ($therapy) {
+                    return $therapy['treatment_type_id'];
+                }, array_filter($therapies, function ($therapy) {
+                    return !empty($therapy['treatment_type_id']);
+                }));
+
+                $removedTherapyIds = array_diff($currentTherapyIds, $newTherapyIds);
+
+                foreach ($removedTherapyIds as $treatmentTypeId) {
+                    $therapy = \common\models\PlanTherapy::findOne([
+                        'therapeutic_plan_id' => $model->id,
+                        'treatment_type_id' => $treatmentTypeId
+                    ]);
+
+                    if ($therapy) {
+                        $hasAppointments = \common\models\Appointment::find()
+                            ->where(['plan_therapy_id' => $therapy->id])
+                            ->exists();
+
+                        if ($hasAppointments) {
+                            throw new \Exception('Non è possibile rimuovere una terapia per cui esistono già degli appuntamenti.');
                         }
                     }
+                }
 
-                    // Valida le terapie
-                    $therapies = Yii::$app->request->post('PlanTherapy', []);
-                    if (empty($therapies)) {
-                        throw new \Exception('È necessario inserire almeno una terapia.');
+                // Rimuovi le terapie esistenti che non hanno appuntamenti
+                foreach ($currentTherapies as $therapy) {
+                    if (!in_array($therapy->treatment_type_id, $newTherapyIds)) {
+                        $therapy->delete();
                     }
+                }
 
-                    // Verifica duplicati
-                    $treatmentTypes = [];
-                    foreach ($therapies as $therapy) {
-                        if (!empty($therapy['treatment_type_id'])) {
-                            if (in_array($therapy['treatment_type_id'], $treatmentTypes)) {
-                                throw new \Exception('Non è possibile assegnare lo stesso tipo di trattamento più volte.');
-                            }
-                            $treatmentTypes[] = $therapy['treatment_type_id'];
-                        }
-                    }
-
-                    // Verifica se ci sono appuntamenti per le terapie da rimuovere
-                    $currentTherapies = \common\models\PlanTherapy::find()
-                        ->where(['therapeutic_plan_id' => $model->id])
-                        ->all();
-
-                    $currentTherapyIds = array_map(function ($therapy) {
-                        return $therapy->treatment_type_id;
-                    }, $currentTherapies);
-
-                    $newTherapyIds = array_map(function ($therapy) {
-                        return $therapy['treatment_type_id'];
-                    }, array_filter($therapies, function ($therapy) {
-                        return !empty($therapy['treatment_type_id']);
-                    }));
-
-                    $removedTherapyIds = array_diff($currentTherapyIds, $newTherapyIds);
-
-                    foreach ($removedTherapyIds as $treatmentTypeId) {
-                        $therapy = \common\models\PlanTherapy::findOne([
+                // Aggiorna o crea nuove terapie
+                foreach ($therapies as $therapy) {
+                    if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
+                        $existingTherapy = \common\models\PlanTherapy::findOne([
                             'therapeutic_plan_id' => $model->id,
-                            'treatment_type_id' => $treatmentTypeId
+                            'treatment_type_id' => $therapy['treatment_type_id']
                         ]);
 
-                        if ($therapy) {
-                            $hasAppointments = \common\models\Appointment::find()
-                                ->where(['plan_therapy_id' => $therapy->id])
-                                ->exists();
+                        if ($existingTherapy) {
+                            $existingTherapy->weekly_hours = $therapy['weekly_hours'];
+                            $existingTherapy->is_group = !empty($therapy['is_group']);
+                            $existingTherapy->setting_id = $therapy['setting_id'];
+                            $existingTherapy->notes = $therapy['notes'] ?? null;
 
-                            if ($hasAppointments) {
-                                throw new \Exception('Non è possibile rimuovere una terapia per cui esistono già degli appuntamenti.');
+                            if (!$existingTherapy->save()) {
+                                throw new \Exception('Errore nell\'aggiornamento della terapia: ' . json_encode($existingTherapy->errors));
+                            }
+                        } else {
+                            $newTherapy = new \common\models\PlanTherapy();
+                            $newTherapy->therapeutic_plan_id = $model->id;
+                            $newTherapy->treatment_type_id = $therapy['treatment_type_id'];
+                            $newTherapy->weekly_hours = $therapy['weekly_hours'];
+                            $newTherapy->is_group = !empty($therapy['is_group']);
+                            $newTherapy->setting_id = $therapy['setting_id'];
+                            $newTherapy->notes = $therapy['notes'] ?? null;
+
+                            if (!$newTherapy->save()) {
+                                throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
                             }
                         }
                     }
-
-                    // Rimuovi le terapie esistenti che non hanno appuntamenti
-                    foreach ($currentTherapies as $therapy) {
-                        if (!in_array($therapy->treatment_type_id, $newTherapyIds)) {
-                            $therapy->delete();
-                        }
-                    }
-
-                    // Aggiorna o crea nuove terapie
-                    foreach ($therapies as $therapy) {
-                        if (!empty($therapy['treatment_type_id']) && !empty($therapy['weekly_hours'])) {
-                            $existingTherapy = \common\models\PlanTherapy::findOne([
-                                'therapeutic_plan_id' => $model->id,
-                                'treatment_type_id' => $therapy['treatment_type_id']
-                            ]);
-
-                            if ($existingTherapy) {
-                                $existingTherapy->weekly_hours = $therapy['weekly_hours'];
-                                $existingTherapy->is_group = !empty($therapy['is_group']);
-                                $existingTherapy->setting_id = $therapy['setting_id'];
-                                $existingTherapy->notes = $therapy['notes'] ?? null;
-
-                                if (!$existingTherapy->save()) {
-                                    throw new \Exception('Errore nell\'aggiornamento della terapia: ' . json_encode($existingTherapy->errors));
-                                }
-                            } else {
-                                $newTherapy = new \common\models\PlanTherapy();
-                                $newTherapy->therapeutic_plan_id = $model->id;
-                                $newTherapy->treatment_type_id = $therapy['treatment_type_id'];
-                                $newTherapy->weekly_hours = $therapy['weekly_hours'];
-                                $newTherapy->is_group = !empty($therapy['is_group']);
-                                $newTherapy->setting_id = $therapy['setting_id'];
-                                $newTherapy->notes = $therapy['notes'] ?? null;
-
-                                if (!$newTherapy->save()) {
-                                    throw new \Exception('Errore nel salvataggio della terapia: ' . json_encode($newTherapy->errors));
-                                }
-                            }
-                        }
-                    }
-
-                    $transaction->commit();
-                    Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
-                    return $this->redirect(['view', 'id' => $model->id]);
                 }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
+                return $this->redirect(['view', 'id' => $model->id]);
+
             } catch (\Exception $e) {
                 $transaction->rollBack();
                 Yii::$app->session->setFlash('error', $e->getMessage());
