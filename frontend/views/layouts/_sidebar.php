@@ -972,7 +972,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                         ->count();
 
                                     if ($unreadCount > 0) {
-                                        echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">' . $unreadCount . '</span>';
+                                        echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full notification-badge-red">' . $unreadCount . '</span>';
                                     }
                                 }
                                 ?>

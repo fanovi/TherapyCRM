@@ -6522,3 +6522,21 @@ span.flatpickr-weekday,
   border-color: red !important;
   color: red !important;
 }
+
+/* Notification Badge Styles */
+.notification-badge-red {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Dark mode support */
+.dark .notification-badge-red {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Alternative for systems that use data-theme */
+[data-theme="dark"] .notification-badge-red {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+}
