@@ -47,7 +47,7 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
                 </div>
             <?php endif; ?>
             
-            <div class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+            <div style="display: none;" class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                 <?= $useIframe ? 'Modalità Iframe (Dev)' : 'Modalità Integrata (Prod)' ?>
                 <?php if ($useIframe): ?>
                     <br>URL: <?= Html::encode($iframeSrc) ?>
