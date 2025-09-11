@@ -136,10 +136,17 @@ $this->params['breadcrumbs'][] = $this->title;
                         'label' => 'Paziente',
                         'value' => function($model) {
                             if ($model->patient) {
-                                return $model->patient->fullName . ' (' . $model->patient->fiscal_code . ')';
+                                $patientName = Html::encode($model->patient->fullName);
+                                $fiscalCode = Html::encode($model->patient->fiscal_code);
+                                $patientLink = Html::a("$patientName ($fiscalCode)", ['/patient/view', 'id' => $model->patient->id], [
+                                    'class' => 'text-brand-600 hover:text-brand-800 font-medium transition-colors duration-200',
+                                    'title' => 'Visualizza dettagli paziente'
+                                ]);
+                                return $patientLink;
                             }
                             return 'N/A';
-                        }
+                        },
+                        'format' => 'raw'
                     ],
                     [
                         'attribute' => 'regime_id',
@@ -273,7 +280,11 @@ $this->params['breadcrumbs'][] = $this->title;
                         <h4 class="text-sm font-medium text-gray-900 dark:text-white/90 mb-3">Informazioni Paziente</h4>
                         <div class="space-y-2">
                             <p class="text-sm text-gray-600 dark:text-gray-400">
-                                <span class="font-medium">Nome:</span> <?= Html::encode($model->patient->fullName) ?>
+                                <span class="font-medium">Nome:</span> 
+                                <?= Html::a(Html::encode($model->patient->fullName), ['/patient/view', 'id' => $model->patient->id], [
+                                    'class' => 'text-brand-600 hover:text-brand-800 font-medium transition-colors duration-200 ml-1',
+                                    'title' => 'Visualizza dettagli paziente'
+                                ]) ?>
                             </p>
                             <p class="text-sm text-gray-600 dark:text-gray-400">
                                 <span class="font-medium">Codice Fiscale:</span> <?= Html::encode($model->patient->fiscal_code) ?>
