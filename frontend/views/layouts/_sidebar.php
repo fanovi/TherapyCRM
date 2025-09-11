@@ -571,7 +571,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     ->count();
 
                                 if ($unreadNotifications > 0) {
-                                    echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">' . $unreadNotifications . '</span>';
+                                    echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full notification-badge-red">' . $unreadNotifications . '</span>';
                                 }
                                 ?>
                             </span>
