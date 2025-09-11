@@ -38,11 +38,11 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
             
             <?php if ($idPatient): ?>
-                <div class="text-sm text-gray-500 dark:text-gray-400">
+                <div style="display: none;" class="text-sm text-gray-500 dark:text-gray-400">
                     Vista Paziente: ID <?= Html::encode($idPatient) ?>
                 </div>
             <?php elseif ($idTherapist): ?>
-                <div class="text-sm text-gray-500 dark:text-gray-400">
+                <div style="display: none;" class="text-sm text-gray-500 dark:text-gray-400">
                     Vista Terapista: ID <?= Html::encode($idTherapist) ?>
                 </div>
             <?php endif; ?>
