@@ -143,6 +143,443 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     </li>
                     <!-- Menu Item Dashboard -->
 
+                    <!-- Menu Item Patients -->
+                    <?php if (Yii::$app->user->can('create_patient')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Patients' ? '':'Patients')"
+                            class="menu-item group"
+                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 3.5C8.96243 3.5 6.5 5.96243 6.5 9C6.5 12.0376 8.96243 14.5 12 14.5C15.0376 14.5 17.5 12.0376 17.5 9C17.5 5.96243 15.0376 3.5 12 3.5ZM5 9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9C19 12.866 15.866 16 12 16C8.13401 16 5 12.866 5 9ZM12 18.5C7.30558 18.5 3.5 20.3431 3.5 22.5C3.5 23.3284 4.17157 24 5 24H19C19.8284 24 20.5 23.3284 20.5 22.5C20.5 20.3431 16.6944 18.5 12 18.5ZM2 22.5C2 19.1863 6.47715 17 12 17C17.5228 17 22 19.1863 22 22.5C22 24.1569 20.6569 25.5 19 25.5H5C3.34315 25.5 2 24.1569 2 22.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Pazienti
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/patient/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Pazienti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/patient/create']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuovo Paziente
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Patients -->
+
+                    <!-- Menu Item Therapists -->
+                    <?php if (Yii::$app->user->can('create_therapist')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Therapists' ? '':'Therapists')"
+                            class="menu-item group"
+                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M7.5 6C8.32843 6 9 6.67157 9 7.5C9 8.32843 8.32843 9 7.5 9C6.67157 9 6 8.32843 6 7.5C6 6.67157 6.67157 6 7.5 6ZM16.5 6C17.3284 6 18 6.67157 18 7.5C18 8.32843 17.3284 9 16.5 9C15.6716 9 15 8.32843 15 7.5C15 6.67157 15.6716 6 16.5 6ZM12 11C13.1046 11 14 11.8954 14 13C14 14.1046 13.1046 15 12 15C10.8954 15 10 14.1046 10 13C10 11.8954 10.8954 11 12 11ZM18.364 10.636C18.9497 11.2218 18.9497 12.1716 18.364 12.7574L17.6569 13.4645C17.2663 13.8551 16.633 13.8551 16.2425 13.4645C15.8519 13.074 15.8519 12.4408 16.2425 12.0503L16.9496 11.3431C17.5354 10.7574 18.4851 10.7574 19.0709 11.3431ZM5.636 10.636C6.22176 10.0503 7.17157 10.0503 7.75736 10.636L8.46447 11.3431C8.85499 11.7337 8.85499 12.3668 8.46447 12.7574C8.07394 13.1479 7.44078 13.1479 7.05025 12.7574L6.34315 12.0503C5.75736 11.4645 5.75736 10.5147 6.34315 9.92893ZM3 19.5C3 17.567 4.567 16 6.5 16H17.5C19.433 16 21 17.567 21 19.5C21 20.8807 19.8807 22 18.5 22H5.5C4.11929 22 3 20.8807 3 19.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Terapisti
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Terapisti
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapist/create']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuovo Terapista
+                                    </a>
+                                </li>
+                                <?php if (Yii::$app->user->can('view_own_group_therapists')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/my-group'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        I Miei Terapisti
+                                    </a>
+                                </li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php if (Yii::$app->user->can('create_absence')): ?>
+<li>
+    <a
+        href="#"
+        @click.prevent="selected = (selected === 'Absences' ? '':'Absences')"
+        class="menu-item group"
+        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+        <svg
+            :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"
+                fill="" />
+        </svg>
+
+        <span
+            class="menu-item-text"
+            :class="sidebarToggle ? 'lg:hidden' : ''">
+            Assenze
+        </span>
+
+        <svg
+            class="menu-item-arrow"
+            :class="[(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+                d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                stroke=""
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+    </a>
+
+    <!-- Dropdown Menu Start -->
+    <div
+        class="overflow-hidden transform translate"
+        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+        <ul
+            :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+            class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+            <?php if (Yii::$app->user->can('view_absence')): ?>
+            <li>
+                <a
+                    href="<?= \yii\helpers\Url::to(['/absence/index']) ?>"
+                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                    Visualizza Assenze
+                </a>
+            </li>
+            <?php endif; ?>
+            <li>
+                <a
+                    href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
+                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                    Nuova Assenza
+                </a>
+            </li>
+        </ul>
+    </div>
+    <!-- Dropdown Menu End -->
+</li>
+<?php endif; ?>
+                    <?php elseif (Yii::$app->user->can('view_own_group_therapists')): ?>
+                    <!-- Menu Item My Therapists (for coordinators only) -->
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
+                            @click="selected = (selected === 'MyTherapists' ? '':'MyTherapists')"
+                            class="menu-item group"
+                            :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    fill="currentColor" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                I Miei Terapisti
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Therapists -->
+
+                    <!-- Menu Item Therapeutic Plans -->
+                    <?php if (Yii::$app->user->can('view_therapeutic_plan')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'TherapeuticPlans' ? '':'TherapeuticPlans')"
+                            class="menu-item group"
+                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
+                                    fill="" />
+                                <path
+                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
+                                    fill="" />
+                                <path
+                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
+                                    fill="" />
+                                <path
+                                    d="M9 7C8.44772 7 8 7.44772 8 8C8 8.55228 8.44772 9 9 9H11C11.5523 9 12 8.55228 12 8C12 7.44772 11.5523 7 11 7H9Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Piani Terapeutici
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Piani
+                                    </a>
+                                </li>
+                                <?php if (Yii::$app->user->can('create_therapeutic_plan')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/create']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuovo Piano
+                                    </a>
+                                </li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Therapeutic Plans -->
+
+                    <!-- Menu Item Document Requests -->
+                    <?php if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/document-request/index']) ?>"
+                            @click="selected = (selected === 'DocumentRequests' ? '':'DocumentRequests')"
+                            class="menu-item group"
+                            :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
+                                    fill="" />
+                                <path
+                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
+                                    fill="" />
+                                <path
+                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Richieste Documenti
+                                <?php
+                                // Mostra badge con richieste non lette solo se l'utente può gestirle
+                                if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')) {
+                                    $unreadCount = \common\models\DocumentRequest::find()
+                                        ->where(['status' => \common\models\RequestStatus::STATUS_INVIATA])
+                                        ->count();
+
+                                    if ($unreadCount > 0) {
+                                        echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full notification-badge-red">' . $unreadCount . '</span>';
+                                    }
+                                }
+                                ?>
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Document Requests -->
+
+                    <!-- Menu Item Notifications -->
+                    <?php if (Yii::$app->user->can('view_notifications')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/notification/index']) ?>"
+                            @click="selected = (selected === 'Notifications' ? '':'Notifications')"
+                            class="menu-item group"
+                            :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 2C13.1046 2 14 2.89543 14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 10.8954 2 12 2ZM12 8C14.7614 8 17 10.2386 17 13V16.5C17 16.7761 17.2239 17 17.5 17H19C19.5523 17 20 17.4477 20 18C20 18.5523 19.5523 19 19 19H5C4.44772 19 4 18.5523 4 18C4 17.4477 4.44772 17 5 17H6.5C6.77614 17 7 16.7761 7 16.5V13C7 10.2386 9.23858 8 12 8ZM12 20C11.4477 20 11 20.4477 11 21C11 21.5523 11.4477 22 12 22C12.5523 22 13 21.5523 13 21C13 20.4477 12.5523 20 12 20Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Notifiche Sistema
+                                <?php
+                                // Mostra badge con notifiche non lette
+                                $unreadNotifications = \common\models\Notification::find()
+                                    ->where(['not', ['sender_user_id' => null]])  // Solo notifiche con mittente
+                                    ->andWhere(['read_at' => null])
+                                    ->count();
+
+                                if ($unreadNotifications > 0) {
+                                    echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">' . $unreadNotifications . '</span>';
+                                }
+                                ?>
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Notifications -->
+
                     <!-- Menu Item Statistics -->
                     <?php if (Yii::$app->user->can('view_statistics')): ?>
                     <li>
@@ -236,49 +673,6 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Statistics -->
-
-                    <!-- Menu Item Notifications -->
-                    <?php if (Yii::$app->user->can('view_notifications')): ?>
-                    <li>
-                        <a
-                            href="<?= \yii\helpers\Url::to(['/notification/index']) ?>"
-                            @click="selected = (selected === 'Notifications' ? '':'Notifications')"
-                            class="menu-item group"
-                            :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'Notifications') || <?= isMenuActive('Notifications', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M12 2C13.1046 2 14 2.89543 14 4C14 5.10457 13.1046 6 12 6C10.8954 6 10 5.10457 10 4C10 2.89543 10.8954 2 12 2ZM12 8C14.7614 8 17 10.2386 17 13V16.5C17 16.7761 17.2239 17 17.5 17H19C19.5523 17 20 17.4477 20 18C20 18.5523 19.5523 19 19 19H5C4.44772 19 4 18.5523 4 18C4 17.4477 4.44772 17 5 17H6.5C6.77614 17 7 16.7761 7 16.5V13C7 10.2386 9.23858 8 12 8ZM12 20C11.4477 20 11 20.4477 11 21C11 21.5523 11.4477 22 12 22C12.5523 22 13 21.5523 13 21C13 20.4477 12.5523 20 12 20Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Notifiche Sistema
-                                <?php
-                                // Mostra badge con notifiche non lette
-                                $unreadNotifications = \common\models\Notification::find()
-                                    ->where(['not', ['sender_user_id' => null]])  // Solo notifiche con mittente
-                                    ->andWhere(['read_at' => null])
-                                    ->count();
-
-                                if ($unreadNotifications > 0) {
-                                    echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">' . $unreadNotifications . '</span>';
-                                }
-                                ?>
-                            </span>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Notifications -->
 
                     <!-- Menu Item Administrators -->
                     <?php if (Yii::$app->user->can('create_admin')): ?>
@@ -587,400 +981,6 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Coordinator Groups -->
-
-                    <!-- Menu Item Therapists -->
-                    <?php if (Yii::$app->user->can('create_therapist')): ?>
-                    <li>
-                        <a
-                            href="#"
-                            @click.prevent="selected = (selected === 'Therapists' ? '':'Therapists')"
-                            class="menu-item group"
-                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M7.5 6C8.32843 6 9 6.67157 9 7.5C9 8.32843 8.32843 9 7.5 9C6.67157 9 6 8.32843 6 7.5C6 6.67157 6.67157 6 7.5 6ZM16.5 6C17.3284 6 18 6.67157 18 7.5C18 8.32843 17.3284 9 16.5 9C15.6716 9 15 8.32843 15 7.5C15 6.67157 15.6716 6 16.5 6ZM12 11C13.1046 11 14 11.8954 14 13C14 14.1046 13.1046 15 12 15C10.8954 15 10 14.1046 10 13C10 11.8954 10.8954 11 12 11ZM18.364 10.636C18.9497 11.2218 18.9497 12.1716 18.364 12.7574L17.6569 13.4645C17.2663 13.8551 16.633 13.8551 16.2425 13.4645C15.8519 13.074 15.8519 12.4408 16.2425 12.0503L16.9496 11.3431C17.5354 10.7574 18.4851 10.7574 19.0709 11.3431ZM5.636 10.636C6.22176 10.0503 7.17157 10.0503 7.75736 10.636L8.46447 11.3431C8.85499 11.7337 8.85499 12.3668 8.46447 12.7574C8.07394 13.1479 7.44078 13.1479 7.05025 12.7574L6.34315 12.0503C5.75736 11.4645 5.75736 10.5147 6.34315 9.92893ZM3 19.5C3 17.567 4.567 16 6.5 16H17.5C19.433 16 21 17.567 21 19.5C21 20.8807 19.8807 22 18.5 22H5.5C4.11929 22 3 20.8807 3 19.5Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Terapisti
-                            </span>
-
-                            <svg
-                                class="menu-item-arrow"
-                                :class="[(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                        </a>
-
-                        <!-- Dropdown Menu Start -->
-                        <div
-                            class="overflow-hidden transform translate"
-                            :class="(selected === 'Therapists') || <?= isMenuActive('Therapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
-                            <ul
-                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/therapist/index']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Visualizza Terapisti
-                                    </a>
-                                </li>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/therapist/create']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuovo Terapista
-                                    </a>
-                                </li>
-                                <?php if (Yii::$app->user->can('view_own_group_therapists')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapist/my-group'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        I Miei Terapisti
-                                    </a>
-                                </li>
-                                <?php endif; ?>
-                            </ul>
-                        </div>
-                        <!-- Dropdown Menu End -->
-                    </li>
-                    <?php if (Yii::$app->user->can('create_absence')): ?>
-<li>
-    <a
-        href="#"
-        @click.prevent="selected = (selected === 'Absences' ? '':'Absences')"
-        class="menu-item group"
-        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-        <svg
-            :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg">
-            <path
-                fill-rule="evenodd"
-                clip-rule="evenodd"
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"
-                fill="" />
-        </svg>
-
-        <span
-            class="menu-item-text"
-            :class="sidebarToggle ? 'lg:hidden' : ''">
-            Assenze
-        </span>
-
-        <svg
-            class="menu-item-arrow"
-            :class="[(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg">
-            <path
-                d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                stroke=""
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round" />
-        </svg>
-    </a>
-
-    <!-- Dropdown Menu Start -->
-    <div
-        class="overflow-hidden transform translate"
-        :class="(selected === 'Absences') || <?= isMenuActive('Absences', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
-        <ul
-            :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-            class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-            <?php if (Yii::$app->user->can('view_absence')): ?>
-            <li>
-                <a
-                    href="<?= \yii\helpers\Url::to(['/absence/index']) ?>"
-                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                    Visualizza Assenze
-                </a>
-            </li>
-            <?php endif; ?>
-            <li>
-                <a
-                    href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
-                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                    Nuova Assenza
-                </a>
-            </li>
-        </ul>
-    </div>
-    <!-- Dropdown Menu End -->
-</li>
-<?php endif; ?>
-                    <?php elseif (Yii::$app->user->can('view_own_group_therapists')): ?>
-                    <!-- Menu Item My Therapists (for coordinators only) -->
-                    <li>
-                        <a
-                            href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
-                            @click="selected = (selected === 'MyTherapists' ? '':'MyTherapists')"
-                            class="menu-item group"
-                            :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'MyTherapists') || <?= isMenuActive('MyTherapists', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    fill="currentColor" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                I Miei Terapisti
-                            </span>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Therapists -->
-
-                    <!-- Menu Item Patients -->
-                    <?php if (Yii::$app->user->can('create_patient')): ?>
-                    <li>
-                        <a
-                            href="#"
-                            @click.prevent="selected = (selected === 'Patients' ? '':'Patients')"
-                            class="menu-item group"
-                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M12 3.5C8.96243 3.5 6.5 5.96243 6.5 9C6.5 12.0376 8.96243 14.5 12 14.5C15.0376 14.5 17.5 12.0376 17.5 9C17.5 5.96243 15.0376 3.5 12 3.5ZM5 9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9C19 12.866 15.866 16 12 16C8.13401 16 5 12.866 5 9ZM12 18.5C7.30558 18.5 3.5 20.3431 3.5 22.5C3.5 23.3284 4.17157 24 5 24H19C19.8284 24 20.5 23.3284 20.5 22.5C20.5 20.3431 16.6944 18.5 12 18.5ZM2 22.5C2 19.1863 6.47715 17 12 17C17.5228 17 22 19.1863 22 22.5C22 24.1569 20.6569 25.5 19 25.5H5C3.34315 25.5 2 24.1569 2 22.5Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Pazienti
-                            </span>
-
-                            <svg
-                                class="menu-item-arrow"
-                                :class="[(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                        </a>
-
-                        <!-- Dropdown Menu Start -->
-                        <div
-                            class="overflow-hidden transform translate"
-                            :class="(selected === 'Patients') || <?= isMenuActive('Patients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
-                            <ul
-                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/patient/index']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Visualizza Pazienti
-                                    </a>
-                                </li>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/patient/create']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuovo Paziente
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                        <!-- Dropdown Menu End -->
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Patients -->
-
-                    <!-- Menu Item Therapeutic Plans -->
-                    <?php if (Yii::$app->user->can('view_therapeutic_plan')): ?>
-                    <li>
-                        <a
-                            href="#"
-                            @click.prevent="selected = (selected === 'TherapeuticPlans' ? '':'TherapeuticPlans')"
-                            class="menu-item group"
-                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
-                                    fill="" />
-                                <path
-                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
-                                    fill="" />
-                                <path
-                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
-                                    fill="" />
-                                <path
-                                    d="M9 7C8.44772 7 8 7.44772 8 8C8 8.55228 8.44772 9 9 9H11C11.5523 9 12 8.55228 12 8C12 7.44772 11.5523 7 11 7H9Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Piani Terapeutici
-                            </span>
-
-                            <svg
-                                class="menu-item-arrow"
-                                :class="[(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                        </a>
-
-                        <!-- Dropdown Menu Start -->
-                        <div
-                            class="overflow-hidden transform translate"
-                            :class="(selected === 'TherapeuticPlans') || <?= isMenuActive('TherapeuticPlans', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
-                            <ul
-                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/index']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Visualizza Piani
-                                    </a>
-                                </li>
-                                <?php if (Yii::$app->user->can('create_therapeutic_plan')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/therapeutic-plan/create']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['therapeutic-plan/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuovo Piano
-                                    </a>
-                                </li>
-                                <?php endif; ?>
-                            </ul>
-                        </div>
-                        <!-- Dropdown Menu End -->
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Therapeutic Plans -->
-
-                    <!-- Menu Item Document Requests -->
-                    <?php if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')): ?>
-                    <li>
-                        <a
-                            href="<?= \yii\helpers\Url::to(['/document-request/index']) ?>"
-                            @click="selected = (selected === 'DocumentRequests' ? '':'DocumentRequests')"
-                            class="menu-item group"
-                            :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'DocumentRequests') || <?= isMenuActive('DocumentRequests', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8.41421C20 7.88378 19.7893 7.37507 19.4142 7L16 3.58579C15.6249 3.21071 15.1162 3 14.5858 3H6ZM6 4H14V8C14 9.10457 14.8954 10 16 10H18V20H6V4ZM16 8V6.41421L17.5858 8H16Z"
-                                    fill="" />
-                                <path
-                                    d="M8 12C8 11.4477 8.44772 11 9 11H15C15.5523 11 16 11.4477 16 12C16 12.5523 15.5523 13 15 13H9C8.44772 13 8 12.5523 8 12Z"
-                                    fill="" />
-                                <path
-                                    d="M8 16C8 15.4477 8.44772 15 9 15H13C13.5523 15 14 15.4477 14 16C14 16.5523 13.5523 17 13 17H9C8.44772 17 8 16.5523 8 16Z"
-                                    fill="" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Richieste Documenti
-                                <?php
-                                // Mostra badge con richieste non lette solo se l'utente può gestirle
-                                if (Yii::$app->user->can('manage_documents') || Yii::$app->user->can('view_documents')) {
-                                    $unreadCount = \common\models\DocumentRequest::find()
-                                        ->where(['status' => \common\models\RequestStatus::STATUS_INVIATA])
-                                        ->count();
-
-                                    if ($unreadCount > 0) {
-                                        echo '<span class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full notification-badge-red">' . $unreadCount . '</span>';
-                                    }
-                                }
-                                ?>
-                            </span>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Document Requests -->
 
                     
                 </ul>
