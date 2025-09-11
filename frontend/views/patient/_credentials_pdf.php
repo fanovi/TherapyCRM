@@ -11,7 +11,7 @@ use yii\helpers\Html;
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Credenziali di Accesso - TherapyCRM</title>
+    <title>Credenziali di Accesso - San Luca Plus</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -118,7 +118,7 @@ use yii\helpers\Html;
 </head>
 <body>
     <div class="header">
-        <h1>TherapyCRM</h1>
+        <h1>San Luca Plus</h1>
         <h2>Credenziali di Accesso</h2>
     </div>
     
@@ -145,7 +145,7 @@ use yii\helpers\Html;
     <div class="instructions">
         <h4>Istruzioni per l'accesso:</h4>
         <ol>
-            <li>Scarica l'app mobile "TherapyCRM" dal tuo store</li>
+            <li>Scarica l'app mobile "San Luca Plus" dal tuo store</li>
             <li>Inserisci i dati di accesso sopra riportati</li>
             <li><strong>Al primo accesso dovrai obbligatoriamente cambiare la password</strong></li>
             <li>Scegli una nuova password sicura (minimo 8 caratteri)</li>
@@ -161,7 +161,7 @@ use yii\helpers\Html;
     
     <div class="footer">
         <p>Documento generato il: <?= Html::encode($generatedAt) ?></p>
-        <p>© TherapyCRM - Sistema di Gestione Terapeutica</p>
+        <p>© San Luca Plus - Sistema di Gestione Terapeutica</p>
         <p>Questo documento contiene informazioni riservate</p>
     </div>
 </body>

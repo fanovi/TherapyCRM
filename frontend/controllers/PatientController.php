@@ -426,9 +426,9 @@ class PatientController extends Controller
             Yii::info('mPDF istanziato correttamente');
 
             // Set document properties
-            $mpdf->SetTitle('Credenziali di Accesso - TherapyCRM');
-            $mpdf->SetAuthor('TherapyCRM');
-            $mpdf->SetCreator('TherapyCRM System');
+            $mpdf->SetTitle('Credenziali di Accesso - San Luca Plus');
+            $mpdf->SetAuthor('San Luca Plus');
+            $mpdf->SetCreator('San Luca Plus System');
 
             // Write HTML to PDF
             $mpdf->WriteHTML($html);
