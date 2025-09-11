@@ -16,10 +16,11 @@ $this->params['breadcrumbs'][] = $this->title;
 <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
         <div>
-            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900">
-                <svg class="h-6 w-6 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
+            <div class="mx-auto h-24 w-auto flex items-center justify-center">
+                <?= Html::img('@web/images/logo/LOGO_orizzontale-1.svg', [
+                    'alt' => 'San Luca Plus',
+                    'class' => 'h-24 w-auto max-w-xs'
+                ]) ?>
             </div>
             <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
                 Accedi al tuo account
