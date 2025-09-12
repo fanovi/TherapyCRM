@@ -165,6 +165,25 @@ $this->params['breadcrumbs'][] = $this->title;
                     //     }
                     // ],
                     [
+                        'attribute' => 'is_internal',
+                        'label' => 'Tipo',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'is_internal',
+                            \frontend\models\TherapistSearch::getInternalList(),
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]),
+                        'format' => 'raw',
+                        'content' => function ($model) {
+                            $typeClass = $model->is_internal ? 'bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-900' : 'bg-orange-100 text-orange-800 dark:bg-orange-200 dark:text-orange-900';
+                            $typeText = $model->is_internal ? 'Interno' : 'Consulente';
+                            return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $typeClass . '">' . $typeText . '</span>';
+                        }
+                    ],
+                    [
                         'attribute' => 'is_active',
                         'label' => 'Stato',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],

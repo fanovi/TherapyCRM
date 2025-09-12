@@ -47,7 +47,7 @@ class TherapistSearch extends Therapist
         return [
             [['id', 'user_id', 'specialization_id', 'weekly_hours_contract'], 'integer'],
             [['therapist_ids'], 'safe'],
-            [['is_active'], 'boolean'],
+            [['is_active', 'is_internal'], 'boolean'],
             [['first_name', 'last_name', 'email', 'specialization_name', 'calendar_color', 'created_at', 'updated_at'], 'safe'],
         ];
     }
@@ -87,6 +87,7 @@ class TherapistSearch extends Therapist
                     'weekly_hours_contract',
                     'calendar_color',
                     'is_active',
+                    'is_internal',
                     'created_at',
                     'first_name' => [
                         'asc' => ['user_profiles.first_name' => SORT_ASC],
@@ -132,6 +133,7 @@ class TherapistSearch extends Therapist
             'therapists.specialization_id' => $this->specialization_id,
             'therapists.weekly_hours_contract' => $this->weekly_hours_contract,
             'therapists.is_active' => $this->is_active,
+            'therapists.is_internal' => $this->is_internal,
         ]);
 
         $query->andFilterWhere(['like', 'therapists.calendar_color', $this->calendar_color])
@@ -178,6 +180,18 @@ class TherapistSearch extends Therapist
             30 => '30 ore',
             35 => '35 ore',
             40 => '40 ore',
+        ];
+    }
+
+    /**
+     * Ottiene la lista dei tipi di terapista per il filtro dropdown
+     * @return array
+     */
+    public static function getInternalList()
+    {
+        return [
+            1 => 'Terapista Interno',
+            0 => 'Consulente Esterno',
         ];
     }
 } 

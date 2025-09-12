@@ -15,6 +15,7 @@ use yii\behaviors\TimestampBehavior;
  * @property integer $weekly_hours_contract
  * @property string $calendar_color
  * @property boolean $is_active
+ * @property boolean $is_internal
  * @property string $created_at
  * @property string $updated_at
  *
@@ -68,7 +69,7 @@ class Therapist extends ActiveRecord
             [['user_id', 'specialization_id', 'weekly_hours_contract'], 'required', 'message' => '{attribute} è obbligatorio.'],
             [['user_id', 'specialization_id', 'weekly_hours_contract'], 'integer', 'message' => '{attribute} deve essere un numero valido.'],
             [['weekly_hours_contract'], 'integer', 'min' => 1, 'max' => 40, 'message' => 'Le ore settimanali devono essere comprese tra 1 e 40.'],
-            [['is_active'], 'boolean'],
+            [['is_active', 'is_internal'], 'boolean'],
             [['created_at', 'updated_at'], 'safe'],
             [['calendar_color'], 'string', 'max' => 7, 'message' => 'Il colore del calendario non è valido.'],
             [['calendar_color'], 'match', 'pattern' => '/^#[0-9A-Fa-f]{6}$/', 'message' => 'Il colore deve essere in formato esadecimale (es. #FF0000).'],
@@ -90,6 +91,7 @@ class Therapist extends ActiveRecord
             'weekly_hours_contract' => 'Ore Settimanali Contratto',
             'calendar_color' => 'Colore Calendario',
             'is_active' => 'Attivo',
+            'is_internal' => 'Terapista Interno',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];
