@@ -34,6 +34,7 @@ AppAsset::register($this);
                     <div class="hidden md:block">
                         <div class="ml-10 flex items-baseline space-x-4">
                             <?= Html::a('Home', ['/site/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
+                            <?= Html::a('Distretti', ['/districts/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                             <?= Html::a('Log Attività', ['/activity-log/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                         </div>
                     </div>
@@ -44,10 +45,10 @@ AppAsset::register($this);
                             <?= Html::a('Login', ['/site/login'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                         <?php else: ?>
                             <?= Html::beginForm(['/site/logout'], 'post', ['class' => 'flex']) ?>
-                                <?= Html::submitButton(
-                                    'Logout (' . Yii::$app->user->identity->username . ')',
-                                    ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']
-                                ) ?>
+                            <?= Html::submitButton(
+                                'Logout (' . Html::encode(Yii::$app->user->identity ? Yii::$app->user->identity->username : '') . ')',
+                                ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']
+                            ) ?>
                             <?= Html::endForm() ?>
                         <?php endif; ?>
                     </div>

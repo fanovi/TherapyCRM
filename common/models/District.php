@@ -101,14 +101,8 @@ class District extends ActiveRecord
     {
         return [
             [
-                'class' => TimestampBehavior::class,
-                'value' => function() {
-                    return date('Y-m-d H:i:s');
-                },
-            ],
-            [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
-                'excludedAttributes' => ['created_at', 'updated_at'],
+                'excludedAttributes' => [],
                 'entityNameCallback' => function($model) {
                     return 'Distretto';
                 },
