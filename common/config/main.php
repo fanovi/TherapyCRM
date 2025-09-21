@@ -7,6 +7,9 @@ return [
     ],
     'vendorPath' => dirname(dirname(__DIR__)) . '/vendor',
     'components' => [
+        'codiceFiscaleGenerator' => [
+            'class' => 'common\components\CodiceFiscaleGenerator',
+        ],
         'cache' => [
             'class' => \yii\caching\FileCache::class,
         ],
