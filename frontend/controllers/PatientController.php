@@ -2,6 +2,7 @@
 
 namespace frontend\controllers;
 
+use common\components\Helper;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -82,6 +83,7 @@ class PatientController extends Controller
 
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+        $province = Helper::getProvinceOptions();
 
         if ($patient->load(Yii::$app->request->post())) {
             if ($patient->save()) {
@@ -95,6 +97,7 @@ class PatientController extends Controller
         return $this->render('create', [
             'patient' => $patient,
             'districts' => $districts,
+            'province' => $province,
         ]);
     }
 
@@ -136,6 +139,8 @@ class PatientController extends Controller
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
+        $province = Helper::getProvinceOptions();
+
         if ($patient->load(Yii::$app->request->post())) {
             if ($patient->save()) {
                 Yii::$app->session->setFlash('success', 'Paziente aggiornato con successo.');
@@ -148,6 +153,7 @@ class PatientController extends Controller
         return $this->render('update', [
             'patient' => $patient,
             'districts' => $districts,
+            'province' => $province,
         ]);
     }
 

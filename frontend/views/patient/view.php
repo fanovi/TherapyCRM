@@ -153,6 +153,25 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
+                        'attribute' => 'birth_city',
+                        'label' => 'Luogo di Nascita',
+                        'value' => function($model): string {
+                            $comune = $model->birth_city;
+                            $provincia = $model->birth_province_code;
+                            $result = '-';
+
+                            if($comune && $provincia) {
+                                $result = $comune . ' (' . $provincia . ')';
+                            } else if($comune) {
+                                $result = $comune;
+                            } else if($provincia) {
+                                $result = $model->birth_province_name ?: $provincia;
+                            }
+
+                            return $result;
+                        }
+                    ],
+                    [
                         'label' => 'Età',
                         'value' => function($model) {
                             return $model->age ? $model->age . ' anni' : '-';
