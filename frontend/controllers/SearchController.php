@@ -6,7 +6,10 @@ use Yii;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
 use yii\helpers\ArrayHelper;
+use yii\web\BadRequestHttpException;
+use yii\web\ServerErrorHttpException;
 use common\models\User;
 use common\models\UserProfile;
 use common\models\Therapist;
@@ -30,11 +33,33 @@ class SearchController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'], // Solo utenti autenticati
+                        'actions' => ['generate-fiscal-code'],
+                        'roles' => ['?', '@'], // Permetti sia ospiti (?) che utenti autenticati (@)
+                    ],
+                    [
+                        'allow' => true,
+                        'roles' => ['@'], // Solo utenti autenticati per altre actions
                     ],
                 ],
             ],
+            'verbs' => [
+                'class' => VerbFilter::class,
+                'actions' => [
+                    'generate-fiscal-code' => ['POST'],
+                ],
+            ],
         ];
+    }
+
+    /**
+     * Disabilita la validazione CSRF per l'action generate-fiscal-code
+     */
+    public function beforeAction($action)
+    {
+        if ($action->id === 'generate-fiscal-code') {
+            $this->enableCsrfValidation = false;
+        }
+        return parent::beforeAction($action);
     }
 
     /**
@@ -110,6 +135,201 @@ class SearchController extends Controller
                 'success' => false,
                 'message' => 'Errore interno del server',
                 'data' => []
+            ];
+        }
+    }
+
+    /**
+     * Genera un codice fiscale italiano
+     * 
+     * ENDPOINT PUBBLICO: Accessibile anche agli utenti non autenticati (ospiti)
+     * CSRF DISABILITATO: Non richiede token CSRF per le chiamate
+     * 
+     * Accetta richieste POST con JSON contenente:
+     * - cognome: string
+     * - nome: string  
+     * - sesso: string (M o F)
+     * - data_nascita: string (formato Y-m-d)
+     * - comune: string (nome del comune di nascita)
+     * 
+     * @return array
+     */
+    public function actionGenerateFiscalCode()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        try {
+            // Verifica che sia una richiesta POST
+            if (!Yii::$app->request->isPost) {
+                Yii::$app->response->statusCode = 405;
+                return [
+                    'success' => false,
+                    'message' => 'Metodo non consentito. Utilizzare POST.',
+                    'data' => null
+                ];
+            }
+            
+            // Ottieni i dati JSON dalla richiesta
+            $postData = Yii::$app->request->post();
+            
+            // Se non ci sono dati POST, prova a leggere il body JSON
+            if (empty($postData)) {
+                $rawBody = Yii::$app->request->getRawBody();
+                if (!empty($rawBody)) {
+                    $postData = json_decode($rawBody, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        Yii::$app->response->statusCode = 400;
+                        return [
+                            'success' => false,
+                            'message' => 'JSON non valido: ' . json_last_error_msg(),
+                            'data' => null
+                        ];
+                    }
+                }
+            }
+            
+            // Valida i parametri richiesti
+            $requiredFields = ['cognome', 'nome', 'sesso', 'data_nascita', 'comune'];
+            $missingFields = [];
+            
+            foreach ($requiredFields as $field) {
+                if (!isset($postData[$field]) || trim($postData[$field]) === '') {
+                    $missingFields[] = $field;
+                }
+            }
+            
+            if (!empty($missingFields)) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Parametri mancanti: ' . implode(', ', $missingFields),
+                    'data' => null
+                ];
+            }
+            
+            // Estrai e pulisci i parametri
+            $cognome = trim($postData['cognome']);
+            $nome = trim($postData['nome']);
+            $sesso = strtoupper(trim($postData['sesso']));
+            $dataNascita = trim($postData['data_nascita']);
+            $comune = trim($postData['comune']);
+            
+            // Valida il sesso
+            if (!in_array($sesso, ['M', 'F'])) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Il campo sesso deve essere M o F',
+                    'data' => null
+                ];
+            }
+            
+            // Valida il formato della data
+            $dateFormats = ['Y-m-d', 'd/m/Y', 'd-m-Y'];
+            $validDate = false;
+            
+            foreach ($dateFormats as $format) {
+                $date = \DateTime::createFromFormat($format, $dataNascita);
+                if ($date && $date->format($format) === $dataNascita) {
+                    $validDate = true;
+                    // Normalizza al formato Y-m-d per il componente
+                    $dataNascita = $date->format('Y-m-d');
+                    break;
+                }
+            }
+            
+            if (!$validDate) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Formato data non valido. Utilizzare Y-m-d, d/m/Y o d-m-Y',
+                    'data' => null
+                ];
+            }
+            
+            // Valida lunghezza dei campi
+            if (strlen($cognome) < 2 || strlen($cognome) > 50) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Il cognome deve essere compreso tra 2 e 50 caratteri',
+                    'data' => null
+                ];
+            }
+            
+            if (strlen($nome) < 2 || strlen($nome) > 50) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Il nome deve essere compreso tra 2 e 50 caratteri',
+                    'data' => null
+                ];
+            }
+            
+            if (strlen($comune) < 2 || strlen($comune) > 100) {
+                Yii::$app->response->statusCode = 400;
+                return [
+                    'success' => false,
+                    'message' => 'Il comune deve essere compreso tra 2 e 100 caratteri',
+                    'data' => null
+                ];
+            }
+            
+            // Log della richiesta per debugging
+            Yii::info("Generazione codice fiscale richiesta per: $cognome $nome, $sesso, $dataNascita, $comune", __METHOD__);
+            
+            // Genera il codice fiscale utilizzando il componente
+            $codiceFiscale = Yii::$app->codiceFiscaleGenerator->generaCodiceFiscale(
+                $cognome,
+                $nome,
+                $dataNascita,
+                $sesso,
+                $comune
+            );
+            
+            if ($codiceFiscale === null) {
+                Yii::$app->response->statusCode = 422;
+                return [
+                    'success' => false,
+                    'message' => 'Impossibile generare il codice fiscale. Verificare che il comune sia corretto.',
+                    'data' => null
+                ];
+            }
+            
+            // Log del successo
+            Yii::info("Codice fiscale generato con successo: $codiceFiscale", __METHOD__);
+            
+            // Restituisce il codice fiscale generato
+            Yii::$app->response->statusCode = 200;
+            return [
+                'success' => true,
+                'data' => $codiceFiscale,
+                'message' => ''
+            ];
+            
+        } catch (\Exception $e) {
+            // Log dell'errore
+            Yii::error('Errore nella generazione del codice fiscale: ' . $e->getMessage(), __METHOD__);
+            
+            // Determina il codice di stato appropriato
+            if ($e instanceof BadRequestHttpException) {
+                Yii::$app->response->statusCode = 400;
+                $message = $e->getMessage();
+            } elseif (strpos($e->getMessage(), 'Codice catastale non trovato') !== false) {
+                Yii::$app->response->statusCode = 422;
+                $message = 'Comune non trovato. Verificare il nome del comune di nascita.';
+            } elseif (strpos($e->getMessage(), 'Formato data non valido') !== false) {
+                Yii::$app->response->statusCode = 400;
+                $message = 'Formato data non valido. Utilizzare il formato Y-m-d.';
+            } else {
+                Yii::$app->response->statusCode = 500;
+                $message = 'Errore interno del server durante la generazione del codice fiscale';
+            }
+            
+            return [
+                'success' => false,
+                'message' => $message,
+                'data' => null
             ];
         }
     }
