@@ -153,28 +153,84 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
-                        'attribute' => 'birth_city',
                         'label' => 'Luogo di Nascita',
-                        'value' => function($model): string {
-                            $comune = $model->birth_city;
-                            $provincia = $model->birth_province_code;
-                            $result = '-';
-
-                            if($comune && $provincia) {
-                                $result = $comune . ' (' . $provincia . ')';
-                            } else if($comune) {
-                                $result = $comune;
-                            } else if($provincia) {
-                                $result = $model->birth_province_name ?: $provincia;
-                            }
-
-                            return $result;
+                        'value' => function($model) {
+                            return $model->getBirthLocation();
                         }
                     ],
                     [
                         'label' => 'Età',
                         'value' => function($model) {
                             return $model->age ? $model->age . ' anni' : '-';
+                        }
+                    ],
+                ],
+            ]) ?>
+        </div>
+    </div>
+
+    <!-- Residenza e Contatti -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Residenza e Contatti
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Informazioni di residenza e contatto del paziente.
+            </p>
+        </div>
+        
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <?= DetailView::widget([
+                'model' => $model,
+                'options' => ['class' => 'w-full'],
+                'template' => '<tr class="border-b border-gray-100 dark:border-gray-800 last:border-b-0"><th class="px-5 py-4 sm:px-6 text-left text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 w-1/3">{label}</th><td class="px-5 py-4 sm:px-6 text-sm text-gray-800 dark:text-white/90">{value}</td></tr>',
+                'attributes' => [
+                    [
+                        'attribute' => 'residence_address',
+                        'label' => 'Indirizzo',
+                        'value' => function($model) {
+                            return $model->residence_address ?: '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'residence_city',
+                        'label' => 'Comune',
+                        'value' => function($model) {
+                            return $model->residence_city ?: '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'residence_province_code',
+                        'label' => 'Provincia',
+                        'value' => function($model) {
+                            if ($model->residence_province_name && $model->residence_province_code) {
+                                return $model->residence_province_name . ' (' . $model->residence_province_code . ')';
+                            } elseif ($model->residence_province_code) {
+                                return $model->residence_province_code;
+                            }
+                            return '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'residence_postal_code',
+                        'label' => 'CAP',
+                        'value' => function($model) {
+                            return $model->residence_postal_code ?: '-';
+                        }
+                    ],
+                    [
+                        'attribute' => 'phone_number',
+                        'label' => 'Telefono',
+                        'value' => function($model) {
+                            return $model->phone_number ?: '-';
+                        }
+                    ],
+                    [
+                        'label' => 'Indirizzo Completo',
+                        'value' => function($model) {
+                            $fullAddress = $model->getFullResidenceAddress();
+                            return $fullAddress ?: '-';
                         }
                     ],
                 ],

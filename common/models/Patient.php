@@ -14,6 +14,16 @@ use yii\helpers\ArrayHelper;
  * @property string $first_name
  * @property string $last_name
  * @property string $birth_date
+ * @property string|null $birth_city
+ * @property string|null $birth_province_name
+ * @property string|null $birth_province_code
+ * @property int $born_in_italy
+ * @property string|null $residence_address
+ * @property string|null $residence_city
+ * @property string|null $residence_province_name
+ * @property string|null $residence_province_code
+ * @property string|null $residence_postal_code
+ * @property string|null $phone_number
  * @property string|null $fiscal_code
  * @property int|null $district_id
  * @property string|null $notes
@@ -68,8 +78,16 @@ class Patient extends ActiveRecord
     public function scenarios()
     {
         $scenarios = parent::scenarios();
-        $scenarios['create'] = ['first_name', 'last_name', 'birth_date', 'fiscal_code', 'district_id', 'notes'];
-        $scenarios['update'] = ['first_name', 'last_name', 'birth_date', 'fiscal_code', 'district_id', 'notes'];
+        $scenarios['create'] = [
+            'first_name', 'last_name', 'birth_date', 'birth_city', 'birth_province_name', 'birth_province_code', 'born_in_italy',
+            'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
+            'phone_number', 'fiscal_code', 'district_id', 'notes'
+        ];
+        $scenarios['update'] = [
+            'first_name', 'last_name', 'birth_date', 'birth_city', 'birth_province_name', 'birth_province_code', 'born_in_italy',
+            'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
+            'phone_number', 'fiscal_code', 'district_id', 'notes'
+        ];
         return $scenarios;
     }
 
@@ -82,10 +100,19 @@ class Patient extends ActiveRecord
             [['first_name', 'last_name', 'birth_date'], 'required', 'message' => '{attribute} è obbligatorio.'],
             [['birth_date'], 'date', 'format' => 'php:Y-m-d', 'message' => 'La data di nascita deve essere in formato valido.'],
             [['birth_date'], 'validateBirthDate'],
-            [['district_id'], 'integer', 'message' => 'Il distretto deve essere un numero valido.'],
+            [['district_id', 'born_in_italy'], 'integer', 'message' => '{attribute} deve essere un numero valido.'],
+            [['born_in_italy'], 'in', 'range' => [0, 1], 'message' => 'Valore non valido per {attribute}.'],
             [['notes'], 'string'],
             [['first_name', 'last_name'], 'string', 'max' => 100, 'message' => '{attribute} non può superare i 100 caratteri.'],
             [['first_name', 'last_name'], 'match', 'pattern' => '/^[a-zA-ZÀ-ÿ\s\'-]+$/u', 'message' => 'Il nome può contenere solo lettere, spazi, apostrofi e trattini'],
+            [['birth_city', 'birth_province_name', 'residence_city', 'residence_province_name'], 'string', 'max' => 100, 'message' => '{attribute} non può superare i 100 caratteri.'],
+            [['birth_province_code', 'residence_province_code'], 'string', 'max' => 2, 'message' => '{attribute} deve essere di 2 caratteri.'],
+            [['birth_province_code', 'residence_province_code'], 'match', 'pattern' => '/^[A-Z]{2}$/', 'message' => '{attribute} deve contenere solo 2 lettere maiuscole.'],
+            [['residence_address'], 'string', 'max' => 255, 'message' => '{attribute} non può superare i 255 caratteri.'],
+            [['residence_postal_code'], 'string', 'max' => 5, 'message' => '{attribute} deve essere di 5 cifre.'],
+            [['residence_postal_code'], 'match', 'pattern' => '/^[0-9]{5}$/', 'message' => '{attribute} deve contenere solo 5 cifre numeriche.'],
+            [['phone_number'], 'string', 'max' => 20, 'message' => '{attribute} non può superare i 20 caratteri.'],
+            [['phone_number'], 'match', 'pattern' => '/^[+]?[0-9\s\-\.\(\)]+$/', 'message' => '{attribute} contiene caratteri non validi.'],
             [['fiscal_code'], 'string', 'max' => 20, 'message' => 'Il codice fiscale non può superare i 20 caratteri.'],
             [
                 ['fiscal_code'],
@@ -125,6 +152,16 @@ class Patient extends ActiveRecord
             'first_name' => 'Nome',
             'last_name' => 'Cognome',
             'birth_date' => 'Data di Nascita',
+            'birth_city' => 'Comune di Nascita',
+            'birth_province_name' => 'Provincia di Nascita',
+            'birth_province_code' => 'Sigla Provincia di Nascita',
+            'born_in_italy' => 'Nato in Italia',
+            'residence_address' => 'Indirizzo di Residenza',
+            'residence_city' => 'Comune di Residenza',
+            'residence_province_name' => 'Provincia di Residenza',
+            'residence_province_code' => 'Sigla Provincia di Residenza',
+            'residence_postal_code' => 'CAP',
+            'phone_number' => 'Numero di Telefono',
             'fiscal_code' => 'Codice Fiscale',
             'district_id' => 'Distretto',
             'notes' => 'Note',
@@ -211,6 +248,51 @@ class Patient extends ActiveRecord
     }
 
     /**
+     * Gets formatted birth location
+     *
+     * @return string
+     */
+    public function getBirthLocation()
+    {
+        if ($this->born_in_italy) {
+            if ($this->birth_city && $this->birth_province_code) {
+                return $this->birth_city . ' (' . $this->birth_province_code . ')';
+            } elseif ($this->birth_city) {
+                return $this->birth_city;
+            }
+            return 'Italia';
+        }
+        return 'Estero';
+    }
+
+    /**
+     * Gets formatted residence address
+     *
+     * @return string
+     */
+    public function getFullResidenceAddress()
+    {
+        $parts = [];
+        
+        if ($this->residence_address) {
+            $parts[] = $this->residence_address;
+        }
+        
+        if ($this->residence_city) {
+            $cityPart = $this->residence_city;
+            if ($this->residence_province_code) {
+                $cityPart .= ' (' . $this->residence_province_code . ')';
+            }
+            if ($this->residence_postal_code) {
+                $cityPart = $this->residence_postal_code . ' ' . $cityPart;
+            }
+            $parts[] = $cityPart;
+        }
+        
+        return implode(', ', $parts);
+    }
+
+    /**
      * Gets all patients for dropdown
      *
      * @return array
@@ -277,6 +359,9 @@ class Patient extends ActiveRecord
             ->where(['like', 'first_name', $query])
             ->orWhere(['like', 'last_name', $query])
             ->orWhere(['like', 'fiscal_code', $query])
+            ->orWhere(['like', 'birth_city', $query])
+            ->orWhere(['like', 'residence_city', $query])
+            ->orWhere(['like', 'phone_number', $query])
             ->limit(20)
             ->all();
     }

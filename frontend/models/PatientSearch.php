@@ -18,8 +18,13 @@ class PatientSearch extends Patient
     public function rules()
     {
         return [
-            [['id', 'district_id'], 'integer'],
-            [['first_name', 'last_name', 'fiscal_code', 'birth_date', 'notes', 'created_at'], 'safe'],
+            [['id', 'district_id', 'born_in_italy'], 'integer'],
+            [[
+                'first_name', 'last_name', 'fiscal_code', 'birth_date', 'notes', 'created_at',
+                'birth_city', 'birth_province_name', 'birth_province_code',
+                'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
+                'phone_number'
+            ], 'safe'],
         ];
     }
 
@@ -78,12 +83,22 @@ class PatientSearch extends Patient
             'id' => $this->id,
             'district_id' => $this->district_id,
             'birth_date' => $this->birth_date,
+            'born_in_italy' => $this->born_in_italy,
         ]);
 
         $query->andFilterWhere(['like', 'first_name', $this->first_name])
             ->andFilterWhere(['like', 'last_name', $this->last_name])
             ->andFilterWhere(['like', 'fiscal_code', $this->fiscal_code])
-            ->andFilterWhere(['like', 'notes', $this->notes]);
+            ->andFilterWhere(['like', 'notes', $this->notes])
+            ->andFilterWhere(['like', 'birth_city', $this->birth_city])
+            ->andFilterWhere(['like', 'birth_province_name', $this->birth_province_name])
+            ->andFilterWhere(['like', 'birth_province_code', $this->birth_province_code])
+            ->andFilterWhere(['like', 'residence_address', $this->residence_address])
+            ->andFilterWhere(['like', 'residence_city', $this->residence_city])
+            ->andFilterWhere(['like', 'residence_province_name', $this->residence_province_name])
+            ->andFilterWhere(['like', 'residence_province_code', $this->residence_province_code])
+            ->andFilterWhere(['like', 'residence_postal_code', $this->residence_postal_code])
+            ->andFilterWhere(['like', 'phone_number', $this->phone_number]);
 
         return $dataProvider;
     }
