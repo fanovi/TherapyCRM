@@ -16,6 +16,7 @@ import {
   IconButton,
   Divider,
   ActivityIndicator,
+  FAB,
 } from 'react-native-paper';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import {useCurrentPatient} from '../../hooks/useCurrentPatient';
@@ -165,25 +166,29 @@ const PatientRequestsScreen = ({navigation}) => {
   // Mostra messaggio se nessun paziente è selezionato
   if (!hasSelectedPatient) {
     return (
-      <ScreenTemplate title="Le Mie Richieste">
-        <View style={styles.noPatientContainer}>
-          <Avatar.Icon
-            size={80}
-            icon="account-alert"
-            style={styles.noPatientIcon}
-          />
-          <Text style={styles.noPatientTitle}>Nessun Paziente Selezionato</Text>
-          <Text style={styles.noPatientSubtitle}>
-            Seleziona un paziente per visualizzare le richieste
-          </Text>
-          <Button
-            mode="contained"
-            onPress={() => navigation.navigate('PatientSelection')}
-            style={styles.selectPatientButton}>
-            Seleziona Paziente
-          </Button>
-        </View>
-      </ScreenTemplate>
+      <View style={styles.screenContainer}>
+        <ScreenTemplate title="Le Mie Richieste" scrollable={false}>
+          <View style={styles.noPatientContainer}>
+            <Avatar.Icon
+              size={80}
+              icon="account-alert"
+              style={styles.noPatientIcon}
+            />
+            <Text style={styles.noPatientTitle}>
+              Nessun Paziente Selezionato
+            </Text>
+            <Text style={styles.noPatientSubtitle}>
+              Seleziona un paziente per visualizzare le richieste
+            </Text>
+            <Button
+              mode="contained"
+              onPress={() => navigation.navigate('PatientSelection')}
+              style={styles.selectPatientButton}>
+              Seleziona Paziente
+            </Button>
+          </View>
+        </ScreenTemplate>
+      </View>
     );
   }
 
@@ -271,164 +276,166 @@ const PatientRequestsScreen = ({navigation}) => {
     </Card>
   );
 
+  console.log('currentPatient', currentPatient);
   return (
-    <ScreenTemplate
-      title="Le Mie Richieste"
-      subtitle={
-        currentPatient
-          ? `${currentPatient.first_name} ${currentPatient.last_name}`
-          : ''
-      }>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }>
-        {/* Statistiche */}
-        <Card style={styles.statsCard}>
-          <Card.Content>
-            <Text style={styles.statsTitle}>Riepilogo Richieste</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.total}</Text>
-                <Text style={styles.statLabel}>Totale</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, {color: '#FF9800'}]}>
-                  {stats.pending}
-                </Text>
-                <Text style={styles.statLabel}>In Attesa</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, {color: '#2196F3'}]}>
-                  {stats.in_progress}
-                </Text>
-                <Text style={styles.statLabel}>In Corso</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, {color: '#4CAF50'}]}>
-                  {stats.completed}
-                </Text>
-                <Text style={styles.statLabel}>Completate</Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Pulsante Delega Ritiro Bambini */}
-        <Card style={styles.delegaCard}>
-          <Card.Content>
-            <View style={styles.delegaContainer}>
-              <View style={styles.delegaInfo}>
-                <Avatar.Icon
-                  size={40}
-                  icon="file-pdf-box"
-                  style={styles.delegaIcon}
-                />
-                <View style={styles.delegaTextContainer}>
-                  <Text style={styles.delegaTitle}>Delega Ritiro Bambini</Text>
-                  <Text style={styles.delegaSubtitle}>
-                    Scarica il modulo per delegare il ritiro
+    <View style={styles.screenContainer}>
+      <ScreenTemplate title="Le Mie Richieste" subtitle={''} scrollable={false}>
+        <ScrollView
+          style={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }>
+          {/* Statistiche */}
+          <Card style={styles.statsCard}>
+            <Card.Content>
+              <Text style={styles.statsTitle}>Riepilogo Richieste</Text>
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{stats.total}</Text>
+                  <Text style={styles.statLabel}>Totale</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, {color: '#FF9800'}]}>
+                    {stats.pending}
                   </Text>
+                  <Text style={styles.statLabel}>In Attesa</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, {color: '#2196F3'}]}>
+                    {stats.in_progress}
+                  </Text>
+                  <Text style={styles.statLabel}>In Corso</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={[styles.statNumber, {color: '#4CAF50'}]}>
+                    {stats.completed}
+                  </Text>
+                  <Text style={styles.statLabel}>Completate</Text>
                 </View>
               </View>
-              <Button
-                mode="contained"
-                icon="download"
-                onPress={handleDownloadDelega}
-                style={styles.delegaButton}>
-                Scarica PDF
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Filtri */}
-        <Card style={styles.filtersCard}>
-          <Card.Content>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filtersContainer}>
-              {[
-                {key: 'all', label: 'Tutte'},
-                {key: 'pending', label: 'In Attesa'},
-                {key: 'in_progress', label: 'In Corso'},
-                {key: 'completed', label: 'Completate'},
-              ].map(filter => (
-                <Chip
-                  key={filter.key}
-                  selected={selectedFilter === filter.key}
-                  onPress={() => setSelectedFilter(filter.key)}
-                  style={[
-                    styles.filterChip,
-                    selectedFilter === filter.key && {
-                      backgroundColor: getFilterColor(filter.key) + '20',
-                    },
-                  ]}
-                  textStyle={
-                    selectedFilter === filter.key && {
-                      color: getFilterColor(filter.key),
-                    }
-                  }>
-                  {filter.label}
-                </Chip>
-              ))}
-            </ScrollView>
-          </Card.Content>
-        </Card>
-
-        {/* Lista Richieste */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" />
-            <Text style={styles.loadingText}>Caricamento richieste...</Text>
-          </View>
-        ) : requests.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Card.Content style={styles.emptyContent}>
-              <Avatar.Icon
-                size={80}
-                icon="file-document-outline"
-                style={styles.emptyIcon}
-              />
-              <Text style={styles.emptyTitle}>Nessuna Richiesta</Text>
-              <Text style={styles.emptySubtitle}>
-                {selectedFilter === 'all'
-                  ? 'Non hai ancora fatto richieste'
-                  : `Nessuna richiesta con filtro "${
-                      selectedFilter === 'pending'
-                        ? 'In Attesa'
-                        : selectedFilter === 'in_progress'
-                        ? 'In Corso'
-                        : 'Completate'
-                    }"`}
-              </Text>
             </Card.Content>
           </Card>
-        ) : (
-          <>
-            {requests.map(renderRequestCard)}
-            <View style={styles.bottomSpacing} />
-          </>
-        )}
-      </ScrollView>
 
-      {/* FAB per creare nuova richiesta */}
+          {/* Pulsante Delega Ritiro Bambini */}
+          <Card style={styles.delegaCard}>
+            <Card.Content>
+              <View style={styles.delegaContainer}>
+                <View style={styles.delegaInfo}>
+                  <Avatar.Icon
+                    size={40}
+                    icon="file-pdf-box"
+                    style={styles.delegaIcon}
+                  />
+                  <View style={styles.delegaTextContainer}>
+                    <Text style={styles.delegaTitle}>
+                      Delega Ritiro Bambini
+                    </Text>
+                    <Text style={styles.delegaSubtitle}>
+                      Scarica il modulo per delegare il ritiro
+                    </Text>
+                  </View>
+                </View>
+                <Button
+                  mode="contained"
+                  icon="download"
+                  onPress={handleDownloadDelega}
+                  style={styles.delegaButton}>
+                  Scarica PDF
+                </Button>
+              </View>
+            </Card.Content>
+          </Card>
+
+          {/* Filtri */}
+          <Card style={styles.filtersCard}>
+            <Card.Content>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filtersContainer}>
+                {[
+                  {key: 'all', label: 'Tutte'},
+                  {key: 'pending', label: 'In Attesa'},
+                  {key: 'in_progress', label: 'In Corso'},
+                  {key: 'completed', label: 'Completate'},
+                ].map(filter => (
+                  <Chip
+                    key={filter.key}
+                    selected={selectedFilter === filter.key}
+                    onPress={() => setSelectedFilter(filter.key)}
+                    style={[
+                      styles.filterChip,
+                      selectedFilter === filter.key && {
+                        backgroundColor: getFilterColor(filter.key) + '20',
+                      },
+                    ]}
+                    textStyle={
+                      selectedFilter === filter.key && {
+                        color: getFilterColor(filter.key),
+                      }
+                    }>
+                    {filter.label}
+                  </Chip>
+                ))}
+              </ScrollView>
+            </Card.Content>
+          </Card>
+
+          {/* Lista Richieste */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" />
+              <Text style={styles.loadingText}>Caricamento richieste...</Text>
+            </View>
+          ) : requests.length === 0 ? (
+            <Card style={styles.emptyCard}>
+              <Card.Content style={styles.emptyContent}>
+                <Avatar.Icon
+                  size={80}
+                  icon="file-document-outline"
+                  style={styles.emptyIcon}
+                />
+                <Text style={styles.emptyTitle}>Nessuna Richiesta</Text>
+                <Text style={styles.emptySubtitle}>
+                  {selectedFilter === 'all'
+                    ? 'Non hai ancora fatto richieste'
+                    : `Nessuna richiesta con filtro "${
+                        selectedFilter === 'pending'
+                          ? 'In Attesa'
+                          : selectedFilter === 'in_progress'
+                          ? 'In Corso'
+                          : 'Completate'
+                      }"`}
+                </Text>
+              </Card.Content>
+            </Card>
+          ) : (
+            <>
+              {requests.map(renderRequestCard)}
+              <View style={styles.bottomSpacing} />
+            </>
+          )}
+        </ScrollView>
+      </ScreenTemplate>
+
+      {/* FAB per creare nuova richiesta - Fuori dal ScreenTemplate */}
       {!loading && (
-        <Button
-          mode="contained"
+        <FAB
           icon="plus"
+          label="Nuova Richiesta"
           onPress={() => navigation.navigate('CreateRequest')}
-          style={styles.fab}>
-          Nuova Richiesta
-        </Button>
+          style={styles.fab}
+        />
       )}
-    </ScreenTemplate>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   container: {
     flex: 1,
     padding: 16,
@@ -633,12 +640,21 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 24,
     right: 16,
-    paddingHorizontal: 16,
+    backgroundColor: '#2196F3',
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   bottomSpacing: {
-    height: 80,
+    height: 100,
   },
 });
 
