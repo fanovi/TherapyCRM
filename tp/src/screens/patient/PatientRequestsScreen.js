@@ -5,6 +5,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import {
   Text,
@@ -28,6 +29,10 @@ import {
   canCancelRequest,
   hasDownloadableDocument,
 } from '../../api/requests';
+
+// Costanti
+const DELEGA_RITIRO_BAMBINI_PDF_URL =
+  'https://app-cgm.badil.it/api/download/delega-ritiro-bimbi.pdf';
 
 const PatientRequestsScreen = ({navigation}) => {
   const {currentPatient, patientId} = useCurrentPatient();
@@ -135,6 +140,26 @@ const PatientRequestsScreen = ({navigation}) => {
       completed: '#4CAF50',
     };
     return colors[filter] || '#2196F3';
+  };
+
+  const handleDownloadDelega = async () => {
+    try {
+      const supported = await Linking.canOpenURL(DELEGA_RITIRO_BAMBINI_PDF_URL);
+      if (supported) {
+        await Linking.openURL(DELEGA_RITIRO_BAMBINI_PDF_URL);
+      } else {
+        Alert.alert(
+          'Errore',
+          'Impossibile aprire il link. Verifica la connessione internet.',
+        );
+      }
+    } catch (error) {
+      console.error('Errore apertura PDF delega:', error);
+      Alert.alert(
+        'Errore',
+        "Si è verificato un errore durante l'apertura del documento.",
+      );
+    }
   };
 
   // Mostra messaggio se nessun paziente è selezionato
@@ -290,6 +315,34 @@ const PatientRequestsScreen = ({navigation}) => {
           </Card.Content>
         </Card>
 
+        {/* Pulsante Delega Ritiro Bambini */}
+        <Card style={styles.delegaCard}>
+          <Card.Content>
+            <View style={styles.delegaContainer}>
+              <View style={styles.delegaInfo}>
+                <Avatar.Icon
+                  size={40}
+                  icon="file-pdf-box"
+                  style={styles.delegaIcon}
+                />
+                <View style={styles.delegaTextContainer}>
+                  <Text style={styles.delegaTitle}>Delega Ritiro Bambini</Text>
+                  <Text style={styles.delegaSubtitle}>
+                    Scarica il modulo per delegare il ritiro
+                  </Text>
+                </View>
+              </View>
+              <Button
+                mode="contained"
+                icon="download"
+                onPress={handleDownloadDelega}
+                style={styles.delegaButton}>
+                Scarica PDF
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+
         {/* Filtri */}
         <Card style={styles.filtersCard}>
           <Card.Content>
@@ -429,6 +482,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  delegaCard: {
+    marginBottom: 16,
+  },
+  delegaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  delegaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  delegaIcon: {
+    backgroundColor: '#FF5722',
+    marginRight: 12,
+  },
+  delegaTextContainer: {
+    flex: 1,
+  },
+  delegaTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  delegaSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  delegaButton: {
+    backgroundColor: '#FF5722',
+    marginLeft: 12,
   },
   filtersCard: {
     marginBottom: 16,

@@ -806,19 +806,6 @@ const TherapistCalendarScreen = () => {
           )}
 
           <View style={styles.appointmentActions}>
-            {appointment.patient.phone && (
-              <Button
-                mode="outlined"
-                style={styles.actionButton}
-                icon="phone"
-                compact
-                onPress={() =>
-                  Linking.openURL(`tel:${appointment.patient.phone}`)
-                }>
-                Chiama
-              </Button>
-            )}
-
             {canComplete && (
               <Button
                 mode="contained"

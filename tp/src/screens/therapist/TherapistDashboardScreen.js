@@ -263,6 +263,22 @@ const TherapistDashboardScreen = ({navigation}) => {
                   <View>
                     <Text
                       style={[
+                        styles.appointmentDate,
+                        {color: theme.colors.primary},
+                      ]}>
+                      {appointment.datetime
+                        ? new Date(appointment.datetime).toLocaleDateString(
+                            'it-IT',
+                            {
+                              weekday: 'short',
+                              day: '2-digit',
+                              month: '2-digit',
+                            },
+                          )
+                        : 'Data non disponibile'}
+                    </Text>
+                    <Text
+                      style={[
                         styles.appointmentTime,
                         {color: theme.colors.onSurface},
                       ]}>
@@ -311,18 +327,6 @@ const TherapistDashboardScreen = ({navigation}) => {
                       </Text>
                     )}
                   </View>
-                </View>
-
-                <View style={styles.appointmentActions}>
-                  {appointment.patient.phone && (
-                    <Button
-                      mode="outlined"
-                      style={styles.actionButton}
-                      labelStyle={{color: theme.colors.secondary}}
-                      icon="phone">
-                      Chiama
-                    </Button>
-                  )}
                 </View>
               </Card.Content>
             </Card>
@@ -439,6 +443,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  appointmentDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+    textTransform: 'uppercase',
   },
   appointmentTime: {
     fontSize: 16,

@@ -390,14 +390,6 @@ const PatientCalendarScreen = () => {
 
         {/* Azioni */}
         <View style={styles.appointmentActions}>
-          <Button
-            mode="outlined"
-            style={styles.actionButton}
-            icon="phone"
-            compact>
-            Chiama
-          </Button>
-
           {appointment.status === 'confermato' &&
             !moment(appointment.datetime).isBefore(moment()) && (
               <Button

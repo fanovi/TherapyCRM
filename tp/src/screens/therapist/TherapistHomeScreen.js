@@ -234,15 +234,6 @@ const TherapistHomeScreen = () => {
                   )}
 
                   <View style={styles.appointmentActions}>
-                    {appointment.patient.phone && (
-                      <Button
-                        mode="outlined"
-                        style={styles.actionButton}
-                        icon="phone"
-                        compact>
-                        Chiama
-                      </Button>
-                    )}
                     <Button
                       mode="contained"
                       style={styles.actionButton}
