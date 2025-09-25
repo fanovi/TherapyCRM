@@ -810,41 +810,48 @@ function setupCapAutoFill() {
     }
     
     // Rimuovi listener precedenti per evitare duplicati
-    const newSelect = comuniSelect.cloneNode(true);
-    comuniSelect.parentNode.replaceChild(newSelect, comuniSelect);
+    comuniSelect.removeEventListener('change', handleCapAutoFill);
     
     // Aggiungi nuovo listener
-    newSelect.addEventListener('change', function() {
-        const selectedComune = this.value;
-        const hasCapField = this.getAttribute('data-has-cap-field') === 'true';
-        const capData = this.getAttribute('data-cap-info');
-        
-        if (!hasCapField || !capData || !selectedComune) {
-            // Se non c'è il campo CAP nel database, lascia che l'utente compili manualmente
-            console.log('Campo CAP non disponibile nel database, compilazione manuale richiesta');
-            return;
+    comuniSelect.addEventListener('change', handleCapAutoFill);
+}
+
+// Handler separato per la compilazione automatica del CAP
+function handleCapAutoFill() {
+    const selectedComune = this.value;
+    const hasCapField = this.getAttribute('data-has-cap-field') === 'true';
+    const capData = this.getAttribute('data-cap-info');
+    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    
+    if (!capInput) {
+        return;
+    }
+    
+    if (!hasCapField || !capData || !selectedComune) {
+        // Se non c'è il campo CAP nel database, lascia che l'utente compili manualmente
+        console.log('Campo CAP non disponibile nel database, compilazione manuale richiesta');
+        return;
+    }
+    
+    try {
+        const capInfo = JSON.parse(capData);
+        if (capInfo[selectedComune]) {
+            // Compila automaticamente il CAP
+            capInput.value = capInfo[selectedComune];
+            capInput.style.backgroundColor = '#f0f9ff'; // Sfondo azzurrino per indicare auto-compilazione
+            
+            // Mostra notifica
+            showNotification('CAP compilato automaticamente: ' + capInfo[selectedComune], 'success');
+            
+            // Rimuovi lo sfondo dopo 3 secondi
+            setTimeout(() => {
+                capInput.style.backgroundColor = '';
+            }, 3000);
+        } else {
+            console.log('CAP non trovato per il comune: ' + selectedComune);
         }
-        
-        try {
-            const capInfo = JSON.parse(capData);
-            if (capInfo[selectedComune]) {
-                // Compila automaticamente il CAP
-                capInput.value = capInfo[selectedComune];
-                capInput.style.backgroundColor = '#f0f9ff'; // Sfondo azzurrino per indicare auto-compilazione
-                
-                // Mostra notifica
-                showNotification('CAP compilato automaticamente: ' + capInfo[selectedComune], 'success');
-                
-                // Rimuovi lo sfondo dopo 3 secondi
-                setTimeout(() => {
-                    capInput.style.backgroundColor = '';
-                }, 3000);
-            } else {
-                console.log('CAP non trovato per il comune: ' + selectedComune);
-            }
-        } catch (e) {
-            console.error('Errore nel parsing dei dati CAP:', e);
-        }
-    });
+    } catch (e) {
+        console.error('Errore nel parsing dei dati CAP:', e);
+    }
 }
 </script> 
