@@ -1,18 +1,29 @@
 <?php
 
+use common\models\District;
+use common\models\Provincia;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
-use yii\helpers\ArrayHelper;
-use common\models\District;
 
 /** @var yii\web\View $this */
 /** @var common\models\Patient $patient */
 /** @var yii\widgets\ActiveForm $form */
 /** @var bool $isUpdate */
 /** @var array $districts */
-
 $isUpdate = $isUpdate ?? false;
 $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name');
+$province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
+
+// Imposta "nato in Italia" come default se è un nuovo paziente
+if (!$isUpdate && $patient->born_in_italy === null) {
+    $patient->born_in_italy = 1;
+}
+
+// Imposta "residenza in Italia" come default se è un nuovo paziente
+if (!$isUpdate && $patient->residence_in_italy === null) {
+    $patient->residence_in_italy = 1;
+}
 ?>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6">
@@ -115,13 +126,15 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <?= $form->field($patient, 'first_name')->textInput([
-                        'placeholder' => 'Inserisci nome'
+                        'placeholder' => 'Inserisci nome',
+                        'id' => 'patient-first-name'
                     ])->label('Nome') ?>
                 </div>
                 
                 <div>
                     <?= $form->field($patient, 'last_name')->textInput([
-                        'placeholder' => 'Inserisci cognome'
+                        'placeholder' => 'Inserisci cognome',
+                        'id' => 'patient-last-name'
                     ])->label('Cognome') ?>
                 </div>
                 
@@ -133,7 +146,8 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
                     <div class="relative">
                         <?= $form->field($patient, 'birth_date')->input('date', [
                             'placeholder' => 'Seleziona data',
-                            'onclick' => 'this.showPicker()'
+                            'onclick' => 'this.showPicker()',
+                            'id' => 'patient-birth-date'
                         ])->label(false) ?>
                         <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400">
                             <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -144,10 +158,9 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
                 </div>
                 
                 <div>
-                    <?= $form->field($patient, 'fiscal_code')->textInput([
-                        'placeholder' => 'RSSMRO80A01H501X',
-                        'id' => 'fiscal-code-input'
-                    ])->label('Codice Fiscale') ?>
+                    <?= $form->field($patient, 'phone_number')->textInput([
+                        'placeholder' => '+39 123 456 7890'
+                    ])->label('Telefono') ?>
                 </div>
                 
                 <div>
@@ -156,21 +169,241 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
                     ])->label('Distretto') ?>
                 </div>
                 
-                <div class="sm:col-span-2">
-                    <?= $form->field($patient, 'notes')->textArea([
-                        'rows' => 4,
-                        'placeholder' => 'Note aggiuntive sul paziente (opzionale)'
-                    ])->label('Note') ?>
+                <!-- Campo Sesso per generazione Codice Fiscale -->
+                <div>
+                    <?= $form->field($patient, 'gender')->dropDownList([
+                        'M' => 'Maschio',
+                        'F' => 'Femmina'
+                    ], [
+                        'prompt' => 'Seleziona sesso...',
+                        'id' => 'patient-gender'
+                    ])->label('Sesso') ?>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Dati di Nascita -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Dati di Nascita
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Informazioni sul luogo di nascita del paziente.
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-4">
+                <!-- Checkbox Nato in Italia -->
+                <div class="flex items-center">
+                    <?= $form->field($patient, 'born_in_italy')->checkbox([
+                        'id' => 'born-in-italy-checkbox',
+                        'template' => '<div class="flex items-center">{input}{label}</div>',
+                        'labelOptions' => [
+                            'class' => 'ml-2 text-sm font-medium text-gray-700 dark:text-gray-300'
+                        ]
+                    ])->label('Nato/a in Italia') ?>
+                </div>
+                
+                <!-- Campi nascita Italia -->
+                <div id="birth-location-italy-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <?= $form->field($patient, 'birth_province_id')->dropDownList($province, [
+                            'prompt' => 'Seleziona provincia...',
+                            'id' => 'birth-province-select',
+                            'onchange' => 'loadBirthComuni(this.value)'
+                        ])->label('Provincia di Nascita') ?>
+                    </div>
+                    
+                    <div>
+                        <?= $form->field($patient, 'birth_city')->dropDownList([], [
+                            'prompt' => 'Prima seleziona la provincia',
+                            'id' => 'birth-city-select',
+                            'data-current-value' => $patient->birth_city
+                        ])->label('Comune di Nascita') ?>
+                    </div>
+                </div>
+                
+                <!-- Campo nascita estero (visibile solo se NON nato in Italia) -->
+                <div id="birth-location-foreign-field" class="grid grid-cols-1 gap-4" style="display: none;">
+                    <div>
+                        <?= $form->field($patient, 'birth_city')->textInput([
+                            'placeholder' => 'Stato estero di nascita',
+                            'id' => 'birth-city-foreign'
+                        ])->label('Stato di Nascita') ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Codice Fiscale -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Codice Fiscale
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Inserisci il codice fiscale manualmente o generalo automaticamente usando i dati inseriti sopra.
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-4">
+                <div class="relative">
+                    <?= $form->field($patient, 'fiscal_code')->textInput([
+                        'placeholder' => 'RSSMRO80A01H501X',
+                        'id' => 'fiscal-code-input'
+                    ])->label('Codice Fiscale') ?>
+                </div>
+                
+                <!-- Pulsante Genera Codice Fiscale -->
+                <div class="flex justify-center">
+                    <button type="button" id="generate-fiscal-code-btn" 
+                            class="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 shadow-sm">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                        </svg>
+                        Genera Codice Fiscale Automaticamente
+                    </button>
+                </div>
+                
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                                Per generare automaticamente il codice fiscale
+                            </h3>
+                            <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                                <p>Assicurati di aver compilato questi campi obbligatori:</p>
+                                <ul class="list-disc list-inside mt-1 space-y-1">
+                                    <li>Nome e Cognome</li>
+                                    <li>Data di Nascita</li>
+                                    <li>Selezionare "Nato in Italia" e inserire il Comune di Nascita</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dati di Residenza -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Dati di Residenza
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Informazioni sulla residenza del paziente.
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-4">
+                <div class="sm:col-span-2">
+                    <?= $form->field($patient, 'residence_address')->textInput([
+                        'placeholder' => 'Via, Piazza, ecc.'
+                    ])->label('Indirizzo di Residenza') ?>
+                </div>
+                
+                <!-- Checkbox Residenza in Italia -->
+                <div class="flex items-center">
+                    <?= $form->field($patient, 'residence_in_italy')->checkbox([
+                        'id' => 'residence-in-italy-checkbox',
+                        'template' => '<div class="flex items-center">{input}{label}</div>',
+                        'labelOptions' => [
+                            'class' => 'ml-2 text-sm font-medium text-gray-700 dark:text-gray-300'
+                        ]
+                    ])->label('Residenza in Italia') ?>
+                </div>
+                
+                <!-- Campi residenza Italia -->
+                <div id="residence-location-italy-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <?= $form->field($patient, 'residence_province_id')->dropDownList($province, [
+                            'prompt' => 'Seleziona provincia...',
+                            'id' => 'residence-province-select',
+                            'onchange' => 'loadResidenceComuni(this.value)'
+                        ])->label('Provincia di Residenza') ?>
+                    </div>
+                    
+                    <div>
+                        <?= $form->field($patient, 'residence_city')->dropDownList([], [
+                            'prompt' => 'Prima seleziona la provincia',
+                            'id' => 'residence-city-select',
+                            'data-current-value' => $patient->residence_city
+                        ])->label('Comune di Residenza') ?>
+                    </div>
+                    
+                    <div>
+                        <?= $form->field($patient, 'residence_postal_code')->textInput([
+                            'placeholder' => '00100',
+                            'maxlength' => 5
+                        ])->label('CAP') ?>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span id="cap-auto-info" style="display: none;">
+                                ✨ Il CAP verrà compilato automaticamente quando selezioni un comune
+                            </span>
+                            <span id="cap-manual-info">
+                                💡 Inserisci il CAP manualmente
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Campo residenza estero (visibile solo se NON residenza in Italia) -->
+                <div id="residence-location-foreign-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4" style="display: none;">
+                    <div>
+                        <?= $form->field($patient, 'residence_city')->textInput([
+                            'placeholder' => 'Città/Stato estero di residenza',
+                            'id' => 'residence-city-foreign'
+                        ])->label('Città/Stato di Residenza') ?>
+                    </div>
+                    
+                    <div>
+                        <?= $form->field($patient, 'residence_postal_code')->textInput([
+                            'placeholder' => 'Codice postale',
+                            'id' => 'residence-postal-code-foreign'
+                        ])->label('Codice Postale') ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Note Aggiuntive
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Informazioni aggiuntive sul paziente (opzionale).
+            </p>
+        </div>
+        
+        <div class="px-5 pb-5 sm:px-6 sm:pb-6">
+            <?= $form->field($patient, 'notes')->textArea([
+                'rows' => 4,
+                'placeholder' => 'Note aggiuntive sul paziente (opzionale)'
+            ])->label(false) ?>
         </div>
     </div>
 
     <!-- Action Buttons -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
-                ['index'], [
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
+                    ['index'], [
                 'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
             ]) ?>
         </div>
@@ -186,6 +419,7 @@ $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name
     <?php ActiveForm::end(); ?>
 </div>
 
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
@@ -197,5 +431,420 @@ document.addEventListener('DOMContentLoaded', function() {
             this.value = currentValue.toUpperCase();
         });
     }
+    
+    // Gestione checkbox "Nato in Italia"
+    const bornInItalyCheckbox = document.getElementById('born-in-italy-checkbox');
+    const birthLocationItalyFields = document.getElementById('birth-location-italy-fields');
+    const birthLocationForeignField = document.getElementById('birth-location-foreign-field');
+    
+    if (bornInItalyCheckbox && birthLocationItalyFields && birthLocationForeignField) {
+        // Controlla stato iniziale
+        toggleBirthLocationFields();
+        
+        // Se stiamo modificando un paziente e c'è una provincia selezionata, carica i comuni
+        const provinciaSelect = document.getElementById('birth-province-select');
+        if (provinciaSelect && provinciaSelect.value) {
+            const currentComune = document.getElementById('birth-city-select').getAttribute('data-current-value');
+            loadBirthComuni(provinciaSelect.value, currentComune);
+        }
+        
+        bornInItalyCheckbox.addEventListener('change', function() {
+            toggleBirthLocationFields();
+        });
+    }
+    
+    // Gestione checkbox "Residenza in Italia"
+    const residenceInItalyCheckbox = document.getElementById('residence-in-italy-checkbox');
+    const residenceLocationItalyFields = document.getElementById('residence-location-italy-fields');
+    const residenceLocationForeignFields = document.getElementById('residence-location-foreign-fields');
+    
+    if (residenceInItalyCheckbox && residenceLocationItalyFields && residenceLocationForeignFields) {
+        // Controlla stato iniziale
+        toggleResidenceLocationFields();
+        
+        // Se stiamo modificando un paziente e c'è una provincia selezionata, carica i comuni
+        const residenceProvinciaSelect = document.getElementById('residence-province-select');
+        if (residenceProvinciaSelect && residenceProvinciaSelect.value) {
+            const currentResidenceComune = document.getElementById('residence-city-select').getAttribute('data-current-value');
+            loadResidenceComuni(residenceProvinciaSelect.value, currentResidenceComune);
+        }
+        
+        residenceInItalyCheckbox.addEventListener('change', function() {
+            toggleResidenceLocationFields();
+        });
+    }
+    
+    function toggleBirthLocationFields() {
+        if (bornInItalyCheckbox.checked) {
+            birthLocationItalyFields.style.display = 'grid';
+            birthLocationForeignField.style.display = 'none';
+            // Pulisci campo estero
+            document.getElementById('birth-city-foreign').value = '';
+        } else {
+            birthLocationItalyFields.style.display = 'none';
+            birthLocationForeignField.style.display = 'grid';
+            // Pulisci campi Italia
+            document.getElementById('birth-province-select').value = '';
+            document.getElementById('birth-city-select').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        }
+    }
+    
+    function toggleResidenceLocationFields() {
+        if (residenceInItalyCheckbox.checked) {
+            residenceLocationItalyFields.style.display = 'grid';
+            residenceLocationForeignFields.style.display = 'none';
+            // Pulisci campi esteri
+            document.getElementById('residence-city-foreign').value = '';
+            document.getElementById('residence-postal-code-foreign').value = '';
+        } else {
+            residenceLocationItalyFields.style.display = 'none';
+            residenceLocationForeignFields.style.display = 'grid';
+            // Pulisci campi Italia
+            document.getElementById('residence-province-select').value = '';
+            document.getElementById('residence-city-select').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        }
+    }
+    
+    // Gestione generazione codice fiscale
+    const generateBtn = document.getElementById('generate-fiscal-code-btn');
+    
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Raccogli dati necessari
+            const firstName = document.getElementById('patient-first-name').value.trim();
+            const lastName = document.getElementById('patient-last-name').value.trim();
+            const birthDate = document.getElementById('patient-birth-date').value;
+            const gender = document.getElementById('patient-gender').value;
+            
+            // Determina il campo comune in base a se è nato in Italia
+            let birthCity = '';
+            if (bornInItalyCheckbox.checked) {
+                birthCity = document.getElementById('birth-city-select').value.trim();
+            } else {
+                birthCity = document.getElementById('birth-city-foreign').value.trim();
+            }
+            
+            // Validazione campi obbligatori
+            const missingFields = [];
+            if (!firstName) missingFields.push('Nome');
+            if (!lastName) missingFields.push('Cognome'); 
+            if (!birthDate) missingFields.push('Data di nascita');
+            if (!gender) missingFields.push('Sesso');
+            if (!birthCity) {
+                if (bornInItalyCheckbox.checked) {
+                    missingFields.push('Comune di nascita (seleziona prima la provincia)');
+                } else {
+                    missingFields.push('Stato di nascita');
+                }
+            }
+            
+            if (missingFields.length > 0) {
+                alert('Compila i seguenti campi obbligatori per generare il codice fiscale:\n\n' + missingFields.join(', '));
+                return;
+            }
+            
+            // Genera direttamente il codice fiscale senza modal
+            generateFiscalCode(gender, {
+                first_name: firstName,
+                last_name: lastName,
+                birth_date: birthDate,
+                birth_city: birthCity
+            });
+        });
+    }
+    
+    function generateFiscalCode(gender, fiscalCodeData) {
+        // Aggiungi il sesso ai dati
+        const requestData = {
+            ...fiscalCodeData,
+            gender: gender
+        };
+        
+        // Disabilita il pulsante e mostra loading
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = 'Generazione...';
+        
+        // Invia richiesta AJAX
+        fetch('<?= \yii\helpers\Url::to(['generate-fiscal-code']) ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: new URLSearchParams(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Popola il campo codice fiscale
+                fiscalCodeInput.value = data.fiscal_code;
+                
+                // Mostra messaggio di successo
+                showNotification('Codice fiscale generato con successo!', 'success');
+            } else {
+                showNotification('Errore: ' + (data.error || 'Impossibile generare il codice fiscale'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Errore nella generazione codice fiscale:', error);
+            showNotification('Errore di connessione durante la generazione del codice fiscale', 'error');
+        })
+        .finally(() => {
+            // Ripristina il pulsante
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path></svg>Genera Codice Fiscale Automaticamente';
+        });
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Crea notifica temporanea
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full ${
+            type === 'success' ? 'bg-green-500 text-white' : 
+            type === 'error' ? 'bg-red-500 text-white' : 
+            'bg-blue-500 text-white'
+        }`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium">${message}</p>
+                </div>
+                <button type="button" class="ml-3 flex-shrink-0" onclick="this.parentElement.parentElement.remove()">
+                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Animazione entrata
+        setTimeout(() => {
+            notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Auto-rimozione dopo 5 secondi
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 300);
+        }, 5000);
+    }
+    
+    // Auto-uppercase per codici provincia
+    const provinceCodeInputs = document.querySelectorAll('input[name="Patient[residence_province_code]"]');
+    provinceCodeInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    });
+    
+    // Validazione CAP (solo numeri)
+    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    if (capInput) {
+        capInput.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    }
 });
+
+// Funzione globale per caricare i comuni di nascita (chiamata dall'onchange della select provincia)
+function loadBirthComuni(provinciaId, selectedComune = null) {
+    const comuniSelect = document.getElementById('birth-city-select');
+    
+    if (!provinciaId) {
+        comuniSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        return;
+    }
+    
+    // Mostra loading
+    comuniSelect.innerHTML = '<option value="">Caricamento comuni...</option>';
+    comuniSelect.disabled = true;
+    
+    // Carica comuni via AJAX
+    let url = '<?= \yii\helpers\Url::to(['load-comuni']) ?>?provincia_id=' + provinciaId;
+    if (selectedComune) {
+        url += '&selected_comune=' + encodeURIComponent(selectedComune);
+    }
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Pulisci la select
+        comuniSelect.innerHTML = '<option value="">Seleziona comune...</option>';
+        
+        // Aggiungi i comuni
+        if (data.comuni && Object.keys(data.comuni).length > 0) {
+            Object.keys(data.comuni).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = data.comuni[key];
+                
+                // Se questo è il comune attualmente selezionato, selezionalo
+                if (selectedComune && key === selectedComune) {
+                    option.selected = true;
+                }
+                
+                comuniSelect.appendChild(option);
+            });
+        } else {
+            comuniSelect.innerHTML = '<option value="">Nessun comune trovato</option>';
+        }
+        
+        comuniSelect.disabled = false;
+        
+        // Nota: per la nascita non gestiamo il CAP automatico
+        // Il CAP è rilevante solo per la residenza
+    })
+    .catch(error => {
+        console.error('Errore nel caricamento comuni:', error);
+        comuniSelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+        comuniSelect.disabled = false;
+    });
+}
+
+// Funzione globale per caricare i comuni di residenza (chiamata dall'onchange della select provincia)
+function loadResidenceComuni(provinciaId, selectedComune = null) {
+    const comuniSelect = document.getElementById('residence-city-select');
+    
+    if (!provinciaId) {
+        comuniSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        return;
+    }
+    
+    // Mostra loading
+    comuniSelect.innerHTML = '<option value="">Caricamento comuni...</option>';
+    comuniSelect.disabled = true;
+    
+    // Carica comuni via AJAX
+    let url = '<?= \yii\helpers\Url::to(['load-comuni']) ?>?provincia_id=' + provinciaId;
+    if (selectedComune) {
+        url += '&selected_comune=' + encodeURIComponent(selectedComune);
+    }
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Pulisci la select
+        comuniSelect.innerHTML = '<option value="">Seleziona comune...</option>';
+        
+        // Aggiungi i comuni
+        if (data.comuni && Object.keys(data.comuni).length > 0) {
+            Object.keys(data.comuni).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = data.comuni[key];
+                
+                // Se questo è il comune attualmente selezionato, selezionalo
+                if (selectedComune && key === selectedComune) {
+                    option.selected = true;
+                }
+                
+                comuniSelect.appendChild(option);
+            });
+            
+            // Salva i dati CAP per la compilazione automatica
+            if (data.cap_data && data.has_cap_field) {
+                comuniSelect.setAttribute('data-cap-info', JSON.stringify(data.cap_data));
+                comuniSelect.setAttribute('data-has-cap-field', 'true');
+                
+                // Mostra messaggio CAP automatico
+                const capAutoInfo = document.getElementById('cap-auto-info');
+                const capManualInfo = document.getElementById('cap-manual-info');
+                if (capAutoInfo && capManualInfo) {
+                    capAutoInfo.style.display = 'inline';
+                    capManualInfo.style.display = 'none';
+                }
+            } else {
+                comuniSelect.setAttribute('data-has-cap-field', 'false');
+                
+                // Mostra messaggio CAP manuale
+                const capAutoInfo = document.getElementById('cap-auto-info');
+                const capManualInfo = document.getElementById('cap-manual-info');
+                if (capAutoInfo && capManualInfo) {
+                    capAutoInfo.style.display = 'none';
+                    capManualInfo.style.display = 'inline';
+                }
+            }
+            
+            // Aggiungi listener per la compilazione automatica del CAP
+            setupCapAutoFill();
+            
+        } else {
+            comuniSelect.innerHTML = '<option value="">Nessun comune trovato</option>';
+        }
+        
+        comuniSelect.disabled = false;
+    })
+    .catch(error => {
+        console.error('Errore nel caricamento comuni residenza:', error);
+        comuniSelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+        comuniSelect.disabled = false;
+    });
+}
+
+// Funzione per configurare la compilazione automatica del CAP
+function setupCapAutoFill() {
+    const comuniSelect = document.getElementById('residence-city-select');
+    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    
+    if (!comuniSelect || !capInput) {
+        return;
+    }
+    
+    // Rimuovi listener precedenti per evitare duplicati
+    const newSelect = comuniSelect.cloneNode(true);
+    comuniSelect.parentNode.replaceChild(newSelect, comuniSelect);
+    
+    // Aggiungi nuovo listener
+    newSelect.addEventListener('change', function() {
+        const selectedComune = this.value;
+        const hasCapField = this.getAttribute('data-has-cap-field') === 'true';
+        const capData = this.getAttribute('data-cap-info');
+        
+        if (!hasCapField || !capData || !selectedComune) {
+            // Se non c'è il campo CAP nel database, lascia che l'utente compili manualmente
+            console.log('Campo CAP non disponibile nel database, compilazione manuale richiesta');
+            return;
+        }
+        
+        try {
+            const capInfo = JSON.parse(capData);
+            if (capInfo[selectedComune]) {
+                // Compila automaticamente il CAP
+                capInput.value = capInfo[selectedComune];
+                capInput.style.backgroundColor = '#f0f9ff'; // Sfondo azzurrino per indicare auto-compilazione
+                
+                // Mostra notifica
+                showNotification('CAP compilato automaticamente: ' + capInfo[selectedComune], 'success');
+                
+                // Rimuovi lo sfondo dopo 3 secondi
+                setTimeout(() => {
+                    capInput.style.backgroundColor = '';
+                }, 3000);
+            } else {
+                console.log('CAP non trovato per il comune: ' + selectedComune);
+            }
+        } catch (e) {
+            console.error('Errore nel parsing dei dati CAP:', e);
+        }
+    });
+}
 </script> 

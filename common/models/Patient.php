@@ -2,10 +2,10 @@
 
 namespace common\models;
 
-use Yii;
-use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
+use Yii;
 
 /**
  * This is the model class for table "patients".
@@ -29,6 +29,7 @@ use yii\helpers\ArrayHelper;
  * @property string|null $notes
  * @property string $created_at
  * @property string $updated_at
+ * @property string|null $gender
  *
  * @property District $district
  * @property AccountPatient[] $accountPatients
@@ -37,6 +38,24 @@ use yii\helpers\ArrayHelper;
  */
 class Patient extends ActiveRecord
 {
+    /**
+     * Virtual field for province selection
+     * @var int
+     */
+    public $birth_province_id;
+
+    /**
+     * Virtual field for residence province selection
+     * @var int
+     */
+    public $residence_province_id;
+
+    /**
+     * Virtual field to indicate if residence is in Italy
+     * @var int
+     */
+    public $residence_in_italy;
+
     /**
      * {@inheritdoc}
      */
@@ -57,7 +76,6 @@ class Patient extends ActiveRecord
                     return date('Y-m-d H:i:s');
                 },
             ],
-
             // Activity Logging
             [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
@@ -81,12 +99,12 @@ class Patient extends ActiveRecord
         $scenarios['create'] = [
             'first_name', 'last_name', 'birth_date', 'birth_city', 'birth_province_name', 'birth_province_code', 'born_in_italy',
             'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
-            'phone_number', 'fiscal_code', 'district_id', 'notes'
+            'phone_number', 'fiscal_code', 'district_id', 'notes', 'gender', 'birth_province_id', 'residence_province_id', 'residence_in_italy'
         ];
         $scenarios['update'] = [
             'first_name', 'last_name', 'birth_date', 'birth_city', 'birth_province_name', 'birth_province_code', 'born_in_italy',
             'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
-            'phone_number', 'fiscal_code', 'district_id', 'notes'
+            'phone_number', 'fiscal_code', 'district_id', 'notes', 'gender', 'birth_province_id', 'residence_province_id', 'residence_in_italy'
         ];
         return $scenarios;
     }
@@ -121,6 +139,8 @@ class Patient extends ActiveRecord
                 'message' => 'Codice fiscale non valido (solo lettere maiuscole e numeri, lunghezza 5-20 caratteri)'
             ],
             [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
+            [['gender'], 'string', 'max' => 1],
+            [['gender'], 'in', 'range' => ['M', 'F'], 'message' => 'Il sesso deve essere M (Maschio) o F (Femmina).'],
             [['district_id'], 'exist', 'skipOnError' => true, 'targetClass' => District::class, 'targetAttribute' => ['district_id' => 'id']],
         ];
     }
@@ -165,6 +185,7 @@ class Patient extends ActiveRecord
             'fiscal_code' => 'Codice Fiscale',
             'district_id' => 'Distretto',
             'notes' => 'Note',
+            'gender' => 'Sesso',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];
@@ -273,11 +294,11 @@ class Patient extends ActiveRecord
     public function getFullResidenceAddress()
     {
         $parts = [];
-        
+
         if ($this->residence_address) {
             $parts[] = $this->residence_address;
         }
-        
+
         if ($this->residence_city) {
             $cityPart = $this->residence_city;
             if ($this->residence_province_code) {
@@ -288,7 +309,7 @@ class Patient extends ActiveRecord
             }
             $parts[] = $cityPart;
         }
-        
+
         return implode(', ', $parts);
     }
 
@@ -315,7 +336,8 @@ class Patient extends ActiveRecord
      */
     public function getLinkedUsers()
     {
-        return $this->hasMany(User::class, ['id' => 'user_id'])
+        return $this
+            ->hasMany(User::class, ['id' => 'user_id'])
             ->viaTable('{{%account_patients}}', ['patient_id' => 'id'])
             ->where(['users.status' => User::STATUS_ACTIVE]);
     }
@@ -373,7 +395,8 @@ class Patient extends ActiveRecord
      */
     public function getActiveTherapeuticPlan()
     {
-        return $this->getTherapeuticPlans()
+        return $this
+            ->getTherapeuticPlans()
             ->where(['>=', 'end_date', date('Y-m-d')])
             ->orderBy(['created_at' => SORT_DESC])
             ->one();

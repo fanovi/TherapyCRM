@@ -2,22 +2,25 @@
 
 namespace frontend\controllers;
 
+use common\components\CodiceFiscaleGenerator;
 use common\components\Helper;
-use Yii;
-use yii\web\Controller;
-use yii\web\NotFoundHttpException;
-use yii\web\ForbiddenHttpException;
-use yii\filters\VerbFilter;
-use yii\filters\AccessControl;
-use yii\data\ActiveDataProvider;
-use yii\helpers\ArrayHelper;
-use common\models\Patient;
-use common\models\District;
-use common\models\User;
-use common\models\UserProfile;
 use common\models\AccountPatient;
 use common\models\AuthToken;
+use common\models\Comune;
+use common\models\District;
+use common\models\Patient;
+use common\models\Provincia;
+use common\models\User;
+use common\models\UserProfile;
 use frontend\models\PatientSearch;
+use yii\data\ActiveDataProvider;
+use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
+use yii\helpers\ArrayHelper;
+use yii\web\Controller;
+use yii\web\ForbiddenHttpException;
+use yii\web\NotFoundHttpException;
+use Yii;
 
 /**
  * PatientController handles CRUD operations for patients
@@ -35,7 +38,7 @@ class PatientController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'], // Only authenticated users
+                        'roles' => ['@'],  // Only authenticated users
                     ],
                 ],
             ],
@@ -43,10 +46,12 @@ class PatientController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
-                    'reset-password' => ['POST', 'GET'], // Allow GET for testing
+                    'reset-password' => ['POST', 'GET'],  // Allow GET for testing
                     'download-credentials-pdf' => ['GET', 'POST'],
                     'send-notification' => ['POST'],
                     'create-credentials' => ['GET', 'POST'],
+                    'generate-fiscal-code' => ['POST'],
+                    'load-comuni' => ['GET'],
                 ],
             ],
         ];
@@ -86,6 +91,24 @@ class PatientController extends Controller
         $province = Helper::getProvinceOptions();
 
         if ($patient->load(Yii::$app->request->post())) {
+            // Se è stata selezionata una provincia di nascita, popola automaticamente nome e sigla
+            if ($patient->birth_province_id && $patient->born_in_italy) {
+                $provincia = Provincia::findOne($patient->birth_province_id);
+                if ($provincia) {
+                    $patient->birth_province_name = $provincia->nome;
+                    $patient->birth_province_code = $provincia->sigla;
+                }
+            }
+
+            // Se è stata selezionata una provincia di residenza, popola automaticamente nome e sigla
+            if ($patient->residence_province_id && $patient->residence_in_italy) {
+                $provincia = Provincia::findOne($patient->residence_province_id);
+                if ($provincia) {
+                    $patient->residence_province_name = $provincia->nome;
+                    $patient->residence_province_code = $provincia->sigla;
+                }
+            }
+
             if ($patient->save()) {
                 Yii::$app->session->setFlash('success', 'Paziente creato con successo.');
                 return $this->redirect(['index']);
@@ -136,17 +159,52 @@ class PatientController extends Controller
         $patient = $this->findModel($id);
         $patient->scenario = 'update';
 
+        // Se il paziente ha una provincia di nascita, trova l'ID per pre-popolare la select
+        if ($patient->birth_province_code && $patient->born_in_italy) {
+            $provincia = Provincia::find()->where(['sigla' => $patient->birth_province_code])->one();
+            if ($provincia) {
+                $patient->birth_province_id = $provincia->id;
+            }
+        }
+
+        // Se il paziente ha una provincia di residenza, trova l'ID per pre-popolare la select
+        if ($patient->residence_province_code) {
+            $provincia = Provincia::find()->where(['sigla' => $patient->residence_province_code])->one();
+            if ($provincia) {
+                $patient->residence_province_id = $provincia->id;
+                $patient->residence_in_italy = 1;  // Se ha una provincia italiana, è residente in Italia
+            }
+        }
+
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
         $province = Helper::getProvinceOptions();
 
         if ($patient->load(Yii::$app->request->post())) {
+            // Se è stata selezionata una provincia di nascita, popola automaticamente nome e sigla
+            if ($patient->birth_province_id && $patient->born_in_italy) {
+                $provincia = Provincia::findOne($patient->birth_province_id);
+                if ($provincia) {
+                    $patient->birth_province_name = $provincia->nome;
+                    $patient->birth_province_code = $provincia->sigla;
+                }
+            }
+
+            // Se è stata selezionata una provincia di residenza, popola automaticamente nome e sigla
+            if ($patient->residence_province_id && $patient->residence_in_italy) {
+                $provincia = Provincia::findOne($patient->residence_province_id);
+                if ($provincia) {
+                    $patient->residence_province_name = $provincia->nome;
+                    $patient->residence_province_code = $provincia->sigla;
+                }
+            }
+
             if ($patient->save()) {
                 Yii::$app->session->setFlash('success', 'Paziente aggiornato con successo.');
                 return $this->redirect(['view', 'id' => $patient->id]);
             } else {
-                Yii::$app->session->setFlash('error', 'Errore nell\'aggiornare il paziente: ' . implode(', ', $patient->getFirstErrors()));
+                Yii::$app->session->setFlash('error', "Errore nell'aggiornare il paziente: " . implode(', ', $patient->getFirstErrors()));
             }
         }
 
@@ -171,7 +229,7 @@ class PatientController extends Controller
         if ($patient->delete()) {
             Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
         } else {
-            Yii::$app->session->setFlash('error', 'Errore nell\'eliminare il paziente.');
+            Yii::$app->session->setFlash('error', "Errore nell'eliminare il paziente.");
         }
 
         return $this->redirect(['index']);
@@ -204,7 +262,6 @@ class PatientController extends Controller
             $profile->load($postData) &&
             $accountPatient->load($postData)
         ) {
-
             Yii::info('Models loaded successfully - User: ' . print_r($user->attributes, true));
             Yii::info('Profile: ' . print_r($profile->attributes, true));
             Yii::info('AccountPatient: ' . print_r($accountPatient->attributes, true));
@@ -229,7 +286,7 @@ class PatientController extends Controller
 
                 // Save user
                 if (!$user->save()) {
-                    throw new \Exception('Errore nel salvare l\'utente: ' . implode(', ', $user->getFirstErrors()));
+                    throw new \Exception("Errore nel salvare l'utente: " . implode(', ', $user->getFirstErrors()));
                 }
 
                 // Save profile
@@ -456,10 +513,95 @@ class PatientController extends Controller
             ]);
 
             Yii::info('PDF salvato in sessione con nome: ' . $filename);
+
+            // Invia email con PDF allegato
+            $this->sendCredentialsEmail($user, $password, $pdfContent, $filename);
         } catch (\Exception $e) {
             Yii::error('Errore nella generazione PDF: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
             Yii::$app->session->setFlash('error', 'Errore nella generazione del PDF: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Invia email con credenziali e PDF allegato
+     */
+    private function sendCredentialsEmail($user, $password, $pdfContent, $filename)
+    {
+        try {
+            Yii::info("Invio email credenziali a: {$user->email}");
+
+            $profile = $user->profile;
+            $userName = $profile ? $profile->first_name : $user->email;
+
+            $emailSent = Yii::$app
+                ->mailer
+                ->compose()
+                ->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name . ' robot'])
+                ->setTo($user->email)
+                ->setSubject('Credenziali di Accesso - ' . Yii::$app->name)
+                ->setHtmlBody($this->generateCredentialsEmailHtml($user, $password, $userName))
+                ->attachContent($pdfContent, [
+                    'fileName' => $filename,
+                    'contentType' => 'application/pdf'
+                ])
+                ->send();
+
+            if ($emailSent) {
+                Yii::info("Email credenziali inviata con successo a: {$user->email}");
+            } else {
+                Yii::error("Errore nell'invio email credenziali a: {$user->email}");
+            }
+        } catch (\Exception $e) {
+            Yii::error('Errore invio email credenziali: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Genera contenuto HTML email credenziali
+     */
+    private function generateCredentialsEmailHtml($user, $password, $userName)
+    {
+        return "
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+            <div style='background-color: #f8f9fa; padding: 20px; border-radius: 8px;'>
+                <h2 style='color: #333; margin-bottom: 20px;'>Credenziali di Accesso - " . Yii::$app->name . "</h2>
+                
+                <p style='color: #666; line-height: 1.6;'>Ciao {$userName},</p>
+                
+                <p style='color: #666; line-height: 1.6;'>
+                    Le tue credenziali di accesso sono state create con successo. 
+                    Trovi tutti i dettagli nel documento PDF allegato.
+                </p>
+                
+                <div style='background-color: #e9ecef; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                    <h3 style='color: #495057; margin-top: 0;'>Le tue credenziali:</h3>
+                    <p style='margin: 10px 0;'><strong>Email:</strong> {$user->email}</p>
+                    <p style='margin: 10px 0;'><strong>Password temporanea:</strong> 
+                        <span style='font-family: monospace; background-color: #fff; padding: 4px 8px; border-radius: 4px; color: #007bff;'>{$password}</span>
+                    </p>
+                    <p style='color: #dc3545; font-size: 14px; margin-top: 15px;'>
+                        <strong>⚠️ Importante:</strong> Dovrai cambiare questa password al primo accesso.
+                    </p>
+                </div>
+                
+                <div style='background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h4 style='color: #0c5460; margin-top: 0;'>Come accedere all'app:</h4>
+                    <ol style='color: #0c5460; line-height: 1.6; margin: 0;'>
+                        <li>Scarica l'app " . Yii::$app->name . "</li>
+                        <li>Inserisci email e password temporanea</li>
+                        <li>Cambia la password quando richiesto</li>
+                        <li>Inizia a utilizzare l'app!</li>
+                    </ol>
+                </div>
+                
+                <hr style='border: none; border-top: 1px solid #dee2e6; margin: 20px 0;'>
+                
+                <p style='color: #999; font-size: 12px; text-align: center;'>
+                    Email automatica. Le credenziali sono strettamente personali.
+                </p>
+            </div>
+        </div>
+        ";
     }
 
     /**
@@ -527,8 +669,6 @@ class PatientController extends Controller
             $requiresReadConfirmation = ($value === true || $value === 'true' || $value === 1 || $value === '1');
         }
 
-
-
         try {
             // Ottieni tutti gli user_id collegati ai pazienti selezionati
             $userIds = $this->getUsersLinkedToPatients($patientIds);
@@ -552,9 +692,9 @@ class PatientController extends Controller
             );
 
             // Log dell'operazione
-            Yii::info('Invio notifiche ai pazienti: ' . implode(',', $patientIds) .
-                ' - Utenti destinatari: ' . implode(',', $userIds) .
-                ' - Risultato: ' . print_r($result, true), __METHOD__);
+            Yii::info('Invio notifiche ai pazienti: ' . implode(',', $patientIds)
+                . ' - Utenti destinatari: ' . implode(',', $userIds)
+                . ' - Risultato: ' . print_r($result, true), __METHOD__);
 
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return [
@@ -575,7 +715,7 @@ class PatientController extends Controller
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return [
                 'success' => false,
-                'error' => 'Errore durante l\'invio delle notifiche: ' . $e->getMessage()
+                'error' => "Errore durante l'invio delle notifiche: " . $e->getMessage()
             ];
         }
     }
@@ -589,6 +729,120 @@ class PatientController extends Controller
     private function getUsersLinkedToPatients($patientIds)
     {
         return Patient::getLinkedUsersForPatients($patientIds);
+    }
+
+    /**
+     * Loads comuni based on provincia selection
+     */
+    public function actionLoadComuni($provincia_id = null, $selected_comune = null)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if (!$provincia_id) {
+            return ['comuni' => [], 'selected' => null, 'cap_data' => []];
+        }
+
+        $comuni = Comune::find()
+            ->where(['provincia_id' => $provincia_id])
+            ->orderBy('nome ASC')
+            ->all();
+
+        $comuniArray = ArrayHelper::map($comuni, 'nome', 'nome');
+
+        // Controlla se la tabella comune ha il campo 'cap'
+        $capData = [];
+        $hasCapField = false;
+
+        try {
+            // Verifica se il campo 'cap' esiste nella tabella
+            $tableSchema = Yii::$app->db->getTableSchema('comune');
+            $hasCapField = isset($tableSchema->columns['cap']);
+
+            if ($hasCapField) {
+                // Se il campo cap esiste, crea un array con nome_comune => cap
+                foreach ($comuni as $comune) {
+                    if (!empty($comune->cap)) {
+                        $capData[$comune->nome] = $comune->cap;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::info('Errore nel controllare il campo cap: ' . $e->getMessage());
+        }
+
+        return [
+            'comuni' => $comuniArray,
+            'selected' => $selected_comune,
+            'cap_data' => $capData,
+            'has_cap_field' => $hasCapField
+        ];
+    }
+
+    /**
+     * Generates fiscal code based on patient data
+     */
+    public function actionGenerateFiscalCode()
+    {
+        if (!Yii::$app->request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Metodo non consentito.');
+        }
+
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $data = Yii::$app->request->post();
+
+        // Validazione input richiesti
+        $requiredFields = ['first_name', 'last_name', 'birth_date', 'birth_city'];
+        foreach ($requiredFields as $field) {
+            if (empty($data[$field])) {
+                return [
+                    'success' => false,
+                    'error' => "Campo obbligatorio mancante: {$field}"
+                ];
+            }
+        }
+
+        try {
+            // Determina il sesso (per ora prendiamo da un campo se presente, altrimenti chiediamo)
+            $gender = $data['gender'] ?? null;
+            if (empty($gender)) {
+                return [
+                    'success' => false,
+                    'error' => 'Seleziona il sesso per generare il codice fiscale',
+                    'requiresGender' => true
+                ];
+            }
+
+            // Genera il codice fiscale
+            $fiscalCode = CodiceFiscaleGenerator::generaCodiceFiscale(
+                $data['last_name'],
+                $data['first_name'],
+                $data['birth_date'],
+                $gender,
+                $data['birth_city']
+            );
+
+            if ($fiscalCode) {
+                Yii::info("Codice fiscale generato: {$fiscalCode} per {$data['first_name']} {$data['last_name']}");
+
+                return [
+                    'success' => true,
+                    'fiscal_code' => $fiscalCode
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => 'Impossibile generare il codice fiscale. Verifica che il comune di nascita sia corretto.'
+                ];
+            }
+        } catch (\Exception $e) {
+            Yii::error('Errore nella generazione codice fiscale: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'error' => 'Errore nella generazione: ' . $e->getMessage()
+            ];
+        }
     }
 
     /**
