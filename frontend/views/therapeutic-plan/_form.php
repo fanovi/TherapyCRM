@@ -142,11 +142,10 @@ use yii\widgets\ActiveForm;
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-
                 <!-- Data Approvazione -->
                 <div class="form-group">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Data Approvazione <span class="text-red-500">*</span>
+                        Data Approvazione
                     </label>
 
                     <div class="relative">
@@ -161,6 +160,17 @@ use yii\widgets\ActiveForm;
                             </svg>
                         </span>
                     </div>
+                </div>
+
+                <!-- Numero Protocollo -->
+                <div class="form-group">
+                    <?= $form->field($model, 'protocol_number')->textInput([
+                        'maxlength' => true,
+                        'placeholder' => 'Inserisci il numero di protocollo',
+                    ])->label('Numero Protocollo') ?>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Il numero di protocollo deve essere univoco per ogni piano terapeutico.
+                    </p>
                 </div>
 
                 <!-- Data Inizio -->

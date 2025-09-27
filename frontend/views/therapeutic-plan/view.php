@@ -175,6 +175,14 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     ],
                     [
+                        'attribute' => 'protocol_number',
+                        'label' => 'Numero Protocollo',
+                        'value' => function ($model) {
+                            return $model->protocol_number ? Html::encode($model->protocol_number) : 'N/A';
+                        },
+                        'format' => 'raw'
+                    ],
+                    [
                         'attribute' => 'start_date',
                         'label' => 'Data Inizio',
                         'value' => function ($model) {
