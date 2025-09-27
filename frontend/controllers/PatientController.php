@@ -328,7 +328,8 @@ class PatientController extends Controller
 
                 $transaction->commit();
 
-                // Generate PDF with credentials automatically
+                // Generate PDF with credentials automatically and send email
+                Yii::info('Generazione PDF e invio email per nuovo account: ' . $user->email);
                 $this->generateCredentialsPdf($user, $plainPassword);
 
                 // Handle AJAX requests for automatic PDF download
@@ -336,13 +337,13 @@ class PatientController extends Controller
                     Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
                     return [
                         'success' => true,
-                        'message' => 'Credenziali create con successo!',
+                        'message' => 'Credenziali create con successo! PDF generato e email inviata.',
                         'downloadUrl' => \yii\helpers\Url::to(['download-credentials-pdf']),
                         'redirectUrl' => \yii\helpers\Url::to(['view', 'id' => $patient->id])
                     ];
                 }
 
-                Yii::$app->session->setFlash('success', 'Credenziali create con successo!');
+                Yii::$app->session->setFlash('success', 'Credenziali create con successo! PDF generato e email inviata a ' . $user->email . '.');
                 return $this->redirect(['view', 'id' => $patient->id]);
             } catch (\Exception $e) {
                 $transaction->rollBack();
@@ -442,6 +443,59 @@ class PatientController extends Controller
         if (Yii::$app->request->isAjax) {
             Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             return ['status' => 'success', 'message' => 'Password resettata con successo'];
+        }
+
+        // Find patient ID to redirect back for non-AJAX requests
+        $accountPatient = AccountPatient::findOne(['user_id' => $userId]);
+        if ($accountPatient) {
+            return $this->redirect(['view', 'id' => $accountPatient->patient_id]);
+        }
+
+        return $this->redirect(['index']);
+    }
+
+    /**
+     * Sends existing credentials via email without changing password
+     */
+    public function actionSendCredentials($userId = null)
+    {
+        // Accept userId from both URL parameter and POST data
+        if ($userId === null) {
+            $userId = Yii::$app->request->post('userId');
+        }
+
+        if (!$userId) {
+            throw new \yii\web\BadRequestHttpException('Missing userId parameter');
+        }
+
+        if (!Yii::$app->user->can('update_patient')) {
+            Yii::error('Permessi insufficienti per utente: ' . Yii::$app->user->id);
+            throw new ForbiddenHttpException('Non hai i permessi per inviare credenziali.');
+        }
+
+        $user = User::findOne($userId);
+        if (!$user) {
+            Yii::error('Utente non trovato con ID: ' . $userId);
+            throw new NotFoundHttpException('Utente non trovato.');
+        }
+
+        Yii::info('Invio credenziali esistenti per utente: ' . $user->email);
+
+        try {
+            // Send email with current credentials (no password change)
+            $this->sendExistingCredentialsEmail($user);
+
+            Yii::$app->session->setFlash('success', 'Credenziali inviate via email con successo.');
+            Yii::info('Email credenziali esistenti inviata con successo a: ' . $user->email);
+        } catch (\Exception $e) {
+            Yii::error("Errore nell'invio email credenziali: " . $e->getMessage());
+            Yii::$app->session->setFlash('error', "Errore nell'invio delle credenziali via email.");
+        }
+
+        // Handle AJAX requests differently
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return ['status' => 'success', 'message' => 'Credenziali inviate via email con successo'];
         }
 
         // Find patient ID to redirect back for non-AJAX requests
@@ -571,6 +625,90 @@ class PatientController extends Controller
         } catch (\Exception $e) {
             Yii::error('Errore invio email credenziali: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Invia email con credenziali esistenti (senza cambio password)
+     */
+    private function sendExistingCredentialsEmail($user)
+    {
+        try {
+            Yii::info("Invio email credenziali esistenti a: {$user->email}");
+
+            $profile = $user->profile;
+            $userName = $profile ? $profile->first_name : $user->email;
+
+            $emailSent = Yii::$app
+                ->mailer
+                ->compose()
+                ->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name . ' robot'])
+                ->setTo($user->email)
+                ->setSubject('Promemoria Credenziali di Accesso San Luca Plus')
+                ->setHtmlBody($this->generateExistingCredentialsEmailHtml($user, $userName))
+                ->send();
+
+            if ($emailSent) {
+                Yii::info("Email credenziali esistenti inviata con successo a: {$user->email}");
+            } else {
+                Yii::error("Errore nell'invio email credenziali esistenti a: {$user->email}");
+                throw new \Exception("Errore nell'invio dell'email");
+            }
+        } catch (\Exception $e) {
+            Yii::error('Errore invio email credenziali esistenti: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Genera contenuto HTML email credenziali esistenti
+     */
+    private function generateExistingCredentialsEmailHtml($user, $userName)
+    {
+        return "
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+            
+                <h2 style='color: #333; margin-bottom: 20px;'>Promemoria Credenziali di Accesso San Luca Plus</h2>
+                
+                <p style='color: #666; line-height: 1.6;'>Ciao {$userName},</p>
+                
+                <p style='color: #666; line-height: 1.6;'>
+                    Ti ricordiamo le tue credenziali di accesso per l'app " . Yii::$app->name . ".
+                </p>
+                
+                <div style='background-color: #e9ecef; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                    <h3 style='color: #495057; margin-top: 0;'>Le tue credenziali:</h3>
+                    <p style='margin: 10px 0;'><strong>Email:</strong> {$user->email}</p>
+                    <p style='margin: 10px 0;'><strong>Password:</strong> La password che hai impostato durante il primo accesso</p>
+                    <p style='color: #6c757d; font-size: 14px; margin-top: 15px;'>
+                        <strong>💡 Nota:</strong> Se hai dimenticato la password, puoi richiedere un reset tramite l'app.
+                    </p>
+                </div>
+                
+                <div style='background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h4 style='color: #0c5460; margin-top: 0;'>Come accedere:</h4>
+                    <ol style='color: #0c5460; line-height: 1.6; margin: 0;'>
+                        <li>Apri l'app " . Yii::$app->name . "</li>
+                        <li>Inserisci la tua email: <strong>{$user->email}</strong></li>
+                        <li>Inserisci la tua password personale</li>
+                        <li>Accedi e utilizza l'app!</li>
+                    </ol>
+                </div>
+                
+                <div style='background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <p style='color: #856404; margin: 0; font-size: 14px;'>
+                        <strong>🔒 Password dimenticata?</strong><br>
+                        Se non ricordi la password, usa la funzione \"Password dimenticata\" nell'app per ricevere un link di reset.
+                    </p>
+                </div>
+                
+                <hr style='border: none; border-top: 1px solid #dee2e6; margin: 20px 0;'>
+                
+                <p style='color: #999; font-size: 12px; text-align: center;'>
+                    Email automatica. Le credenziali sono strettamente personali.
+                </p>
+            </div>
+        </div>
+        ";
     }
 
     /**

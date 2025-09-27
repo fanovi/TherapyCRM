@@ -37,6 +37,42 @@ window.resetPasswordManual = function(userId) {
         }
     });
 };
+
+window.sendCredentialsEmail = function(userId, userName) {
+    if (!confirm('Sei sicuro di voler inviare le credenziali esistenti via email a \"' + userName + '\"?')) {
+        return false;
+    }
+    
+    var actionUrl = '" . \yii\helpers\Url::to(['send-credentials']) . "';
+    
+    // Use AJAX to send credentials email
+    \$.ajax({
+        url: actionUrl,
+        type: 'POST',
+        data: {
+            'userId': userId,
+            '" . Yii::$app->request->csrfParam . "': '" . Yii::$app->request->csrfToken . "'
+        },
+        success: function(response) {
+            if (response.status === 'success') {
+                alert('✅ ' + response.message);
+                // Reload page to show success flash message
+                location.reload();
+            } else {
+                alert('❌ Errore nell\'invio delle credenziali');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Errore nell\'invio credenziali:', error);
+            console.error('Response:', xhr.responseText);
+            var errorMessage = 'Errore nell\'invio delle credenziali';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage += ': ' + xhr.responseJSON.message;
+            }
+            alert('❌ ' + errorMessage);
+        }
+    });
+};
 ", \yii\web\View::POS_READY);
 
 $this->title = $model->fullName;
@@ -445,6 +481,14 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                             <?php if (Yii::$app->user->can('update_patient')): ?>
                                 <div class="flex-shrink-0">
                                     <div class="flex gap-2">
+                                        <button onclick="sendCredentialsEmail(<?= $accountPatient->user_id ?>, '<?= Html::encode($accountPatient->user->profile ? $accountPatient->user->profile->first_name . ' ' . $accountPatient->user->profile->last_name : $accountPatient->user->email) ?>')" 
+                                                class="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                                title="Invia Credenziali Esistenti via Email">
+                                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                            </svg>
+                                            Invia Credenziali
+                                        </button>
                                         <button onclick="resetPasswordManual(<?= $accountPatient->user_id ?>)" 
                                                 class="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
                                                 title="Reset Password e Genera PDF">
