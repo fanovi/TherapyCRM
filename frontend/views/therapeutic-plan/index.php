@@ -76,6 +76,20 @@ $this->params['breadcrumbs'][] = $this->title;
                         'options' => ['style' => 'width: 80px;'],
                     ],
                     [
+                        'attribute' => 'protocol_number',
+                        'label' => 'N. Protocollo',
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'content' => function($model) {
+                            if (!$model->protocol_number) {
+                                return '<span class="text-sm text-gray-500 dark:text-gray-400">N/A</span>';
+                            }
+                            return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">' . 
+                                   Html::encode($model->protocol_number) . '</span>';
+                        },
+                        'options' => ['style' => 'width: 140px;'],
+                    ],
+                    [
                         'attribute' => 'patient_id',
                         'label' => 'Paziente',
                         'value' => function($model) {
