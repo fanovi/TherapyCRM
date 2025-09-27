@@ -13,7 +13,7 @@ use yii\widgets\ActiveForm;
 /** @var array $districts */
 $isUpdate = $isUpdate ?? false;
 $districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name');
-$province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
+$province = $province ?? ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 
 // Imposta "nato in Italia" come default se è un nuovo paziente
 if (!$isUpdate && $patient->born_in_italy === null) {
@@ -231,7 +231,9 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
                     <div>
                         <?= $form->field($patient, 'birth_city')->textInput([
                             'placeholder' => 'Stato estero di nascita',
-                            'id' => 'birth-city-foreign'
+                            'id' => 'birth-city-foreign',
+                            'name' => '',  // Rimosso name attribute - sarà gestito da JavaScript
+                            'disabled' => true
                         ])->label('Stato di Nascita') ?>
                     </div>
                 </div>
@@ -365,14 +367,18 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
                     <div>
                         <?= $form->field($patient, 'residence_city')->textInput([
                             'placeholder' => 'Città/Stato estero di residenza',
-                            'id' => 'residence-city-foreign'
+                            'id' => 'residence-city-foreign',
+                            'name' => '',  // Rimosso name attribute - sarà gestito da JavaScript
+                            'disabled' => true
                         ])->label('Città/Stato di Residenza') ?>
                     </div>
                     
                     <div>
                         <?= $form->field($patient, 'residence_postal_code')->textInput([
                             'placeholder' => 'Codice postale',
-                            'id' => 'residence-postal-code-foreign'
+                            'id' => 'residence-postal-code-foreign',
+                            'name' => '',  // Rimosso name attribute - sarà gestito da JavaScript
+                            'disabled' => true
                         ])->label('Codice Postale') ?>
                     </div>
                 </div>
@@ -417,11 +423,134 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
     </div>
 
     <?php ActiveForm::end(); ?>
+    
+    <!-- DEBUG: Mostra dati form in tempo reale -->
+    <div id="debug-panel" style="position: fixed; top: 10px; right: 10px; width: 400px; max-height: 80vh; overflow-y: auto; background: #f8f9fa; border: 2px solid #007bff; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 12px; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: #007bff; color: white; margin: -15px -15px 10px -15px; padding: 10px; border-radius: 6px 6px 0 0; font-weight: bold;">
+            🔍 DEBUG: Form Data in Tempo Reale
+            <button onclick="document.getElementById('debug-panel').style.display='none'" style="float: right; background: none; border: none; color: white; cursor: pointer; font-size: 16px;">×</button>
+        </div>
+        <div id="debug-content">
+            Compila i campi per vedere i dati...
+        </div>
+    </div>
 </div>
 
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // DEBUG: Aggiorna pannello debug in tempo reale
+    const form = document.querySelector('form');
+    const debugContent = document.getElementById('debug-content');
+    
+    console.log('DEBUG: Form trovato:', !!form);
+    console.log('DEBUG: Debug content trovato:', !!debugContent);
+    
+    function updateDebugPanel() {
+        if (!form || !debugContent) return;
+        
+        const formData = new FormData(form);
+        let html = '<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">📋 DATI FORM ATTUALI:</div>';
+        
+        // Campi specifici che ci interessano
+        const importantFields = {
+            'Patient[first_name]': 'Nome',
+            'Patient[last_name]': 'Cognome', 
+            'Patient[birth_date]': 'Data Nascita',
+            'Patient[gender]': 'Sesso',
+            'Patient[born_in_italy]': 'Nato in Italia',
+            'Patient[birth_province_id]': 'Provincia Nascita ID',
+            'Patient[birth_city]': '🔴 COMUNE NASCITA',
+            'Patient[residence_address]': 'Indirizzo',
+            'Patient[residence_in_italy]': 'Residenza in Italia',
+            'Patient[residence_province_id]': 'Provincia Residenza ID',
+            'Patient[residence_city]': '🔴 COMUNE RESIDENZA',
+            'Patient[residence_postal_code]': '🔴 CAP',
+            'Patient[fiscal_code]': 'Codice Fiscale'
+        };
+        
+        // Mostra TUTTI i dati del form
+        let allData = [];
+        for (let [key, value] of formData.entries()) {
+            allData.push({key, value});
+        }
+        
+        if (allData.length === 0) {
+            html += '<div style="color: #dc3545;">Nessun dato nel form</div>';
+        } else {
+            allData.forEach(({key, value}) => {
+                const isImportant = importantFields[key];
+                const isEmpty = !value || value.trim() === '';
+                const color = isEmpty ? '#dc3545' : '#28a745';
+                const displayValue = isEmpty ? '(vuoto)' : value;
+                const bgColor = isImportant ? (isEmpty ? '#fff5f5' : '#f0fff4') : '#f8f9fa';
+                const borderColor = isImportant ? color : '#dee2e6';
+                
+                html += `<div style="margin: 2px 0; padding: 2px 5px; background: ${bgColor}; border-left: 2px solid ${borderColor}; font-size: 11px;">`;
+                html += `<strong style="color: ${isImportant ? color : '#6c757d'};">${isImportant ? importantFields[key] : key}:</strong> `;
+                html += `<span style="color: ${color};">${displayValue}</span>`;
+                html += `</div>`;
+            });
+        }
+        
+        // Mostra anche i valori delle select direttamente dal DOM e il loro stato
+        const birthCitySelect = document.getElementById('birth-city-select');
+        const birthCityForeign = document.getElementById('birth-city-foreign');
+        const residenceCitySelect = document.getElementById('residence-city-select');
+        const residenceCityForeign = document.getElementById('residence-city-foreign');
+        const residencePostalCodeForeign = document.getElementById('residence-postal-code-foreign');
+        
+        html += '<div style="margin-top: 15px; color: #6c757d; font-weight: bold;">🔍 STATO CAMPI DOM:</div>';
+        
+        // Birth city fields
+        html += `<div style="margin: 3px 0; padding: 2px; background: ${birthCitySelect?.disabled ? '#fff5f5' : '#f0fff4'};">`;
+        html += `birth-city-select: <span style="color: ${birthCitySelect?.value ? '#28a745' : '#dc3545'};">${birthCitySelect?.value || '(vuoto)'}</span> `;
+        html += `<small style="color: ${birthCitySelect?.disabled ? '#dc3545' : '#28a745'};">[${birthCitySelect?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
+        html += `<small style="color: ${birthCitySelect?.name ? '#28a745' : '#dc3545'};">name="${birthCitySelect?.name || 'NONE'}"</small>`;
+        html += `</div>`;
+        
+        html += `<div style="margin: 3px 0; padding: 2px; background: ${birthCityForeign?.disabled ? '#fff5f5' : '#f0fff4'};">`;
+        html += `birth-city-foreign: <span style="color: ${birthCityForeign?.value ? '#28a745' : '#dc3545'};">${birthCityForeign?.value || '(vuoto)'}</span> `;
+        html += `<small style="color: ${birthCityForeign?.disabled ? '#dc3545' : '#28a745'};">[${birthCityForeign?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
+        html += `<small style="color: ${birthCityForeign?.name ? '#28a745' : '#dc3545'};">name="${birthCityForeign?.name || 'NONE'}"</small>`;
+        html += `</div>`;
+        
+        // Residence city fields
+        html += `<div style="margin: 3px 0; padding: 2px; background: ${residenceCitySelect?.disabled ? '#fff5f5' : '#f0fff4'};">`;
+        html += `residence-city-select: <span style="color: ${residenceCitySelect?.value ? '#28a745' : '#dc3545'};">${residenceCitySelect?.value || '(vuoto)'}</span> `;
+        html += `<small style="color: ${residenceCitySelect?.disabled ? '#dc3545' : '#28a745'};">[${residenceCitySelect?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
+        html += `<small style="color: ${residenceCitySelect?.name ? '#28a745' : '#dc3545'};">name="${residenceCitySelect?.name || 'NONE'}"</small>`;
+        html += `</div>`;
+        
+        html += `<div style="margin: 3px 0; padding: 2px; background: ${residenceCityForeign?.disabled ? '#fff5f5' : '#f0fff4'};">`;
+        html += `residence-city-foreign: <span style="color: ${residenceCityForeign?.value ? '#28a745' : '#dc3545'};">${residenceCityForeign?.value || '(vuoto)'}</span> `;
+        html += `<small style="color: ${residenceCityForeign?.disabled ? '#dc3545' : '#28a745'};">[${residenceCityForeign?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
+        html += `<small style="color: ${residenceCityForeign?.name ? '#28a745' : '#dc3545'};">name="${residenceCityForeign?.name || 'NONE'}"</small>`;
+        html += `</div>`;
+        
+        debugContent.innerHTML = html;
+    }
+    
+    // Aggiorna il pannello ogni volta che cambia qualcosa
+    if (form) {
+        form.addEventListener('input', updateDebugPanel);
+        form.addEventListener('change', updateDebugPanel);
+        
+        // Aggiorna anche quando le select vengono popolate dinamicamente
+        const observer = new MutationObserver(updateDebugPanel);
+        observer.observe(form, { childList: true, subtree: true });
+        
+        // Prima aggiornamento
+        updateDebugPanel();
+        
+        // Aggiorna anche quando si selezionano le province (per triggerare il caricamento comuni)
+        const provinceSelects = document.querySelectorAll('#birth-province-select, #residence-province-select');
+        provinceSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                setTimeout(updateDebugPanel, 100); // Piccolo delay per permettere al DOM di aggiornarsi
+            });
+        });
+    }
     // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
     const fiscalCodeInput = document.getElementById('fiscal-code-input');
     
@@ -438,7 +567,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const birthLocationForeignField = document.getElementById('birth-location-foreign-field');
     
     if (bornInItalyCheckbox && birthLocationItalyFields && birthLocationForeignField) {
-        // Controlla stato iniziale
+        // Aggiungi event listener prima di chiamare la funzione toggle
+        bornInItalyCheckbox.addEventListener('change', function() {
+            toggleBirthLocationFields();
+        });
+        
+        // Controlla stato iniziale DOPO aver aggiunto i listener
         toggleBirthLocationFields();
         
         // Se stiamo modificando un paziente e c'è una provincia selezionata, carica i comuni
@@ -447,10 +581,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentComune = document.getElementById('birth-city-select').getAttribute('data-current-value');
             loadBirthComuni(provinciaSelect.value, currentComune);
         }
-        
-        bornInItalyCheckbox.addEventListener('change', function() {
-            toggleBirthLocationFields();
-        });
     }
     
     // Gestione checkbox "Residenza in Italia"
@@ -459,7 +589,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const residenceLocationForeignFields = document.getElementById('residence-location-foreign-fields');
     
     if (residenceInItalyCheckbox && residenceLocationItalyFields && residenceLocationForeignFields) {
-        // Controlla stato iniziale
+        // Aggiungi event listener prima di chiamare la funzione toggle
+        residenceInItalyCheckbox.addEventListener('change', function() {
+            toggleResidenceLocationFields();
+        });
+        
+        // Controlla stato iniziale DOPO aver aggiunto i listener
         toggleResidenceLocationFields();
         
         // Se stiamo modificando un paziente e c'è una provincia selezionata, carica i comuni
@@ -468,40 +603,93 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentResidenceComune = document.getElementById('residence-city-select').getAttribute('data-current-value');
             loadResidenceComuni(residenceProvinciaSelect.value, currentResidenceComune);
         }
-        
-        residenceInItalyCheckbox.addEventListener('change', function() {
-            toggleResidenceLocationFields();
-        });
     }
     
+    // Inizializza i messaggi CAP per i nuovi pazienti
+    initializeCapMessages();
+    
     function toggleBirthLocationFields() {
+        const birthCitySelect = document.getElementById('birth-city-select');
+        const birthCityForeign = document.getElementById('birth-city-foreign');
+        
         if (bornInItalyCheckbox.checked) {
+            // Mostra campi Italia
             birthLocationItalyFields.style.display = 'grid';
             birthLocationForeignField.style.display = 'none';
-            // Pulisci campo estero
-            document.getElementById('birth-city-foreign').value = '';
+            
+            // Abilita campi Italia e assegna name attribute
+            birthCitySelect.disabled = false;
+            birthCitySelect.name = 'Patient[birth_city]';
+            
+            // Disabilita campo estero e rimuovi name attribute
+            birthCityForeign.disabled = true;
+            birthCityForeign.name = '';
+            birthCityForeign.value = '';
+            
         } else {
+            // Mostra campo estero
             birthLocationItalyFields.style.display = 'none';
             birthLocationForeignField.style.display = 'grid';
-            // Pulisci campi Italia
+            
+            // Disabilita campi Italia e rimuovi name attribute
+            birthCitySelect.disabled = true;
+            birthCitySelect.name = '';
             document.getElementById('birth-province-select').value = '';
-            document.getElementById('birth-city-select').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+            birthCitySelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+            
+            // Abilita campo estero e assegna name attribute
+            birthCityForeign.disabled = false;
+            birthCityForeign.name = 'Patient[birth_city]';
         }
     }
     
     function toggleResidenceLocationFields() {
+        const residenceCitySelect = document.getElementById('residence-city-select');
+        const residenceCityForeign = document.getElementById('residence-city-foreign');
+        const residencePostalCodeItaly = document.querySelector('#residence-location-italy-fields input[name="Patient[residence_postal_code]"]');
+        const residencePostalCodeForeign = document.getElementById('residence-postal-code-foreign');
+        
         if (residenceInItalyCheckbox.checked) {
+            // Mostra campi Italia
             residenceLocationItalyFields.style.display = 'grid';
             residenceLocationForeignFields.style.display = 'none';
-            // Pulisci campi esteri
-            document.getElementById('residence-city-foreign').value = '';
-            document.getElementById('residence-postal-code-foreign').value = '';
+            
+            // Abilita campi Italia e assegna name attributes
+            residenceCitySelect.disabled = false;
+            residenceCitySelect.name = 'Patient[residence_city]';
+            if (residencePostalCodeItaly) {
+                residencePostalCodeItaly.disabled = false;
+                residencePostalCodeItaly.name = 'Patient[residence_postal_code]';
+            }
+            
+            // Disabilita campi esteri e rimuovi name attributes
+            residenceCityForeign.disabled = true;
+            residenceCityForeign.name = '';
+            residenceCityForeign.value = '';
+            residencePostalCodeForeign.disabled = true;
+            residencePostalCodeForeign.name = '';
+            residencePostalCodeForeign.value = '';
+            
         } else {
+            // Mostra campi esteri
             residenceLocationItalyFields.style.display = 'none';
             residenceLocationForeignFields.style.display = 'grid';
-            // Pulisci campi Italia
+            
+            // Disabilita campi Italia e rimuovi name attributes
+            residenceCitySelect.disabled = true;
+            residenceCitySelect.name = '';
             document.getElementById('residence-province-select').value = '';
-            document.getElementById('residence-city-select').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+            residenceCitySelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+            if (residencePostalCodeItaly) {
+                residencePostalCodeItaly.disabled = true;
+                residencePostalCodeItaly.name = '';
+            }
+            
+            // Abilita campi esteri e assegna name attributes
+            residenceCityForeign.disabled = false;
+            residenceCityForeign.name = 'Patient[residence_city]';
+            residencePostalCodeForeign.disabled = false;
+            residencePostalCodeForeign.name = 'Patient[residence_postal_code]';
         }
     }
     
@@ -852,6 +1040,19 @@ function handleCapAutoFill() {
         }
     } catch (e) {
         console.error('Errore nel parsing dei dati CAP:', e);
+    }
+}
+
+// Funzione per inizializzare i messaggi CAP per nuovi pazienti
+function initializeCapMessages() {
+    // Per i nuovi pazienti, mostra il messaggio di compilazione manuale di default
+    const capAutoInfo = document.getElementById('cap-auto-info');
+    const capManualInfo = document.getElementById('cap-manual-info');
+    
+    if (capAutoInfo && capManualInfo) {
+        // Di default mostra compilazione manuale
+        capAutoInfo.style.display = 'none';
+        capManualInfo.style.display = 'inline';
     }
 }
 </script> 

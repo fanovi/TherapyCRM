@@ -88,9 +88,16 @@ class PatientController extends Controller
 
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
-        $province = Helper::getProvinceOptions();
+        $province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 
         if ($patient->load(Yii::$app->request->post())) {
+            // DEBUG: Log dei dati POST
+            Yii::error('=== DEBUG POST DATA CREATE ===');
+            Yii::error('POST data: ' . json_encode(Yii::$app->request->post(), JSON_UNESCAPED_UNICODE));
+            Yii::error('birth_city: ' . ($patient->birth_city ?? 'NULL'));
+            Yii::error('residence_city: ' . ($patient->residence_city ?? 'NULL'));
+            Yii::error('residence_postal_code: ' . ($patient->residence_postal_code ?? 'NULL'));
+
             // Se è stata selezionata una provincia di nascita, popola automaticamente nome e sigla
             if ($patient->birth_province_id && $patient->born_in_italy) {
                 $provincia = Provincia::findOne($patient->birth_province_id);
@@ -121,6 +128,7 @@ class PatientController extends Controller
             'patient' => $patient,
             'districts' => $districts,
             'province' => $province,
+            'isUpdate' => false,
         ]);
     }
 
@@ -179,7 +187,7 @@ class PatientController extends Controller
         // Get districts for dropdown
         $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
 
-        $province = Helper::getProvinceOptions();
+        $province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 
         if ($patient->load(Yii::$app->request->post())) {
             // Se è stata selezionata una provincia di nascita, popola automaticamente nome e sigla
@@ -212,6 +220,7 @@ class PatientController extends Controller
             'patient' => $patient,
             'districts' => $districts,
             'province' => $province,
+            'isUpdate' => true,
         ]);
     }
 

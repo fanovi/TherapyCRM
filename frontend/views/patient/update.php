@@ -15,5 +15,6 @@ $this->params['breadcrumbs'][] = 'Modifica';
 <?= $this->render('_form', [
     'patient' => $patient,
     'districts' => $districts,
+    'province' => $province ?? [],
     'isUpdate' => true,
 ]) ?> 
