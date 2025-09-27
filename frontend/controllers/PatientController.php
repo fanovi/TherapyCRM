@@ -105,10 +105,14 @@ class PatientController extends Controller
                     $patient->birth_province_name = $provincia->nome;
                     $patient->birth_province_code = $provincia->sigla;
                 }
+            } elseif (!$patient->born_in_italy) {
+                // Se NON è nato in Italia, pulisci i campi provincia
+                $patient->birth_province_name = null;
+                $patient->birth_province_code = null;
             }
 
-            // Se è stata selezionata una provincia di residenza, popola automaticamente nome e sigla
-            if ($patient->residence_province_id && $patient->residence_in_italy) {
+            // Per la residenza, rimuoviamo il controllo residence_in_italy (sempre Italia)
+            if ($patient->residence_province_id) {
                 $provincia = Provincia::findOne($patient->residence_province_id);
                 if ($provincia) {
                     $patient->residence_province_name = $provincia->nome;
@@ -197,10 +201,14 @@ class PatientController extends Controller
                     $patient->birth_province_name = $provincia->nome;
                     $patient->birth_province_code = $provincia->sigla;
                 }
+            } elseif (!$patient->born_in_italy) {
+                // Se NON è nato in Italia, pulisci i campi provincia
+                $patient->birth_province_name = null;
+                $patient->birth_province_code = null;
             }
 
-            // Se è stata selezionata una provincia di residenza, popola automaticamente nome e sigla
-            if ($patient->residence_province_id && $patient->residence_in_italy) {
+            // Per la residenza, rimuoviamo il controllo residence_in_italy (sempre Italia)
+            if ($patient->residence_province_id) {
                 $provincia = Provincia::findOne($patient->residence_province_id);
                 if ($provincia) {
                     $patient->residence_province_name = $provincia->nome;

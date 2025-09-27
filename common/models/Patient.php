@@ -276,14 +276,20 @@ class Patient extends ActiveRecord
     public function getBirthLocation()
     {
         if ($this->born_in_italy) {
+            // Nato in Italia
             if ($this->birth_city && $this->birth_province_code) {
                 return $this->birth_city . ' (' . $this->birth_province_code . ')';
             } elseif ($this->birth_city) {
                 return $this->birth_city;
             }
             return 'Italia';
+        } else {
+            // Nato all'estero
+            if ($this->birth_city) {
+                return $this->birth_city;  // Nome del paese estero
+            }
+            return 'Estero';
         }
-        return 'Estero';
     }
 
     /**

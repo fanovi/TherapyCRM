@@ -426,13 +426,8 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
     
     <!-- DEBUG: Mostra dati form in tempo reale -->
     <div id="debug-panel" style="position: fixed; top: 10px; right: 10px; width: 400px; max-height: 80vh; overflow-y: auto; background: #f8f9fa; border: 2px solid #007bff; border-radius: 8px; padding: 15px; font-family: monospace; font-size: 12px; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <div style="background: #007bff; color: white; margin: -15px -15px 10px -15px; padding: 10px; border-radius: 6px 6px 0 0; font-weight: bold;">
-            🔍 DEBUG: Form Data in Tempo Reale
-            <button onclick="document.getElementById('debug-panel').style.display='none'" style="float: right; background: none; border: none; color: white; cursor: pointer; font-size: 16px;">×</button>
-        </div>
-        <div id="debug-content">
-            Compila i campi per vedere i dati...
-        </div>
+        
+       
     </div>
 </div>
 
@@ -441,116 +436,13 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
 document.addEventListener('DOMContentLoaded', function() {
     // DEBUG: Aggiorna pannello debug in tempo reale
     const form = document.querySelector('form');
-    const debugContent = document.getElementById('debug-content');
     
-    console.log('DEBUG: Form trovato:', !!form);
-    console.log('DEBUG: Debug content trovato:', !!debugContent);
+
     
-    function updateDebugPanel() {
-        if (!form || !debugContent) return;
-        
-        const formData = new FormData(form);
-        let html = '<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">📋 DATI FORM ATTUALI:</div>';
-        
-        // Campi specifici che ci interessano
-        const importantFields = {
-            'Patient[first_name]': 'Nome',
-            'Patient[last_name]': 'Cognome', 
-            'Patient[birth_date]': 'Data Nascita',
-            'Patient[gender]': 'Sesso',
-            'Patient[born_in_italy]': 'Nato in Italia',
-            'Patient[birth_province_id]': 'Provincia Nascita ID',
-            'Patient[birth_city]': '🔴 COMUNE NASCITA',
-            'Patient[residence_address]': 'Indirizzo',
-            'Patient[residence_in_italy]': 'Residenza in Italia',
-            'Patient[residence_province_id]': 'Provincia Residenza ID',
-            'Patient[residence_city]': '🔴 COMUNE RESIDENZA',
-            'Patient[residence_postal_code]': '🔴 CAP',
-            'Patient[fiscal_code]': 'Codice Fiscale'
-        };
-        
-        // Mostra TUTTI i dati del form
-        let allData = [];
-        for (let [key, value] of formData.entries()) {
-            allData.push({key, value});
-        }
-        
-        if (allData.length === 0) {
-            html += '<div style="color: #dc3545;">Nessun dato nel form</div>';
-        } else {
-            allData.forEach(({key, value}) => {
-                const isImportant = importantFields[key];
-                const isEmpty = !value || value.trim() === '';
-                const color = isEmpty ? '#dc3545' : '#28a745';
-                const displayValue = isEmpty ? '(vuoto)' : value;
-                const bgColor = isImportant ? (isEmpty ? '#fff5f5' : '#f0fff4') : '#f8f9fa';
-                const borderColor = isImportant ? color : '#dee2e6';
-                
-                html += `<div style="margin: 2px 0; padding: 2px 5px; background: ${bgColor}; border-left: 2px solid ${borderColor}; font-size: 11px;">`;
-                html += `<strong style="color: ${isImportant ? color : '#6c757d'};">${isImportant ? importantFields[key] : key}:</strong> `;
-                html += `<span style="color: ${color};">${displayValue}</span>`;
-                html += `</div>`;
-            });
-        }
-        
-        // Mostra anche i valori delle select direttamente dal DOM e il loro stato
-        const birthCitySelect = document.getElementById('birth-city-select');
-        const birthCityForeign = document.getElementById('birth-city-foreign');
-        const residenceCitySelect = document.getElementById('residence-city-select');
-        const residenceCityForeign = document.getElementById('residence-city-foreign');
-        const residencePostalCodeForeign = document.getElementById('residence-postal-code-foreign');
-        
-        html += '<div style="margin-top: 15px; color: #6c757d; font-weight: bold;">🔍 STATO CAMPI DOM:</div>';
-        
-        // Birth city fields
-        html += `<div style="margin: 3px 0; padding: 2px; background: ${birthCitySelect?.disabled ? '#fff5f5' : '#f0fff4'};">`;
-        html += `birth-city-select: <span style="color: ${birthCitySelect?.value ? '#28a745' : '#dc3545'};">${birthCitySelect?.value || '(vuoto)'}</span> `;
-        html += `<small style="color: ${birthCitySelect?.disabled ? '#dc3545' : '#28a745'};">[${birthCitySelect?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
-        html += `<small style="color: ${birthCitySelect?.name ? '#28a745' : '#dc3545'};">name="${birthCitySelect?.name || 'NONE'}"</small>`;
-        html += `</div>`;
-        
-        html += `<div style="margin: 3px 0; padding: 2px; background: ${birthCityForeign?.disabled ? '#fff5f5' : '#f0fff4'};">`;
-        html += `birth-city-foreign: <span style="color: ${birthCityForeign?.value ? '#28a745' : '#dc3545'};">${birthCityForeign?.value || '(vuoto)'}</span> `;
-        html += `<small style="color: ${birthCityForeign?.disabled ? '#dc3545' : '#28a745'};">[${birthCityForeign?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
-        html += `<small style="color: ${birthCityForeign?.name ? '#28a745' : '#dc3545'};">name="${birthCityForeign?.name || 'NONE'}"</small>`;
-        html += `</div>`;
-        
-        // Residence city fields
-        html += `<div style="margin: 3px 0; padding: 2px; background: ${residenceCitySelect?.disabled ? '#fff5f5' : '#f0fff4'};">`;
-        html += `residence-city-select: <span style="color: ${residenceCitySelect?.value ? '#28a745' : '#dc3545'};">${residenceCitySelect?.value || '(vuoto)'}</span> `;
-        html += `<small style="color: ${residenceCitySelect?.disabled ? '#dc3545' : '#28a745'};">[${residenceCitySelect?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
-        html += `<small style="color: ${residenceCitySelect?.name ? '#28a745' : '#dc3545'};">name="${residenceCitySelect?.name || 'NONE'}"</small>`;
-        html += `</div>`;
-        
-        html += `<div style="margin: 3px 0; padding: 2px; background: ${residenceCityForeign?.disabled ? '#fff5f5' : '#f0fff4'};">`;
-        html += `residence-city-foreign: <span style="color: ${residenceCityForeign?.value ? '#28a745' : '#dc3545'};">${residenceCityForeign?.value || '(vuoto)'}</span> `;
-        html += `<small style="color: ${residenceCityForeign?.disabled ? '#dc3545' : '#28a745'};">[${residenceCityForeign?.disabled ? 'DISABLED' : 'ENABLED'}]</small> `;
-        html += `<small style="color: ${residenceCityForeign?.name ? '#28a745' : '#dc3545'};">name="${residenceCityForeign?.name || 'NONE'}"</small>`;
-        html += `</div>`;
-        
-        debugContent.innerHTML = html;
-    }
+    
     
     // Aggiorna il pannello ogni volta che cambia qualcosa
-    if (form) {
-        form.addEventListener('input', updateDebugPanel);
-        form.addEventListener('change', updateDebugPanel);
-        
-        // Aggiorna anche quando le select vengono popolate dinamicamente
-        const observer = new MutationObserver(updateDebugPanel);
-        observer.observe(form, { childList: true, subtree: true });
-        
-        // Prima aggiornamento
-        updateDebugPanel();
-        
-        // Aggiorna anche quando si selezionano le province (per triggerare il caricamento comuni)
-        const provinceSelects = document.querySelectorAll('#birth-province-select, #residence-province-select');
-        provinceSelects.forEach(select => {
-            select.addEventListener('change', function() {
-                setTimeout(updateDebugPanel, 100); // Piccolo delay per permettere al DOM di aggiornarsi
-            });
-        });
-    }
+  
     // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
     const fiscalCodeInput = document.getElementById('fiscal-code-input');
     
