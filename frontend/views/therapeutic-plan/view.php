@@ -168,6 +168,13 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     ],
                     [
+                        'attribute' => 'approval_date',
+                        'label' => 'Data Approvazione',
+                        'value' => function ($model) {
+                            return $model->approval_date ? Yii::$app->formatter->asDate($model->approval_date) : 'N/A';
+                        }
+                    ],
+                    [
                         'attribute' => 'start_date',
                         'label' => 'Data Inizio',
                         'value' => function ($model) {

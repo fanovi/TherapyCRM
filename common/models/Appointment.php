@@ -28,6 +28,7 @@ use Ramsey\Uuid\Uuid;
  * @property int $created_by
  * @property string $created_at
  * @property string $updated_at
+ * @property int|null $id_setting
  *
  * @property AppointmentPattern $pattern
  * @property PlanTherapy $planTherapy
@@ -37,6 +38,7 @@ use Ramsey\Uuid\Uuid;
  * @property Therapist $therapist
  * @property Therapist $originalTherapist
  * @property User $createdBy
+ * @property Setting $setting
  */
 class Appointment extends ActiveRecord
 {
@@ -71,14 +73,14 @@ class Appointment extends ActiveRecord
         return [
             [
                 'class' => TimestampBehavior::class,
-                'value' => function() {
+                'value' => function () {
                     return date('Y-m-d H:i:s');
                 },
             ],
             [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
-                'entityNameCallback' => function($model) {
+                'entityNameCallback' => function ($model) {
                     return 'Appuntamento';
                 },
             ],
@@ -108,11 +110,11 @@ class Appointment extends ActiveRecord
             [['appointment_datetime'], 'validateFutureDateTime'],
             [['therapist_id', 'appointment_datetime'], 'validateTherapistAvailability'],
             // Validazione condizionale per appuntamenti da piano terapeutico
-            [['plan_therapy_id'], 'required', 'when' => function($model) {
+            [['plan_therapy_id'], 'required', 'when' => function ($model) {
                 return $model->appointment_source === self::SOURCE_THERAPEUTIC_PLAN;
             }],
             // Validazione condizionale per appuntamenti privati
-            [['patient_id', 'treatment_type_id'], 'required', 'when' => function($model) {
+            [['patient_id', 'treatment_type_id'], 'required', 'when' => function ($model) {
                 return $model->appointment_source === self::SOURCE_PRIVATE;
             }],
             // Foreign key validations
@@ -124,6 +126,9 @@ class Appointment extends ActiveRecord
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
             [['original_therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['original_therapist_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            ['id_setting', 'required'],
+            ['id_setting', 'integer'],
+            ['id_setting', 'exist', 'skipOnError' => true, 'targetClass' => Setting::class, 'targetAttribute' => ['id_setting' => 'id']],
         ];
     }
 
@@ -135,7 +140,7 @@ class Appointment extends ActiveRecord
         if (!empty($this->$attribute)) {
             // Try to parse the datetime string
             $dateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $this->$attribute);
-            
+
             if ($dateTime === false) {
                 // Try alternative formats
                 $dateTime = \DateTime::createFromFormat('Y-m-d H:i', $this->$attribute);
@@ -153,7 +158,7 @@ class Appointment extends ActiveRecord
                     }
                 }
             }
-            
+
             // Additional validation: check if it's a valid date
             $finalDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $this->$attribute);
             if ($finalDateTime === false) {
@@ -177,7 +182,7 @@ class Appointment extends ActiveRecord
             }
         }
         */
-        
+
         // Per ora accettiamo qualsiasi data per il testing
         if (!empty($this->$attribute)) {
             \Yii::info("Validazione data futura temporaneamente disabilitata per testing - DateTime: {$this->$attribute}", __METHOD__);
@@ -192,7 +197,9 @@ class Appointment extends ActiveRecord
         if (!empty($this->therapist_id) && !empty($this->appointment_datetime)) {
             $query = static::find()
                 ->where(['therapist_id' => $this->therapist_id])
-                ->andWhere(['between', 'appointment_datetime', 
+                ->andWhere([
+                    'between',
+                    'appointment_datetime',
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) - 300),
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) + ($this->duration_minutes * 60) + 300)
                 ])
@@ -238,6 +245,7 @@ class Appointment extends ActiveRecord
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
+            'id_setting' => 'Setting',
         ];
     }
 
@@ -742,7 +750,7 @@ class Appointment extends ActiveRecord
 
         $appointments = $this->getGroupSessionAppointments();
         $patients = [];
-        
+
         foreach ($appointments as $appointment) {
             $patient = $appointment->getActualPatient();
             if ($patient && !in_array($patient->id, array_column($patients, 'id'))) {
@@ -766,7 +774,9 @@ class Appointment extends ActiveRecord
     {
         $query = static::find()
             ->where(['therapist_id' => $therapistId])
-            ->andWhere(['between', 'appointment_datetime', 
+            ->andWhere([
+                'between',
+                'appointment_datetime',
                 date('Y-m-d H:i:s', strtotime($datetime) - 300),
                 date('Y-m-d H:i:s', strtotime($datetime) + ($duration * 60) + 300)
             ])
@@ -779,4 +789,14 @@ class Appointment extends ActiveRecord
 
         return $query->exists();
     }
-} 
+
+    /**
+     * Gets query for [[Setting]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSetting()
+    {
+        return $this->hasOne(Setting::class, ['id' => 'id_setting']);
+    }
+}

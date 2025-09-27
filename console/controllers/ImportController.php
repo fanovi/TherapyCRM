@@ -173,7 +173,7 @@ class ImportController extends Controller
                 throw new \Exception("Il file '{$filePath}' non esiste.");
             }
 
-            if (!in_array($model, ['Patient', 'Profile', 'AccountPatient'])) {
+            if (!in_array($model, ['patients'])) {
                 throw new \Exception("Il modello non è valido.");
             }
 
@@ -224,7 +224,7 @@ class ImportController extends Controller
             // Leggi tutte le righe di dati
             $this->stdout("Elaborazione righe...\n");
 
-            if ($model === 'Patient') {
+            if ($model === 'patients') {
                 // Crea il batch di pazienti
                 $batch_array = $this->createPatientBatch($headers, $highestRow, $highestColumn, $worksheet);
             }
@@ -235,7 +235,7 @@ class ImportController extends Controller
 
             // Inserisci le righe rimanenti
             if (!empty($batchData)) {
-                $this->insertBatch($batchData);
+                $this->insertBatch($batchData, $model);
             }
 
             // Libera memoria
@@ -363,7 +363,7 @@ class ImportController extends Controller
 
                 // Esegui inserimento batch ogni 100 righe
                 if (count($batchData) >= 100) {
-                    $this->insertBatch($batchData);
+                    $this->insertBatch($batchData, 'patients');
                     $this->stdout("Inserite {$successCount} righe...\n");
                     $batchData = [];
                 }
@@ -380,18 +380,19 @@ class ImportController extends Controller
     /**
      * Inserisce un batch di pazienti nel database
      */
-    private function insertBatch($data)
+    private function insertBatch($data, $table)
     {
         if (empty($data)) {
             return;
         }
+
 
         $db = Yii::$app->db;
         $transaction = $db->beginTransaction();
 
         try {
             $db->createCommand()->batchInsert(
-                'patients',
+                $table,
                 array_keys($data[0]),
                 $data
             )->execute();

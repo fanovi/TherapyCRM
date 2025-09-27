@@ -49,14 +49,14 @@ class TherapeuticPlan extends ActiveRecord
         return [
             [
                 'class' => TimestampBehavior::class,
-                'value' => function() {
+                'value' => function () {
                     return date('Y-m-d H:i:s');
                 },
             ],
             [
                 'class' => \common\behaviors\ActivityLogBehavior::class,
                 'excludedAttributes' => ['created_at', 'updated_at'],
-                'entityNameCallback' => function($model) {
+                'entityNameCallback' => function ($model) {
                     return 'TherapeuticPlan';
                 },
             ],
@@ -79,6 +79,8 @@ class TherapeuticPlan extends ActiveRecord
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
+            ['approval_date', 'date', 'format' => 'php:Y-m-d'],
+            ['approval_date', 'default', 'value' => null],
         ];
     }
 
@@ -101,7 +103,7 @@ class TherapeuticPlan extends ActiveRecord
 
         // Check if therapies are set (for validation during save)
         $therapies = $this->_therapies;
-        
+
         // If we're updating, also check existing therapies
         if (!$this->isNewRecord && empty($therapies)) {
             $therapies = [];
@@ -133,7 +135,7 @@ class TherapeuticPlan extends ActiveRecord
             }
 
             $treatmentName = strtoupper($treatmentType->name);
-            
+
             if (strpos($treatmentName, 'SUPERVIS') !== false) {
                 $hasSupervision = true;
             } elseif (strpos($treatmentName, 'PARENT') !== false || strpos($treatmentName, 'TRAINING') !== false) {
@@ -182,6 +184,7 @@ class TherapeuticPlan extends ActiveRecord
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
+            'approval_date' => 'Data Approvazione',
         ];
     }
 
@@ -194,7 +197,7 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->regime) {
             return false;
         }
-        
+
         return stripos($this->regime->nome, 'ABA') !== false;
     }
 
@@ -259,7 +262,7 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->start_date || !$this->duration_days) {
             return null;
         }
-        
+
         return date('Y-m-d', strtotime($this->start_date . ' + ' . $this->duration_days . ' days'));
     }
 
@@ -274,10 +277,10 @@ class TherapeuticPlan extends ActiveRecord
         if (!$endDate) {
             return 0;
         }
-        
+
         $end = new \DateTime($endDate);
         $now = new \DateTime();
-        
+
         $diff = $end->diff($now);
         return $diff->invert ? $diff->days : -$diff->days;
     }
@@ -292,10 +295,10 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->start_date) {
             return 0;
         }
-        
+
         $start = new \DateTime($this->start_date);
         $now = new \DateTime();
-        
+
         $diff = $now->diff($start);
         return $diff->invert ? $diff->days : 0;
     }
@@ -310,7 +313,7 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->duration_days) {
             return 0;
         }
-        
+
         $elapsed = $this->getElapsedDays();
         return min(100, ($elapsed / $this->duration_days) * 100);
     }
@@ -347,7 +350,7 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->duration_days) {
             return '';
         }
-        
+
         return $this->duration_days . ' giorni';
     }
 
@@ -362,7 +365,7 @@ class TherapeuticPlan extends ActiveRecord
         if (!$this->isExpired()) {
             return null;
         }
-        
+
         $newPlan = new static();
         $newPlan->patient_id = $this->patient_id;
         $newPlan->regime_id = $this->regime_id;
@@ -370,7 +373,7 @@ class TherapeuticPlan extends ActiveRecord
         $newPlan->duration_days = $newDurationDays;
         $newPlan->notes = $this->notes;
         $newPlan->created_by = Yii::$app->user->id;
-        
+
         if ($newPlan->save()) {
             // Copy therapies from old plan
             foreach ($this->planTherapies as $oldTherapy) {
@@ -382,10 +385,10 @@ class TherapeuticPlan extends ActiveRecord
                 $newTherapy->setting_id = $oldTherapy->setting_id;
                 $newTherapy->save();
             }
-            
+
             return $newPlan;
         }
-        
+
         return null;
     }
 

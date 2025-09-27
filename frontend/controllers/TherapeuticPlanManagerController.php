@@ -2,6 +2,7 @@
 
 namespace frontend\controllers;
 
+use common\components\PlanHelper;
 use common\models\Absence;
 use common\models\Appointment;
 use common\models\AppointmentPattern;
@@ -227,7 +228,7 @@ class TherapeuticPlanManagerController extends Controller
                 ]
             ];
         } catch (Exception $e) {
-            Yii::error('Errore creazione appuntamento: ' . $e->getMessage(). PHP_EOL . $e->getTraceAsString(), __METHOD__);
+            Yii::error('Errore creazione appuntamento: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -486,7 +487,6 @@ class TherapeuticPlanManagerController extends Controller
             if (!$appointment) {
                 throw new NotFoundHttpException('Appuntamento non trovato');
             }
-
             $appointment->notes = $note;
 
             if ($appointment->save()) {
@@ -783,6 +783,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->status = Appointment::STATUS_SCHEDULED;
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->private_cycle_id = $data['privateCycleId'] ?? null;
+
+        if ($appointment->id_setting == null) {
+            $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+            $appointment->id_setting = $setting->id;
+        }
 
         Yii::info('Tentativo salvataggio singolo appuntamento privato: ' . json_encode($appointment->attributes), __METHOD__);
 
@@ -2054,6 +2059,11 @@ class TherapeuticPlanManagerController extends Controller
                     Yii::info("GroupSessionId rimosso dall'appuntamento {$appointmentToUpdate->id}", __METHOD__);
                 }
 
+                if ($appointment->id_setting == null) {
+                    $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+                    $appointment->id_setting = $setting->id;
+                }
+
                 if (!$appointmentToUpdate->save()) {
                     $errors = $appointmentToUpdate->getFirstErrors();
                     Yii::error('Errori validazione appuntamento: ' . json_encode($errors), __METHOD__);
@@ -2211,6 +2221,11 @@ class TherapeuticPlanManagerController extends Controller
                 $appointment->status = Appointment::STATUS_SCHEDULED;
                 $appointment->notes = $data['notes'] ?? null;
                 $appointment->created_by = $this->getCurrentUserId();
+
+                if ($appointment->id_setting == null) {
+                    $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+                    $appointment->id_setting = $setting->id;
+                }
 
                 Yii::info('Dati appuntamento da salvare: ' . json_encode($appointment->attributes), __METHOD__);
 
@@ -2376,6 +2391,11 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->duration_minutes = $data['durationMinutes'];
             $appointment->treatment_type_id = $newTreatmentTypeId;
             $appointment->notes = $data['notes'] ?? null;
+
+            if ($appointment->id_setting == null) {
+                $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+                $appointment->id_setting = $setting->id;
+            }
 
             if (!$appointment->save()) {
                 $errors = $appointment->getFirstErrors();
@@ -3041,7 +3061,7 @@ class TherapeuticPlanManagerController extends Controller
         $planEnd = new DateTime($plan->getCalculatedEndDate());
 
         if ($fromDate < $planStart || $toDate > $planEnd) {
-            throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico (' . 
+            throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico (' .
                 $plan->start_date . ' - ' . $plan->getCalculatedEndDate() . ')');
         }
 
@@ -3212,10 +3232,10 @@ class TherapeuticPlanManagerController extends Controller
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
         $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
-        
+
         // Validazione data rispetto al piano terapeutico
         $this->validateStartDate($appointmentDateTime, $pattern->plan_therapy_id);
-        
+
         $appointment = new Appointment();
         $appointment->pattern_id = $pattern->id;
         $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
@@ -3226,6 +3246,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->duration_minutes = $pattern->duration_minutes;
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
+
+        if ($appointment->id_setting == null) {
+            $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+            $appointment->id_setting = $setting->id;
+        }
 
         Yii::info('Tentativo salvataggio appuntamento: ' . json_encode($appointment->attributes), __METHOD__);
 
@@ -3276,6 +3301,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
+
+        if ($appointment->id_setting == null) {
+            $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
+            $appointment->id_setting = $setting->id;
+        }
 
         Yii::info('Tentativo salvataggio singolo appuntamento: ' . json_encode($appointment->attributes), __METHOD__);
 
@@ -3847,131 +3877,10 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Sostituisce il terapista di un appuntamento
+     * Sostituzione terapista
      *
      * @return array
      */
-    // public function actionSubstituteTherapist()
-    // {
-    //     Yii::$app->response->format = Response::FORMAT_JSON;
-    //     try {
-    //         $data = $this->getRequestData();
-    //         $appointmentId = $data['appointmentId'] ?? null;
-    //         $newTherapistId = $data['newTherapistId'] ?? null;
-    //         $reason = $data['reason'] ?? null;
-    //         $dontRegisterAbsence = $data['dontRegisterAbsence'] ?? false;  // 🔥 NUOVO
-    //         Yii::info('Dati ricevuti per sostituzione terapista: ' . json_encode($data), __METHOD__);
-    //         if (!$appointmentId || !$newTherapistId) {
-    //             return $this->errorResponse('Parametri mancanti: appointmentId e newTherapistId sono obbligatori');
-    //         }
-    //         // Trova l'appuntamento
-    //         $appointment = Appointment::findOne($appointmentId);
-    //         if (!$appointment) {
-    //             return $this->errorResponse('Appuntamento non trovato');
-    //         }
-    //         // Verifica che l'appuntamento sia in uno stato che permette la sostituzione
-    //         if (!in_array($appointment->status, [Appointment::STATUS_SCHEDULED, Appointment::STATUS_THERAPIST_ABSENT])) {
-    //             return $this->errorResponse('La sostituzione è possibile solo per appuntamenti programmati o con terapista assente');
-    //         }
-    //         // Trova il nuovo terapista
-    //         $newTherapist = Therapist::findOne($newTherapistId);
-    //         if (!$newTherapist) {
-    //             return $this->errorResponse('Nuovo terapista non trovato');
-    //         }
-    //         // Verifica che il nuovo terapista sia attivo
-    //         if (!$newTherapist->is_active) {
-    //             return $this->errorResponse('Il terapista selezionato non è attivo');
-    //         }
-    //         $transaction = Yii::$app->db->beginTransaction();
-    //         try {
-    //             $originalTherapistId = $appointment->therapist_id;
-    //             // 🔥 NUOVO: Se dontRegisterAbsence è true, fai solo il cambio semplice
-    //             if ($dontRegisterAbsence) {
-    //                 // Aggiorna solo l'appuntamento con il nuovo terapista
-    //                 $appointment->therapist_id = $newTherapistId;
-    //                 $appointment->status = Appointment::STATUS_SCHEDULED;
-    //                 if (!$appointment->save()) {
-    //                     throw new Exception("Errore nel salvataggio dell'appuntamento: " . json_encode($appointment->errors));
-    //                 }
-    //                 $transaction->commit();
-    //                 Yii::info("Sostituzione terapista semplice completata (senza registrazione assenza) - Appuntamento: {$appointmentId}, Terapista originale: {$originalTherapistId}, Nuovo terapista: {$newTherapistId}", __METHOD__);
-    //                 return [
-    //                     'success' => true,
-    //                     'message' => 'Terapista sostituito con successo (assenza non registrata)',
-    //                     'data' => [
-    //                         'appointmentId' => $appointmentId,
-    //                         'originalTherapistId' => $originalTherapistId,
-    //                         'newTherapistId' => $newTherapistId,
-    //                         'absenceRegistered' => false
-    //                     ]
-    //                 ];
-    //             }
-    //             // 🔥 LOGICA ORIGINALE: Solo se dontRegisterAbsence è false
-    //             // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista
-    //             if ($appointment->status === Appointment::STATUS_SCHEDULED) {
-    //                 $absence = new Absence();
-    //                 $absence->therapist_id = $appointment->therapist_id;
-    //                 $absence->start_date = date('Y-m-d', strtotime($appointment->appointment_datetime));
-    //                 $absence->end_date = $absence->start_date;
-    //                 $absence->type = Absence::TYPE_OTHER;
-    //                 $absence->reason = $reason ?: 'Assenza comunicata tramite sostituzione';
-    //                 $absence->status = Absence::STATUS_APPROVED;  // Auto-approvata perché già gestita
-    //                 $absence->approved_by = Yii::$app->user->id ?: 1;
-    //                 $absence->approved_at = date('Y-m-d H:i:s');
-    //                 $absence->created_by = Yii::$app->user->id ?: 1;
-    //                 if (!$absence->save()) {
-    //                     Yii::warning("Errore nel salvataggio dell'assenza per il terapista {$appointment->therapist_id}: " . json_encode($absence->errors), __METHOD__);
-    //                     // Non blocchiamo la sostituzione se il salvataggio dell'assenza fallisce
-    //                 } else {
-    //                     Yii::info("Creata assenza automatica per terapista {$appointment->therapist_id} in data {$absence->start_date}", __METHOD__);
-    //                 }
-    //             }
-    //             // Salva il terapista originale se non è già stato salvato
-    //             if (!$appointment->original_therapist_id) {
-    //                 $appointment->original_therapist_id = $appointment->therapist_id;
-    //             }
-    //             // Aggiorna l'appuntamento con il nuovo terapista
-    //             $appointment->therapist_id = $newTherapistId;
-    //             $appointment->status = Appointment::STATUS_SCHEDULED;  // Torna allo stato programmato
-    //             if (!$appointment->save()) {
-    //                 throw new Exception("Errore nel salvataggio dell'appuntamento: " . json_encode($appointment->errors));
-    //             }
-    //             // Crea o aggiorna il record di sostituzione
-    //             $substitution = TherapistSubstitution::findOne(['appointment_id' => $appointmentId]);
-    //             if (!$substitution) {
-    //                 $substitution = new TherapistSubstitution();
-    //                 $substitution->appointment_id = $appointmentId;
-    //                 $substitution->original_therapist_id = $originalTherapistId;
-    //             }
-    //             $substitution->substitute_therapist_id = $newTherapistId;
-    //             $substitution->reason = $reason;
-    //             $substitution->substituted_by = Yii::$app->user->id ?: 1;  // Default per test
-    //             $substitution->substituted_at = date('Y-m-d H:i:s');
-    //             if (!$substitution->save()) {
-    //                 throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
-    //             }
-    //             $transaction->commit();
-    //             Yii::info("Sostituzione terapista completata - Appuntamento: {$appointmentId}, Terapista originale: {$originalTherapistId}, Nuovo terapista: {$newTherapistId}", __METHOD__);
-    //             return [
-    //                 'success' => true,
-    //                 'message' => 'Terapista sostituito con successo',
-    //                 'data' => [
-    //                     'appointmentId' => $appointmentId,
-    //                     'originalTherapistId' => $originalTherapistId,
-    //                     'newTherapistId' => $newTherapistId,
-    //                     'substitutionId' => $substitution->id,
-    //                     'absenceRegistered' => true
-    //                 ]
-    //             ];
-    //         } catch (Exception $e) {
-    //             $transaction->rollBack();
-    //             throw $e;
-    //         }
-    //     } catch (Exception $e) {
-    //         Yii::error('Errore nella sostituzione terapista: ' . $e->getMessage(), __METHOD__);
-    //         return $this->errorResponse($e->getMessage());
-    //     }
-    // }
     public function actionSubstituteTherapist()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -4349,7 +4258,7 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
             $this->validateTherapist($data);
-            
+
             // Validazione data rispetto al piano terapeutico
             $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
 
@@ -4846,7 +4755,7 @@ class TherapeuticPlanManagerController extends Controller
     private function validateStartDate($appointmentDateTime, $planTherapy)
     {
         $plan = TherapeuticPlan::find()
-        ->leftJoin('plan_therapies', 'plan_therapies.therapeutic_plan_id = therapeutic_plans.id')
+            ->leftJoin('plan_therapies', 'plan_therapies.therapeutic_plan_id = therapeutic_plans.id')
             ->where(['plan_therapies.id' => $planTherapy])
             ->one();
         if (!$plan) {
