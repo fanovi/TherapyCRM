@@ -17,7 +17,7 @@ class m250702_183349_populate_specializations_and_treatments extends Migration
         // 2. Inserisco le specializzazioni
         $specializations = [
             ['id' => 1, 'code' => 'LOGOP', 'name' => 'Logopedista', 'description' => 'Specialista in disturbi della comunicazione e del linguaggio'],
-            ['id' => 2, 'code' => 'TNP', 'name' => 'Neuropsicomotricista', 'description' => 'Terapista della Neuro e Psicomotricità dell\'età evolutiva'],
+            ['id' => 2, 'code' => 'NPM', 'name' => 'Psicomotricista', 'description' => 'Terapista della Neuro e Psicomotricità dell\'età evolutiva'],
             ['id' => 3, 'code' => 'FISIOT', 'name' => 'Fisioterapista', 'description' => 'Specialista in riabilitazione motoria e fisioterapia'],
             ['id' => 4, 'code' => 'TO', 'name' => 'Terapista Occupazionale', 'description' => 'Specialista in terapia occupazionale e riabilitazione funzionale'],
             ['id' => 5, 'code' => 'PSICOT', 'name' => 'Psicologo/Psicoterapeuta', 'description' => 'Specialista in psicologia clinica e psicoterapia'],
@@ -31,8 +31,8 @@ class m250702_183349_populate_specializations_and_treatments extends Migration
         $treatmentTypes = [
             ['code' => 'LOG_IND', 'name' => 'Logopedia', 'description' => 'Trattamento logopedico individuale'],
             ['code' => 'LOG_PG', 'name' => 'Logopedista PG', 'description' => 'Trattamento logopedico di piccolo gruppo'],
-            ['code' => 'TNP_IND', 'name' => 'Neuropsicomotricità', 'description' => 'Trattamento neuropsicomotorio individuale'],
-            ['code' => 'TNP_PG', 'name' => 'Neuropsicomotricità PG', 'description' => 'Trattamento neuropsicomotorio di piccolo gruppo'],
+            ['code' => 'NPM_IND', 'name' => 'Neuropsicomotricità', 'description' => 'Trattamento neuropsicomotorio individuale'],
+            ['code' => 'NPM_PG', 'name' => 'Neuropsicomotricità PG', 'description' => 'Trattamento neuropsicomotorio di piccolo gruppo'],
             ['code' => 'FIS_NEURO', 'name' => 'Riabilitazione Neuromotoria', 'description' => 'Riabilitazione neuromotoria specialistica'],
             ['code' => 'FKT_RESP', 'name' => 'FKT respiratoria', 'description' => 'Fisioterapia respiratoria specializzata'],
             ['code' => 'FKT_IND', 'name' => 'Fisiokinesiterapia', 'description' => 'Fisiokinesiterapia individuale'],
@@ -49,7 +49,7 @@ class m250702_183349_populate_specializations_and_treatments extends Migration
         // 4. Inserisco le relazioni nella tabella specialization_treatments
         // Ottengo gli ID reali delle specializzazioni e dei treatment types
         $specializationIds = [];
-        $specializationCodes = ['LOGOP', 'TNP', 'FISIOT', 'TO', 'PSICOT'];
+        $specializationCodes = ['LOGOP', 'NPM', 'FISIOT', 'TO', 'PSICOT'];
         foreach ($specializationCodes as $code) {
             $spec = $this->db->createCommand('SELECT id FROM {{%specializations}} WHERE code = :code')
                 ->bindValue(':code', $code)
@@ -58,7 +58,7 @@ class m250702_183349_populate_specializations_and_treatments extends Migration
         }
 
         $treatmentIds = [];
-        $treatmentCodes = ['LOG_IND', 'LOG_PG', 'TNP_IND', 'TNP_PG', 'FIS_NEURO', 'FKT_RESP', 'FKT_IND', 'TO_IND', 'TO_PG', 'PSICOT_IND', 'PSICOT_PG'];
+        $treatmentCodes = ['LOG_IND', 'LOG_PG', 'NPM_IND', 'NPM_PG', 'FIS_NEURO', 'FKT_RESP', 'FKT_IND', 'TO_IND', 'TO_PG', 'PSICOT_IND', 'PSICOT_PG'];
         foreach ($treatmentCodes as $code) {
             $treatment = $this->db->createCommand('SELECT id FROM {{%treatment_types}} WHERE code = :code')
                 ->bindValue(':code', $code)
@@ -70,8 +70,8 @@ class m250702_183349_populate_specializations_and_treatments extends Migration
         $relations = [
             ['LOGOP', 'LOG_IND'],     // Logopedista -> Logopedia
             ['LOGOP', 'LOG_PG'],      // Logopedista -> Logopedista PG
-            ['TNP', 'TNP_IND'],       // Neuropsicomotricista -> Neuropsicomotricità
-            ['TNP', 'TNP_PG'],        // Neuropsicomotricista -> Neuropsicomotricità PG
+            ['NPM', 'NPM_IND'],       // Psicomotricista -> Neuropsicomotricità
+            ['NPM', 'NPM_PG'],        // Psicomotricista -> Neuropsicomotricità PG
             ['FISIOT', 'FIS_NEURO'],  // Fisioterapista -> Riabilitazione Neuromotoria
             ['FISIOT', 'FKT_RESP'],   // Fisioterapista -> FKT respiratoria
             ['FISIOT', 'FKT_IND'],    // Fisioterapista -> Fisiokinesiterapia
