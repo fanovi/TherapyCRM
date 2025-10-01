@@ -1664,11 +1664,12 @@ class TherapeuticPlanManagerController extends Controller
 
             $appointments = Appointment::find()
                 ->alias('a')
+                ->leftJoin('setting s', 's.id = a.id_setting')
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'setting'])
                 ->where([
                     'a.therapist_id' => $therapistId
                 ])
@@ -1735,6 +1736,8 @@ class TherapeuticPlanManagerController extends Controller
                 $result[] = [
                     'id' => $appointment->id,
                     'datetime' => $appointment->appointment_datetime,
+                    'setting_id' => $appointment->id_setting,
+                    'setting_name' => $appointment->setting->nome,
                     'duration' => $appointment->duration_minutes,
                     'status' => $appointment->status,
                     'notes' => $appointment->notes,
