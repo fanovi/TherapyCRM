@@ -501,7 +501,7 @@ class CalendarController extends ActiveController
         return [
             'id' => $mainAppointment->id,  // ID del primo appuntamento come riferimento
             'setting_id' => $mainAppointment->id_setting,
-            'setting_name' => $mainAppointment->setting->nome,
+            'setting_name' => $mainAppointment->setting->nome ?? 'N/D',
             'date' => $datetime->format('Y-m-d'),
             'time' => $datetime->format('H:i'),
             'datetime' => $mainAppointment->appointment_datetime,
@@ -573,7 +573,7 @@ class CalendarController extends ActiveController
         return [
             'id' => $appointment->id,
             'setting_id' => $appointment->id_setting,
-            'setting_name' => $appointment->setting->nome,
+            'setting_name' => $appointment->setting->nome ?? 'N/D',
             'date' => $datetime->format('Y-m-d'),
             'time' => $datetime->format('H:i'),
             'datetime' => $appointment->appointment_datetime,
