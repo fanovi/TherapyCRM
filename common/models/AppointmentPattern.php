@@ -19,11 +19,13 @@ use yii\behaviors\TimestampBehavior;
  * @property string $valid_to
  * @property int $created_by
  * @property string $created_at
+ * @property int $id_setting
  *
  * @property PlanTherapy $planTherapy
  * @property Therapist $therapist
  * @property User $createdBy
  * @property Appointment[] $appointments
+ * @property Setting $setting
  */
 class AppointmentPattern extends ActiveRecord
 {
@@ -63,7 +65,7 @@ class AppointmentPattern extends ActiveRecord
     {
         return [
             [['plan_therapy_id', 'therapist_id', 'day_of_week', 'start_time', 'duration_minutes', 'valid_from', 'valid_to', 'created_by'], 'required'],
-            [['plan_therapy_id', 'therapist_id', 'day_of_week', 'duration_minutes', 'created_by'], 'integer'],
+            [['plan_therapy_id', 'therapist_id', 'day_of_week', 'duration_minutes', 'created_by', 'id_setting'], 'integer'],
             [['day_of_week'], 'integer', 'min' => 1, 'max' => 7],
             [['valid_from', 'valid_to'], 'date', 'format' => 'php:Y-m-d'],
             [['start_time'], 'time', 'format' => 'php:H:i'],
@@ -75,6 +77,7 @@ class AppointmentPattern extends ActiveRecord
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['id_setting'], 'exist', 'skipOnError' => true, 'targetClass' => Setting::class, 'targetAttribute' => ['id_setting' => 'id']],
         ];
     }
 
@@ -107,6 +110,7 @@ class AppointmentPattern extends ActiveRecord
             'appointment_type' => 'Tipo Appuntamento',
             'created_by' => 'Creato Da',
             'created_at' => 'Creato il',
+            'id_setting' => 'Setting',
         ];
     }
 
@@ -128,6 +132,16 @@ class AppointmentPattern extends ActiveRecord
     public function getTherapist()
     {
         return $this->hasOne(Therapist::class, ['id' => 'therapist_id']);
+    }
+
+    /**
+     * Gets query for [[Setting]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSetting()
+    {
+        return $this->hasOne(Setting::class, ['id' => 'id_setting']);
     }
 
     /**

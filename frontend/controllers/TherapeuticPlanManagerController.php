@@ -784,9 +784,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->private_cycle_id = $data['privateCycleId'] ?? null;
 
-        if ($appointment->id_setting == null) {
+        if (!isset($data['id_setting']) && $appointment->id_setting == null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
             $appointment->id_setting = $setting->id;
+        } else {
+            $appointment->id_setting = $data['id_setting'];
         }
 
         Yii::info('Tentativo salvataggio singolo appuntamento privato: ' . json_encode($appointment->attributes), __METHOD__);
@@ -2062,9 +2064,11 @@ class TherapeuticPlanManagerController extends Controller
                     Yii::info("GroupSessionId rimosso dall'appuntamento {$appointmentToUpdate->id}", __METHOD__);
                 }
 
-                if ($appointment->id_setting == null) {
+                if (!isset($data['id_setting']) && $appointment->id_setting == null) {
                     $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
                     $appointment->id_setting = $setting->id;
+                } else {
+                    $appointment->id_setting = $data['id_setting'];
                 }
 
                 if (!$appointmentToUpdate->save()) {
@@ -2225,9 +2229,11 @@ class TherapeuticPlanManagerController extends Controller
                 $appointment->notes = $data['notes'] ?? null;
                 $appointment->created_by = $this->getCurrentUserId();
 
-                if ($appointment->id_setting == null) {
+                if (!isset($data['id_setting']) && $appointment->id_setting == null) {
                     $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
                     $appointment->id_setting = $setting->id;
+                } else {
+                    $appointment->id_setting = $data['id_setting'];
                 }
 
                 Yii::info('Dati appuntamento da salvare: ' . json_encode($appointment->attributes), __METHOD__);
@@ -2395,9 +2401,11 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->treatment_type_id = $newTreatmentTypeId;
             $appointment->notes = $data['notes'] ?? null;
 
-            if ($appointment->id_setting == null) {
+            if (!isset($data['id_setting']) && $appointment->id_setting == null) {
                 $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
                 $appointment->id_setting = $setting->id;
+            } else {
+                $appointment->id_setting = $data['id_setting'];
             }
 
             if (!$appointment->save()) {
@@ -3088,6 +3096,7 @@ class TherapeuticPlanManagerController extends Controller
         $pattern->duration_minutes = $data['durationMinutes'];
         $pattern->valid_from = $data['validFrom'];
         $pattern->valid_to = $data['validTo'];
+        $pattern->id_setting = $data['id_setting'] ?? 1;
 
         $pattern->created_by = $this->getCurrentUserId();
 
@@ -3250,9 +3259,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
 
-        if ($appointment->id_setting == null) {
+        if ($pattern->id_setting == null && $appointment->id_setting == null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
             $appointment->id_setting = $setting->id;
+        } else {
+            $appointment->id_setting = $pattern->id_setting;
         }
 
         Yii::info('Tentativo salvataggio appuntamento: ' . json_encode($appointment->attributes), __METHOD__);
@@ -3305,9 +3316,11 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
 
-        if ($appointment->id_setting == null) {
+        if (!isset($data['id_setting']) && $appointment->id_setting == null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
             $appointment->id_setting = $setting->id;
+        } else {
+            $appointment->id_setting = $data['id_setting'];
         }
 
         Yii::info('Tentativo salvataggio singolo appuntamento: ' . json_encode($appointment->attributes), __METHOD__);
@@ -4353,6 +4366,7 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->notes = $data['notes'] ?? null;
             $appointment->status = Appointment::STATUS_SCHEDULED;
             $appointment->created_by = $this->getCurrentUserId();
+            $appointment->id_setting = $data['id_setting'] ?? 1;
 
             if (!$appointment->save()) {
                 throw new Exception('Errore nel salvataggio: ' . json_encode($appointment->errors));
