@@ -376,11 +376,12 @@ class CalendarController extends ActiveController
             // Recupera tutti gli appuntamenti del giorno
             $appointments = Appointment::find()
                 ->alias('a')
+                ->leftJoin('setting s', 's.id = a.id_setting')
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile', 'setting'])
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                 ->andWhere(['DATE(a.appointment_datetime)' => $date])
@@ -499,6 +500,8 @@ class CalendarController extends ActiveController
 
         return [
             'id' => $mainAppointment->id,  // ID del primo appuntamento come riferimento
+            'setting_id' => $mainAppointment->id_setting,
+            'setting_name' => $mainAppointment->setting->nome,
             'date' => $datetime->format('Y-m-d'),
             'time' => $datetime->format('H:i'),
             'datetime' => $mainAppointment->appointment_datetime,
@@ -569,6 +572,8 @@ class CalendarController extends ActiveController
 
         return [
             'id' => $appointment->id,
+            'setting_id' => $appointment->id_setting,
+            'setting_name' => $appointment->setting->nome,
             'date' => $datetime->format('Y-m-d'),
             'time' => $datetime->format('H:i'),
             'datetime' => $appointment->appointment_datetime,
