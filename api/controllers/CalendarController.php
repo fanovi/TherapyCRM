@@ -744,11 +744,12 @@ class CalendarController extends ActiveController
             // Prossimi 3 appuntamenti
             $upcomingAppointments = Appointment::find()
                 ->alias('a')
+                ->leftJoin('setting s', 's.id = a.id_setting')
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'setting'])
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
@@ -774,6 +775,8 @@ class CalendarController extends ActiveController
 
                 $formattedUpcoming[] = [
                     'id' => $appointment->id,
+                    'setting_id' => $appointment->id_setting,
+                    'setting_name' => $appointment->setting->nome,
                     'time' => $datetime->format('H:i') . ' - ' . $datetime->modify('+' . $appointment->duration_minutes . ' minutes')->format('H:i'),
                     'type' => $treatmentType ? $treatmentType->name : 'Terapia',
                     'patient' => [
@@ -873,11 +876,12 @@ class CalendarController extends ActiveController
             // Prossimo appuntamento
             $nextAppointment = Appointment::find()
                 ->alias('a')
+                ->leftJoin('setting s', 's.id = a.id_setting')
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'setting'])
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
@@ -900,6 +904,8 @@ class CalendarController extends ActiveController
                 if ($patient) {
                     $nextAppointmentData = [
                         'id' => $nextAppointment->id,
+                        'setting_id' => $nextAppointment->id_setting,
+                        'setting_name' => $nextAppointment->setting->nome,
                         'datetime' => $nextAppointment->appointment_datetime,
                         'date' => $datetime->format('d/m/Y'),
                         'time' => $datetime->format('H:i'),
