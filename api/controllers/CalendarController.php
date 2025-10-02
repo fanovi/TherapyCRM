@@ -776,7 +776,7 @@ class CalendarController extends ActiveController
                 $formattedUpcoming[] = [
                     'id' => $appointment->id,
                     'setting_id' => $appointment->id_setting,
-                    'setting_name' => $appointment->setting->nome,
+                    'setting_name' => $appointment->setting->nome ?? 'N/D',
                     'time' => $datetime->format('H:i') . ' - ' . $datetime->modify('+' . $appointment->duration_minutes . ' minutes')->format('H:i'),
                     'type' => $treatmentType ? $treatmentType->name : 'Terapia',
                     'patient' => [
