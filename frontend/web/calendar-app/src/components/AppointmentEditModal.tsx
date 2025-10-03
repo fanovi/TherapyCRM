@@ -304,7 +304,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
     // Validazione setting obbligatorio
     if (!formData.id_setting) {
-      showError("Campo obbligatorio", "Seleziona un setting per l'appuntamento");
+      showError(
+        "Campo obbligatorio",
+        "Seleziona un setting per l'appuntamento"
+      );
       return;
     }
 
