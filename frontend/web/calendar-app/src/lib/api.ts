@@ -406,6 +406,7 @@ class TherapeuticPlanManagerAPI {
     durationMinutes: number;
     notes?: string;
     applyToGroup?: boolean;
+    id_setting?: number;
   }): Promise<{
     appointmentId: number;
     planTherapyId?: number;

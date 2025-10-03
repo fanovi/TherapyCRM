@@ -2111,11 +2111,12 @@ class TherapeuticPlanManagerController extends Controller
                     Yii::info("GroupSessionId rimosso dall'appuntamento {$appointmentToUpdate->id}", __METHOD__);
                 }
 
-                if (!isset($data['id_setting']) && $appointment->id_setting == null) {
-                    $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
-                    $appointment->id_setting = $setting->id;
+                // Aggiorna id_setting
+                if (!isset($data['id_setting']) && $appointmentToUpdate->id_setting == null) {
+                    $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointmentToUpdate);
+                    $appointmentToUpdate->id_setting = $setting->id;
                 } else {
-                    $appointment->id_setting = $data['id_setting'];
+                    $appointmentToUpdate->id_setting = $data['id_setting'];
                 }
 
                 if (!$appointmentToUpdate->save()) {

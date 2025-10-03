@@ -164,6 +164,8 @@ export interface UpdateAppointmentRequest {
   appointmentDateTime: string;
   durationMinutes: number;
   notes?: string;
+  applyToGroup?: boolean;
+  id_setting?: number;
 }
 
 export interface DeletePatternRequest {

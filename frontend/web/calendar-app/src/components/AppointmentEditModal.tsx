@@ -66,6 +66,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     time: "",
     duration: 60,
     notes: "",
+    id_setting: undefined as number | undefined,
   });
 
   // State per gruppi
@@ -84,6 +85,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const [applyToWholeGroup, setApplyToWholeGroup] = useState(true);
   const [loadingPatientDetails, setLoadingPatientDetails] = useState(false);
 
+  // Stati per settings
+  const [settings, setSettings] = useState<{ id: number; nome: string }[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
   const { showSuccess, showError } = useToast();
 
   // Determina se è un appuntamento privato
@@ -98,6 +104,28 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     appointment.groupPatients.length > 0;
 
   // console.log("appointment", appointment);
+
+  // Funzione per caricare i settings
+  const loadSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      setSettingsError(null);
+
+      // Carica tutti i settings (potrebbero essere filtrati per regime se necessario)
+      const result = await therapyAPI.getSettings();
+      setSettings(result);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Errore nel caricamento dei settings";
+      setSettingsError(errorMessage);
+      console.error("Errore caricamento settings:", err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   // Funzione per caricare i dettagli dell'appuntamento del paziente selezionato
   const loadPatientAppointmentDetails = async (appointmentId: number) => {
     // console.log("📥 DEBUG - Caricamento dettagli appuntamento:", appointmentId);
@@ -117,6 +145,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         time: `${hours}:${minutes}`,
         duration: details.duration,
         notes: details.notes || "",
+        id_setting: details.id_setting,
       });
     } catch (error) {
       console.error("Errore caricamento dettagli appuntamento:", error);
@@ -166,8 +195,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           time: `${hours}:${minutes}`,
           duration: appointment.duration,
           notes: appointment.notes || "",
+          id_setting: appointment.id_setting,
         });
       }
+
+      // Carica i settings quando si apre la modale
+      loadSettings();
 
       if (patient) {
         checkCanAddToGroup();
@@ -230,6 +263,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
         isGroup: true,
         groupSessionId: appointment.groupSessionId,
+        id_setting: appointment.id_setting, // Usa lo stesso setting dell'appuntamento di gruppo esistente
       };
 
       await therapyAPI.createAppointment(request);
@@ -292,6 +326,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         durationMinutes: formData.duration,
         notes: formData.notes,
         applyToGroup: applyToWholeGroup && isGroupAppointment,
+        id_setting: formData.id_setting,
       });
 
       showSuccess(
@@ -907,6 +942,39 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   placeholder="Note aggiuntive..."
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Setting
+                </label>
+                {settingsLoading ? (
+                  <div className="text-sm text-gray-500">
+                    Caricamento settings...
+                  </div>
+                ) : settingsError ? (
+                  <div className="text-sm text-red-500">{settingsError}</div>
+                ) : (
+                  <select
+                    value={formData.id_setting || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        id_setting: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Nessun setting</option>
+                    {settings.map((setting) => (
+                      <option key={setting.id} value={setting.id}>
+                        {setting.nome}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           )}
