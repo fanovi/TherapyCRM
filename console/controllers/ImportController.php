@@ -8,12 +8,15 @@ use yii\db\Exception;
 use common\models\Provincia;
 use common\models\Comune;
 use common\models\District;
+use common\models\Patient;
+use DateTime;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ImportController extends Controller
 {
+    public $errors = [];
     /**
      * Importa province e comuni dal file CSV ISTAT
      * @param string $csvFilePath Percorso del file CSV da importare
@@ -261,6 +264,181 @@ class ImportController extends Controller
             $this->stderr("Errore critico: " . $e->getMessage() . "\n");
             return self::EXIT_CODE_ERROR;
         }
+    }
+
+    public function actionPlan($filePath)
+    {
+        // Aumenta il limite di memoria
+        ini_set('memory_limit', '2G'); // o anche '2G' se necessario
+
+        $this->stdout("Importazione del file: {$filePath}\n");
+        $this->stdout("Caricamento del file: {$filePath} - " . date('H:i:s') . "\n");
+        $spreadsheet = IOFactory::load($filePath);
+        $worksheet = $spreadsheet->getActiveSheet();
+        $ria_plans = [];
+        $aba_plans = [];
+        $private_plans = 0;
+        $plans_types = [];
+        $patients = [];
+        $trattamenti = [];
+        $terapie = [];
+
+        $end_row = 1306;
+        $debug_end_row = 27;
+
+        foreach ($worksheet->getRowIterator(2, $end_row) as $row) {
+            $rowIndex = $row->getRowIndex();
+
+            $type = $worksheet->getCell('P' . $rowIndex)->getValue();
+            if (isset($plans_types[$type])) {
+                $plans_types[$type]++;
+            } else {
+                $plans_types[$type] = 1;
+            }
+
+            $trattamento = $worksheet->getCell('Q' . $rowIndex)->getValue();
+            if (isset($trattamenti[$trattamento])) {
+                $trattamenti[$trattamento]++;
+            } else {
+                $trattamenti[$trattamento] = 1;
+            }
+
+            $terapia = $worksheet->getCell('R' . $rowIndex)->getValue();
+            if (isset($terapie[$terapia])) {
+                $terapie[$terapia]++;
+            } else {
+                $terapie[$terapia] = 1;
+            }
+
+            $fiscal_code = $worksheet->getCell('K' . $rowIndex)->getValue();
+            if(isset($patients[$fiscal_code])) {
+                $temp_patient = $patients[$fiscal_code];
+            } else {
+                $temp_patient = $this->getPatient($fiscal_code);
+                if(!$temp_patient) {
+                    $this->errors[] = "Paziente non trovato: " . $fiscal_code . " alla riga " . $rowIndex;
+                    continue;
+                }
+                $patients[$fiscal_code] = $temp_patient;
+            }
+
+
+            if ($type === 'ABA') {
+                $aba_plans[$worksheet->getCell('C' . $rowIndex)->getValue() . $worksheet->getCell('K' . $rowIndex)->getValue()] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+            } elseif ($type === 'RIA') {
+                $ria_plans[$worksheet->getCell('A' . $rowIndex)->getValue()] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+            } else {
+                $private_plans++;
+            }
+        }
+
+        $this->stdout("Plans types: " . json_encode($plans_types) . "\n");
+        $this->stdout("Trattamenti: " . json_encode($trattamenti) . "\n");
+        $this->stdout("Terapie: " . json_encode($terapie) . "\n");
+        $this->stdout("RIA plans: " . count($ria_plans) . "\n");
+        $this->stdout("ABA plans: " . count($aba_plans) . "\n");
+        $this->stdout("Private plans: " . $private_plans . "\n");
+        $this->stdout("Start inserting RIA plans - " . date('H:i:s') . "\n");
+
+        $flat_ria_plans = [];
+        foreach ($ria_plans as $protocol_plans) {
+            $flat_ria_plans[] = $protocol_plans;
+        }
+
+        $flat_aba_plans = [];
+        foreach ($aba_plans as $protocol_plans) {
+            $flat_aba_plans[] = $protocol_plans;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            Yii::$app->db->createCommand()->batchInsert(
+                'therapeutic_plans',
+                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
+                $flat_ria_plans
+            )->execute();
+
+            Yii::$app->db->createCommand()->batchInsert(
+                'therapeutic_plans',
+                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
+                $flat_aba_plans
+            )->execute();
+
+            $transaction->commit();
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            throw $e;
+        }
+        $this->stdout("End inserting RIA plans - " . date('H:i:s') . "\n");
+        $this->stdout("Errors: " . print_r($this->errors) . "\n");
+    }
+
+    /**
+     * Get plan data for batch
+     * @param mixed $worksheet
+     * @param mixed $rowIndex
+     * @return array<int|mixed>
+     */
+    private function getPlanDataForBatch($worksheet, $rowIndex, $patient)
+    {
+        $start = $this->formatDate($worksheet->getCell('C' . $rowIndex)->getValue());
+        $end = $this->formatDate($worksheet->getCell('D' . $rowIndex)->getValue());
+        $duration = $this->getDays($start, $end);
+        $approval_date = $this->formatDate($worksheet->getCell('B' . $rowIndex)->getValue());
+
+        $plan_data = [
+            $patient->id, // paziente
+            $start, //start
+            $duration, // duration
+            // $end, //end viene calcolato in automatico da mysql
+            1, // created_by
+            $this->getRegimeId($worksheet->getCell('P' . $rowIndex)->getValue()), // regime_id
+            $approval_date, // approval_date
+            $worksheet->getCell('A' . $rowIndex)->getValue(), // protocol_number
+        ];
+
+        return $plan_data;
+    }
+
+    private function getRegimeId($regime)
+    {
+        switch ($regime) {
+            case 'RIA':
+                return 1;
+            case 'ABA':
+                return 2;
+            case 'MB':
+                return 1;
+            default:
+                return 1;
+        }
+    }
+
+    /**
+     * Get patient id by fiscal code
+     * @param mixed $fiscal_code
+     * @return int|null
+     */
+    private function getPatient($fiscal_code)
+    {
+        $patient = Patient::findOne(['fiscal_code' => $fiscal_code]);
+        if ($patient) {
+            return $patient;
+        }
+        return null;
+    }
+
+    /**
+     * Get days between two dates
+     * @param mixed $start
+     * @param mixed $end
+     * @return int
+     */
+    private function getDays($start, $end)
+    {
+        $date1 = new DateTime($start);
+        $date2 = new DateTime($end);
+        return  $date1->diff($date2)->days;
     }
 
     /**

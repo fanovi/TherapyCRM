@@ -77,7 +77,7 @@ class TherapeuticPlan extends ActiveRecord
             [['start_date', 'approval_date'], 'date', 'format' => 'php:Y-m-d'],
             [['notes'], 'string'],
             [['protocol_number'], 'string', 'max' => 50],
-            [['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
+            //[['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
             [['approval_date', 'protocol_number'], 'default', 'value' => null],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],
