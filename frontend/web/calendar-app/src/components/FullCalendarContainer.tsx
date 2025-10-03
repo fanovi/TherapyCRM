@@ -7,7 +7,7 @@ import listPlugin from "@fullcalendar/list";
 import { EventClickArg, DateSelectArg, EventInput } from "@fullcalendar/core";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, List, Grid } from "lucide-react";
+import { Calendar, Clock, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
 import { Appointment, TherapistAbsence } from "@/types/therapy";
 import { getTreatmentColor } from "@/lib/treatmentColors";
@@ -709,14 +709,6 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           >
             <Clock className="h-4 w-4 mr-1" />
             Giorno
-          </Button>
-          <Button
-            variant={currentView === "listWeek" ? "default" : "outline"}
-            size="sm"
-            onClick={() => changeView("listWeek")}
-          >
-            <List className="h-4 w-4 mr-1" />
-            Lista
           </Button>
         </div>
 

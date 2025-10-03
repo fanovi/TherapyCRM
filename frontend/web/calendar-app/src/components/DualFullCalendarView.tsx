@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import FullCalendarContainer from "./FullCalendarContainer";
-import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
+import { CalendarViewType } from "./CalendarViewSelector";
 import { TherapistWeeklyHours } from "./TherapistWeeklyHours";
 import {
   Therapist,
@@ -422,13 +422,6 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   // Vista normale con due calendari affiancati
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <CalendarViewSelector
-          viewType={viewType}
-          onViewTypeChange={onViewTypeChange}
-        />
-      </div>
-
       {/* Ore settimanali - visibile solo in vista settimana */}
       {viewType === "week" && selectedTherapist && !isPrivateMode && (
         <div className="space-y-4">
