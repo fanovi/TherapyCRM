@@ -71,8 +71,10 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   const therapistCalendarRef = useRef<any>(null);
   const patientCalendarRef = useRef<any>(null);
 
-  // Flag per prevenire loop infiniti durante la sincronizzazione
-  const isSyncingNavigation = useRef<boolean>(false);
+  // Contatore per prevenire loop infiniti durante la sincronizzazione
+  // 0 = nessuna sincronizzazione in corso
+  // 2 = sincronizzazione iniziata (aspettiamo 2 callback dai calendari)
+  const syncNavigationCounter = useRef<number>(0);
 
   // Converte viewType del componente alle viste di FullCalendar
   const getFullCalendarView = (
@@ -234,14 +236,14 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     }
   };
 
-  // Gestione navigazione unificata con protezione anti-loop
+  // Gestione navigazione unificata con protezione anti-loop tramite contatore
   const handleUnifiedNavigate = (date: Date) => {
-    // Se stiamo già sincronizzando, ignora questa chiamata per evitare loop
-    if (isSyncingNavigation.current) {
+    // Se counter > 0, siamo in una sincronizzazione attiva
+    if (syncNavigationCounter.current > 0) {
       console.log(
-        "🔒 Sincronizzazione in corso, ignoro navigazione per evitare loop"
+        `🔒 Sincronizzazione in corso (counter: ${syncNavigationCounter.current}), decremento e ignoro`
       );
-      isSyncingNavigation.current = false; // Reset del flag
+      syncNavigationCounter.current--;
       return;
     }
 
@@ -252,11 +254,11 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     const weekStart = moment(date).startOf("isoWeek").toDate();
     setCurrentWeekStart(weekStart);
 
-    // 2. Setta il flag PRIMA di sincronizzare
-    isSyncingNavigation.current = true;
+    // 2. Setta il contatore a 2 (aspettiamo 2 callback dai calendari)
+    syncNavigationCounter.current = 2;
 
     // 3. Sincronizza entrambi i calendari
-    // Questo triggererà datesSet → onNavigate, ma il flag bloccherà il loop
+    // Ogni calendario triggererà datesSet → onNavigate → decrementerà il counter
     setTimeout(() => {
       therapistCalendarRef.current?.navigateToDate(date);
       patientCalendarRef.current?.navigateToDate(date);
@@ -551,7 +553,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             readOnly={true}
             currentView={currentFullCalendarView}
             onViewChange={handleViewChange}
-            onNavigate={undefined} // CAMBIA da onDateChange a undefined
+            onNavigate={handleUnifiedNavigate}
             onVisibleRangeChange={handlePatientVisibleRangeChange}
             onRef={(ref) => {
               patientCalendarRef.current = ref;
