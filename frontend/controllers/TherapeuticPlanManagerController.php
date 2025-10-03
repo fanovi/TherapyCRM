@@ -1324,7 +1324,8 @@ class TherapeuticPlanManagerController extends Controller
                 ->leftJoin('therapists t', 't.id = a.therapist_id')
                 ->leftJoin('users u', 'u.id = t.user_id')
                 ->leftJoin('user_profiles up', 'up.user_id = u.id')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile'])
+                ->leftJoin('setting s', 's.id = a.id_setting')
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile', 'setting'])
                 ->where(['a.id' => $appointmentId])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                 ->one();
@@ -1392,6 +1393,8 @@ class TherapeuticPlanManagerController extends Controller
                 'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
                 'groupSessionId' => $appointment->group_session_id,
                 'groupPatients' => $groupPatients,  // AGGIUNTO: ora include i pazienti del gruppo
+                'settingName' => $appointment->setting ? $appointment->setting->nome : null,
+                'id_setting' => $appointment->id_setting,
             ];
 
             return [
@@ -1832,10 +1835,11 @@ class TherapeuticPlanManagerController extends Controller
                 ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+                ->leftJoin('setting s', 's.id = a.id_setting')
                 ->innerJoin('therapists t', 't.id = a.therapist_id')
                 ->innerJoin('users u', 'u.id = t.user_id')
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
-                ->with(['planTherapy.treatmentType', 'planTherapy.therapeuticPlan.patient', 'treatmentType', 'patient'])
+                ->with(['planTherapy.treatmentType', 'planTherapy.therapeuticPlan.patient', 'treatmentType', 'patient', 'setting'])
                 ->where([
                     'or',
                     ['tp.patient_id' => $patientId],
@@ -1884,7 +1888,9 @@ class TherapeuticPlanManagerController extends Controller
                     'patternId' => $appointment->pattern_id,
                     'isRecurring' => $appointment->pattern_id !== null,
                     'privateCycleId' => $appointment->private_cycle_id,
-                    'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE
+                    'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
+                    'settingName' => $appointment->setting ? $appointment->setting->nome : null,
+                    'id_setting' => $appointment->id_setting,
                 ];
             }
 

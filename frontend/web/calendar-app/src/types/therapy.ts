@@ -116,6 +116,10 @@ export interface Appointment {
 
   isPrivate?: boolean;
   appointmentType?: "terapia" | "parent_training" | "supervisione";
+
+  // Setting dell'appuntamento
+  settingName?: string;
+  id_setting?: number;
 }
 
 export interface AppointmentData {
@@ -126,6 +130,7 @@ export interface AppointmentData {
   planTherapy?: PlanTherapy;
   appointmentType?: "terapia" | "parent_training" | "supervisione";
   isGroup?: boolean;
+  id_setting?: number;
 }
 
 // Tipi per le richieste API
@@ -137,6 +142,7 @@ export interface CreateAppointmentRequest {
   durationMinutes: number;
   notes?: string;
   isGroup?: boolean;
+  id_setting?: number;
 }
 
 export interface CreatePatternRequest {
@@ -149,6 +155,7 @@ export interface CreatePatternRequest {
   validFrom: string; // YYYY-MM-DD
   validTo?: string; // YYYY-MM-DD - opzionale, verrà ricavato dal backend se non fornito
   isGroup?: boolean;
+  id_setting?: number;
 }
 
 export interface UpdateAppointmentRequest {
@@ -216,6 +223,7 @@ export interface PrivateAppointmentData {
   duration: number;
   notes?: string;
   isRecurring?: boolean;
+  id_setting?: number;
 }
 
 export interface TherapistSubstitutionRequest {

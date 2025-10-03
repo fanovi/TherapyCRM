@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   PrivateAppointmentData,
   Therapist,
   Patient,
@@ -47,16 +54,57 @@ export const PrivateAppointmentModal: React.FC<
     duration: number;
     notes: string;
     isRecurring: boolean;
+    id_setting: number | undefined;
   }>({
     duration: 60,
     notes: "",
     isRecurring: false,
+    id_setting: undefined,
   });
 
   const [loading, setLoading] = useState(false);
   const [loadingTreatmentType, setLoadingTreatmentType] = useState(false);
   const [effectiveTreatmentType, setEffectiveTreatmentType] =
     useState<TreatmentType | null>(null);
+
+  // Stati per settings
+  const [settings, setSettings] = useState<{ id: number; nome: string }[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  // Carica settings quando il modale si apre
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings();
+    }
+  }, [isOpen, patient?.therapeuticPlan?.regime?.id]);
+
+  const loadSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      setSettingsError(null);
+
+      // Carica settings filtrati per regime se disponibile
+      const regimeId = patient?.therapeuticPlan?.regime?.id;
+      const result = await therapyAPI.getSettings(regimeId);
+
+      setSettings(result);
+
+      // Se c'è solo un setting, selezionalo automaticamente
+      if (result.length === 1) {
+        setFormData((prev) => ({ ...prev, id_setting: result[0].id }));
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Errore nel caricamento dei settings";
+      setSettingsError(errorMessage);
+      console.error("Errore caricamento settings:", err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   // Effetto per gestire il treatmentType
   useEffect(() => {
@@ -135,6 +183,12 @@ export const PrivateAppointmentModal: React.FC<
       return;
     }
 
+    // Validazione setting obbligatorio
+    if (!formData.id_setting) {
+      alert("Seleziona un setting per l'appuntamento");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -142,6 +196,7 @@ export const PrivateAppointmentModal: React.FC<
         duration: formData.duration,
         notes: formData.notes,
         isRecurring: formData.isRecurring,
+        id_setting: formData.id_setting,
       };
 
       // Solo nella vista normale aggiungi treatmentTypeId
@@ -175,6 +230,7 @@ export const PrivateAppointmentModal: React.FC<
       duration: 60,
       notes: "",
       isRecurring: false,
+      id_setting: undefined,
     });
   };
 
@@ -262,6 +318,37 @@ export const PrivateAppointmentModal: React.FC<
               placeholder="Aggiungi note per l'appuntamento privato..."
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="setting">
+              Setting <span className="text-red-500">*</span>
+            </Label>
+            {settingsLoading ? (
+              <div className="text-sm text-gray-500">
+                Caricamento settings...
+              </div>
+            ) : settingsError ? (
+              <div className="text-sm text-red-500">{settingsError}</div>
+            ) : (
+              <Select
+                value={formData.id_setting?.toString()}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, id_setting: parseInt(value) })
+                }
+              >
+                <SelectTrigger id="setting">
+                  <SelectValue placeholder="Seleziona un setting" />
+                </SelectTrigger>
+                <SelectContent>
+                  {settings.map((setting) => (
+                    <SelectItem key={setting.id} value={setting.id.toString()}>
+                      {setting.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     notes: "",
     isRecurring: false,
     isGroup: false, // Aggiunto campo per appuntamento di gruppo
+    id_setting: undefined,
   });
 
   const [appointmentType, setAppointmentType] = useState<
@@ -55,9 +56,54 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   >("terapia");
   const [loading, setLoading] = useState(false);
 
+  // Stati per settings
+  const [settings, setSettings] = useState<{ id: number; nome: string }[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  // Carica settings quando il modale si apre
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings();
+    }
+  }, [isOpen, patient?.therapeuticPlan?.regime?.id]);
+
+  const loadSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      setSettingsError(null);
+
+      // Carica settings filtrati per regime se disponibile
+      const regimeId = patient?.therapeuticPlan?.regime?.id;
+      const result = await therapyAPI.getSettings(regimeId);
+
+      setSettings(result);
+
+      // Se c'è solo un setting, selezionalo automaticamente
+      if (result.length === 1) {
+        setFormData((prev) => ({ ...prev, id_setting: result[0].id }));
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Errore nel caricamento dei settings";
+      setSettingsError(errorMessage);
+      console.error("Errore caricamento settings:", err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedTherapist || !patient) {
       // console.error("❌ Terapista o paziente non selezionato");
+      return;
+    }
+
+    // Validazione setting obbligatorio
+    if (!formData.id_setting) {
+      alert("Seleziona un setting per l'appuntamento");
       return;
     }
 
@@ -144,6 +190,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         notes: "",
         isRecurring: false,
         isGroup: false,
+        id_setting: undefined,
       });
     } catch (error) {
       // console.error("❌ Errore nel recupero piano terapia:", error);
@@ -166,6 +213,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       notes: "",
       isRecurring: false,
       isGroup: false,
+      id_setting: undefined,
     });
   };
 
@@ -223,6 +271,37 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               placeholder="Aggiungi note per l'appuntamento..."
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="setting">
+              Setting <span className="text-red-500">*</span>
+            </Label>
+            {settingsLoading ? (
+              <div className="text-sm text-gray-500">
+                Caricamento settings...
+              </div>
+            ) : settingsError ? (
+              <div className="text-sm text-red-500">{settingsError}</div>
+            ) : (
+              <Select
+                value={formData.id_setting?.toString()}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, id_setting: parseInt(value) })
+                }
+              >
+                <SelectTrigger id="setting">
+                  <SelectValue placeholder="Seleziona un setting" />
+                </SelectTrigger>
+                <SelectContent>
+                  {settings.map((setting) => (
+                    <SelectItem key={setting.id} value={setting.id.toString()}>
+                      {setting.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-3 border-t pt-3">

@@ -683,6 +683,7 @@ const Index = () => {
           durationMinutes: appointmentData.duration,
           validFrom,
           isGroup: appointmentData.isGroup,
+          id_setting: appointmentData.id_setting,
           // validTo verrà ricavato dal backend dal piano terapeutico
         };
 
@@ -709,6 +710,7 @@ const Index = () => {
             durationMinutes: appointmentData.duration,
             appointmentType: appointmentData.appointmentType || "terapia",
             notes: appointmentData.notes,
+            id_setting: appointmentData.id_setting,
           };
 
           result = await therapyAPI.createABAAppointment(request);
@@ -721,6 +723,7 @@ const Index = () => {
             durationMinutes: appointmentData.duration,
             notes: appointmentData.notes,
             isGroup: appointmentData.isGroup,
+            id_setting: appointmentData.id_setting,
           };
 
           const singleResult = await therapyAPI.createAppointment(request);
@@ -829,6 +832,7 @@ const Index = () => {
           durationMinutes: appointmentData.duration,
           notes: appointmentData.notes,
           appointmentDateTime: appointmentDateTime,
+          id_setting: appointmentData.id_setting,
         };
 
         // console.log("request", request);
@@ -854,6 +858,7 @@ const Index = () => {
           appointmentDateTime,
           durationMinutes: appointmentData.duration,
           notes: appointmentData.notes,
+          id_setting: appointmentData.id_setting,
         };
 
         await therapyAPI.createPrivateAppointment(request);

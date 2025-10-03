@@ -22,6 +22,11 @@ import {
 class TherapeuticPlanManagerAPI {
   private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
+  // Cache per i settings
+  private settingsCache: { id: number; nome: string }[] | null = null;
+  private settingsCacheTimestamp: number = 0;
+  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 ore
+
   /**
    * Effettua una richiesta HTTP
    */
@@ -773,6 +778,52 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data;
+  }
+
+  // === GESTIONE SETTINGS ===
+
+  /**
+   * Ottiene tutti i settings disponibili con cache automatica
+   * I settings vengono cachati per 24 ore per evitare chiamate ripetute
+   */
+  async getSettings(
+    regimeId?: number
+  ): Promise<{ id: number; nome: string }[]> {
+    // Controlla se la cache è valida
+    const now = Date.now();
+    const cacheAge = now - this.settingsCacheTimestamp;
+
+    if (this.settingsCache && cacheAge < this.CACHE_DURATION) {
+      return this.settingsCache;
+    }
+
+    // Cache non valida o assente, carica da API
+    const params: Record<string, string | number> = {};
+    if (regimeId) {
+      params.regimeId = regimeId;
+    }
+
+    const response = await this.get<
+      APIResponse<{ id: number; nome: string }[]>
+    >("get-settings", params);
+
+    if (!response.success) {
+      throw new Error(response.error || "Errore nel caricamento settings");
+    }
+
+    // Aggiorna cache
+    this.settingsCache = response.data || [];
+    this.settingsCacheTimestamp = now;
+
+    return this.settingsCache;
+  }
+
+  /**
+   * Pulisce la cache dei settings (utile per refresh forzato)
+   */
+  clearSettingsCache(): void {
+    this.settingsCache = null;
+    this.settingsCacheTimestamp = 0;
   }
 
   // === GESTIONE ASSENZE TERAPISTA ===
