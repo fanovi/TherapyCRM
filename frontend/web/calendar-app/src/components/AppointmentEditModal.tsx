@@ -302,6 +302,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const handleSave = async () => {
     if (!appointment || !selectedAppointmentId) return;
 
+    // Validazione setting obbligatorio
+    if (!formData.id_setting) {
+      showError("Campo obbligatorio", "Seleziona un setting per l'appuntamento");
+      return;
+    }
+
     // Debug: stampa l'ID dell'appuntamento del paziente selezionato
     // console.log("🔍 DEBUG - Appuntamento da modificare:");
     // console.log("  - ID appuntamento principale:", appointment.id);
@@ -946,7 +952,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Setting
+                  Setting <span className="text-red-500">*</span>
                 </label>
                 {settingsLoading ? (
                   <div className="text-sm text-gray-500">
@@ -966,8 +972,13 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                       })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
                   >
-                    <option value="">Nessun setting</option>
+                    {!formData.id_setting && (
+                      <option value="" disabled>
+                        Seleziona un setting
+                      </option>
+                    )}
                     {settings.map((setting) => (
                       <option key={setting.id} value={setting.id}>
                         {setting.nome}
