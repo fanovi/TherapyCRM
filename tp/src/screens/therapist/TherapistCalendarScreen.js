@@ -61,6 +61,23 @@ const TherapistCalendarScreen = () => {
   });
   const [menuVisible, setMenuVisible] = useState({});
 
+  // Mappa degli ID setting alle icone
+  const SETTING_ICONS = {
+    1: 'hospital-building', // Ambulatoriale
+    2: 'home', // Domiciliare
+    3: 'account-group', // Piccolo gruppo (PG)
+    4: 'hospital-building', // Ambulatoriale + PG
+    5: 'office-building', // Centro diurno
+    6: 'home-city', // Semiconvitto
+  };
+
+  const DEFAULT_SETTING_ICON = 'calendar-check'; // Icona di default
+
+  // Funzione per ottenere l'icona in base al setting_id
+  const getSettingIcon = settingId => {
+    return SETTING_ICONS[settingId] || DEFAULT_SETTING_ICON;
+  };
+
   const [applyToGroup, setApplyToGroup] = useState(false);
   const [selectedGroupPatient, setSelectedGroupPatient] = useState(null);
   const [isSelectingPatient, setIsSelectingPatient] = useState(false);
@@ -102,7 +119,7 @@ const TherapistCalendarScreen = () => {
     try {
       setLoading(true);
       const response = await getTherapistAppointments(selectedDate);
-
+      console.log('response therapist calendar screen', response);
       if (response.success) {
         setDayAppointments(response.data || []);
       } else {
@@ -514,41 +531,50 @@ const TherapistCalendarScreen = () => {
           <Card.Content>
             <View style={styles.appointmentHeader}>
               <View style={styles.timeSection}>
-                <Text
-                  style={[
-                    styles.appointmentTime,
-                    {color: theme.colors.onSurface},
-                  ]}>
-                  {appointment.time}
-                </Text>
-                <View style={styles.chipContainer}>
-                  <Chip
-                    style={[
-                      styles.statusChip,
-                      {
-                        backgroundColor: `${getAppointmentStatusColor(
-                          appointment.status,
-                        )}20`,
-                      },
-                    ]}
-                    textStyle={{
-                      color: getAppointmentStatusColor(appointment.status),
-                      fontSize: 12,
-                    }}>
-                    {getAppointmentStatusLabel(appointment.status)}
-                  </Chip>
-                  <Chip
-                    style={[
-                      styles.groupChip,
-                      {backgroundColor: theme.colors.primary + '20'},
-                    ]}
-                    textStyle={{
-                      color: theme.colors.primary,
-                      fontSize: 11,
-                    }}
-                    icon="account-group">
-                    Gruppo ({appointment.patients_count})
-                  </Chip>
+                <View style={styles.timeWithIcon}>
+                  <Avatar.Icon
+                    size={32}
+                    icon={getSettingIcon(appointment.setting_id)}
+                    style={styles.settingIconSmall}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        styles.appointmentTime,
+                        {color: theme.colors.onSurface},
+                      ]}>
+                      {appointment.time}
+                    </Text>
+                    <View style={styles.chipContainer}>
+                      <Chip
+                        style={[
+                          styles.statusChip,
+                          {
+                            backgroundColor: `${getAppointmentStatusColor(
+                              appointment.status,
+                            )}20`,
+                          },
+                        ]}
+                        textStyle={{
+                          color: getAppointmentStatusColor(appointment.status),
+                          fontSize: 12,
+                        }}>
+                        {getAppointmentStatusLabel(appointment.status)}
+                      </Chip>
+                      <Chip
+                        style={[
+                          styles.groupChip,
+                          {backgroundColor: theme.colors.primary + '20'},
+                        ]}
+                        textStyle={{
+                          color: theme.colors.primary,
+                          fontSize: 11,
+                        }}
+                        icon="account-group">
+                        Gruppo ({appointment.patients_count})
+                      </Chip>
+                    </View>
+                  </View>
                 </View>
               </View>
               <View style={styles.headerActions}>
@@ -714,28 +740,37 @@ const TherapistCalendarScreen = () => {
         <Card.Content>
           <View style={styles.appointmentHeader}>
             <View style={styles.timeSection}>
-              <Text
-                style={[
-                  styles.appointmentTime,
-                  {color: theme.colors.onSurface},
-                ]}>
-                {appointment.time}
-              </Text>
-              <Chip
-                style={[
-                  styles.statusChip,
-                  {
-                    backgroundColor: `${getAppointmentStatusColor(
-                      appointment.status,
-                    )}20`,
-                  },
-                ]}
-                textStyle={{
-                  color: getAppointmentStatusColor(appointment.status),
-                  fontSize: 12,
-                }}>
-                {getAppointmentStatusLabel(appointment.status)}
-              </Chip>
+              <View style={styles.timeWithIcon}>
+                <Avatar.Icon
+                  size={32}
+                  icon={getSettingIcon(appointment.setting_id)}
+                  style={styles.settingIconSmall}
+                />
+                <View>
+                  <Text
+                    style={[
+                      styles.appointmentTime,
+                      {color: theme.colors.onSurface},
+                    ]}>
+                    {appointment.time}
+                  </Text>
+                  <Chip
+                    style={[
+                      styles.statusChip,
+                      {
+                        backgroundColor: `${getAppointmentStatusColor(
+                          appointment.status,
+                        )}20`,
+                      },
+                    ]}
+                    textStyle={{
+                      color: getAppointmentStatusColor(appointment.status),
+                      fontSize: 12,
+                    }}>
+                    {getAppointmentStatusLabel(appointment.status)}
+                  </Chip>
+                </View>
+              </View>
             </View>
             <View style={styles.headerActions}>
               <Avatar.Image
@@ -1598,6 +1633,14 @@ const styles = StyleSheet.create({
   },
   timeSection: {
     flex: 1,
+  },
+  timeWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingIconSmall: {
+    backgroundColor: '#E3F2FD',
   },
   appointmentTime: {
     fontSize: 18,

@@ -31,6 +31,23 @@ const TherapistHomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
+  // Mappa degli ID setting alle icone
+  const SETTING_ICONS = {
+    1: 'hospital-building', // Ambulatoriale
+    2: 'home', // Domiciliare
+    3: 'account-group', // Piccolo gruppo (PG)
+    4: 'hospital-building', // Ambulatoriale + PG
+    5: 'office-building', // Centro diurno
+    6: 'home-city', // Semiconvitto
+  };
+
+  const DEFAULT_SETTING_ICON = 'calendar-check'; // Icona di default
+
+  // Funzione per ottenere l'icona in base al setting_id
+  const getSettingIcon = settingId => {
+    return SETTING_ICONS[settingId] || DEFAULT_SETTING_ICON;
+  };
+
   const loadDashboardData = async () => {
     try {
       setError(null);
@@ -213,13 +230,21 @@ const TherapistHomeScreen = () => {
                 style={styles.appointmentCard}>
                 <Card.Content>
                   <View style={styles.appointmentHeader}>
-                    <View>
-                      <Text style={styles.appointmentTime}>
-                        {appointment.time}
-                      </Text>
-                      <Text style={styles.appointmentType}>
-                        {appointment.type}
-                      </Text>
+                    <View style={styles.appointmentTimeContainer}>
+                      <Avatar.Icon
+                        size={36}
+                        icon={getSettingIcon(appointment.setting_id)}
+                        style={styles.settingIcon}
+                      />
+                      <Text>Ciao</Text>
+                      <View>
+                        <Text style={styles.appointmentTime}>
+                          {appointment.time}
+                        </Text>
+                        <Text style={styles.appointmentType}>
+                          {appointment.type}
+                        </Text>
+                      </View>
                     </View>
                     <Chip icon="account" style={styles.patientChip}>
                       {appointment.patient.name}
@@ -402,6 +427,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  appointmentTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingIcon: {
+    backgroundColor: '#E3F2FD',
   },
   appointmentTime: {
     fontSize: 16,

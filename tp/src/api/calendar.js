@@ -370,9 +370,38 @@ export const getCancellationReasons = () => [
  */
 export const getTherapistAppointments = async date => {
   try {
+    console.log('\n=== RECUPERO APPUNTAMENTI TERAPISTA ===');
+    console.log('📅 Date:', date);
+    console.log('🎯 URL ENDPOINT:', '/calendar/therapist-appointments');
+
     const response = await apiClient.post('/calendar/therapist-appointments', {
       date: date,
     });
+
+    console.log('\n=== RISPOSTA APPUNTAMENTI TERAPISTA ===');
+    console.log('📥 Success:', response.data.success);
+    console.log('📥 Count:', response.data.meta?.count || 0);
+    console.log('📥 Groups Count:', response.data.meta?.groups_count || 0);
+    console.log('📥 Full Data:', JSON.stringify(response.data.data, null, 2));
+
+    // Log ogni appuntamento con i suoi campi
+    if (response.data.data && response.data.data.length > 0) {
+      console.log('\n📋 DETTAGLIO APPUNTAMENTI:');
+      response.data.data.forEach((apt, index) => {
+        console.log(`\n  Appuntamento ${index + 1}:`);
+        console.log('    - ID:', apt.id);
+        console.log('    - Time:', apt.time);
+        console.log('    - Type:', apt.type);
+        console.log('    - Status:', apt.status);
+        console.log('    - Is Group:', apt.is_group);
+        console.log('    - Setting ID:', apt.setting_id || '❌ MANCANTE');
+        console.log('    - Patient:', apt.patient?.name);
+        if (apt.is_group) {
+          console.log('    - Patients Count:', apt.patients_count);
+          console.log('    - Group Patients:', apt.group_patients?.length || 0);
+        }
+      });
+    }
 
     return response.data;
   } catch (error) {

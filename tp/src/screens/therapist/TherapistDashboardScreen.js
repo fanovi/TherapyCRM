@@ -32,14 +32,32 @@ const TherapistDashboardScreen = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
+  // Mappa degli ID setting alle icone
+  const SETTING_ICONS = {
+    1: 'hospital-building', // Ambulatoriale
+    2: 'home', // Domiciliare
+    3: 'account-group', // Piccolo gruppo (PG)
+    4: 'hospital-building', // Ambulatoriale + PG
+    5: 'office-building', // Centro diurno
+    6: 'home-city', // Semiconvitto
+  };
+
+  const DEFAULT_SETTING_ICON = 'calendar-check'; // Icona di default
+
+  // Funzione per ottenere l'icona in base al setting_id
+  const getSettingIcon = settingId => {
+    return SETTING_ICONS[settingId] || DEFAULT_SETTING_ICON;
+  };
+
   const loadDashboardData = async () => {
     try {
       setError(null);
       const response = await therapistService.getDashboardData();
-      console.log('response', response);
+      console.log('response dashboard dashboard screen', response);
 
       if (response.success) {
         setDashboardData(response.data);
+        console.log('dashboard data dashboard screen', dashboardData);
 
         // Recupera anche le ore settimanali
         const weeklyResponse = await therapistService.getWeeklyHours();
@@ -260,37 +278,47 @@ const TherapistDashboardScreen = ({navigation}) => {
             <Card key={appointment.id || index} style={styles.appointmentCard}>
               <Card.Content>
                 <View style={styles.appointmentHeader}>
-                  <View>
-                    <Text
+                  <View style={styles.appointmentTimeContainer}>
+                    <Avatar.Icon
+                      size={36}
+                      icon={getSettingIcon(appointment.setting_id)}
                       style={[
-                        styles.appointmentDate,
-                        {color: theme.colors.primary},
-                      ]}>
-                      {appointment.datetime
-                        ? new Date(appointment.datetime).toLocaleDateString(
-                            'it-IT',
-                            {
-                              weekday: 'short',
-                              day: '2-digit',
-                              month: '2-digit',
-                            },
-                          )
-                        : 'Data non disponibile'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.appointmentTime,
-                        {color: theme.colors.onSurface},
-                      ]}>
-                      {appointment.time}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.appointmentType,
-                        {color: theme.colors.onSurfaceVariant},
-                      ]}>
-                      {appointment.type}
-                    </Text>
+                        styles.settingIcon,
+                        {backgroundColor: theme.colors.surfaceVariant},
+                      ]}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.appointmentDate,
+                          {color: theme.colors.primary},
+                        ]}>
+                        {appointment.datetime
+                          ? new Date(appointment.datetime).toLocaleDateString(
+                              'it-IT',
+                              {
+                                weekday: 'short',
+                                day: '2-digit',
+                                month: '2-digit',
+                              },
+                            )
+                          : 'Data non disponibile'}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.appointmentTime,
+                          {color: theme.colors.onSurface},
+                        ]}>
+                        {appointment.time}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.appointmentType,
+                          {color: theme.colors.onSurfaceVariant},
+                        ]}>
+                        {appointment.type}
+                      </Text>
+                    </View>
                   </View>
                   <Avatar.Text
                     size={40}
@@ -443,6 +471,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  appointmentTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingIcon: {
+    borderRadius: 8,
   },
   appointmentDate: {
     fontSize: 12,
