@@ -54,7 +54,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   patient,
   onSetGroupAppointment,
 }) => {
-  console.log("appointment IN MODAL", appointment);
+  // console.log("appointment IN MODAL", appointment);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteAllFuture, setDeleteAllFuture] = useState(false);
@@ -97,14 +97,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     appointment?.groupPatients &&
     appointment.groupPatients.length > 0;
 
-  console.log("appointment", appointment);
+  // console.log("appointment", appointment);
   // Funzione per caricare i dettagli dell'appuntamento del paziente selezionato
   const loadPatientAppointmentDetails = async (appointmentId: number) => {
-    console.log("📥 DEBUG - Caricamento dettagli appuntamento:", appointmentId);
+    // console.log("📥 DEBUG - Caricamento dettagli appuntamento:", appointmentId);
     setLoadingPatientDetails(true);
     try {
       const details = await therapyAPI.getAppointmentDetails(appointmentId);
-      console.log("📥 DEBUG - Dettagli appuntamento caricati:", details);
+      // console.log("📥 DEBUG - Dettagli appuntamento caricati:", details);
       setCurrentPatientAppointment(details);
 
       // Aggiorna il form con i dati del paziente selezionato
@@ -128,9 +128,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
   useEffect(() => {
     if (appointment) {
-      console.log("📝 AppointmentEditModal ricevuto appointment:", appointment);
-      console.log("📝 appointment.groupSessionId:", appointment.groupSessionId);
-      console.log("📝 appointment.groupPatients:", appointment.groupPatients);
+      // console.log("📝 AppointmentEditModal ricevuto appointment:", appointment);
+      // console.log("📝 appointment.groupSessionId:", appointment.groupSessionId);
+      // console.log("📝 appointment.groupPatients:", appointment.groupPatients);
 
       if (appointment.groupPatients && appointment.groupPatients.length > 0) {
         setGroupPatients(appointment.groupPatients);
@@ -184,7 +184,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       setCanAddToGroup(false);
       return;
     }
-    console.log(appointment);
+    // console.log(appointment);
     // Verifica condizioni base
     if (
       appointment.groupSessionId !== null &&
@@ -269,17 +269,17 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     if (!appointment || !selectedAppointmentId) return;
 
     // Debug: stampa l'ID dell'appuntamento del paziente selezionato
-    console.log("🔍 DEBUG - Appuntamento da modificare:");
-    console.log("  - ID appuntamento principale:", appointment.id);
-    console.log(
-      "  - ID appuntamento paziente selezionato:",
-      selectedAppointmentId
-    );
-    console.log(
-      "  - Paziente selezionato:",
-      currentPatientAppointment?.patient?.name
-    );
-    console.log("  - applyToGroup:", applyToWholeGroup && isGroupAppointment);
+    // console.log("🔍 DEBUG - Appuntamento da modificare:");
+    // console.log("  - ID appuntamento principale:", appointment.id);
+    // console.log(
+    //   "  - ID appuntamento paziente selezionato:",
+    //   selectedAppointmentId
+    // );
+    // console.log(
+    //   "  - Paziente selezionato:",
+    //   currentPatientAppointment?.patient?.name
+    // );
+    // console.log("  - applyToGroup:", applyToWholeGroup && isGroupAppointment);
 
     setLoading(true);
     try {
@@ -559,21 +559,21 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                             (p) => p.id === patientId
                           );
                           if (patientData) {
-                            console.log(
-                              "🔄 DEBUG - Cambio paziente selezionato:"
-                            );
-                            console.log(
-                              "  - Paziente selezionato:",
-                              patientData.name
-                            );
-                            console.log(
-                              "  - ID appuntamento paziente:",
-                              patientData.appointmentId
-                            );
-                            console.log(
-                              "  - ID appuntamento principale:",
-                              appointment.id
-                            );
+                            // console.log(
+                            //   "🔄 DEBUG - Cambio paziente selezionato:"
+                            // );
+                            // console.log(
+                            //   "  - Paziente selezionato:",
+                            //   patientData.name
+                            // );
+                            // console.log(
+                            //   "  - ID appuntamento paziente:",
+                            //   patientData.appointmentId
+                            // );
+                            // console.log(
+                            //   "  - ID appuntamento principale:",
+                            //   appointment.id
+                            // );
 
                             // Aggiorna immediatamente l'ID dell'appuntamento selezionato
                             setSelectedAppointmentId(patientData.appointmentId);

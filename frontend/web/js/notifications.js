@@ -26,7 +26,7 @@ window.NotificationSystem = (function () {
     config.csrfParam = $("meta[name=csrf-param]").attr("content") || "_csrf";
 
     bindEvents();
-    console.log("Notification System initialized", config);
+    // console.log("Notification System initialized", config);
   }
 
   /**
@@ -42,7 +42,7 @@ window.NotificationSystem = (function () {
    */
   function refreshStats() {
     if (!config.apiStatsUrl) {
-      console.warn("URL API statistiche non configurato");
+      // console.warn("URL API statistiche non configurato");
       return;
     }
 
@@ -54,13 +54,13 @@ window.NotificationSystem = (function () {
       success: function (response) {
         if (response.success && response.data) {
           updateStatsDisplay(response.data);
-          console.log("Statistiche aggiornate:", response.data);
+          // console.log("Statistiche aggiornate:", response.data);
         } else {
-          console.warn("Risposta API statistiche non valida:", response);
+          // console.warn("Risposta API statistiche non valida:", response);
         }
       },
       error: function (xhr, status, error) {
-        console.error("Errore aggiornamento statistiche:", error);
+        // console.error("Errore aggiornamento statistiche:", error);
       },
     });
   }
@@ -79,7 +79,7 @@ window.NotificationSystem = (function () {
       // Aggiorna i contatori nei filtri
       updateFilterCounts(data);
     } catch (e) {
-      console.error("Errore aggiornamento display statistiche:", e);
+      // console.error("Errore aggiornamento display statistiche:", e);
     }
   }
 

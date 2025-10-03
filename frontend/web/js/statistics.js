@@ -27,7 +27,7 @@ var Statistics = {
     init: function() {
         // Evita doppie inizializzazioni
         if (this.initialized) {
-            console.log('Statistics module already initialized, skipping...');
+            // console.log('Statistics module already initialized, skipping...');
             return;
         }
         
@@ -38,7 +38,7 @@ var Statistics = {
         this.initExportButtons();
         
         this.initialized = true;
-        console.log('Statistics module initialized');
+        // console.log('Statistics module initialized');
     },
 
     // Inizializza i filtri
@@ -253,11 +253,11 @@ var Statistics = {
                         footerElement.textContent = data.footer || '';
                     }
                 } else {
-                    console.warn('Card data response not successful:', data);
+                    // console.warn('Card data response not successful:', data);
                 }
             })
             .catch(function(error) {
-                console.error('Errore nel caricamento card data:', error);
+                // console.error('Errore nel caricamento card data:', error);
                 // Mostra errore nell'interfaccia
                 var errorElement = card.querySelector('.card-value');
                 if (errorElement) {
@@ -321,7 +321,7 @@ var Statistics = {
     createChart: function(canvasId, config) {
         var ctx = document.getElementById(canvasId);
         if (!ctx) {
-            console.error('Canvas not found:', canvasId);
+            // console.error('Canvas not found:', canvasId);
             return null;
         }
 
@@ -349,7 +349,7 @@ var Statistics = {
                 this.charts[canvasId] = chart;
                 return chart;
             } catch (error) {
-                console.error('Errore nella creazione del grafico:', error);
+                // console.error('Errore nella creazione del grafico:', error);
                 // Mostra messaggio di errore nel canvas
                 ctx.style.display = 'none';
                 var errorDiv = document.createElement('div');
@@ -359,7 +359,7 @@ var Statistics = {
                 return null;
             }
         } else {
-            console.warn('Chart.js non è caricato. Impossibile creare il grafico.');
+            // console.warn('Chart.js non è caricato. Impossibile creare il grafico.');
             // Mostra messaggio di errore nel canvas
             ctx.style.display = 'none';
             var errorDiv = document.createElement('div');
@@ -383,13 +383,13 @@ var Statistics = {
     createHeatmap: function(containerId, data) {
         var container = document.getElementById(containerId);
         if (!container) {
-            console.error('Container not found:', containerId);
+            // console.error('Container not found:', containerId);
             return;
         }
 
         // Verifica che i dati siano validi
         if (!data || !data.data || !data.dayLabels) {
-            console.error('Dati heatmap non validi:', data);
+            // console.error('Dati heatmap non validi:', data);
             container.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle mr-2"></i>Dati heatmap non disponibili</div>';
             return;
         }
@@ -578,7 +578,7 @@ var Statistics = {
                 return response.json();
             })
             .catch(function(error) {
-                console.error('Errore nella richiesta AJAX:', error);
+                // console.error('Errore nella richiesta AJAX:', error);
                 throw error;
             });
     },
@@ -592,7 +592,7 @@ var Statistics = {
             return this.ajaxRequest(url, options)
                 .catch(error => {
                     if (attempt < maxRetries) {
-                        console.log(`Tentativo ${attempt} fallito, riprovo...`);
+                        // console.log(`Tentativo ${attempt} fallito, riprovo...`);
                         return new Promise(resolve => {
                             setTimeout(() => resolve(attemptRequest()), 1000 * attempt);
                         });
@@ -619,7 +619,7 @@ var Statistics = {
     reset: function() {
         this.initialized = false;
         this.charts = {};
-        console.log('Statistics module reset');
+        // console.log('Statistics module reset');
     }
 };
 

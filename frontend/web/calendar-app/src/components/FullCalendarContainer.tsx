@@ -632,7 +632,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const isEditable = props.isEditable !== false;
     const treatmentType = props.type || "Non specificato";
 
-    console.log("props", props);
+    // console.log("props", props);
 
     // Ottieni il colore basato sul tipo di trattamento
     const treatmentColor = getTreatmentColor(treatmentType);

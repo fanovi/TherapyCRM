@@ -57,7 +57,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
   const handleSubmit = async () => {
     if (!selectedTherapist || !patient) {
-      console.error("❌ Terapista o paziente non selezionato");
+      // console.error("❌ Terapista o paziente non selezionato");
       return;
     }
 
@@ -68,14 +68,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       // Se siamo in modalità ABA e abbiamo selezionato parent_training o supervisione
       if (isABARegime && appointmentType !== "terapia") {
-        console.log(
-          "🔍 Debug - patient.availableTherapies:",
-          patient.availableTherapies
-        );
-        console.log(
-          "🔍 Debug - cercando treatmentTypeId:",
-          appointmentType === "parent_training" ? 8 : 9
-        );
+        // console.log(
+        //   "🔍 Debug - patient.availableTherapies:",
+        //   patient.availableTherapies
+        // );
+        // console.log(
+        //   "🔍 Debug - cercando treatmentTypeId:",
+        //   appointmentType === "parent_training" ? 8 : 9
+        // );
         // Usa i treatmentTypeId fissi per parent_training (8) e supervisione (9)
         const treatmentTypeId = appointmentType === "parent_training" ? 24 : 25;
 
@@ -108,11 +108,11 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         );
       }
 
-      console.log(
-        "🔍 Debug AppointmentModal - planTherapyData:",
-        planTherapyData
-      );
-      console.log("🔍 Debug AppointmentModal - isGroup:", formData.isGroup);
+      // console.log(
+      //   "🔍 Debug AppointmentModal - planTherapyData:",
+      //   planTherapyData
+      // );
+      // console.log("🔍 Debug AppointmentModal - isGroup:", formData.isGroup);
 
       // Usa la specializzazione del terapista come tipo di terapia
       const therapyType =
@@ -146,7 +146,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         isGroup: false,
       });
     } catch (error) {
-      console.error("❌ Errore nel recupero piano terapia:", error);
+      // console.error("❌ Errore nel recupero piano terapia:", error);
       alert(
         "Errore: Non è possibile creare l'appuntamento. " +
           (error instanceof Error

@@ -149,10 +149,10 @@ const Index = () => {
       );
 
       setTherapistAbsences(absences);
-      console.log(
-        `📅 Assenze caricate per terapista ${therapistId}:`,
-        absences
-      );
+      // console.log(
+      //   `📅 Assenze caricate per terapista ${therapistId}:`,
+      //   absences
+      // );
     } catch (error) {
       console.error("Errore nel caricamento assenze terapista:", error);
       setTherapistAbsences([]);
@@ -204,15 +204,15 @@ const Index = () => {
 
   // Funzione per ricaricare gli appuntamenti per il range attualmente visibile
   const reloadCurrentVisibleAppointments = async () => {
-    console.log("🔄 Ricaricando appuntamenti per range:", currentVisibleRange);
+    // console.log("🔄 Ricaricando appuntamenti per range:", currentVisibleRange);
 
     if (!currentVisibleRange) {
       const dateToLoad = currentCalendarDate || new Date();
-      console.log(
-        "📅 Nessun range, carico mese da currentCalendarDate:",
-        dateToLoad.getMonth() + 1,
-        dateToLoad.getFullYear()
-      );
+      // console.log(
+      //   "📅 Nessun range, carico mese da currentCalendarDate:",
+      //   dateToLoad.getMonth() + 1,
+      //   dateToLoad.getFullYear()
+      // );
       await loadAppointmentsForMonth(dateToLoad);
       return;
     }
@@ -221,10 +221,10 @@ const Index = () => {
       const startDate = new Date(currentVisibleRange.start);
       const endDate = new Date(currentVisibleRange.end);
 
-      console.log("📅 Range visibile:", {
-        start: startDate.toLocaleDateString(),
-        end: endDate.toLocaleDateString(),
-      });
+      // console.log("📅 Range visibile:", {
+      //   start: startDate.toLocaleDateString(),
+      //   end: endDate.toLocaleDateString(),
+      // });
 
       const monthsToLoad = new Set<{ month: number; year: number }>();
       const current = new Date(startDate);
@@ -242,7 +242,7 @@ const Index = () => {
       const allTherapistAppointments: any[] = [];
 
       for (const { month, year } of monthsToLoad) {
-        console.log(`📅 Caricando appuntamenti per ${month}/${year}`);
+        // console.log(`📅 Caricando appuntamenti per ${month}/${year}`);
 
         if (isTherapistView) {
           // Vista terapista: carica solo appuntamenti del terapista
@@ -278,24 +278,24 @@ const Index = () => {
 
       // Imposta tutti gli appuntamenti combinati
       if (isTherapistView && selectedTherapist) {
-        console.log(
-          "📅 Appuntamenti terapista totali:",
-          allTherapistAppointments.map((a) => a.id)
-        );
+        // console.log(
+        //   "📅 Appuntamenti terapista totali:",
+        //   allTherapistAppointments.map((a) => a.id)
+        // );
         setTherapistAppointments(allTherapistAppointments);
       } else if (!isTherapistView) {
         if (patient) {
-          console.log(
-            "📅 Appuntamenti paziente totali:",
-            allPatientAppointments.map((a) => a.id)
-          );
+          // console.log(
+          //   "📅 Appuntamenti paziente totali:",
+          //   allPatientAppointments.map((a) => a.id)
+          // );
           setAppointments(allPatientAppointments);
         }
         if (selectedTherapist) {
-          console.log(
-            "📅 Appuntamenti terapista totali:",
-            allTherapistAppointments.map((a) => a.id)
-          );
+          // console.log(
+          //   "📅 Appuntamenti terapista totali:",
+          //   allTherapistAppointments.map((a) => a.id)
+          // );
           setTherapistAppointments(allTherapistAppointments);
         }
       }
@@ -357,7 +357,7 @@ const Index = () => {
       !savedDate || date.toDateString() !== savedDate.toDateString();
 
     if (dateChanged) {
-      console.log("🔄 handleDateChange salvando nuova data:", date);
+      // console.log("🔄 handleDateChange salvando nuova data:", date);
       setCurrentCalendarDate(date);
       sessionStorage.setItem(storageKey, date.toISOString());
     }
@@ -600,7 +600,7 @@ const Index = () => {
     sessionStorage.setItem(storageKey, viewType);
   }, [viewType, params.id_therapist, params.id_patient]);
 
-  console.log("patient **************", patient);
+  // console.log("patient **************", patient);
 
   useEffect(() => {
     if (
@@ -667,7 +667,7 @@ const Index = () => {
       let appointmentsCreated = 1;
       let weeklyLimitExceeded: any[] = [];
 
-      console.log("appointmentData", appointmentData);
+      // console.log("appointmentData", appointmentData);
 
       if (appointmentData.isRecurring) {
         const dayOfWeek = selectedSlot.date.getDay() || 7;
@@ -831,7 +831,7 @@ const Index = () => {
           appointmentDateTime: appointmentDateTime,
         };
 
-        console.log("request", request);
+        // console.log("request", request);
         const result = await therapyAPI.createPrivateCycle(request);
 
         if (result.conflicts && result.conflicts.length > 0) {
@@ -994,9 +994,9 @@ const Index = () => {
       const appointment = await therapyAPI.getAppointmentDetails(
         parseInt(appointmentId)
       );
-      console.log("🔍 Appuntamento recuperato dal backend:", appointment);
-      console.log("🔍 groupSessionId:", appointment.groupSessionId);
-      console.log("🔍 groupPatients:", appointment.groupPatients);
+      // console.log("🔍 Appuntamento recuperato dal backend:", appointment);
+      // console.log("🔍 groupSessionId:", appointment.groupSessionId);
+      // console.log("🔍 groupPatients:", appointment.groupPatients);
 
       setSelectedAppointment(appointment);
 
@@ -1109,7 +1109,7 @@ const Index = () => {
     }
   };
 
-  console.log("this is my appointments", combinedAppointments);
+  // console.log("this is my appointments", combinedAppointments);
 
   const handleAppointmentMove = async (
     appointmentId: string,
@@ -1123,7 +1123,7 @@ const Index = () => {
       if (isNaN(numericId)) {
         throw new Error("ID appuntamento non valido");
       }
-      console.log("this is my appointments", combinedAppointments, numericId);
+      // console.log("this is my appointments", combinedAppointments, numericId);
       const appointment = combinedAppointments.find(
         (apt) => +apt.id === numericId
       );
@@ -1144,11 +1144,11 @@ const Index = () => {
         applyToGroup: appointment.groupSessionId ? true : false,
       };
 
-      console.log("🔄 Spostamento appuntamento:", {
-        appointmentId: numericId,
-        originalTherapist: appointment.therapist?.id,
-        newDateTime,
-      });
+      // console.log("🔄 Spostamento appuntamento:", {
+      //   appointmentId: numericId,
+      //   originalTherapist: appointment.therapist?.id,
+      //   newDateTime,
+      // });
 
       await therapyAPI.updateAppointment(request);
 

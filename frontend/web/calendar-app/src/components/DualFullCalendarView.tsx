@@ -111,7 +111,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         appointment.groupSessionId !== null &&
         appointment.groupSessionId !== undefined;
 
-      console.log("isGroupSession", isGroupSession);
+      // console.log("isGroupSession", isGroupSession);
 
       // Determina se l'appuntamento permette click (scheduled o therapist_absent)
       const isClickable =
@@ -240,14 +240,14 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   const handleUnifiedNavigate = (date: Date) => {
     // Se counter > 0, siamo in una sincronizzazione attiva
     if (syncNavigationCounter.current > 0) {
-      console.log(
-        `🔒 Sincronizzazione in corso (counter: ${syncNavigationCounter.current}), decremento e ignoro`
-      );
+      // console.log(
+      //   `🔒 Sincronizzazione in corso (counter: ${syncNavigationCounter.current}), decremento e ignoro`
+      // );
       syncNavigationCounter.current--;
       return;
     }
 
-    console.log("🚀 Navigazione unificata verso:", date.toLocaleDateString());
+    // console.log("🚀 Navigazione unificata verso:", date.toLocaleDateString());
 
     // 1. Aggiorna stati locali
     setSelectedDate(date);
@@ -373,9 +373,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
 
     // Sincronizza con il calendario del paziente se l'evento appartiene al paziente visualizzato
     if (patientId === currentPatientId && patientCalendarRef.current) {
-      console.log(
-        `✅ Aggiornamento calendario paziente per evento ${appointmentId}`
-      );
+      // console.log(
+      //   `✅ Aggiornamento calendario paziente per evento ${appointmentId}`
+      // );
       patientCalendarRef.current.updateEvent(appointmentId, newStart, newEnd);
     }
   };

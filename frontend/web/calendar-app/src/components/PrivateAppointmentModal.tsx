@@ -78,10 +78,10 @@ export const PrivateAppointmentModal: React.FC<
 
         setLoadingTreatmentType(true);
         try {
-          console.log(
-            "🔍 Caricamento treatmentType per terapista:",
-            selectedTherapist.specialization
-          );
+          // console.log(
+          //   "🔍 Caricamento treatmentType per terapista:",
+          //   selectedTherapist.specialization
+          // );
 
           const treatmentTypes = await therapyAPI.getTreatmentTypes();
           const matchingTreatmentType = treatmentTypes.find(
@@ -89,13 +89,13 @@ export const PrivateAppointmentModal: React.FC<
           );
 
           if (matchingTreatmentType) {
-            console.log("✅ TreatmentType trovato:", matchingTreatmentType);
+            // console.log("✅ TreatmentType trovato:", matchingTreatmentType);
             setEffectiveTreatmentType(matchingTreatmentType);
           } else {
-            console.warn(
-              "⚠️ Nessun treatmentType trovato per specializzazione:",
-              selectedTherapist.specialization
-            );
+            // console.warn(
+            //   "⚠️ Nessun treatmentType trovato per specializzazione:",
+            //   selectedTherapist.specialization
+            // );
             setEffectiveTreatmentType({
               id: 0,
               name: selectedTherapist.specialization,
@@ -103,7 +103,7 @@ export const PrivateAppointmentModal: React.FC<
             });
           }
         } catch (error) {
-          console.error("❌ Errore caricamento treatmentType:", error);
+          // console.error("❌ Errore caricamento treatmentType:", error);
           setEffectiveTreatmentType({
             id: 0,
             name: selectedTherapist.specialization,
@@ -126,12 +126,12 @@ export const PrivateAppointmentModal: React.FC<
       !patient ||
       (!isTherapistView && !effectiveTreatmentType)
     ) {
-      console.error("❌ Dati mancanti per l'appuntamento privato", {
-        selectedTherapist: !!selectedTherapist,
-        patient: !!patient,
-        effectiveTreatmentType: !!effectiveTreatmentType,
-        isTherapistView,
-      });
+      // console.error("❌ Dati mancanti per l'appuntamento privato", {
+      //   selectedTherapist: !!selectedTherapist,
+      //   patient: !!patient,
+      //   effectiveTreatmentType: !!effectiveTreatmentType,
+      //   isTherapistView,
+      // });
       return;
     }
 
@@ -159,7 +159,7 @@ export const PrivateAppointmentModal: React.FC<
         isRecurring: false,
       });
     } catch (error) {
-      console.error("❌ Errore nella creazione appuntamento privato:", error);
+      // console.error("❌ Errore nella creazione appuntamento privato:", error);
       alert(
         "Errore: Non è possibile creare l'appuntamento privato. " +
           (error instanceof Error ? error.message : "Errore sconosciuto")

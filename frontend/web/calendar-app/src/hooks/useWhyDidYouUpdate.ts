@@ -18,7 +18,7 @@ export function useWhyDidYouUpdate(name: string, props: Record<string, any>) {
       });
 
       if (Object.keys(changedProps).length) {
-        console.log(`🔄 [${name}] Re-render causato da:`, changedProps);
+        // console.log(`🔄 [${name}] Re-render causato da:`, changedProps);
       }
     }
 

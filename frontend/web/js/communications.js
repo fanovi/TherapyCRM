@@ -31,7 +31,7 @@ window.CommunicationSystem = (function () {
     config.csrfParam = $("meta[name=csrf-param]").attr("content") || "_csrf";
 
     bindEvents();
-    console.log("Communication System v2.0 initialized", config);
+    // console.log("Communication System v2.0 initialized", config);
   }
 
   /**

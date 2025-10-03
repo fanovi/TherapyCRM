@@ -18,12 +18,12 @@ const basename = isStandalone ? "" : "";
 
 // Debug info in console
 if (isStandalone) {
-  console.log("🚀 Running in STANDALONE mode (dev server)");
-  console.log("Router basename:", basename || "(empty)");
-  console.log("Current port:", window.location.port);
+  // console.log("🚀 Running in STANDALONE mode (dev server)");
+  // console.log("Router basename:", basename || "(empty)");
+  // console.log("Current port:", window.location.port);
 } else {
-  console.log("📦 Running in COMPILED mode (integrated in Yii2)");
-  console.log("Router basename:", basename);
+  // console.log("📦 Running in COMPILED mode (integrated in Yii2)");
+  // console.log("Router basename:", basename);
 }
 
 const App = () => (

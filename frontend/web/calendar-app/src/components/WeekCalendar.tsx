@@ -448,7 +448,7 @@ export default function WeekCalendarDemo() {
   ]);
 
   const handleSlotClick = (date: Date, time: string) => {
-    console.log("Slot cliccato:", date, time);
+    // console.log("Slot cliccato:", date, time);
   };
 
   const handleAppointmentMove = (
@@ -456,7 +456,7 @@ export default function WeekCalendarDemo() {
     newDate: Date,
     newTime: string
   ) => {
-    console.log("Appuntamento spostato:", appointmentId, newDate, newTime);
+    // console.log("Appuntamento spostato:", appointmentId, newDate, newTime);
   };
 
   return (
