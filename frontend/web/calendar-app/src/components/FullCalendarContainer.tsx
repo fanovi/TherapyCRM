@@ -418,6 +418,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     refreshEvents: (startDate?: Date, endDate?: Date) => {
       loadAppointments(startDate, endDate);
     },
+    navigateToDate: (date: Date) => {
+      const calendarApi = calendarRef.current?.getApi();
+      if (calendarApi) {
+        calendarApi.gotoDate(date);
+      }
+    },
   };
 
   // Passa l'interfaccia al genitore

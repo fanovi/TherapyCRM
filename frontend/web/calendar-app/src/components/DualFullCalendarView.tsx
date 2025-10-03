@@ -71,6 +71,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   const therapistCalendarRef = useRef<any>(null);
   const patientCalendarRef = useRef<any>(null);
 
+  // Flag per prevenire loop infiniti durante la sincronizzazione
+  const isSyncingNavigation = useRef<boolean>(false);
+
   // Converte viewType del componente alle viste di FullCalendar
   const getFullCalendarView = (
     view: CalendarViewType
@@ -219,13 +222,47 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     setCurrentWeekStart(startOfWeek);
   };
 
-  // Gestione navigazione calendario (quando si usano i controlli prev/next)
+  // Gestione navigazione calendario terapista (vecchio handler - manteniamo per compatibilità)
   const handleTherapistNavigate = (date: Date) => {
     // Aggiorna l'inizio settimana per le ore settimanali
     const weekStart = moment(date).startOf("isoWeek").toDate();
     setCurrentWeekStart(weekStart);
 
     // Chiama il callback originale se presente
+    if (onDateChange) {
+      onDateChange(date);
+    }
+  };
+
+  // Gestione navigazione unificata con protezione anti-loop
+  const handleUnifiedNavigate = (date: Date) => {
+    // Se stiamo già sincronizzando, ignora questa chiamata per evitare loop
+    if (isSyncingNavigation.current) {
+      console.log(
+        "🔒 Sincronizzazione in corso, ignoro navigazione per evitare loop"
+      );
+      isSyncingNavigation.current = false; // Reset del flag
+      return;
+    }
+
+    console.log("🚀 Navigazione unificata verso:", date.toLocaleDateString());
+
+    // 1. Aggiorna stati locali
+    setSelectedDate(date);
+    const weekStart = moment(date).startOf("isoWeek").toDate();
+    setCurrentWeekStart(weekStart);
+
+    // 2. Setta il flag PRIMA di sincronizzare
+    isSyncingNavigation.current = true;
+
+    // 3. Sincronizza entrambi i calendari
+    // Questo triggererà datesSet → onNavigate, ma il flag bloccherà il loop
+    setTimeout(() => {
+      therapistCalendarRef.current?.navigateToDate(date);
+      patientCalendarRef.current?.navigateToDate(date);
+    }, 0);
+
+    // 4. Notifica il componente genitore
     if (onDateChange) {
       onDateChange(date);
     }
@@ -478,7 +515,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               readOnly={readOnly}
               currentView={currentFullCalendarView}
               onViewChange={handleViewChange}
-              onNavigate={handleTherapistNavigate}
+              onNavigate={handleUnifiedNavigate}
               onVisibleRangeChange={handleTherapistVisibleRangeChange}
               onRef={(ref) => {
                 therapistCalendarRef.current = ref;
