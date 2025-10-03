@@ -854,6 +854,47 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    /**
+     * Ottiene tutti i settings disponibili
+     * Se viene fornito regimeId, restituisce solo i settings associati a quel regime
+     *
+     * @return array
+     */
+    public function actionGetSettings()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $regimeId = Yii::$app->request->get('regimeId');
+
+            if ($regimeId) {
+                // Filtra per regime specifico
+                $settings = \common\models\Setting::getByRegime($regimeId);
+            } else {
+                // Tutti i settings
+                $settings = \common\models\Setting::find()
+                    ->orderBy(['nome' => SORT_ASC])
+                    ->all();
+            }
+
+            $result = [];
+            foreach ($settings as $setting) {
+                $result[] = [
+                    'id' => $setting->id,
+                    'nome' => $setting->nome
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+        } catch (Exception $e) {
+            Yii::error('Errore recupero settings: ' . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
     public function actionGetPlanTreatments($planId)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -3072,8 +3113,8 @@ class TherapeuticPlanManagerController extends Controller
         $planEnd = new DateTime($plan->getCalculatedEndDate());
 
         if ($fromDate < $planStart || $toDate > $planEnd) {
-            throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico (' .
-                $plan->start_date . ' - ' . $plan->getCalculatedEndDate() . ')');
+            throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico ('
+                . $plan->start_date . ' - ' . $plan->getCalculatedEndDate() . ')');
         }
 
         Yii::info("Validazione date pattern completata - Pattern: {$validFrom} - {$validTo}, Piano: {$plan->start_date} - {$plan->getCalculatedEndDate()}", __METHOD__);
@@ -4778,7 +4819,7 @@ class TherapeuticPlanManagerController extends Controller
         if (!$plan) {
             return [
                 'error' => true,
-                'message' => "Piano terapeutico non trovato.",
+                'message' => 'Piano terapeutico non trovato.',
                 'code' => 'PLAN_THERAPY_NOT_FOUND'
             ];
         }
@@ -4787,7 +4828,7 @@ class TherapeuticPlanManagerController extends Controller
         $planTherapyEndDate = new DateTime($plan->end_date);
 
         if ($appointmentDate < $planTherapyDate || $appointmentDate > $planTherapyEndDate) {
-            throw new BadRequestHttpException('La data dell\'appuntamento non è valida per il piano terapeutico.');
+            throw new BadRequestHttpException("La data dell'appuntamento non è valida per il piano terapeutico.");
         }
 
         return null;
