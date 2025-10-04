@@ -2,12 +2,12 @@
 
 namespace frontend\models;
 
-use Yii;
+use common\models\Specialization;
+use common\models\Therapist;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
-use common\models\Therapist;
-use common\models\Specialization;
+use Yii;
 
 /**
  * TherapistSearch represents the model behind the search form of `common\models\Therapist`.
@@ -18,17 +18,17 @@ class TherapistSearch extends Therapist
      * @var string Nome dall'UserProfile
      */
     public $first_name;
-    
+
     /**
      * @var string Cognome dall'UserProfile
      */
     public $last_name;
-    
+
     /**
      * @var string Email dall'User
      */
     public $email;
-    
+
     /**
      * @var string Nome specializzazione
      */
@@ -71,8 +71,8 @@ class TherapistSearch extends Therapist
     public function search($params)
     {
         $query = Therapist::find()
-            ->joinWith(['user', 'user.profile', 'specialization']); 
-            // Remove default filter - let the user choose active/inactive
+            ->joinWith(['user', 'user.profile', 'specialization']);
+        // Remove default filter - let the user choose active/inactive
 
         // add conditions that should always apply here
 
@@ -136,7 +136,8 @@ class TherapistSearch extends Therapist
             'therapists.is_internal' => $this->is_internal,
         ]);
 
-        $query->andFilterWhere(['like', 'therapists.calendar_color', $this->calendar_color])
+        $query
+            ->andFilterWhere(['like', 'therapists.calendar_color', $this->calendar_color])
             ->andFilterWhere(['like', 'user_profiles.first_name', $this->first_name])
             ->andFilterWhere(['like', 'user_profiles.last_name', $this->last_name])
             ->andFilterWhere(['like', 'users.email', $this->email])
@@ -194,4 +195,4 @@ class TherapistSearch extends Therapist
             0 => 'Consulente Esterno',
         ];
     }
-} 
+}

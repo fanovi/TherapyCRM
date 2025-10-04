@@ -6540,3 +6540,109 @@ span.flatpickr-weekday,
   background-color: #7f1d1d;
   color: #fca5a5;
 }
+
+/* ============================================
+   Yii2 GridView Pagination Styles
+   ============================================ */
+ul.pagination-wrapper {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+ul.pagination-wrapper li.pagination {
+    display: inline-block;
+}
+
+ul.pagination-wrapper li.pagination a,
+ul.pagination-wrapper li.pagination span {
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    text-decoration: none;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    color: #6b7280;
+    background-color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+ul.pagination-wrapper li.pagination a:hover {
+    background-color: #f9fafb;
+    color: #374151;
+    border-color: #9ca3af;
+}
+
+ul.pagination-wrapper li.pagination.active a,
+ul.pagination-wrapper li.pagination.active span,
+ul.pagination-wrapper li.page-item.active a,
+ul.pagination-wrapper li.page-item.active span {
+    background-color: #465fff;
+    border-color: #465fff;
+    color: white;
+}
+
+ul.pagination-wrapper li.pagination.active a:hover,
+ul.pagination-wrapper li.page-item.active a:hover {
+    background-color: #3641f5;
+    border-color: #3641f5;
+}
+
+ul.pagination-wrapper li.pagination.disabled a,
+ul.pagination-wrapper li.pagination.disabled span,
+ul.pagination-wrapper li.page-item.disabled a,
+ul.pagination-wrapper li.page-item.disabled span {
+    color: #d1d5db;
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+}
+
+ul.pagination-wrapper li.pagination.disabled a:hover,
+ul.pagination-wrapper li.page-item.disabled a:hover {
+    background-color: #f9fafb;
+    color: #d1d5db;
+    border-color: #e5e7eb;
+}
+
+/* Dark mode support per dark class di Tailwind */
+.dark ul.pagination-wrapper li.pagination a,
+.dark ul.pagination-wrapper li.pagination span {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+}
+
+.dark ul.pagination-wrapper li.pagination a:hover {
+    background-color: #4b5563;
+    color: #f3f4f6;
+    border-color: #6b7280;
+}
+
+.dark ul.pagination-wrapper li.pagination.active a,
+.dark ul.pagination-wrapper li.pagination.active span,
+.dark ul.pagination-wrapper li.page-item.active a,
+.dark ul.pagination-wrapper li.page-item.active span {
+    background-color: #465fff;
+    border-color: #465fff;
+    color: white;
+}
+
+.dark ul.pagination-wrapper li.pagination.active a:hover,
+.dark ul.pagination-wrapper li.page-item.active a:hover {
+    background-color: #3641f5;
+    border-color: #3641f5;
+}
+
+.dark ul.pagination-wrapper li.pagination.disabled a,
+.dark ul.pagination-wrapper li.pagination.disabled span,
+.dark ul.pagination-wrapper li.page-item.disabled a,
+.dark ul.pagination-wrapper li.page-item.disabled span {
+    color: #6b7280;
+    background-color: #374151;
+    border-color: #4b5563;
+}

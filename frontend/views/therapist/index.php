@@ -1,5 +1,6 @@
 <?php
 
+use common\helpers\GridViewHelper;
 use yii\grid\GridView;
 use yii\helpers\Html;
 use yii\widgets\Pjax;
@@ -77,7 +78,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
             <?php Pjax::begin(['id' => 'therapist-grid-pjax']); ?>
             
-            <?= GridView::widget([
+            <?= GridView::widget(array_merge([
                 'dataProvider' => $dataProvider,
                 'filterModel' => $searchModel,
                 'options' => ['class' => 'min-w-full'],
@@ -309,7 +310,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ],
                     ],
                 ],
-            ]); ?>
+            ], GridViewHelper::getGridViewConfig('terapisti'))); ?>
             
             <?php Pjax::end(); ?>
         </div>
