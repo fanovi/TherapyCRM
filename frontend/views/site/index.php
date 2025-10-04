@@ -1,7 +1,7 @@
 <?php
 
-use yii\helpers\Url;
 use yii\helpers\Html;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $totalPatients int */
@@ -30,8 +30,8 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.um
 $this->registerCssFile('@web/css/statistics.css');
 
 // Calcola percentuale completamento appuntamenti
-$appointmentCompletionRate = $totalAppointmentsToday > 0 
-    ? round(($completedAppointmentsToday / $totalAppointmentsToday) * 100) 
+$appointmentCompletionRate = $totalAppointmentsToday > 0
+    ? round(($completedAppointmentsToday / $totalAppointmentsToday) * 100)
     : 0;
 ?>
 
@@ -253,7 +253,7 @@ $appointmentCompletionRate = $totalAppointmentsToday > 0
 
 <?php
 // Javascript per i grafici
-$this->registerJs("
+$this->registerJs('
 // Configurazione globale per Chart.js
 Chart.defaults.font.size = 12;
 Chart.defaults.maintainAspectRatio = false;
@@ -276,14 +276,14 @@ function initializeCharts() {
     loadAppointmentsChart();
     
     // Grafico richieste (se ci sono dati)
-    " . ($hasRealRequestsData ? "loadRequestsChart();" : "") . "
+    ' . ($hasRealRequestsData ? 'loadRequestsChart();' : '') . '
 }
 
 // Carica grafico appuntamenti
 function loadAppointmentsChart() {
     
-    var dailyData = " . json_encode($dailyAppointments) . ";
-    var dayLabels = " . json_encode($dayLabels) . ";
+    var dailyData = ' . json_encode($dailyAppointments) . ';
+    var dayLabels = ' . json_encode($dayLabels) . ";
     
     destroyChart(appointmentsChart);
     var ctx = document.getElementById('appointments-chart');
@@ -357,11 +357,11 @@ function loadAppointmentsChart() {
     }
 }
 
-" . ($hasRealRequestsData ? "
+" . ($hasRealRequestsData ? '
 // Carica grafico richieste
 function loadRequestsChart() {
     
-    var requestsData = " . json_encode($requestsData) . ";
+    var requestsData = ' . json_encode($requestsData) . ";
     
     if (requestsData && requestsData.length > 0) {
         destroyChart(requestsChart);
@@ -426,7 +426,7 @@ function loadRequestsChart() {
         }
     }
 }
-" : "") . "
+" : '') . "
 
 // Attendi che Chart.js sia caricato
 if (typeof Chart !== 'undefined') {
@@ -563,7 +563,7 @@ if (typeof Chart !== 'undefined') {
     </div>
 
 
-    <?php /*TODO */ if(false): ?>
+    <?php /* TODO */ if (false): ?>
     <!-- 4. Prossimi appuntamenti -->
     <div class="full-width-card">
         <div class="card-header-with-action">
@@ -634,11 +634,8 @@ if (typeof Chart !== 'undefined') {
     
     <!-- 5. Azioni rapide -->
     <div class="export-section">
-        <div class="info-text">
-            <i class="fas fa-info-circle"></i>
-            Dashboard aggiornata in tempo reale
-        </div>
-        <?php /*TODO */ if(false): ?>
+        
+        <?php /* TODO */ if (false): ?>
         <div class="quick-actions">
             <?= Html::a(
                 '<i class="fas fa-user-plus"></i> Nuovo Paziente',
