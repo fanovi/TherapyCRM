@@ -1,9 +1,10 @@
 <?php
 
-use yii\helpers\Html;
-use yii\grid\GridView;
-use yii\helpers\Url;
+use common\helpers\GridViewHelper;
 use common\models\RequestStatus;
+use yii\grid\GridView;
+use yii\helpers\Html;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\DocumentRequestSearch */
@@ -151,7 +152,7 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
         
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
-            <?= GridView::widget([
+            <?= GridView::widget(array_merge([
                 'dataProvider' => $dataProvider,
                 'filterModel' => $searchModel,
                 'options' => [
@@ -180,12 +181,12 @@ $this->params['breadcrumbs'][] = $this->title;
                             'style' => 'background-color: #f0fdf4; transition: background-color 0.2s;'
                         ],
                     ];
-                    
+
                     $defaultOptions = [
                         'class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600',
                         'style' => ''
                     ];
-                    
+
                     return $statusRowColors[$model->status] ?? $defaultOptions;
                 },
                 'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
@@ -263,14 +264,14 @@ $this->params['breadcrumbs'][] = $this->title;
                                 RequestStatus::STATUS_STAMPATO => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
                                 RequestStatus::STATUS_CONSEGNATO => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
                             ];
-                            
+
                             $colorClass = $statusColors[$model->status] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-                            
-                            return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $colorClass . '">' . 
-                                   Html::encode($model->getStatusLabel()) . '</span>';
+
+                            return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $colorClass . '">'
+                                . Html::encode($model->getStatusLabel()) . '</span>';
                         },
-                        'filter' => Html::activeDropDownList($searchModel, 'status', 
-                            ['' => 'Tutti gli stati'] + $searchModel->getStatusOptions(), [
+                        'filter' => Html::activeDropDownList($searchModel, 'status',
+                                ['' => 'Tutti gli stati'] + $searchModel->getStatusOptions(), [
                             'class' => 'block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white',
                         ]),
                     ],
@@ -315,7 +316,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
                                 $isAdmin = in_array('admin', $userRoles);
                                 $isManager = in_array('manager', $userRoles);
-                                
+
                                 if ($isAdmin) {
                                     // === ADMIN ===
                                     if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
@@ -325,7 +326,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                             </svg>
                                         </span>';
                                     }
-                                    
+
                                     // Stati disponibili per admin (escluso quello corrente)
                                     $availableStatuses = [];
                                     if ($model->status != RequestStatus::STATUS_INVIATA) {
@@ -337,7 +338,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     if ($model->status != RequestStatus::STATUS_STAMPATO) {
                                         $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
                                     }
-                                    
+
                                     return Html::button(
                                         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -348,7 +349,6 @@ $this->params['breadcrumbs'][] = $this->title;
                                             'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
                                         ]
                                     );
-                                    
                                 } elseif ($isManager) {
                                     // === MANAGER ===
                                     if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
@@ -358,15 +358,16 @@ $this->params['breadcrumbs'][] = $this->title;
                                             ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
                                             ->orderBy(['created_at' => SORT_DESC])
                                             ->one();
-                                            
-                                        $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id ? 
-                                            $previousStatusHistory->from_status_id : RequestStatus::STATUS_STAMPATO;
-                                            
+
+                                        $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id
+                                            ? $previousStatusHistory->from_status_id
+                                            : RequestStatus::STATUS_STAMPATO;
+
                                         $previousStatusLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
-                                        
+
                                         // Mostra opzione per tornare allo stato precedente
                                         $availableStatuses = [$previousStatus => 'Torna a: ' . $previousStatusLabel];
-                                        
+
                                         return Html::button(
                                             '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
@@ -380,7 +381,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     } else {
                                         // Mostra opzione per consegnare
                                         $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Consegnato'];
-                                        
+
                                         return Html::button(
                                             '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -393,7 +394,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                         );
                                     }
                                 }
-                                
+
                                 // Nessun permesso
                                 return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,7 +405,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ],
                     ],
                 ],
-            ]); ?>
+            ], GridViewHelper::getGridViewConfig('richieste documenti'))); ?>
         </div>
     </div>
 </div>

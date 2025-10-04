@@ -1,5 +1,6 @@
 <?php
 
+use common\helpers\GridViewHelper;
 use common\models\District;
 use yii\grid\GridView;
 use yii\helpers\ArrayHelper;
@@ -92,7 +93,7 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                     'enablePushState' => false,
                 ]); ?>
                 
-                <?= GridView::widget([
+                <?= GridView::widget(array_merge([
                     'dataProvider' => $dataProvider,
                     'filterModel' => $searchModel,
                     'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
@@ -258,7 +259,7 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                             ],
                         ],
                     ],
-                ]); ?>
+                ], GridViewHelper::getGridViewConfig('pazienti'))); ?>
                 
                 <?php Pjax::end(); ?>
             </div>
