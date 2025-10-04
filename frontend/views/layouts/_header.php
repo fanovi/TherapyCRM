@@ -1,7 +1,7 @@
 <?php
 
-use yii\helpers\Url;
 use yii\helpers\Html;
+use yii\helpers\Url;
 ?>
 <!-- ===== Header Start ===== -->
 <header
@@ -64,9 +64,9 @@ use yii\helpers\Html;
       <!-- Hamburger Toggle BTN -->
 
       <a href="<?= Url::home(true) ?>" class="lg:hidden">
-        <img class="dark:hidden" src="<?= Url::to('@web/images/logo/cropped-flavicon-192x192.png') ?>" alt="Logo" />
+        <img class="dark:hidden h-10 w-10 sm:h-12 sm:w-12" src="<?= Url::to('@web/images/logo/cropped-flavicon-192x192.png') ?>" alt="Logo" />
         <img
-          class="hidden dark:block"
+          class="hidden dark:block h-10 w-10 sm:h-12 sm:w-12"
           src="<?= Url::to('@web/images/logo/logo-dark.svg') ?>"
           alt="Logo" />
       </a>
@@ -277,11 +277,11 @@ use yii\helpers\Html;
             </div>
 
             <?= Html::a(
-              'Vedi tutte le comunicazioni', 
-              ['communication/index'], 
-              [
-                'class' => 'text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200'
-              ]
+                'Vedi tutte le comunicazioni',
+                ['communication/index'],
+                [
+                    'class' => 'text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200'
+                ]
             ) ?>
           </div>
           <!-- Dropdown End -->
@@ -291,12 +291,12 @@ use yii\helpers\Html;
 
       <!-- User Area -->
       <?php if (!Yii::$app->user->isGuest): ?>
-      <?php 
-        $user = Yii::$app->user->identity;
-        $profile = $user->profile;
-        $fullName = $profile ? $profile->getFullName() : ($user->username ?? 'Utente');
-        $firstName = $profile ? $profile->first_name : ($user->username ?? 'Utente');
-      ?>
+      <?php
+    $user = Yii::$app->user->identity;
+    $profile = $user->profile;
+    $fullName = $profile ? $profile->getFullName() : ($user->username ?? 'Utente');
+    $firstName = $profile ? $profile->first_name : ($user->username ?? 'Utente');
+    ?>
       <div
         class="relative"
         x-data="{ dropdownOpen: false }"
