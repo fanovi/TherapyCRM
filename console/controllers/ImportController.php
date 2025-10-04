@@ -311,11 +311,11 @@ class ImportController extends Controller
             }
 
             $fiscal_code = $worksheet->getCell('K' . $rowIndex)->getValue();
-            if(isset($patients[$fiscal_code])) {
+            if (isset($patients[$fiscal_code])) {
                 $temp_patient = $patients[$fiscal_code];
             } else {
                 $temp_patient = $this->getPatient($fiscal_code);
-                if(!$temp_patient) {
+                if (!$temp_patient) {
                     $this->errors[] = "Paziente non trovato: " . $fiscal_code . " alla riga " . $rowIndex;
                     continue;
                 }
@@ -334,7 +334,7 @@ class ImportController extends Controller
 
         $this->stdout("Plans types: " . json_encode($plans_types) . "\n");
         $this->stdout("Trattamenti: " . json_encode($trattamenti) . "\n");
-        $this->stdout("Terapie: " . json_encode($terapie) . "\n");
+        $this->stdout("Terapie: " . print_r($terapie) . "\n");
         $this->stdout("RIA plans: " . count($ria_plans) . "\n");
         $this->stdout("ABA plans: " . count($aba_plans) . "\n");
         $this->stdout("Private plans: " . $private_plans . "\n");
@@ -371,6 +371,44 @@ class ImportController extends Controller
         }
         $this->stdout("End inserting RIA plans - " . date('H:i:s') . "\n");
         $this->stdout("Errors: " . print_r($this->errors) . "\n");
+    }
+
+    /**
+     * Get treatment id by treatment name
+     * @param mixed $terapy_name
+     * @return int|null
+     */
+    private function getTerapia($terapy_name)
+    {
+        switch ($terapy_name) {
+            case 'SUPERVISOR':
+                return 25;
+            case 'PSICOTERAPIA FAMIL.':
+                return 24;
+            case 'RBT':
+                return 26;
+            case 'LOGOPEDIA':
+                return 13;
+            case 'PSICOTERAPIA':
+                return 22;
+            case 'TER. OCCUPAZIONALE':
+                return 20;
+            case 'TER. OCCUPAZIONALE PG':
+                return 21;
+            case 'RIAB. NEUROMOTORIA':
+                return 17;
+            case 'PSICOMOTRICITA':
+            case 'PSICOMOTRICITA\'':
+                return 15;
+            case 'F.K.T. RESPIRATORIA':
+                return 18;
+            case 'FISIOKINESITERAPIA':
+                return 19;
+            case 'TERAPIA STRUMENTALE':
+                return 27;
+            default:
+                return null;
+        }
     }
 
     /**
