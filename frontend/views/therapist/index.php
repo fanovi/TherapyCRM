@@ -208,7 +208,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'template' => '{view} {update} {reset-password} {toggle-status} {calendar-link}',
+                        'template' => '{view} {update} {reset-password} {toggle-status} {calendar-link} {activity-report}',
                         'urlCreator' => function ($action, $model, $key, $index) {
                             return [$action, 'id' => $model->id];
                         },
@@ -290,6 +290,20 @@ $this->params['breadcrumbs'][] = $this->title;
                                         $url, [
                                     'title' => 'Link al calendario',
                                     'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                ]);
+                            },
+                            'activity-report' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('view_therapist'))
+                                    return '';
+                                $url = ['activity-report', 'id' => $model->id];
+                                return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+</svg>',
+                                        $url, [
+                                    'title' => 'Report Attività',
+                                    'class' => 'text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20',
+                                    'data-bs-toggle' => 'tooltip',
+                                    'data-bs-placement' => 'top'
                                 ]);
                             },
                         ],
