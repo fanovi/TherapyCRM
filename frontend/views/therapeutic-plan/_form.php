@@ -151,14 +151,14 @@ use yii\widgets\ActiveForm;
                     <div class="relative">
                         <?= $form->field($model, 'approval_date')->input('date', [
                             'placeholder' => 'Seleziona data',
-                            'value' => $model->approval_date ? date('Y-m-d', strtotime($model->approval_date)) : '',
-                            'onclick' => 'this.showPicker()'
+                            'id' => 'therapeuticplan-approval-date',
+                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2 pr-10'
                         ])->label(false) ?>
-                        <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                        <button type="button" onclick="document.getElementById('therapeuticplan-approval-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
                             <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
                             </svg>
-                        </span>
+                        </button>
                     </div>
                 </div>
 
@@ -182,14 +182,14 @@ use yii\widgets\ActiveForm;
                     <div class="relative">
                         <?= $form->field($model, 'start_date')->input('date', [
                             'placeholder' => 'Seleziona data',
-                            'value' => $model->start_date ? date('Y-m-d', strtotime($model->start_date)) : '',
-                            'onclick' => 'this.showPicker()'
+                            'id' => 'therapeuticplan-start-date',
+                            'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2 pr-10'
                         ])->label(false) ?>
-                        <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                        <button type="button" onclick="document.getElementById('therapeuticplan-start-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
                             <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
                             </svg>
-                        </span>
+                        </button>
                     </div>
                 </div>
 
@@ -228,7 +228,7 @@ use yii\widgets\ActiveForm;
             <div class="ml-3">
                 <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200" style="color: #92400e !important;">Regime ABA selezionato</h3>
                 <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300" style="color: #b45309 !important;">
-                    <ul class="list-disc list-inside space-y-1">
+                    <ul class="list-disc list-inside space-y-1" id="aba-requirements-list">
                         <li>È obbligatorio inserire ore di <strong>SUPERVISIONE</strong> e <strong>PARENT TRAINING</strong></li>
                         <li>Le ore inserite saranno considerate come ore <strong>mensili</strong></li>
                     </ul>
@@ -387,10 +387,64 @@ use yii\widgets\ActiveForm;
                     const abaNotice = document.getElementById('aba-notice');
                     if (isABA) {
                         abaNotice.classList.remove('hidden');
+                        updateABARequirements();
                     } else {
                         abaNotice.classList.add('hidden');
                     }
                 }
+
+                // Funzione per aggiornare i requisiti ABA in base all'età del paziente
+                window.updateABARequirements = function() {
+                    const patientId = \$('#patient-id-hidden').val();
+                    if (!patientId) {
+                        // Se non c'è paziente selezionato, mostra i requisiti generici
+                        updateABAMessage(null);
+                        return;
+                    }
+
+                    // Chiamata AJAX per ottenere l'età del paziente
+                    \$.ajax({
+                        url: '" . \yii\helpers\Url::to(['/patient/get-age']) . "',
+                        type: 'GET',
+                        data: { id: patientId },
+                        success: function(response) {
+                            if (response.success) {
+                                updateABAMessage(response.age);
+                            } else {
+                                updateABAMessage(null);
+                            }
+                        },
+                        error: function() {
+                            updateABAMessage(null);
+                        }
+                    });
+                };
+
+                // Funzione per aggiornare il messaggio ABA
+                window.updateABAMessage = function(age) {
+                    const requirementsList = document.getElementById('aba-requirements-list');
+                    let html = '';
+                    
+                    if (age !== null && age < 14) {
+                        // Paziente sotto i 14 anni - tutti i controlli obbligatori
+                        html = '<li>Paziente selezionato: <strong>' + age + ' anni</strong></li>' +
+                               '<li>Per pazienti <strong>minori di 14 anni</strong> è <strong>obbligatorio</strong> inserire ore di <strong>SUPERVISIONE</strong> e <strong>PARENT TRAINING</strong></li>' +
+                               '<li>È obbligatorio inserire almeno una <strong>terapia principale</strong></li>' +
+                               '<li>Le ore inserite saranno considerate come ore <strong>mensili</strong></li>';
+                    } else if (age !== null && age >= 14) {
+                        // Paziente dai 14 anni in su - solo terapia obbligatoria
+                        html = '<li>Paziente selezionato: <strong>' + age + ' anni</strong></li>' +
+                               '<li>Per pazienti di <strong>14 anni o più</strong>, <strong>SUPERVISIONE</strong> e <strong>PARENT TRAINING</strong> sono <em>facoltativi</em></li>' +
+                               '<li>È obbligatorio inserire almeno una <strong>terapia principale</strong></li>' +
+                               '<li>Le ore inserite saranno considerate come ore <strong>mensili</strong></li>';
+                    } else {
+                        // Età non disponibile - messaggio generico
+                        html = '<li>Seleziona un paziente per vedere i requisiti specifici</li>' +
+                               '<li>Le ore inserite saranno considerate come ore <strong>mensili</strong></li>';
+                    }
+                    
+                    requirementsList.innerHTML = html;
+                };
 
                 // Funzione per aggiungere una terapia con dati
                 function addTherapyWithData(data) {
@@ -576,8 +630,8 @@ use yii\widgets\ActiveForm;
     <!-- Action Buttons -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
-                ['index'], [
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
+                    ['index'], [
                 'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
             ]) ?>
         </div>
@@ -595,15 +649,15 @@ use yii\widgets\ActiveForm;
 </div>
 
 <?php
-$this->registerJs("
+$this->registerJs('
     // Patient search functionality
     var searchTimeout;
-    var selectedPatientId = " . ($model->patient_id ? $model->patient_id : 'null') . ";
+    var selectedPatientId = ' . ($model->patient_id ? $model->patient_id : 'null') . ";
     
     // Initialize if editing existing record
-    if (selectedPatientId && $('#patient-id-hidden').val()) {
+    if (selectedPatientId && \$('#patient-id-hidden').val()) {
         // Load patient data for editing
-        $.ajax({
+        \$.ajax({
             url: '" . \yii\helpers\Url::to(['search-patients']) . "',
             type: 'GET',
             data: { id: selectedPatientId },
@@ -616,13 +670,13 @@ $this->registerJs("
     }
     
     // Patient search input
-    $('#patient-search').on('input', function() {
-        var query = $(this).val();
+    \$('#patient-search').on('input', function() {
+        var query = \$(this).val();
         
         clearTimeout(searchTimeout);
         
         if (query.length < 2) {
-            $('#patient-search-results').addClass('hidden');
+            \$('#patient-search-results').addClass('hidden');
             return;
         }
         
@@ -633,7 +687,7 @@ $this->registerJs("
     
     // Search patients function
     function searchPatients(query) {
-        $.ajax({
+        \$.ajax({
             url: '" . \yii\helpers\Url::to(['search-patients']) . "',
             type: 'GET',
             data: { q: query },
@@ -641,7 +695,7 @@ $this->registerJs("
                 displaySearchResults(response.results);
             },
             error: function() {
-                $('#patient-error').text('Errore durante la ricerca pazienti').removeClass('hidden');
+                \$('#patient-error').text('Errore durante la ricerca pazienti').removeClass('hidden');
             }
         });
     }
@@ -653,7 +707,7 @@ $this->registerJs("
         if (results.length === 0) {
             html = '<div class=\"px-4 py-3 text-sm text-gray-500 dark:text-gray-400\">Nessun paziente trovato</div>';
         } else {
-            $.each(results, function(index, patient) {
+            \$.each(results, function(index, patient) {
                 html += '<div class=\"px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0 patient-result\" data-patient-id=\"' + patient.id + '\" data-patient-name=\"' + patient.full_name + '\" data-patient-cf=\"' + patient.fiscal_code + '\">';
                 html += '<div class=\"font-medium text-gray-900 dark:text-white\">' + patient.full_name + '</div>';
                 html += '<div class=\"text-sm text-gray-500 dark:text-gray-400\">' + patient.fiscal_code + '</div>';
@@ -661,15 +715,15 @@ $this->registerJs("
             });
         }
         
-        $('#search-results-list').html(html);
-        $('#patient-search-results').removeClass('hidden');
+        \$('#search-results-list').html(html);
+        \$('#patient-search-results').removeClass('hidden');
     }
     
     // Handle patient selection
-    $(document).on('click', '.patient-result', function() {
-        var patientId = $(this).data('patient-id');
-        var patientName = $(this).data('patient-name');
-        var patientCf = $(this).data('patient-cf');
+    \$(document).on('click', '.patient-result', function() {
+        var patientId = \$(this).data('patient-id');
+        var patientName = \$(this).data('patient-name');
+        var patientCf = \$(this).data('patient-cf');
         
         var patient = {
             id: patientId,
@@ -678,41 +732,53 @@ $this->registerJs("
         };
         
         showSelectedPatient(patient);
-        $('#patient-search-results').addClass('hidden');
-        $('#patient-search').val('');
+        \$('#patient-search-results').addClass('hidden');
+        \$('#patient-search').val('');
     });
     
     // Show selected patient
     function showSelectedPatient(patient) {
-        $('#patient-id-hidden').val(patient.id);
-        $('#selected-patient-name').text(patient.full_name);
-        $('#selected-patient-cf').text('(' + patient.fiscal_code + ')');
-        $('#selected-patient').removeClass('hidden');
-        $('#patient-search').addClass('hidden');
-        $('#patient-error').addClass('hidden');
+        \$('#patient-id-hidden').val(patient.id);
+        \$('#selected-patient-name').text(patient.full_name);
+        \$('#selected-patient-cf').text('(' + patient.fiscal_code + ')');
+        \$('#selected-patient').removeClass('hidden');
+        \$('#patient-search').addClass('hidden');
+        \$('#patient-error').addClass('hidden');
         selectedPatientId = patient.id;
+        
+        // Aggiorna i requisiti ABA se il regime è selezionato
+        const regimeSelect = document.getElementById('regime-select');
+        if (regimeSelect && regimeSelect.value) {
+            const selectedOption = regimeSelect.options[regimeSelect.selectedIndex];
+            const regimeText = selectedOption ? selectedOption.text : '';
+            const isABA = regimeText.toUpperCase().includes('ABA');
+            
+            if (isABA) {
+                updateABARequirements();
+            }
+        }
     }
     
     // Clear patient selection
-    $('#clear-patient').on('click', function() {
-        $('#patient-id-hidden').val('');
-        $('#selected-patient').addClass('hidden');
-        $('#patient-search').removeClass('hidden').val('').focus();
-        $('#patient-search-results').addClass('hidden');
+    \$('#clear-patient').on('click', function() {
+        \$('#patient-id-hidden').val('');
+        \$('#selected-patient').addClass('hidden');
+        \$('#patient-search').removeClass('hidden').val('').focus();
+        \$('#patient-search-results').addClass('hidden');
         selectedPatientId = null;
     });
     
     // Hide search results when clicking outside
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('#patient-search, #patient-search-results').length) {
-            $('#patient-search-results').addClass('hidden');
+    \$(document).on('click', function(e) {
+        if (!\$(e.target).closest('#patient-search, #patient-search-results').length) {
+            \$('#patient-search-results').addClass('hidden');
         }
     });
     
     // Auto-calculate end date when start date or duration changes
     function calculateEndDate() {
-        var startDate = $('#therapeuticplan-start_date').val();
-        var duration = $('#therapeuticplan-duration_days').val();
+        var startDate = \$('#therapeuticplan-start-date').val();
+        var duration = \$('#therapeuticplan-duration_days').val();
         
         if (startDate && duration && duration > 0) {
             var start = new Date(startDate);
@@ -726,50 +792,50 @@ $this->registerJs("
                           '</svg>' +
                           'Data di fine calcolata: ' + end.toLocaleDateString('it-IT') + '</div>';
             
-            $('#therapeuticplan-duration_days').parent().find('.calculated-end-date').remove();
-            $('#therapeuticplan-duration_days').parent().append('<div class=\"calculated-end-date\">' + infoHtml + '</div>');
+            \$('#therapeuticplan-duration_days').parent().find('.calculated-end-date').remove();
+            \$('#therapeuticplan-duration_days').parent().append('<div class=\"calculated-end-date\">' + infoHtml + '</div>');
         } else {
-            $('#therapeuticplan-duration_days').parent().find('.calculated-end-date').remove();
+            \$('#therapeuticplan-duration_days').parent().find('.calculated-end-date').remove();
         }
     }
     
-    $('#therapeuticplan-start_date, #therapeuticplan-duration_days').on('change input', calculateEndDate);
+    \$('#therapeuticplan-start-date, #therapeuticplan-duration_days').on('change input', calculateEndDate);
     
     // Calculate on page load if values are present
     calculateEndDate();
     
     // Form validation
-    $('#therapeutic-plan-form').on('beforeSubmit', function() {
+    \$('#therapeutic-plan-form').on('beforeSubmit', function() {
         var isValid = true;
         var errors = [];
         
         // Check required fields
-        if (!$('#patient-id-hidden').val()) {
+        if (!\$('#patient-id-hidden').val()) {
             errors.push('Seleziona un paziente');
-            $('#patient-error').text('Seleziona un paziente').removeClass('hidden');
+            \$('#patient-error').text('Seleziona un paziente').removeClass('hidden');
             isValid = false;
         } else {
-            $('#patient-error').addClass('hidden');
+            \$('#patient-error').addClass('hidden');
         }
         
-        if (!$('#regime-select').val()) {
+        if (!\$('#regime-select').val()) {
             errors.push('Seleziona un regime');
             isValid = false;
         }
         
-        if (!$('#therapeuticplan-start_date').val()) {
+        if (!\$('#therapeuticplan-start-date').val()) {
             errors.push('Inserisci la data di inizio');
             isValid = false;
         }
         
-        var duration = $('#therapeuticplan-duration_days').val();
+        var duration = \$('#therapeuticplan-duration_days').val();
         if (!duration || duration <= 0) {
             errors.push('Inserisci una durata valida');
             isValid = false;
         }
         
         // Check therapies
-        var therapies = $('.therapy-item');
+        var therapies = \$('.therapy-item');
         if (therapies.length === 0) {
             errors.push('Aggiungi almeno una terapia');
             isValid = false;
@@ -781,7 +847,7 @@ $this->registerJs("
         }
         
         // Disable submit button to prevent double submission
-        $('#submit-btn').prop('disabled', true).html('<svg class=\"animate-spin -ml-1 mr-3 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Salvataggio...');
+        \$('#submit-btn').prop('disabled', true).html('<svg class=\"animate-spin -ml-1 mr-3 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Salvataggio...');
         
         return true;
     });

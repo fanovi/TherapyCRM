@@ -52,6 +52,7 @@ class PatientController extends Controller
                     'create-credentials' => ['GET', 'POST'],
                     'generate-fiscal-code' => ['POST'],
                     'load-comuni' => ['GET'],
+                    'get-age' => ['GET'],
                 ],
             ],
         ];
@@ -996,6 +997,29 @@ class PatientController extends Controller
             return [
                 'success' => false,
                 'error' => 'Errore nella generazione: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Gets patient age via AJAX
+     */
+    public function actionGetAge($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        try {
+            $patient = $this->findModel($id);
+            $age = $patient->getAge();
+
+            return [
+                'success' => true,
+                'age' => $age
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
             ];
         }
     }

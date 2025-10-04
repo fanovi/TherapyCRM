@@ -2,10 +2,10 @@
 
 namespace common\models;
 
-use Yii;
-use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
+use Yii;
 
 /**
  * This is the model class for table "therapeutic_plans".
@@ -73,11 +73,11 @@ class TherapeuticPlan extends ActiveRecord
         return [
             [['patient_id', 'start_date', 'duration_days', 'regime_id', 'created_by'], 'required'],
             [['patient_id', 'duration_days', 'regime_id', 'created_by'], 'integer'],
-            [['duration_days'], 'integer', 'min' => 1, 'max' => 1095], // Max 3 years
+            [['duration_days'], 'integer', 'min' => 1, 'max' => 1095],  // Max 3 years
             [['start_date', 'approval_date'], 'date', 'format' => 'php:Y-m-d'],
             [['notes'], 'string'],
             [['protocol_number'], 'string', 'max' => 50],
-            //[['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
+            // [['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
             [['approval_date', 'protocol_number'], 'default', 'value' => null],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],
@@ -101,7 +101,7 @@ class TherapeuticPlan extends ActiveRecord
 
         $regime = Regime::findOne($this->regime_id);
         if (!$regime || stripos($regime->nome, 'ABA') === false) {
-            return; // Not ABA regime, no special validation needed
+            return;  // Not ABA regime, no special validation needed
         }
 
         // Check if therapies are set (for validation during save)
@@ -122,6 +122,14 @@ class TherapeuticPlan extends ActiveRecord
             $this->addError($attribute, 'Per il regime ABA è necessario definire le terapie.');
             return;
         }
+
+        // Verifica età del paziente per determinare i controlli obbligatori
+        $patientAge = null;
+        if ($this->patient) {
+            $patientAge = $this->patient->getAge();
+        }
+
+        $isUnder14 = ($patientAge !== null && $patientAge < 14);
 
         $hasSupervision = false;
         $hasParentTraining = false;
@@ -149,14 +157,18 @@ class TherapeuticPlan extends ActiveRecord
             }
         }
 
-        if (!$hasSupervision) {
-            $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire ore di SUPERVISIONE.');
+        // Controlli obbligatori solo per pazienti sotto i 14 anni
+        if ($isUnder14) {
+            if (!$hasSupervision) {
+                $this->addError($attribute, 'Per il regime ABA di pazienti sotto i 14 anni è obbligatorio inserire ore di SUPERVISIONE.');
+            }
+
+            if (!$hasParentTraining) {
+                $this->addError($attribute, 'Per il regime ABA di pazienti sotto i 14 anni è obbligatorio inserire ore di PARENT TRAINING.');
+            }
         }
 
-        if (!$hasParentTraining) {
-            $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire ore di PARENT TRAINING.');
-        }
-
+        // La terapia principale è sempre obbligatoria indipendentemente dall'età
         if ($otherTherapiesCount === 0) {
             $this->addError($attribute, 'Per il regime ABA è obbligatorio inserire almeno una terapia oltre alla supervisione e al parent training.');
         }
@@ -330,7 +342,8 @@ class TherapeuticPlan extends ActiveRecord
      */
     public function getTotalWeeklyHours()
     {
-        return $this->getPlanTherapies()
+        return $this
+            ->getPlanTherapies()
             ->sum('weekly_hours') ?: 0;
     }
 
