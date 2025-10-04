@@ -633,9 +633,10 @@ if (typeof Chart !== 'undefined') {
     <?php endif; ?>
     
     <!-- 5. Azioni rapide -->
+    <?php /* TODO */ if (false): ?>
     <div class="export-section">
         
-        <?php /* TODO */ if (false): ?>
+       
         <div class="quick-actions">
             <?= Html::a(
                 '<i class="fas fa-user-plus"></i> Nuovo Paziente',
@@ -653,6 +654,7 @@ if (typeof Chart !== 'undefined') {
                 ['class' => 'btn btn-info']
             ) ?>
         </div>
-        <?php endif; ?>
+      
     </div>
+    <?php endif; ?>
 </div>
