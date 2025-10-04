@@ -458,7 +458,7 @@ const RequestDetailsScreen = ({navigation, route}) => {
         {renderTimeline()}
 
         {/* Azioni */}
-        <Card style={styles.actionsCard}>
+        {/* <Card style={styles.actionsCard}>
           <Card.Content>
             <Text style={styles.sectionTitle}>Azioni</Text>
             <View style={styles.actionsContainer}>
@@ -488,7 +488,7 @@ const RequestDetailsScreen = ({navigation, route}) => {
               )}
             </View>
           </Card.Content>
-        </Card>
+        </Card> */}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>

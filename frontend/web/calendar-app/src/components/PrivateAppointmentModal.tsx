@@ -212,6 +212,7 @@ export const PrivateAppointmentModal: React.FC<
         duration: 60,
         notes: "",
         isRecurring: false,
+        id_setting: undefined,
       });
     } catch (error) {
       // console.error("❌ Errore nella creazione appuntamento privato:", error);

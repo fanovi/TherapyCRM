@@ -145,20 +145,13 @@ const PatientRequestsScreen = ({navigation}) => {
 
   const handleDownloadDelega = async () => {
     try {
-      const supported = await Linking.canOpenURL(DELEGA_RITIRO_BAMBINI_PDF_URL);
-      if (supported) {
-        await Linking.openURL(DELEGA_RITIRO_BAMBINI_PDF_URL);
-      } else {
-        Alert.alert(
-          'Errore',
-          'Impossibile aprire il link. Verifica la connessione internet.',
-        );
-      }
+      // Forza l'apertura nel browser invece di usare canOpenURL
+      await Linking.openURL(DELEGA_RITIRO_BAMBINI_PDF_URL);
     } catch (error) {
       console.error('Errore apertura PDF delega:', error);
       Alert.alert(
         'Errore',
-        "Si è verificato un errore durante l'apertura del documento.",
+        "Si è verificato un errore durante l'apertura del documento. Assicurati di avere un'app per visualizzare i PDF installata.",
       );
     }
   };

@@ -488,7 +488,7 @@ const TherapistCalendarScreen = () => {
     // Logica semplice per segnare assente
     const appointmentDate = moment(appointment.datetime);
     const yesterday = moment().subtract(1, 'day').startOf('day');
-    const tomorrow = moment().add(1, 'day').endOf('day');
+    const fourteenDaysAfter = moment().add(14, 'days').endOf('day');
 
     // Per i gruppi, controlla se almeno un paziente ha stato 'confermato' o 'scheduled'
     const canMarkAbsentGroup =
@@ -498,14 +498,14 @@ const TherapistCalendarScreen = () => {
               (patient.status === 'confermato' ||
                 patient.status === 'scheduled') &&
               moment(appointment.datetime).isAfter(yesterday) &&
-              moment(appointment.datetime).isBefore(tomorrow),
+              moment(appointment.datetime).isBefore(fourteenDaysAfter),
           )
         : false;
 
     const canMarkAbsent =
       (appointment.status === 'confermato' || canMarkAbsentGroup) &&
       appointmentDate.isAfter(yesterday) &&
-      appointmentDate.isBefore(tomorrow);
+      appointmentDate.isBefore(fourteenDaysAfter);
 
     // Debug temporaneo per vedere gli stati
     if (appointment.is_group && appointment.group_patients) {
