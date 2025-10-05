@@ -9,6 +9,7 @@ use common\models\Provincia;
 use common\models\Comune;
 use common\models\District;
 use common\models\Patient;
+use common\models\TherapeuticPlan;
 use DateTime;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
@@ -282,6 +283,8 @@ class ImportController extends Controller
         $patients = [];
         $trattamenti = [];
         $terapie = [];
+        $trattamenti_piani_ria = [];
+        $trattamenti_piani_aba = [];
 
         $end_row = 1306;
         $debug_end_row = 27;
@@ -324,9 +327,13 @@ class ImportController extends Controller
 
 
             if ($type === 'ABA') {
-                $aba_plans[$worksheet->getCell('C' . $rowIndex)->getValue() . $worksheet->getCell('K' . $rowIndex)->getValue()] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+                $index = $worksheet->getCell('C' . $rowIndex)->getValue() . $worksheet->getCell('K' . $rowIndex)->getValue();
+                $aba_plans[$index] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+                $trattamenti_piani_aba[$index][] = $this->getPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient);
             } elseif ($type === 'RIA') {
-                $ria_plans[$worksheet->getCell('A' . $rowIndex)->getValue()] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+                $index = $worksheet->getCell('A' . $rowIndex)->getValue();
+                $ria_plans[$index] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
+                $trattamenti_piani_ria[$index][] = $this->getPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient);
             } else {
                 $private_plans++;
             }
@@ -334,7 +341,7 @@ class ImportController extends Controller
 
         $this->stdout("Plans types: " . json_encode($plans_types) . "\n");
         $this->stdout("Trattamenti: " . json_encode($trattamenti) . "\n");
-        $this->stdout("Terapie: " . print_r($terapie) . "\n");
+        $this->stdout("Terapie: " . json_encode($terapie) . "\n");
         $this->stdout("RIA plans: " . count($ria_plans) . "\n");
         $this->stdout("ABA plans: " . count($aba_plans) . "\n");
         $this->stdout("Private plans: " . $private_plans . "\n");
@@ -349,7 +356,9 @@ class ImportController extends Controller
         foreach ($aba_plans as $protocol_plans) {
             $flat_aba_plans[] = $protocol_plans;
         }
-
+print_r($trattamenti_piani_ria);
+print_r($trattamenti_piani_aba);
+die();
         $transaction = Yii::$app->db->beginTransaction();
         try {
             Yii::$app->db->createCommand()->batchInsert(
@@ -371,6 +380,39 @@ class ImportController extends Controller
         }
         $this->stdout("End inserting RIA plans - " . date('H:i:s') . "\n");
         $this->stdout("Errors: " . print_r($this->errors) . "\n");
+    }
+
+    /**
+     * Get setting id by setting name
+     * @param mixed $setting_name
+     * @return int|null
+     */
+    private function getSetting($setting_name)
+    {
+        switch ($setting_name) {
+            case "ABA SP":
+                return 7;
+            case "ABA PT":
+                return 8;
+            case "ABA RBT":
+                return 9;
+            case "AMBULATORIALE":
+                return 1;
+            case "AMBULATORIALE PICCOLO GRUPPO":
+                return 4;
+            case "DOMICILIARE":
+                return 2;
+            case "MEDICINA DI BASE PRIVATA":
+                return 10;
+            case "MEDICINA DI BASE CONVENZIONATA":
+                return 11;
+            case "CENTRO DIURNO":
+                return 5;
+            case "SEMICONVITTO MEDIO":
+                return 6;
+            case "SEMICONVITTO GRAVE":
+                return 12;
+        }
     }
 
     /**
@@ -409,6 +451,44 @@ class ImportController extends Controller
             default:
                 return null;
         }
+    }
+
+    /**
+     * Get plan therapy data for batch
+     * @param mixed $worksheet
+     * @param mixed $rowIndex
+     * @return array<int|mixed>
+     */
+    private function getPlanTherapyForBatch($worksheet, $rowIndex, $patient)
+    {
+        $terapia_id = $this->getTerapia($worksheet->getCell('R' . $rowIndex)->getValue());
+
+        $plan_therapy_data = [
+            'therapeutic_plan_id' => $this->getPlanIdFromPatient($patient->id),
+            'treatment_type_id' => $terapia_id,
+            'weekly_hours' => $worksheet->getCell('S' . $rowIndex)->getValue(),
+            'is_group' => $terapia_id == 21 ? 1 : 0,
+            'setting_id' => $this->getSetting($worksheet->getCell('Q' . $rowIndex)->getValue()),
+        ];
+
+        return $plan_therapy_data;
+    }
+
+
+    /**
+     * Get plan id from patient id
+     * @param mixed $protocol_number
+     * @return int|null
+     */
+    private function getPlanIdFromPatient($id)
+    {
+        $plan = TherapeuticPlan::find()
+        ->where(['patient_id' => $id])
+        ->one();
+        if($plan){
+            return $plan->id;
+        }
+        return null;
     }
 
     /**
