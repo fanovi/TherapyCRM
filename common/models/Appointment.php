@@ -42,6 +42,12 @@ use Ramsey\Uuid\Uuid;
  */
 class Appointment extends ActiveRecord
 {
+    const CATEGORY_REGULAR = 'regular';
+    const CATEGORY_RECOVERY = 'recovery';
+    const CATEGORY_ADVANCE = 'advance';
+    const CATEGORY_EXTRA = 'extra';
+    const CATEGORY_COMPENSATION = 'compensation';
+
     const STATUS_SCHEDULED = 'scheduled';
     const STATUS_COMPLETED = 'completed';
     const STATUS_ABSENT_JUSTIFIED = 'absent_justified';
@@ -798,5 +804,29 @@ class Appointment extends ActiveRecord
     public function getSetting()
     {
         return $this->hasOne(Setting::class, ['id' => 'id_setting']);
+    }
+
+    public static function getCategoryLabels()
+    {
+        return [
+            self::CATEGORY_REGULAR => 'Appuntamento Normale',
+            self::CATEGORY_RECOVERY => 'Recupero',
+            self::CATEGORY_ADVANCE => 'Anticipo',
+            self::CATEGORY_EXTRA => 'Straordinario',
+            self::CATEGORY_COMPENSATION => 'Compensazione',
+        ];
+    }
+    
+    // Relazione con l'appuntamento originale
+    public function getRelatedAppointment()
+    {
+        return $this->hasOne(Appointment::class, ['id' => 'related_appointment_id']);
+    }
+    
+    // Relazione inversa: recuperi di questo appuntamento
+    public function getRecoveries()
+    {
+        return $this->hasMany(Appointment::class, ['related_appointment_id' => 'id'])
+            ->andWhere(['appointment_category' => self::CATEGORY_RECOVERY]);
     }
 }

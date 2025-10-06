@@ -1952,6 +1952,7 @@ class TherapeuticPlanManagerController extends Controller
     {
         // Determina il nuovo plan_therapy_id se cambia il terapista
         $newPlanTherapyId = $appointment->plan_therapy_id;
+        $is_regular_appointment_category = !isset($data['appointmentCategory']) || $data['appointmentCategory'] == 'regular';
 
         if ($data['therapistId'] != $appointment->therapist_id) {
             Yii::info("Terapista cambiato da {$appointment->therapist_id} a {$data['therapistId']}, calcolo nuovo plan_therapy_id", __METHOD__);
@@ -1971,10 +1972,9 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         // Verifica validità della data rispetto al piano terapeutico se cambia la data
-        if ($data['appointmentDateTime'] != $appointment->appointment_datetime) {
+        if (($is_regular_appointment_category) && $data['appointmentDateTime'] != $appointment->appointment_datetime) {
             $this->validateStartDate($data['appointmentDateTime'], $newPlanTherapyId);
         }
-
         // Verifica conflitti se cambiano data/ora/terapista
         if (
             $data['appointmentDateTime'] != $appointment->appointment_datetime ||
@@ -2018,8 +2018,9 @@ class TherapeuticPlanManagerController extends Controller
 
         // Verifica conflitti tipologia trattamento se cambia la data O il plan_therapy_id
         if (
-            $data['appointmentDateTime'] != $appointment->appointment_datetime ||
-            $newPlanTherapyId != $appointment->plan_therapy_id
+            ($is_regular_appointment_category) &&
+            ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
+                $newPlanTherapyId != $appointment->plan_therapy_id)
         ) {
             Yii::info('Controllo conflitto tipologia trattamento - Data cambiata: '
                 . ($data['appointmentDateTime'] != $appointment->appointment_datetime ? 'SI' : 'NO')
@@ -2042,9 +2043,10 @@ class TherapeuticPlanManagerController extends Controller
 
             // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
             if (
-                $data['appointmentDateTime'] != $appointment->appointment_datetime ||
+                ($is_regular_appointment_category) && 
+                ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
                 $data['durationMinutes'] != $appointment->duration_minutes ||
-                $newPlanTherapyId != $appointment->plan_therapy_id
+                $newPlanTherapyId != $appointment->plan_therapy_id)
             ) {
                 $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
                     Appointment::SOURCE_THERAPEUTIC_PLAN,
