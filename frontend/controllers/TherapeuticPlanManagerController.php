@@ -1803,6 +1803,7 @@ class TherapeuticPlanManagerController extends Controller
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
                     'groupSessionId' => $appointment->group_session_id,
                     'groupPatients' => $groupPatients,
+                    'category' => $appointment->appointment_category ?? NULL
                 ];
             }
 

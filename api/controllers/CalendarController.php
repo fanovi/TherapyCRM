@@ -786,6 +786,7 @@ class CalendarController extends ActiveController
                     ],
                     'notes' => $appointment->notes,
                     'datetime' => $appointment->appointment_datetime,
+                    'category' => $appointment->appointment_category ?? NULL
                 ];
             }
 
@@ -911,6 +912,7 @@ class CalendarController extends ActiveController
                         'time' => $datetime->format('H:i'),
                         'patient_name' => $patient->getFullName(),
                         'treatment_type' => $treatmentType ? $treatmentType->name : 'Terapia',
+                        'category' => $nextAppointment->appointment_category ?? NULL
                     ];
                 }
             }

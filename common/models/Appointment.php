@@ -29,6 +29,8 @@ use Ramsey\Uuid\Uuid;
  * @property string $created_at
  * @property string $updated_at
  * @property int|null $id_setting
+ * @property string $appointment_category
+ * @property int|null $related_appointment_id
  *
  * @property AppointmentPattern $pattern
  * @property PlanTherapy $planTherapy
@@ -100,7 +102,7 @@ class Appointment extends ActiveRecord
     {
         return [
             [['therapist_id', 'appointment_datetime', 'duration_minutes', 'appointment_source', 'created_by'], 'required'],
-            [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by'], 'integer'],
+            [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by', 'related_appointment_id'], 'integer'],
             [['group_session_id'], 'string', 'max' => 36],
             [['group_session_id'], 'match', 'pattern' => '/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', 'message' => 'Group Session ID deve essere un UUID valido', 'skipOnEmpty' => true],
             [['appointment_datetime'], 'validateAppointmentDateTime'],
@@ -135,6 +137,14 @@ class Appointment extends ActiveRecord
             ['id_setting', 'required'],
             ['id_setting', 'integer'],
             ['id_setting', 'exist', 'skipOnError' => true, 'targetClass' => Setting::class, 'targetAttribute' => ['id_setting' => 'id']],
+            [['appointment_category'], 'in', 'range' => [
+                self::CATEGORY_REGULAR,
+                self::CATEGORY_RECOVERY,
+                self::CATEGORY_ADVANCE,
+                self::CATEGORY_EXTRA,
+                self::CATEGORY_COMPENSATION
+            ]],
+            [['appointment_category'], 'default', 'value' => self::CATEGORY_REGULAR],
         ];
     }
 
@@ -252,6 +262,8 @@ class Appointment extends ActiveRecord
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
             'id_setting' => 'Setting',
+            'appointment_category' => 'Categoria',
+            'related_appointment_id' => 'Appuntamento Correlato',
         ];
     }
 
@@ -816,13 +828,13 @@ class Appointment extends ActiveRecord
             self::CATEGORY_COMPENSATION => 'Compensazione',
         ];
     }
-    
+
     // Relazione con l'appuntamento originale
     public function getRelatedAppointment()
     {
         return $this->hasOne(Appointment::class, ['id' => 'related_appointment_id']);
     }
-    
+
     // Relazione inversa: recuperi di questo appuntamento
     public function getRecoveries()
     {
