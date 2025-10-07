@@ -34,41 +34,41 @@ use yii\widgets\ActiveForm;
     ]); ?>
 
     <style>
-    /* Stili per i campi con errori */
-    .has-error input,
-    .has-error select,
-    .has-error textarea {
-        border-color: #dc2626 !important;
-        box-shadow: 0 0 0 1px #dc2626 !important;
-    }
-    
-    .has-error input:focus,
-    .has-error select:focus,
-    .has-error textarea:focus {
-        border-color: #dc2626 !important;
-        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1) !important;
-    }
-    
-    /* Assicuriamoci che i messaggi di errore siano rossi */
-    .help-block-error {
-        color: #dc2626 !important;
-        font-weight: 500 !important;
-        margin-top: 0.25rem !important;
-        font-size: 0.875rem !important;
-    }
-    
-    /* Stili per i messaggi di errore di Yii2 */
-    .error-summary ul {
-        color: #dc2626;
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    
-    .error-summary li {
-        color: #dc2626 !important;
-        font-weight: 500;
-    }
+        /* Stili per i campi con errori */
+        .has-error input,
+        .has-error select,
+        .has-error textarea {
+            border-color: #dc2626 !important;
+            box-shadow: 0 0 0 1px #dc2626 !important;
+        }
+
+        .has-error input:focus,
+        .has-error select:focus,
+        .has-error textarea:focus {
+            border-color: #dc2626 !important;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1) !important;
+        }
+
+        /* Assicuriamoci che i messaggi di errore siano rossi */
+        .help-block-error {
+            color: #dc2626 !important;
+            font-weight: 500 !important;
+            margin-top: 0.25rem !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Stili per i messaggi di errore di Yii2 */
+        .error-summary ul {
+            color: #dc2626;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .error-summary li {
+            color: #dc2626 !important;
+            font-weight: 500;
+        }
     </style>
 
     <!-- Dati Piano -->
@@ -81,7 +81,7 @@ use yii\widgets\ActiveForm;
                 Inserisci le informazioni di base del piano terapeutico.
             </p>
         </div>
-        
+
         <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Paziente -->
@@ -89,17 +89,17 @@ use yii\widgets\ActiveForm;
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Paziente <span class="text-red-500">*</span>
                     </label>
-                    
+
                     <!-- Search input -->
-                    <input type="text" 
-                           id="patient-search" 
-                           class="block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2"
-                           placeholder="Cerca paziente per nome, cognome o codice fiscale..."
-                           autocomplete="off">
-                    
+                    <input type="text"
+                        id="patient-search"
+                        class="block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2"
+                        placeholder="Cerca paziente per nome, cognome o codice fiscale..."
+                        autocomplete="off">
+
                     <!-- Hidden field for actual patient ID -->
                     <?= \yii\helpers\Html::hiddenInput('TherapeuticPlan[patient_id]', $model->patient_id, ['id' => 'patient-id-hidden']) ?>
-                    
+
                     <!-- Selected patient display -->
                     <div id="selected-patient" class="mt-2 hidden">
                         <div class="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
@@ -114,12 +114,12 @@ use yii\widgets\ActiveForm;
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Search results -->
                     <div id="patient-search-results" class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
                         <div id="search-results-list"></div>
                     </div>
-                    
+
                     <!-- Error display -->
                     <div id="patient-error" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden"></div>
                 </div>
@@ -156,7 +156,7 @@ use yii\widgets\ActiveForm;
                         ])->label(false) ?>
                         <button type="button" onclick="document.getElementById('therapeuticplan-approval-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
                             <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill="" />
                             </svg>
                         </button>
                     </div>
@@ -187,7 +187,7 @@ use yii\widgets\ActiveForm;
                         ])->label(false) ?>
                         <button type="button" onclick="document.getElementById('therapeuticplan-start-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
                             <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill=""/>
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill="" />
                             </svg>
                         </button>
                     </div>
@@ -205,6 +205,52 @@ use yii\widgets\ActiveForm;
                         La data di fine sarà calcolata automaticamente in base alla durata inserita.
                     </p>
                 </div>
+
+                <?php if (!$model->isNewRecord): ?>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                        <div class="form-group">
+                            <?= $form->field($model, 'status')->dropDownList([
+                                'draft' => 'Bozza',
+                                'pending' => 'In Attesa',
+                                'active' => 'Attivo',
+                                'suspended' => 'Sospeso',
+                                'completed' => 'Completato',
+                                'terminated' => 'Interrotto',
+                                'expired' => 'Scaduto'
+                            ], [
+                                'prompt' => 'Seleziona stato...',
+                                'id' => 'status-select',
+                            ])->label('Stato <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                        </div>
+
+                        <!-- Data Sospensione (visibile solo se status = suspended) -->
+                        <div class="form-group" id="suspension-date-container" style="<?= $model->status === 'suspended' ? '' : 'display:none;' ?>">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Data Sospensione
+                            </label>
+                            <div class="relative">
+                                <?= $form->field($model, 'suspension_date')->input('date', [
+                                    'placeholder' => 'Seleziona data',
+                                    'id' => 'therapeuticplan-suspension-date',
+                                    'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2 pr-10'
+                                ])->label(false) ?>
+                                <button type="button" onclick="document.getElementById('therapeuticplan-suspension-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
+                                    <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill="" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Motivo Sospensione (visibile solo se status = suspended) -->
+                    <div class="form-group mt-6" id="suspension-reason-container" style="<?= $model->status === 'suspended' ? '' : 'display:none;' ?>">
+                        <?= $form->field($model, 'suspension_reason')->textarea([
+                            'rows' => 3,
+                            'placeholder' => 'Inserisci il motivo della sospensione...',
+                        ])->label('Motivo Sospensione') ?>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <!-- Note -->
@@ -257,12 +303,12 @@ use yii\widgets\ActiveForm;
                 </button>
             </div>
         </div>
-        
+
         <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div id="therapies-container" class="space-y-6">
                 <!-- I form delle terapie verranno aggiunti qui dinamicamente -->
             </div>
-            
+
             <!-- Template per nuova terapia -->
             <template id="therapy-template">
                 <div class="therapy-item border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -274,7 +320,7 @@ use yii\widgets\ActiveForm;
                             </svg>
                         </button>
                     </div>
-                    
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <!-- Tipo Trattamento -->
                         <div>
@@ -288,7 +334,7 @@ use yii\widgets\ActiveForm;
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <!-- Ore Settimanali/Mensili -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -296,7 +342,7 @@ use yii\widgets\ActiveForm;
                             </label>
                             <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" min="0.5" max="50" step="0.5" required>
                         </div>
-                        
+
                         <!-- Setting -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -309,7 +355,7 @@ use yii\widgets\ActiveForm;
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <!-- Terapia di Gruppo -->
                         <div style="display: none;">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -321,7 +367,7 @@ use yii\widgets\ActiveForm;
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Note -->
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -630,12 +676,15 @@ use yii\widgets\ActiveForm;
     <!-- Action Buttons -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
-                    ['index'], [
-                'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
-            ]) ?>
+            <?= Html::a(
+                '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
+                ['index'],
+                [
+                    'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
+                ]
+            ) ?>
         </div>
-        
+
         <div class="flex space-x-3">
             <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' . ($model->isNewRecord ? 'Crea Piano Terapeutico' : 'Salva Modifiche'), [
                 'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
@@ -850,6 +899,20 @@ $this->registerJs('
         \$('#submit-btn').prop('disabled', true).html('<svg class=\"animate-spin -ml-1 mr-3 h-4 w-4 text-white\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Salvataggio...');
         
         return true;
+    });
+    // Gestione visibilità campi sospensione
+    $('#status-select').on('change', function() {
+        if ($(this).val() === 'suspended') {
+            $('#suspension-date-container').show();
+            $('#suspension-reason-container').show();
+            $('#therapeuticplan-suspension-date').attr('required', true);
+        } else {
+            $('#suspension-date-container').hide();
+            $('#suspension-reason-container').hide();
+            $('#therapeuticplan-suspension-date').attr('required', false);
+            $('#therapeuticplan-suspension-date').val('');
+            $('#therapeuticplan-suspension_reason').val('');
+        }
     });
 ");
 ?>

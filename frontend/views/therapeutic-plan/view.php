@@ -84,7 +84,27 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
 
     <!-- Status Alert -->
-    <?php if ($model->isExpired()): ?>
+    <!-- Status Alert -->
+    <?php if ($model->status === 'suspended'): ?>
+        <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Piano Terapeutico Sospeso</h3>
+                    <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                        Questo piano è stato sospeso dal <?= Yii::$app->formatter->asDate($model->suspension_date) ?>.
+                        <?php if ($model->suspension_reason): ?>
+                            <br>Motivo: <?= Html::encode($model->suspension_reason) ?>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+        </div>
+    <?php elseif ($model->status === 'expired' || $model->status === 'terminated'): ?>
         <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -93,14 +113,16 @@ $this->params['breadcrumbs'][] = $this->title;
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Piano Terapeutico Scaduto</h3>
+                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+                        Piano Terapeutico <?= $model->status === 'expired' ? 'Scaduto' : 'Interrotto' ?>
+                    </h3>
                     <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                        Questo piano terapeutico è scaduto il <?= Yii::$app->formatter->asDate($model->end_date) ?>.
+                        Questo piano terapeutico è <?= $model->status === 'expired' ? 'scaduto il ' . Yii::$app->formatter->asDate($model->end_date) : 'stato interrotto' ?>.
                     </p>
                 </div>
             </div>
         </div>
-    <?php else: ?>
+    <?php elseif ($model->status === 'active'): ?>
         <div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 dark:bg-green-900/20 dark:border-green-800">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -112,6 +134,22 @@ $this->params['breadcrumbs'][] = $this->title;
                     <h3 class="text-sm font-medium text-green-800 dark:text-green-200">Piano Terapeutico Attivo</h3>
                     <p class="mt-1 text-sm text-green-700 dark:text-green-300">
                         Questo piano terapeutico è attivo<?= $model->end_date ? ' fino al ' . Yii::$app->formatter->asDate($model->end_date) : '' ?>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    <?php elseif ($model->status === 'pending'): ?>
+        <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/20 dark:border-blue-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Piano Terapeutico In Attesa</h3>
+                    <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                        Il piano inizierà il <?= Yii::$app->formatter->asDate($model->start_date) ?>.
                     </p>
                 </div>
             </div>
@@ -143,6 +181,14 @@ $this->params['breadcrumbs'][] = $this->title;
                 'template' => '<tr class="border-b border-gray-100 dark:border-gray-800"><th class="px-5 py-4 text-left font-medium text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 w-1/4">{label}</th><td class="px-5 py-4 text-gray-800 dark:text-white/90">{value}</td></tr>',
                 'attributes' => [
                     'id',
+                    [
+                        'attribute' => 'status',
+                        'label' => 'Stato',
+                        'value' => function ($model) {
+                            return $model->getStatusLabel();
+                        },
+                        'format' => 'raw'
+                    ],
                     [
                         'attribute' => 'patient_id',
                         'label' => 'Paziente',
@@ -202,6 +248,23 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function ($model) {
                             return $model->end_date ? Yii::$app->formatter->asDate($model->end_date) : 'N/A';
                         }
+                    ],
+                    [
+                        'attribute' => 'suspension_date',
+                        'label' => 'Data Sospensione',
+                        'visible' => $model->status === 'suspended',
+                        'value' => function ($model) {
+                            return $model->suspension_date ? Yii::$app->formatter->asDate($model->suspension_date) : 'N/A';
+                        }
+                    ],
+                    [
+                        'attribute' => 'suspension_reason',
+                        'label' => 'Motivo Sospensione',
+                        'visible' => $model->status === 'suspended',
+                        'value' => function ($model) {
+                            return $model->suspension_reason ? nl2br(Html::encode($model->suspension_reason)) : 'N/A';
+                        },
+                        'format' => 'raw'
                     ],
                     [
                         'attribute' => 'notes',

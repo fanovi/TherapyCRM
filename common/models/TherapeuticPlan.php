@@ -22,6 +22,9 @@ use Yii;
  * @property int $created_by
  * @property string $created_at
  * @property string $updated_at
+ * @property string $status
+ * @property string|null $suspension_date
+ * @property string|null $suspension_reason
  *
  * @property Patient $patient
  * @property User $createdBy
@@ -84,6 +87,18 @@ class TherapeuticPlan extends ActiveRecord
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
+            [['status'], 'string'],
+            [['status'], 'default', 'value' => 'draft'],
+            [['status'], 'in', 'range' => ['draft', 'pending', 'active', 'suspended', 'completed', 'terminated', 'expired']],
+            [['suspension_date'], 'date', 'format' => 'php:Y-m-d'],
+            [['suspension_reason'], 'string'],
+            [['suspension_date', 'suspension_reason'], 'default', 'value' => null],
+            // Validazione: suspension_date e suspension_reason solo se status = suspended
+            ['suspension_date', 'required', 'when' => function($model) {
+                return $model->status === 'suspended';
+            }, 'whenClient' => "function (attribute, value) {
+                return $('#status').val() === 'suspended';
+            }"],
         ];
     }
 
@@ -201,6 +216,9 @@ class TherapeuticPlan extends ActiveRecord
             'updated_at' => 'Aggiornato il',
             'approval_date' => 'Data Approvazione',
             'protocol_number' => 'Numero Protocollo',
+            'status' => 'Stato',
+            'suspension_date' => 'Data Sospensione',
+            'suspension_reason' => 'Motivo Sospensione',
         ];
     }
 
@@ -416,5 +434,41 @@ class TherapeuticPlan extends ActiveRecord
     public static function find()
     {
         return new TherapeuticPlanQuery(get_called_class());
+    }
+    
+    /**
+     * Checks if plan is active
+     * @return bool
+     */
+    public function isActive()
+    {
+        return $this->status === 'active';
+    }
+
+    /**
+     * Checks if plan is suspended
+     * @return bool
+     */
+    public function isSuspended()
+    {
+        return $this->status === 'suspended';
+    }
+
+    /**
+     * Gets status label with color
+     * @return string
+     */
+    public function getStatusLabel()
+    {
+        $labels = [
+            'draft' => '<span class="badge badge-secondary">Bozza</span>',
+            'pending' => '<span class="badge badge-info">In Attesa</span>',
+            'active' => '<span class="badge badge-success">Attivo</span>',
+            'suspended' => '<span class="badge badge-warning">Sospeso</span>',
+            'completed' => '<span class="badge badge-primary">Completato</span>',
+            'terminated' => '<span class="badge badge-danger">Interrotto</span>',
+            'expired' => '<span class="badge badge-dark">Scaduto</span>',
+        ];
+        return $labels[$this->status] ?? $this->status;
     }
 }
