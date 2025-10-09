@@ -1457,10 +1457,11 @@ class TherapeuticPlanManagerController extends Controller
                 // Aggiungi questa sezione per includere i dati del regime
                 $responseData['therapeuticPlan'] = [
                     'id' => $therapeuticPlan->id,
+                    'status' => $therapeuticPlan->status,
                     'startDate' => $therapeuticPlan->start_date,
                     'endDate' => $therapeuticPlan->getCalculatedEndDate(),
                     'durationDays' => $therapeuticPlan->duration_days,
-                    'regime' => null
+                    'regime' => null,
                 ];
 
                 // Includi i dati del regime se presente
