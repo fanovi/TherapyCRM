@@ -350,6 +350,7 @@ class TherapeuticPlanController extends BaseController
                     'therapyModel' => $therapyModel,
                     'patients' => $this->getPatientsList(),
                     'regimes' => $this->getRegimesList(),
+                    'districts' => $this->getDistrictsList(),
                     'treatmentTypes' => $this->getTreatmentTypesList(),
                     'settings' => $this->getSettingsList(),
                     'postedTherapies' => $therapies // Passa i dati delle terapie al form
@@ -364,6 +365,7 @@ class TherapeuticPlanController extends BaseController
             'therapyModel' => $therapyModel,
             'patients' => $this->getPatientsList(),
             'regimes' => $this->getRegimesList(),
+            'districts' => $this->getDistrictsList(),
             'treatmentTypes' => $this->getTreatmentTypesList(),
             'settings' => $this->getSettingsList(),
             'postedTherapies' => [] // Inizializza l'array vuoto per il primo caricamento
@@ -559,6 +561,7 @@ class TherapeuticPlanController extends BaseController
                     'therapyModel' => $therapyModel,
                     'patients' => $this->getPatientsList(),
                     'regimes' => $this->getRegimesList(),
+                    'districts' => $this->getDistrictsList(),
                     'treatmentTypes' => $this->getTreatmentTypesList(),
                     'settings' => $this->getSettingsList(),
                     'postedTherapies' => $therapies ?? []
@@ -571,6 +574,7 @@ class TherapeuticPlanController extends BaseController
             'therapyModel' => $therapyModel,
             'patients' => $this->getPatientsList(),
             'regimes' => $this->getRegimesList(),
+            'districts' => $this->getDistrictsList(),
             'treatmentTypes' => $this->getTreatmentTypesList(),
             'settings' => $this->getSettingsList(),
             'postedTherapies' => $existingTherapies // Passa le terapie esistenti alla vista
@@ -780,6 +784,20 @@ class TherapeuticPlanController extends BaseController
             Regime::find()->orderBy(['nome' => SORT_ASC])->all(),
             'id',
             'nome'
+        );
+    }
+
+    /**
+     * Get districts list for dropdown
+     *
+     * @return array
+     */
+    protected function getDistrictsList()
+    {
+        return ArrayHelper::map(
+            \common\models\District::find()->orderBy(['name' => SORT_ASC])->all(),
+            'id',
+            'name'
         );
     }
 

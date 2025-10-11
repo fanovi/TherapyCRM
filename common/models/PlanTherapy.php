@@ -65,7 +65,7 @@ class PlanTherapy extends ActiveRecord
         return [
             [['therapeutic_plan_id', 'treatment_type_id', 'weekly_hours', 'setting_id'], 'required'],
             [['therapeutic_plan_id', 'treatment_type_id', 'setting_id'], 'integer'],
-            [['weekly_hours'], 'number', 'min' => 0.5, 'max' => 50],
+            [['weekly_hours'], 'number', 'min' => 0.5, 'max' => 999.99],
             [['is_group'], 'boolean'],
             [['notes'], 'string'],
             [['therapeutic_plan_id'], 'exist', 'skipOnError' => true, 'targetClass' => TherapeuticPlan::class, 'targetAttribute' => ['therapeutic_plan_id' => 'id']],

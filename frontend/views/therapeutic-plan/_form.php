@@ -9,6 +9,7 @@ use yii\widgets\ActiveForm;
 /* @var $form yii\widgets\ActiveForm */
 /* @var $patients array */
 /* @var $regimes array */
+/* @var $districts array */
 /* @var $treatmentTypes array */
 /* @var $settings array */
 /* @var $postedTherapies array */
@@ -170,6 +171,22 @@ use yii\widgets\ActiveForm;
                     ])->label('Numero Protocollo') ?>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         Il numero di protocollo deve essere univoco per ogni piano terapeutico.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                <!-- Distretto -->
+                <div class="form-group">
+                    <?= $form->field($model, 'district_id')->dropDownList(
+                        $districts,
+                        [
+                            'prompt' => 'Seleziona un distretto...',
+                            'id' => 'district-select',
+                        ]
+                    )->label('Distretto') ?>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Seleziona il distretto di riferimento per questo piano terapeutico.
                     </p>
                 </div>
 
@@ -340,7 +357,7 @@ use yii\widgets\ActiveForm;
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 <span class="hours-label">Ore Settimanali</span> <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" min="0.5" max="50" step="0.5" required>
+                            <input type="number" name="PlanTherapy[{index}][weekly_hours]" class="weekly-hours block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2" min="0.5" max="999.99" step="0.5" required>
                         </div>
 
                         <!-- Setting -->

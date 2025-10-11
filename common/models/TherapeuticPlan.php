@@ -18,6 +18,7 @@ use Yii;
  * @property int $regime_id
  * @property string|null $approval_date
  * @property string|null $protocol_number
+ * @property int|null $district_id
  * @property string|null $notes
  * @property int $created_by
  * @property string $created_at
@@ -29,6 +30,7 @@ use Yii;
  * @property Patient $patient
  * @property User $createdBy
  * @property Regime $regime
+ * @property District $district
  * @property PlanTherapy[] $planTherapies
  */
 class TherapeuticPlan extends ActiveRecord
@@ -80,11 +82,14 @@ class TherapeuticPlan extends ActiveRecord
             [['start_date', 'approval_date'], 'date', 'format' => 'php:Y-m-d'],
             [['notes'], 'string'],
             [['protocol_number'], 'string', 'max' => 50],
+            [['district_id'], 'integer'],
+            [['district_id'], 'default', 'value' => null],
             // [['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
             [['approval_date', 'protocol_number'], 'default', 'value' => null],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['district_id'], 'exist', 'skipOnError' => true, 'targetClass' => District::class, 'targetAttribute' => ['district_id' => 'id']],
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
             [['status'], 'string'],
@@ -216,6 +221,7 @@ class TherapeuticPlan extends ActiveRecord
             'updated_at' => 'Aggiornato il',
             'approval_date' => 'Data Approvazione',
             'protocol_number' => 'Numero Protocollo',
+            'district_id' => 'Distretto',
             'status' => 'Stato',
             'suspension_date' => 'Data Sospensione',
             'suspension_reason' => 'Motivo Sospensione',
@@ -263,6 +269,16 @@ class TherapeuticPlan extends ActiveRecord
     public function getRegime()
     {
         return $this->hasOne(Regime::class, ['id' => 'regime_id']);
+    }
+
+    /**
+     * Gets query for [[District]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDistrict()
+    {
+        return $this->hasOne(District::class, ['id' => 'district_id']);
     }
 
     /**

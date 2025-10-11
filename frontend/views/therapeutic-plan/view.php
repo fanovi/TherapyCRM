@@ -180,7 +180,14 @@ $this->params['breadcrumbs'][] = $this->title;
                 'options' => ['class' => 'table-auto w-full text-sm'],
                 'template' => '<tr class="border-b border-gray-100 dark:border-gray-800"><th class="px-5 py-4 text-left font-medium text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 w-1/4">{label}</th><td class="px-5 py-4 text-gray-800 dark:text-white/90">{value}</td></tr>',
                 'attributes' => [
-                    'id',
+                    // 'id',
+                    [
+                        'attribute' => 'district_id',
+                        'label' => 'Distretto',
+                        'value' => function ($model) {
+                            return $model->district ? $model->district->name : 'N/A';
+                        }
+                    ],
                     [
                         'attribute' => 'status',
                         'label' => 'Stato',

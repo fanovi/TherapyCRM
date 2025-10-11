@@ -8,6 +8,7 @@ use common\widgets\Alert;
 /* @var $therapyModel common\models\PlanTherapy */
 /* @var $patients array */
 /* @var $regimes array */
+/* @var $districts array */
 /* @var $treatmentTypes array */
 /* @var $settings array */
 /* @var $postedTherapies array */
@@ -30,6 +31,7 @@ $this->params['breadcrumbs'][] = 'Modifica';
         'therapyModel' => $therapyModel,
         'patients' => $patients,
         'regimes' => $regimes,
+        'districts' => $districts,
         'treatmentTypes' => $treatmentTypes,
         'settings' => $settings,
         'postedTherapies' => $postedTherapies, // Aggiungi questa riga!
