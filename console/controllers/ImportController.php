@@ -14,6 +14,7 @@ use DateTime;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use yii\helpers\Console;
 
 class ImportController extends Controller
 {
@@ -331,7 +332,9 @@ class ImportController extends Controller
                 $aba_plans[$index] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
                 $trattamenti_piani_aba[$index][] = $this->getPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient);
             } elseif ($type === 'RIA') {
-                $index = $worksheet->getCell('A' . $rowIndex)->getValue();
+                $protocol = $worksheet->getCell('A' . $rowIndex)->getValue();
+                $district = $worksheet->getCell('O' . $rowIndex)->getValue();
+                $index =  hash('sha256', $protocol . $district);
                 $ria_plans[$index] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
                 $trattamenti_piani_ria[$index][] = $this->getPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient);
             } else {
@@ -344,7 +347,7 @@ class ImportController extends Controller
         $this->stdout("Terapie: " . json_encode($terapie) . "\n");
         $this->stdout("RIA plans: " . count($ria_plans) . "\n");
         $this->stdout("ABA plans: " . count($aba_plans) . "\n");
-        $this->stdout("Private plans: " . $private_plans . "\n");
+        $this->stdout("Private plans: " . $private_plans . "\n\n");
         $this->stdout("Start inserting RIA plans - " . date('H:i:s') . "\n");
 
         $flat_ria_plans = [];
@@ -356,30 +359,73 @@ class ImportController extends Controller
         foreach ($aba_plans as $protocol_plans) {
             $flat_aba_plans[] = $protocol_plans;
         }
-print_r($trattamenti_piani_ria);
-print_r($trattamenti_piani_aba);
-die();
+        
         $transaction = Yii::$app->db->beginTransaction();
         try {
             Yii::$app->db->createCommand()->batchInsert(
                 'therapeutic_plans',
-                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
+                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number', 'status', 'district_id'],
                 $flat_ria_plans
             )->execute();
 
-            Yii::$app->db->createCommand()->batchInsert(
-                'therapeutic_plans',
-                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
-                $flat_aba_plans
-            )->execute();
+            // Yii::$app->db->createCommand()->batchInsert(
+            //     'therapeutic_plans',
+            //     ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
+            //     $flat_aba_plans
+            // )->execute();
 
             $transaction->commit();
         } catch (\Exception $e) {
             $transaction->rollBack();
             throw $e;
         }
+
+        $trattamenti_piani_ria_flat = [];
+        foreach ($trattamenti_piani_ria as $protocol_plans) {
+            $trattamenti_piani_ria_flat = array_merge($trattamenti_piani_ria_flat, $this->getPlanTherapyFlatForBatch($protocol_plans));
+        }
+
+        $this->stdout("Trattamenti RIA piani: " . count($trattamenti_piani_ria_flat) . "\n");
+        $this->stdout("Primo trattamento RIA piano: " . json_encode($trattamenti_piani_ria_flat[0]) . "\n\n");
+
+        Yii::$app->db->createCommand()->batchInsert(
+            'plan_therapies',
+            ['therapeutic_plan_id', 'treatment_type_id', 'weekly_hours', 'is_group', 'setting_id'],
+            $trattamenti_piani_ria_flat
+        )->execute();
+
         $this->stdout("End inserting RIA plans - " . date('H:i:s') . "\n");
-        $this->stdout("Errors: " . print_r($this->errors) . "\n");
+        $this->stdout("Errors: " . count($this->errors) . "\n");
+        $this->stdout("Errors: " . implode(', ', $this->errors) . "\n");
+    }
+
+    private function getPlanTherapyFlatForBatch($trattamenti_piani_ria_flat)
+    {
+        $trattamenti_piani_ria_flat_flat = [];
+
+        foreach ($trattamenti_piani_ria_flat as $trattamento) {
+            $temp = [
+                $this->getPlanIdFromProtocolNumberDistrict($trattamento['protocol_number'], $trattamento['district_id']),
+                $trattamento['treatment_type_id'],
+                $trattamento['weekly_hours'],
+                $trattamento['is_group'],
+                $trattamento['setting_id']
+            ];
+            $trattamenti_piani_ria_flat_flat[] = $temp;
+        }
+        return $trattamenti_piani_ria_flat_flat;
+    }
+
+    private function getPlanIdFromProtocolNumberDistrict($protocol_number, $district_id)
+    {
+        $plan = TherapeuticPlan::find()
+        ->where(['protocol_number' => $protocol_number, 'district_id' => $district_id])
+        ->one();
+        if($plan){
+            return $plan->id;
+        }
+        $this->stdout("Piano non trovato: " . $protocol_number . " " . $district_id . "\n", Console::FG_RED);
+        return null;
     }
 
     /**
@@ -469,6 +515,8 @@ die();
             'weekly_hours' => $worksheet->getCell('S' . $rowIndex)->getValue(),
             'is_group' => $terapia_id == 21 ? 1 : 0,
             'setting_id' => $this->getSetting($worksheet->getCell('Q' . $rowIndex)->getValue()),
+            'protocol_number' => $worksheet->getCell('A' . $rowIndex)->getValue(),
+            'district_id' => $this->checkDistrict($worksheet->getCell('O' . $rowIndex)->getValue()),
         ];
 
         return $plan_therapy_data;
@@ -503,6 +551,8 @@ die();
         $end = $this->formatDate($worksheet->getCell('D' . $rowIndex)->getValue());
         $duration = $this->getDays($start, $end);
         $approval_date = $this->formatDate($worksheet->getCell('B' . $rowIndex)->getValue());
+        $status = $this->getPlanStatus($start,$end);
+        $district = $this->checkDistrict($worksheet->getCell('O' . $rowIndex)->getValue());
 
         $plan_data = [
             $patient->id, // paziente
@@ -513,9 +563,26 @@ die();
             $this->getRegimeId($worksheet->getCell('P' . $rowIndex)->getValue()), // regime_id
             $approval_date, // approval_date
             $worksheet->getCell('A' . $rowIndex)->getValue(), // protocol_number
+            $status, // status
+            $district, // district_id
         ];
 
         return $plan_data;
+    }
+
+    private function getPlanStatus($start, $end)
+    {
+        $status = 'draft';
+        if($start > date('Y-m-d')){
+            $status = 'active';
+        }
+        if($start <= date('Y-m-d') && $end >= date('Y-m-d')){
+            $status = 'active';
+        }
+        if($end < date('Y-m-d')){
+            $status = 'expired';
+        }
+        return $status;
     }
 
     private function getRegimeId($regime)
@@ -593,7 +660,7 @@ die();
                     // Se è un numero e potrebbe essere una data
                     if (is_numeric($cellValue) && $isDateColumn) {
                         try {
-                            // Verifica se è un numero seriale di Excel valido per una data
+                            // Verifica se è un numero seriale di Excel valido per una dataa
                             // I numeri seriali di Excel per date vanno da 1 (1/1/1900) a circa 2958465 (31/12/9999)
                             if ($cellValue > 0 && $cellValue < 3000000) {
                                 $dateTime = ExcelDate::excelToDateTimeObject($cellValue);
@@ -800,8 +867,14 @@ die();
         return 1; // Default
     }
 
+    public $districts = [];
     private function checkDistrict($value)
     {
+        if(isset($this->districts[$value])){
+            $district_id = $this->districts[$value];
+            return $district_id;
+        }
+
         $district_id = null;
 
         if ($value === null || empty($value)) {
@@ -817,6 +890,7 @@ die();
 
             if ($district) {
                 $district_id = $district->id;
+                $this->districts[$value] = $district_id;
             } else {
                 $district = new District();
                 $district->code = (string) $numero;
@@ -826,6 +900,7 @@ die();
                     $this->stdout("Errore nel salvare il distretto: " . implode(', ', $district->getFirstErrors()) . "\n");
                 }
                 $district_id = $district->id;
+                $this->districts[$value] = $district_id;
             }
         }
 
