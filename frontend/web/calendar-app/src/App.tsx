@@ -13,7 +13,7 @@ const queryClient = new QueryClient();
 const isStandalone =
   window.location.port === "5173" ||
   window.location.port === "3000" ||
-  window.location.port === "8080";
+  window.location.port === "9000";
 const basename = isStandalone ? "" : "";
 
 // Debug info in console

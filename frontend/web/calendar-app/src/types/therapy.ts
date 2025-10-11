@@ -78,6 +78,7 @@ export interface PlanTherapy {
 }
 
 export interface Appointment {
+  setting_id: any;
   groupPatients: Array<{ id: number; name: string; appointmentId: number }>;
   isGroup: any;
   groupSessionId?: string | null;
@@ -120,6 +121,9 @@ export interface Appointment {
   // Setting dell'appuntamento
   settingName?: string;
   id_setting?: number;
+
+  // Categoria appuntamento (regular o recovery)
+  appointment_category?: "regular" | "recovery";
 }
 
 export interface AppointmentData {
@@ -166,6 +170,7 @@ export interface UpdateAppointmentRequest {
   notes?: string;
   applyToGroup?: boolean;
   id_setting?: number;
+  appointment_category?: "regular" | "recovery";
 }
 
 export interface DeletePatternRequest {

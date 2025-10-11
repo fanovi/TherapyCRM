@@ -67,6 +67,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     duration: 60,
     notes: "",
     id_setting: undefined as number | undefined,
+    appointment_category: "regular" as "regular" | "recovery",
   });
 
   // State per gruppi
@@ -146,6 +147,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         duration: details.duration,
         notes: details.notes || "",
         id_setting: details.id_setting,
+        appointment_category: details.appointment_category || "regular",
       });
     } catch (error) {
       console.error("Errore caricamento dettagli appuntamento:", error);
@@ -196,6 +198,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           duration: appointment.duration,
           notes: appointment.notes || "",
           id_setting: appointment.id_setting,
+          appointment_category: appointment.appointment_category || "regular",
         });
       }
 
@@ -336,6 +339,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         notes: formData.notes,
         applyToGroup: applyToWholeGroup && isGroupAppointment,
         id_setting: formData.id_setting,
+        appointmentCategory: formData.appointment_category,
       });
 
       showSuccess(
@@ -529,6 +533,26 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   <Users className="w-3 h-3" />
                   Gruppo
+                </span>
+              )}
+              {(currentPatientAppointment?.appointment_category ===
+                "recovery" ||
+                appointment.appointment_category === "recovery") && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Recupero
                 </span>
               )}
             </div>
@@ -989,6 +1013,43 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     ))}
                   </select>
                 )}
+              </div>
+
+              {/* Checkbox Recupero */}
+              <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="recovery-checkbox"
+                  checked={formData.appointment_category === "recovery"}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      appointment_category: e.target.checked
+                        ? "recovery"
+                        : "regular",
+                    })
+                  }
+                  className="w-4 h-4 text-amber-600 bg-gray-100 border-gray-300 rounded focus:ring-amber-500"
+                />
+                <label
+                  htmlFor="recovery-checkbox"
+                  className="text-sm font-medium text-amber-800 cursor-pointer flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Appuntamento di recupero
+                </label>
               </div>
             </div>
           )}

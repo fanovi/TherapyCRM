@@ -692,6 +692,8 @@ const Index = () => {
         appointmentsCreated = patternResult.appointmentsCreated;
         weeklyLimitExceeded = patternResult.weeklyLimitExceeded || [];
 
+        console.log("appointmetData", appointmentData);
+
         if (patternResult.conflicts && patternResult.conflicts.length > 0) {
           showInfo(
             "Conflitti rilevati",
@@ -1147,6 +1149,7 @@ const Index = () => {
         durationMinutes: appointment.duration,
         notes: appointment.notes,
         applyToGroup: appointment.groupSessionId ? true : false,
+        id_setting: appointment.setting_id,
       };
 
       // console.log("🔄 Spostamento appuntamento:", {

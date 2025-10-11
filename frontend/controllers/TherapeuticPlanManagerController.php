@@ -2045,10 +2045,10 @@ class TherapeuticPlanManagerController extends Controller
 
             // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
             if (
-                ($is_regular_appointment_category) && 
+                ($is_regular_appointment_category) &&
                 ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
-                $data['durationMinutes'] != $appointment->duration_minutes ||
-                $newPlanTherapyId != $appointment->plan_therapy_id)
+                    $data['durationMinutes'] != $appointment->duration_minutes ||
+                    $newPlanTherapyId != $appointment->plan_therapy_id)
             ) {
                 $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
                     Appointment::SOURCE_THERAPEUTIC_PLAN,

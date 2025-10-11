@@ -407,6 +407,7 @@ class TherapeuticPlanManagerAPI {
     notes?: string;
     applyToGroup?: boolean;
     id_setting?: number;
+    appointmentCategory?: "regular" | "recovery";
   }): Promise<{
     appointmentId: number;
     planTherapyId?: number;
