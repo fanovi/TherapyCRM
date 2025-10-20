@@ -84,7 +84,12 @@ class TherapeuticPlan extends ActiveRecord
             [['protocol_number'], 'string', 'max' => 50],
             [['district_id'], 'integer'],
             [['district_id'], 'default', 'value' => null],
-            // [['protocol_number'], 'unique', 'message' => 'Questo numero di protocollo è già in uso.'],
+            [
+                ['protocol_number'], 
+                'unique', 
+                'targetAttribute' => ['protocol_number', 'district_id', 'regime_id'],
+                'message' => 'Questa combinazione di numero protocollo, distretto e regime è già in uso.'
+            ],
             [['approval_date', 'protocol_number'], 'default', 'value' => null],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['regime_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regime::class, 'targetAttribute' => ['regime_id' => 'id']],

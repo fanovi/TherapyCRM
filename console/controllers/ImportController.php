@@ -268,7 +268,7 @@ class ImportController extends Controller
         }
     }
 
-    public function actionPlan($filePath)
+    public function actionPlan($filePath, $plan_type = 'ria')
     {
         // Aumenta il limite di memoria
         ini_set('memory_limit', '2G'); // o anche '2G' se necessario
@@ -287,34 +287,36 @@ class ImportController extends Controller
         $trattamenti_piani_ria = [];
         $trattamenti_piani_aba = [];
 
-        $end_row = 1306;
+        $end_row = $plan_type === 'ria' ? 1306 : 352;
         $debug_end_row = 27;
 
+        $first_aba_protocol = NULL;
         foreach ($worksheet->getRowIterator(2, $end_row) as $row) {
             $rowIndex = $row->getRowIndex();
 
-            $type = $worksheet->getCell('P' . $rowIndex)->getValue();
+            $type = $worksheet->getCell(($plan_type === 'ria' ? 'P' : 'R') . $rowIndex)->getValue();
+
             if (isset($plans_types[$type])) {
                 $plans_types[$type]++;
             } else {
                 $plans_types[$type] = 1;
             }
 
-            $trattamento = $worksheet->getCell('Q' . $rowIndex)->getValue();
+            $trattamento = $plan_type === 'ria' ? $worksheet->getCell('Q' . $rowIndex)->getValue() : "AMBULATORIALE";
             if (isset($trattamenti[$trattamento])) {
                 $trattamenti[$trattamento]++;
             } else {
                 $trattamenti[$trattamento] = 1;
             }
 
-            $terapia = $worksheet->getCell('R' . $rowIndex)->getValue();
+            $terapia = $worksheet->getCell(($plan_type === 'ria' ? 'R' : 'S') . $rowIndex)->getValue();
             if (isset($terapie[$terapia])) {
                 $terapie[$terapia]++;
             } else {
                 $terapie[$terapia] = 1;
             }
 
-            $fiscal_code = $worksheet->getCell('K' . $rowIndex)->getValue();
+            $fiscal_code = $worksheet->getCell(($plan_type === 'ria' ? 'K' : 'I') . $rowIndex)->getValue();
             if (isset($patients[$fiscal_code])) {
                 $temp_patient = $patients[$fiscal_code];
             } else {
@@ -328,9 +330,15 @@ class ImportController extends Controller
 
 
             if ($type === 'ABA') {
-                $index = $worksheet->getCell('C' . $rowIndex)->getValue() . $worksheet->getCell('K' . $rowIndex)->getValue();
-                $aba_plans[$index] = $this->getPlanDataForBatch($worksheet, $rowIndex, $temp_patient);
-                $trattamenti_piani_aba[$index][] = $this->getPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient);
+                $protocol = $worksheet->getCell('B' . $rowIndex)->getValue();
+                $district = $worksheet->getCell('M' . $rowIndex)->getValue();
+                if($protocol !== NULL){
+                    $first_aba_protocol = $protocol;
+                }
+                $aba_protocol_number = $protocol ?? $first_aba_protocol;
+                $index =  hash('sha256', $aba_protocol_number . $district);
+                $aba_plans[$index] = $this->getAbaPlanDataForBatch($worksheet, $rowIndex, $temp_patient, $aba_protocol_number);
+                $trattamenti_piani_aba[$index][] = $this->getAbaPlanTherapyForBatch($worksheet, $rowIndex, $temp_patient, $aba_protocol_number);
             } elseif ($type === 'RIA') {
                 $protocol = $worksheet->getCell('A' . $rowIndex)->getValue();
                 $district = $worksheet->getCell('O' . $rowIndex)->getValue();
@@ -359,7 +367,7 @@ class ImportController extends Controller
         foreach ($aba_plans as $protocol_plans) {
             $flat_aba_plans[] = $protocol_plans;
         }
-        
+
         $transaction = Yii::$app->db->beginTransaction();
         try {
             Yii::$app->db->createCommand()->batchInsert(
@@ -368,11 +376,11 @@ class ImportController extends Controller
                 $flat_ria_plans
             )->execute();
 
-            // Yii::$app->db->createCommand()->batchInsert(
-            //     'therapeutic_plans',
-            //     ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number'],
-            //     $flat_aba_plans
-            // )->execute();
+            Yii::$app->db->createCommand()->batchInsert(
+                'therapeutic_plans',
+                ['patient_id', 'start_date', 'duration_days', 'created_by', 'regime_id', 'approval_date', 'protocol_number', 'status', 'district_id'],
+                $flat_aba_plans
+            )->execute();
 
             $transaction->commit();
         } catch (\Exception $e) {
@@ -385,8 +393,20 @@ class ImportController extends Controller
             $trattamenti_piani_ria_flat = array_merge($trattamenti_piani_ria_flat, $this->getPlanTherapyFlatForBatch($protocol_plans));
         }
 
-        $this->stdout("Trattamenti RIA piani: " . count($trattamenti_piani_ria_flat) . "\n");
-        $this->stdout("Primo trattamento RIA piano: " . json_encode($trattamenti_piani_ria_flat[0]) . "\n\n");
+        $trattamenti_piani_aba_flat = [];
+        foreach ($trattamenti_piani_aba as $protocol_plans) {
+            $trattamenti_piani_aba_flat = array_merge($trattamenti_piani_aba_flat, $this->getAbaPlanTherapyFlatForBatch($protocol_plans));
+        }
+
+        if (count($trattamenti_piani_ria_flat) > 0) {
+            $this->stdout("Trattamenti RIA piani: " . count($trattamenti_piani_ria_flat) . "\n");
+            $this->stdout("Primo trattamento RIA piano: " . json_encode($trattamenti_piani_ria_flat[0]) . "\n\n");
+        }
+
+        if (count($trattamenti_piani_aba_flat) > 0) {
+            $this->stdout("Trattamenti ABA piani: " . count($trattamenti_piani_aba_flat) . "\n");
+            $this->stdout("Primo trattamento ABA piano: " . json_encode($trattamenti_piani_aba_flat[0]) . "\n\n");
+        }
 
         Yii::$app->db->createCommand()->batchInsert(
             'plan_therapies',
@@ -394,9 +414,15 @@ class ImportController extends Controller
             $trattamenti_piani_ria_flat
         )->execute();
 
+        Yii::$app->db->createCommand()->batchInsert(
+            'plan_therapies',
+            ['therapeutic_plan_id', 'treatment_type_id', 'weekly_hours', 'is_group', 'setting_id'],
+            $trattamenti_piani_aba_flat
+        )->execute();
+
         $this->stdout("End inserting RIA plans - " . date('H:i:s') . "\n");
         $this->stdout("Errors: " . count($this->errors) . "\n");
-        $this->stdout("Errors: " . implode(', ', $this->errors) . "\n");
+        $this->stdout("Errors: " . implode("\n", $this->errors) . "\n");
     }
 
     private function getPlanTherapyFlatForBatch($trattamenti_piani_ria_flat)
@@ -416,12 +442,29 @@ class ImportController extends Controller
         return $trattamenti_piani_ria_flat_flat;
     }
 
+    private function getAbaPlanTherapyFlatForBatch($trattamenti_piani_ria_flat)
+    {
+        $trattamenti_piani_ria_flat_flat = [];
+
+        foreach ($trattamenti_piani_ria_flat as $trattamento) {
+            $temp = [
+                $this->getPlanIdFromProtocolNumberDistrict($trattamento['protocol_number'], $trattamento['district_id']),
+                $trattamento['treatment_type_id'],
+                $trattamento['weekly_hours'],
+                $trattamento['is_group'],
+                $trattamento['setting_id']
+            ];
+            $trattamenti_piani_ria_flat_flat[] = $temp;
+        }
+        return $trattamenti_piani_ria_flat_flat;
+    }
+
     private function getPlanIdFromProtocolNumberDistrict($protocol_number, $district_id)
     {
         $plan = TherapeuticPlan::find()
-        ->where(['protocol_number' => $protocol_number, 'district_id' => $district_id])
-        ->one();
-        if($plan){
+            ->where(['protocol_number' => $protocol_number, 'district_id' => $district_id])
+            ->one();
+        if ($plan) {
             return $plan->id;
         }
         $this->stdout("Piano non trovato: " . $protocol_number . " " . $district_id . "\n", Console::FG_RED);
@@ -470,10 +513,13 @@ class ImportController extends Controller
     {
         switch ($terapy_name) {
             case 'SUPERVISOR':
+            case 'ABA SP':
                 return 25;
             case 'PSICOTERAPIA FAMIL.':
+            case 'ABA PT':
                 return 24;
             case 'RBT':
+            case 'ABA RBT':
                 return 26;
             case 'LOGOPEDIA':
                 return 13;
@@ -522,6 +568,23 @@ class ImportController extends Controller
         return $plan_therapy_data;
     }
 
+    private function getAbaPlanTherapyForBatch($worksheet, $rowIndex, $patient, $aba_protocol_number)
+    {
+        $terapia_id = $this->getTerapia($worksheet->getCell('S' . $rowIndex)->getValue());
+        
+        $plan_therapy_data = [
+            'therapeutic_plan_id' => $this->getPlanIdFromPatient($patient->id),
+            'treatment_type_id' => $terapia_id,
+            'weekly_hours' => $worksheet->getCell('T' . $rowIndex)->getValue(),
+            'is_group' => 0,
+            'setting_id' => 1,
+            'protocol_number' => $aba_protocol_number,
+            'district_id' => $this->checkDistrict($worksheet->getCell('M' . $rowIndex)->getValue()),
+        ];
+        
+        return $plan_therapy_data;
+    }
+
 
     /**
      * Get plan id from patient id
@@ -531,9 +594,9 @@ class ImportController extends Controller
     private function getPlanIdFromPatient($id)
     {
         $plan = TherapeuticPlan::find()
-        ->where(['patient_id' => $id])
-        ->one();
-        if($plan){
+            ->where(['patient_id' => $id])
+            ->one();
+        if ($plan) {
             return $plan->id;
         }
         return null;
@@ -551,7 +614,7 @@ class ImportController extends Controller
         $end = $this->formatDate($worksheet->getCell('D' . $rowIndex)->getValue());
         $duration = $this->getDays($start, $end);
         $approval_date = $this->formatDate($worksheet->getCell('B' . $rowIndex)->getValue());
-        $status = $this->getPlanStatus($start,$end);
+        $status = $this->getPlanStatus($start, $end);
         $district = $this->checkDistrict($worksheet->getCell('O' . $rowIndex)->getValue());
 
         $plan_data = [
@@ -570,16 +633,41 @@ class ImportController extends Controller
         return $plan_data;
     }
 
+    private function getAbaPlanDataForBatch($worksheet, $rowIndex, $patient, $aba_protocol_number)
+    {
+        $start = $this->formatDate($worksheet->getCell('C' . $rowIndex)->getValue());
+        $end = $this->formatDate($worksheet->getCell('D' . $rowIndex)->getValue());
+        $duration = $this->getDays($start, $end);
+        $approval_date = $this->formatDate($worksheet->getCell('A' . $rowIndex)->getValue());
+        $status = $this->getPlanStatus($start, $end);
+        $district = $this->checkDistrict($worksheet->getCell('M' . $rowIndex)->getValue());
+
+        $plan_data = [
+            $patient->id, // paziente
+            $start, //start
+            $duration, // duration
+            // $end, //end viene calcolato in automatico da mysql
+            1, // created_by
+            $this->getRegimeId($worksheet->getCell('R' . $rowIndex)->getValue()), // regime_id
+            $approval_date, // approval_date
+            $aba_protocol_number, // protocol_number
+            $status, // status
+            $district, // district_id
+        ];
+
+        return $plan_data;
+    }
+
     private function getPlanStatus($start, $end)
     {
         $status = 'draft';
-        if($start > date('Y-m-d')){
+        if ($start > date('Y-m-d')) {
             $status = 'active';
         }
-        if($start <= date('Y-m-d') && $end >= date('Y-m-d')){
+        if ($start <= date('Y-m-d') && $end >= date('Y-m-d')) {
             $status = 'active';
         }
-        if($end < date('Y-m-d')){
+        if ($end < date('Y-m-d')) {
             $status = 'expired';
         }
         return $status;
@@ -870,7 +958,7 @@ class ImportController extends Controller
     public $districts = [];
     private function checkDistrict($value)
     {
-        if(isset($this->districts[$value])){
+        if (isset($this->districts[$value])) {
             $district_id = $this->districts[$value];
             return $district_id;
         }
@@ -897,6 +985,9 @@ class ImportController extends Controller
                 $district->name = $value;
                 $district->asl_reference = strpos($value, 'SALERNO') !== false ? 'Salerno' : 'Napoli';
                 if (!$district->save()) {
+                    $this->stdout("nuovo distretto: " . $value . "\n");
+                    $this->stdout("numero: " . $numero . "\n");
+                    $this->stdout("asl_reference: " . $district->asl_reference . "\n");
                     $this->stdout("Errore nel salvare il distretto: " . implode(', ', $district->getFirstErrors()) . "\n");
                 }
                 $district_id = $district->id;
