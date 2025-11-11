@@ -54,17 +54,6 @@ const PatientHomeScreen = () => {
       }
       setError(null);
 
-      console.log(
-        '🔄 Caricamento prossimi appuntamenti per paziente:',
-        currentPatient.id,
-      );
-      console.log(
-        '🌐 URL CHIAMATO: https://app-cgm.badil.it/api/calendar/patient-upcoming-appointments',
-      );
-      console.log('📋 PARAMETRI:', {
-        patient_id: currentPatient.id,
-        limit: 3,
-      });
       const response = await getPatientUpcomingAppointments(
         currentPatient.id,
         3,
