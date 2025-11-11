@@ -6,6 +6,7 @@ return [
     'senderName' => 'TherapyCRM',
     'user.passwordResetTokenExpire' => 3600,
     'user.passwordMinLength' => 8,
+    'user.passwordMaxLength' => 20,
     'frontendUrl' => 'http://localhost/TherapyCRM/frontend/web',
     // Configurazione Activity Log
     'activityLog' => [

@@ -34,7 +34,8 @@ class SignupForm extends Model
             ['email', 'unique', 'targetClass' => '\common\models\User', 'message' => 'This email address has already been taken.'],
 
             ['password', 'required'],
-            ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength']],
+            ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength'], 'max' => Yii::$app->params['user.passwordMaxLength']],
+            ['password', 'match', 'pattern' => '/^.*(?=.*\d)(?=\S*[\W])(?=.*[a-z])(?=.*[A-Z]).*$/', 'message' => 'La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale'],
         ];
     }
 

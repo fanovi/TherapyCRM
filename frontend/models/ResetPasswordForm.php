@@ -44,8 +44,8 @@ class ResetPasswordForm extends Model
     {
         return [
             ['password', 'required'],
-            ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength']],
-            ['password', 'match', 'pattern' => '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/', 'message' => 'La password deve contenere almeno una lettera maiuscola, una minuscola, un numero e un carattere speciale.'],
+            ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength'], 'max' => Yii::$app->params['user.passwordMaxLength']],
+            ['password', 'match', 'pattern' => '/^.*(?=.*\d)(?=\S*[\W])(?=.*[a-z])(?=.*[A-Z]).*$/', 'message' => 'La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale'],
             ['password_repeat', 'required'],
             ['password_repeat', 'compare', 'compareAttribute' => 'password', 'message' => 'Le password non coincidono.'],
         ];

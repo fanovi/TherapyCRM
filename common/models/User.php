@@ -102,7 +102,8 @@ class User extends ActiveRecord implements IdentityInterface
                 return $model->email;
             }],
             [['password'], 'required', 'on' => 'create', 'message' => 'La password è obbligatoria.'],
-            [['password'], 'string', 'min' => 6, 'message' => 'La password deve contenere almeno 6 caratteri.'],
+            ['password', 'string', 'min' => Yii::$app->params['user.passwordMinLength'], 'max' => Yii::$app->params['user.passwordMaxLength']],
+            ['password', 'match', 'pattern' => '/^.*(?=.*\d)(?=\S*[\W])(?=.*[a-z])(?=.*[A-Z]).*$/', 'message' => 'La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale'],
             [['password_repeat'], 'required', 'on' => 'create', 'message' => 'La conferma password è obbligatoria.'],
             [['password_repeat'], 'compare', 'compareAttribute' => 'password', 'message' => 'Le password devono coincidere.'],
         ];
