@@ -23,10 +23,10 @@ class EmailController extends Controller
         try {
             Console::output('Invio email a: vito.fasano@badil.it');
             Console::output('Da: ' . Yii::$app->params['senderEmail'] . ' - ' . Yii::$app->params['senderName']);
-            
+
             $result = Yii::$app->mailer->compose()
                 ->setTo('vito.fasano@badil.it')
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setFrom(Yii::$app->params['senderEmail'])
                 ->setSubject('Test email')
                 ->setTextBody('Test email body')
                 ->send();
