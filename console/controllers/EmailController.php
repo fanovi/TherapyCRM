@@ -24,5 +24,11 @@ class EmailController extends Controller {
         ->setSubject('Test email')
         ->setTextBody('Test email body')
         ->send();
+        if ($email_sended) {
+            Console::output('Email sended');
+        } else {
+            Console::output('Email not sended');
+        }
+        return ExitCode::OK;
     }
 }
