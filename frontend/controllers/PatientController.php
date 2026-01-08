@@ -13,6 +13,8 @@ use common\models\Provincia;
 use common\models\User;
 use common\models\UserProfile;
 use frontend\models\PatientSearch;
+use frontend\models\AccountPatientSearch;
+use frontend\models\AccountSearch;
 use yii\data\ActiveDataProvider;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -53,6 +55,9 @@ class PatientController extends Controller
                     'generate-fiscal-code' => ['POST'],
                     'load-comuni' => ['GET'],
                     'get-age' => ['GET'],
+                    'link-patient' => ['POST'],
+                    'unlink-patient' => ['POST'],
+                    'search-patients' => ['GET'],
                 ],
             ],
         ];
@@ -74,6 +79,181 @@ class PatientController extends Controller
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
+    }
+
+    /**
+     * Lists all patient family accounts with their linked patients
+     */
+    public function actionAccounts()
+    {
+        if (!Yii::$app->user->can('create_patient')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare gli account pazienti.');
+        }
+
+        $searchModel = new AccountSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('accounts', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Links a patient to an account via AJAX
+     */
+    public function actionLinkPatient()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if (!Yii::$app->user->can('create_patient')) {
+            return ['success' => false, 'error' => 'Non hai i permessi.'];
+        }
+
+        $userId = Yii::$app->request->post('user_id');
+        $patientId = Yii::$app->request->post('patient_id');
+        $relationshipType = Yii::$app->request->post('relationship_type', 'other');
+        $hasParentalAuthority = Yii::$app->request->post('has_parental_authority', 0);
+
+        if (!$userId || !$patientId) {
+            return ['success' => false, 'error' => 'Parametri mancanti.'];
+        }
+
+        // Check if link already exists
+        $existing = AccountPatient::findOne(['user_id' => $userId, 'patient_id' => $patientId]);
+        if ($existing) {
+            return ['success' => false, 'error' => 'Questo paziente è già collegato a questo account.'];
+        }
+
+        $accountPatient = new AccountPatient();
+        $accountPatient->user_id = $userId;
+        $accountPatient->patient_id = $patientId;
+        $accountPatient->relationship_type = $relationshipType;
+        $accountPatient->has_parental_authority = $hasParentalAuthority;
+
+        if ($accountPatient->save()) {
+            $patient = Patient::findOne($patientId);
+            return [
+                'success' => true,
+                'message' => 'Paziente collegato con successo.',
+                'patient' => [
+                    'id' => $patient->id,
+                    'name' => $patient->last_name . ' ' . $patient->first_name,
+                ]
+            ];
+        }
+
+        return ['success' => false, 'error' => 'Errore nel collegamento: ' . implode(', ', $accountPatient->getFirstErrors())];
+    }
+
+    /**
+     * Unlinks a patient from an account via AJAX
+     */
+    public function actionUnlinkPatient()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if (!Yii::$app->user->can('create_patient')) {
+            return ['success' => false, 'error' => 'Non hai i permessi.'];
+        }
+
+        $userId = Yii::$app->request->post('user_id');
+        $patientId = Yii::$app->request->post('patient_id');
+
+        if (!$userId || !$patientId) {
+            return ['success' => false, 'error' => 'Parametri mancanti.'];
+        }
+
+        $accountPatient = AccountPatient::findOne(['user_id' => $userId, 'patient_id' => $patientId]);
+        if (!$accountPatient) {
+            return ['success' => false, 'error' => 'Collegamento non trovato.'];
+        }
+
+        if ($accountPatient->delete()) {
+            return ['success' => true, 'message' => 'Paziente scollegato con successo.'];
+        }
+
+        return ['success' => false, 'error' => 'Errore nella rimozione del collegamento.'];
+    }
+
+    /**
+     * Views a single account with linked patients
+     */
+    public function actionViewAccount($id)
+    {
+        if (!Yii::$app->user->can('create_patient')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare gli account.');
+        }
+
+        $user = User::find()
+            ->joinWith(['authAssignments'])
+            ->where(['users.id' => $id, 'auth_assignment.item_name' => 'patient_family'])
+            ->one();
+
+        if (!$user) {
+            throw new NotFoundHttpException('Account non trovato.');
+        }
+
+        $accountPatients = AccountPatient::find()
+            ->where(['user_id' => $id])
+            ->with(['patient'])
+            ->all();
+
+        return $this->render('view-account', [
+            'model' => $user,
+            'accountPatients' => $accountPatients,
+        ]);
+    }
+
+    /**
+     * Search patients for linking via AJAX
+     */
+    public function actionSearchPatients()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if (!Yii::$app->user->can('create_patient')) {
+            return ['results' => []];
+        }
+
+        $term = Yii::$app->request->get('term', '');
+        $userId = Yii::$app->request->get('user_id');
+
+        if (strlen($term) < 2) {
+            return ['results' => []];
+        }
+
+        // Get already linked patient IDs for this user
+        $linkedPatientIds = AccountPatient::find()
+            ->select('patient_id')
+            ->where(['user_id' => $userId])
+            ->column();
+
+        // Search patients not already linked
+        $query = Patient::find()
+            ->where(['or',
+                ['like', 'first_name', $term],
+                ['like', 'last_name', $term],
+                ['like', 'fiscal_code', $term],
+            ])
+            ->orderBy('last_name, first_name')
+            ->limit(10);
+
+        if (!empty($linkedPatientIds)) {
+            $query->andWhere(['not in', 'id', $linkedPatientIds]);
+        }
+
+        $patients = $query->all();
+
+        $results = [];
+        foreach ($patients as $patient) {
+            $results[] = [
+                'id' => $patient->id,
+                'text' => $patient->last_name . ' ' . $patient->first_name . ($patient->fiscal_code ? ' - ' . $patient->fiscal_code : ''),
+            ];
+        }
+
+        return ['results' => $results];
     }
 
     /**

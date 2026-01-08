@@ -20,7 +20,7 @@ $menuMappings = [
     'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
     'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
     'MyTherapists' => ['therapist/my-group'],
-    'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update'],
+    'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account'],
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
     'Absences' => ['absence/index', 'absence/create', 'absence/view', 'absence/update'],
@@ -81,7 +81,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
     <div
         class="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <!-- Sidebar Menu -->
-        <nav x-data="{selected: $persist('<?= getCurrentActiveMenu($currentRoute, $menuMappings) ?>')}">
+        <nav x-data="{selected: '<?= getCurrentActiveMenu($currentRoute, $menuMappings) ?>'}" x-init="selected = '<?= getCurrentActiveMenu($currentRoute, $menuMappings) ?>'">
             <!-- Menu Group -->
             <div>
                 <h3 class="mb-4 text-xs uppercase leading-[20px] text-gray-400">
@@ -207,6 +207,13 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                         href="<?= \yii\helpers\Url::to(['/patient/create']) ?>"
                                         class="menu-dropdown-item group <?= isSubmenuActive(['patient/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Nuovo Paziente
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/patient/accounts']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['patient/accounts', 'patient/view-account'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Account
                                     </a>
                                 </li>
                             </ul>
