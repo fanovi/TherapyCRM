@@ -1,8 +1,8 @@
 <?php
 return [
-    'adminEmail' => 'noreplay@sanlucacentromedico.it',
-    'supportEmail' => 'noreplay@sanlucacentromedico.it',
-    'senderEmail' => 'noreplay@sanlucacentromedico.it',
+    'adminEmail' => 'noreply@sanlucacentromedico.it',
+    'supportEmail' => 'noreply@sanlucacentromedico.it',
+    'senderEmail' => 'noreply@sanlucacentromedico.it',
     'senderName' => 'TherapyCRM',
     'user.passwordResetTokenExpire' => 3600,
     'user.passwordMinLength' => 8,
