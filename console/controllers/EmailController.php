@@ -11,9 +11,9 @@ use yii\db\Expression;
 use yii\helpers\Console;
 
 /**
- * Gestisce il completamento automatico degli appuntamenti
+ * Test email controller
  * 
- * @author Your Name
+ * @author Vito Fasano
  */
 class EmailController extends Controller
 {
@@ -21,26 +21,19 @@ class EmailController extends Controller
     public function actionTest()
     {
         try {
-            Console::output('Invio email a: vito.fasano@badil.it');
-            Console::output('Da: ' . Yii::$app->params['senderEmail'] . ' - ' . Yii::$app->params['senderName']);
-
-            $result = Yii::$app->mailer->compose()
-                ->setTo('vito.fasano@badil.it')
-                ->setFrom(Yii::$app->params['senderEmail'])
-                ->setSubject('Test email')
-                ->setTextBody('Test email body')
-                ->send();
-            if ($result) {
-                Console::output(':segno_spunta_bianco: Email inviata correttamente');
-            } else {
-                Console::output(':x: Email NON inviata (send() = false)');
-            }
-        } catch (TransportExceptionInterface $e) {
-            Console::error(':x: ERRORE SMTP');
-            Console::error($e->getMessage());
+            $message = Yii::$app->mailer->compose();
+            $message->setFrom('noreply@sanlucacentromedico.it');
+            $message->setTo('vito.fasano@badil.it');
+            $message->setSubject('SMTP ATOMIC TEST');
+            $message->setTextBody('Test body');
+            // :fuoco: FONDAMENTALE
+            $message->setEnvelopeFrom('noreply@sanlucacentromedico.it');
+            $sent = $message->send();
+            var_dump($sent);
         } catch (\Throwable $e) {
-            Console::error(':x: ERRORE GENERICO');
-            Console::error($e->getMessage());
+            echo "ERRORE:\n";
+            echo $e->getMessage() . PHP_EOL;
+            echo $e->getTraceAsString();
         }
         return ExitCode::OK;
     }
