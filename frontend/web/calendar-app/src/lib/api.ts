@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
+  private baseURL = "https://app.sanlucacentromedico.it/therapeutic-plan-manager";
 
   // Cache per i settings
   private settingsCache: { id: number; nome: string }[] | null = null;
