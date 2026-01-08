@@ -6,6 +6,7 @@ use Yii;
 use yii\console\Controller;
 use yii\console\ExitCode;
 use common\models\Appointment;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use yii\db\Expression;
 use yii\helpers\Console;
 
@@ -14,20 +15,29 @@ use yii\helpers\Console;
  * 
  * @author Your Name
  */
-class EmailController extends Controller {
+class EmailController extends Controller
+{
 
     public function actionTest()
     {
-        $email_sended = Yii::$app->mailer->compose()
-        ->setTo('vito.fasano@badil.it')
-        ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-        ->setSubject('Test email')
-        ->setTextBody('Test email body')
-        ->send();
-        if ($email_sended) {
-            Console::output('Email sended');
-        } else {
-            Console::output('Email not sended');
+        try {
+            $result = Yii::$app->mailer->compose()
+                ->setTo('vito.fasano@badil.it')
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setSubject('Test email')
+                ->setTextBody('Test email body')
+                ->send();
+            if ($result) {
+                Console::output(':segno_spunta_bianco: Email inviata correttamente');
+            } else {
+                Console::output(':x: Email NON inviata (send() = false)');
+            }
+        } catch (TransportExceptionInterface $e) {
+            Console::error(':x: ERRORE SMTP');
+            Console::error($e->getMessage());
+        } catch (\Throwable $e) {
+            Console::error(':x: ERRORE GENERICO');
+            Console::error($e->getMessage());
         }
         return ExitCode::OK;
     }
