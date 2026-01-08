@@ -1,8 +1,8 @@
 <?php
 return [
-    'adminEmail' => 'rispoli.mar2803@gmail.com',
-    'supportEmail' => 'rispoli.mar2803@gmail.com',
-    'senderEmail' => 'rispoli.mar2803@gmail.com',
+    'adminEmail' => 'noreplay@sanlucacentromedico.it',
+    'supportEmail' => 'noreplay@sanlucacentromedico.it',
+    'senderEmail' => 'noreplay@sanlucacentromedico.it',
     'senderName' => 'TherapyCRM',
     'user.passwordResetTokenExpire' => 3600,
     'user.passwordMinLength' => 8,
