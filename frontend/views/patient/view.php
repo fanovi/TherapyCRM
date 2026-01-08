@@ -176,6 +176,14 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                         'label' => 'Cognome',
                     ],
                     [
+                        'attribute' => 'gender',
+                        'label' => 'Sesso',
+                        'value' => function ($model) {
+                            $genderLabels = ['M' => 'Maschio', 'F' => 'Femmina', 'N' => 'Non specificato'];
+                            return $genderLabels[$model->gender] ?? 'Non specificato';
+                        }
+                    ],
+                    [
                         'attribute' => 'fiscal_code',
                         'label' => 'Codice Fiscale',
                         'value' => function ($model) {
