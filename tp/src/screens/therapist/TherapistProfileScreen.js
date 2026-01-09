@@ -51,17 +51,19 @@ const TherapistProfileScreen = () => {
                 Terapista
               </Text>
 
-              <View style={styles.chipContainer}>
-                <Chip
-                  icon="medical-bag"
-                  style={[
-                    styles.chip,
-                    {backgroundColor: theme.colors.primaryContainer},
-                  ]}
-                  textStyle={{color: theme.colors.onPrimaryContainer}}>
-                  Professionista Sanitario
-                </Chip>
-              </View>
+              {user?.specialization && (
+                <View style={styles.chipContainer}>
+                  <Chip
+                    icon="medical-bag"
+                    style={[
+                      styles.chip,
+                      {backgroundColor: theme.colors.primaryContainer},
+                    ]}
+                    textStyle={{color: theme.colors.onPrimaryContainer}}>
+                    {user.specialization}
+                  </Chip>
+                </View>
+              )}
             </View>
           </Card.Content>
         </Card>
@@ -137,69 +139,6 @@ const TherapistProfileScreen = () => {
                   <Text
                     style={[styles.infoValue, {color: theme.colors.onSurface}]}>
                     {user.specialization}
-                  </Text>
-                </View>
-              </>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Informazioni Account */}
-        <Card style={styles.infoCard}>
-          <Card.Content>
-            <Text
-              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-              Informazioni Account
-            </Text>
-
-            <View style={styles.infoRow}>
-              <Text
-                style={[
-                  styles.infoLabel,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                Ruolo
-              </Text>
-              <Text style={[styles.infoValue, {color: theme.colors.onSurface}]}>
-                {user?.role || 'Terapista'}
-              </Text>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <Text
-                style={[
-                  styles.infoLabel,
-                  {color: theme.colors.onSurfaceVariant},
-                ]}>
-                Stato Account
-              </Text>
-              <Chip
-                icon="check-circle"
-                style={[
-                  styles.statusChip,
-                  {backgroundColor: theme.colors.surfaceVariant},
-                ]}
-                textStyle={{color: theme.colors.onSurfaceVariant}}>
-                Attivo
-              </Chip>
-            </View>
-
-            {user?.lastLogin && (
-              <>
-                <Divider style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text
-                    style={[
-                      styles.infoLabel,
-                      {color: theme.colors.onSurfaceVariant},
-                    ]}>
-                    Ultimo Accesso
-                  </Text>
-                  <Text
-                    style={[styles.infoValue, {color: theme.colors.onSurface}]}>
-                    {new Date(user.lastLogin).toLocaleDateString('it-IT')}
                   </Text>
                 </View>
               </>
@@ -299,9 +238,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 8,
-  },
-  statusChip: {
-    borderRadius: 16,
   },
   actionsCard: {
     marginBottom: 16,

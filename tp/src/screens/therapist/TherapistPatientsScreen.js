@@ -223,9 +223,6 @@ const TherapistPatientsScreen = () => {
             style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>
             Nessun paziente attivo al momento
           </Text>
-          <Button mode="contained" icon="account-plus" style={styles.addButton}>
-            Aggiungi Nuovo Paziente
-          </Button>
         </View>
       ) : (
         <FlatList
@@ -273,10 +270,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  addButton: {
-    borderRadius: 8,
   },
   listContainer: {
     padding: 16,
