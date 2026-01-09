@@ -1,4 +1,5 @@
 <?php
+
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -13,7 +14,7 @@ $this->params['breadcrumbs'][] = $this->title;
 $useIframe = true;  // Cambia a false per usare la versione integrata
 
 // Costruisci l'URL dell'iframe con i parametri come rotta React
-$iframeSrc = 'https://calendar.sanlucacentromedico.it/';
+$iframeSrc = 'https://calendar-cgm.badil.it/';
 if ($idTherapist) {
     $iframeSrc .= 'therapist/' . $idTherapist;
 } elseif ($idPatient) {
@@ -36,20 +37,20 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
-            
-            <?php if ($idPatient): ?>
+
+            <?php if ($idPatient) : ?>
                 <div style="display: none;" class="text-sm text-gray-500 dark:text-gray-400">
                     Vista Paziente: ID <?= Html::encode($idPatient) ?>
                 </div>
-            <?php elseif ($idTherapist): ?>
+            <?php elseif ($idTherapist) : ?>
                 <div style="display: none;" class="text-sm text-gray-500 dark:text-gray-400">
                     Vista Terapista: ID <?= Html::encode($idTherapist) ?>
                 </div>
             <?php endif; ?>
-            
+
             <div style="display: none;" class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                 <?= $useIframe ? 'Modalità Iframe (Dev)' : 'Modalità Integrata (Prod)' ?>
-                <?php if ($useIframe): ?>
+                <?php if ($useIframe) : ?>
                     <br>URL: <?= Html::encode($iframeSrc) ?>
                 <?php endif; ?>
             </div>
@@ -67,24 +68,19 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
                 Pianifica e gestisci gli appuntamenti terapeutici.
             </p>
         </div> -->
-        
+
         <!-- React App Container -->
         <div class="border-t border-gray-100 dark:border-gray-800">
-            <?php if ($useIframe): ?>
+            <?php if ($useIframe) : ?>
                 <!-- Modalità Iframe per sviluppo -->
                 <div class="calendar-iframe-wrapper">
-                    <iframe 
-                        src="<?= Html::encode($iframeSrc) ?>" 
-                        frameborder="0" 
-                        style="width: 125%; height: 100vh; min-height: 600px;transform:scale(0.8);transform-origin: top left;"
-                        title="Calendar App"
-                        allowfullscreen>
-                        <p>Il tuo browser non supporta gli iframe. 
-                           <a href="<?= Html::encode($iframeSrc) ?>" target="_blank">Apri l'app in una nuova finestra</a>
+                    <iframe src="<?= Html::encode($iframeSrc) ?>" frameborder="0" style="width: 125%; height: 100vh; min-height: 600px;transform:scale(0.8);transform-origin: top left;" title="Calendar App" allowfullscreen>
+                        <p>Il tuo browser non supporta gli iframe.
+                            <a href="<?= Html::encode($iframeSrc) ?>" target="_blank">Apri l'app in una nuova finestra</a>
                         </p>
                     </iframe>
                 </div>
-            <?php else: ?>
+            <?php else : ?>
                 <!-- Modalità integrata per produzione -->
                 <div class="calendar-app-wrapper">
                     <div id="root" data-query-params="<?= Html::encode($queryString) ?>"></div>
@@ -95,7 +91,7 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
     <!-- Content End -->
 </div>
 
-<?php if (!$useIframe): ?>
+<?php if (!$useIframe) : ?>
     <?php
     // Registra il CSS di React isolato e il JS solo se non usiamo iframe
     $this->registerCssFile('@web/calendar-app/dist/style.css', [
@@ -113,7 +109,7 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
         JS;
     $this->registerJs($script, \yii\web\View::POS_END);
     ?>
-<?php else: ?>
+<?php else : ?>
     <?php
     // Script per comunicazione con l'iframe se necessario
     $script = <<<JS
@@ -145,25 +141,25 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
 <?php endif; ?>
 
 <style>
-.calendar-iframe-wrapper {
-    position: relative;
-    overflow: hidden;
-}
+    .calendar-iframe-wrapper {
+        position: relative;
+        overflow: hidden;
+    }
 
-.calendar-iframe-wrapper iframe {
-    border: none;
-    border-radius: 0 0 1rem 1rem;
-}
+    .calendar-iframe-wrapper iframe {
+        border: none;
+        border-radius: 0 0 1rem 1rem;
+    }
 
-/* Stili per migliorare l'integrazione dell'iframe */
-.calendar-iframe-wrapper::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
-    z-index: 1;
-}
-</style> 
+    /* Stili per migliorare l'integrazione dell'iframe */
+    .calendar-iframe-wrapper::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+        z-index: 1;
+    }
+</style>
