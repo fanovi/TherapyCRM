@@ -6,6 +6,7 @@ import {ActivityIndicator, View} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {checkTokenValidity} from '../api/auth';
 import {loginSuccess, logoutUser} from '../slices/authSlice';
+import {setPatientsFromLogin} from '../slices/patientSlice';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import AuthNavigator from './AuthNavigator';
 import PatientNavigator from './PatientNavigator';
@@ -108,19 +109,40 @@ const AppNavigator = () => {
       }
 
       if (user) {
+        // Usa sempre i dati dei pazienti dal backend se disponibili (più aggiornati)
+        const patientsData = result.user?.patients || user.patients || [];
+
+        // Aggiorna user con i pazienti dal backend
+        const updatedUser = {
+          ...user,
+          patients: patientsData,
+        };
+
         console.log('👤 Final user data for session restore:', {
-          email: user.email,
-          role: user.user_type || user.role,
+          email: updatedUser.email,
+          role: updatedUser.user_type || updatedUser.role,
+          patients: patientsData.length,
         });
 
         // Ripristina la sessione utente
         dispatch(
           loginSuccess({
             token,
-            user,
+            user: updatedUser,
             requiresPasswordChange: false,
           }),
         );
+
+        // Ripristina anche i pazienti se presenti
+        if (patientsData.length > 0) {
+          console.log('👥 Restoring patients:', patientsData.length);
+          console.log('👥 First patient data:', JSON.stringify(patientsData[0], null, 2));
+          dispatch(setPatientsFromLogin(patientsData));
+        }
+
+        // Aggiorna anche l'AsyncStorage con i dati utente aggiornati
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+
         console.log('✅ Session restored successfully');
       } else {
         console.log('❌ Dati utente mancanti -> Login');

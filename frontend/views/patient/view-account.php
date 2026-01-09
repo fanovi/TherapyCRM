@@ -21,6 +21,7 @@ $relationshipLabels = AccountPatient::getRelationshipLabels();
 $this->registerJsVar('linkPatientUrl', Url::to(['patient/link-patient']));
 $this->registerJsVar('unlinkPatientUrl', Url::to(['patient/unlink-patient']));
 $this->registerJsVar('searchPatientsUrl', Url::to(['patient/search-patients']));
+$this->registerJsVar('updateAccountUrl', Url::to(['patient/update-account']));
 $this->registerJsVar('currentUserId', $model->id);
 ?>
 
@@ -60,12 +61,25 @@ $this->registerJsVar('currentUserId', $model->id);
     <!-- Dati Account -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] mb-6">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Informazioni Account
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Dati dell'account utente.
-            </p>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                        Informazioni Account
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Dati dell'account utente.
+                    </p>
+                </div>
+                <?php if (Yii::$app->user->can('create_patient')): ?>
+                    <button type="button" id="editAccountBtn"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        Modifica
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
 
         <div class="border-t border-gray-100 dark:border-gray-800">
@@ -94,6 +108,18 @@ $this->registerJsVar('currentUserId', $model->id);
                         'label' => 'Codice Fiscale',
                         'value' => function ($model) {
                             return $model->profile && $model->profile->fiscal_code ? $model->profile->fiscal_code : '-';
+                        }
+                    ],
+                    [
+                        'label' => 'Telefono',
+                        'value' => function ($model) {
+                            return $model->profile && $model->profile->phone ? $model->profile->phone : '-';
+                        }
+                    ],
+                    [
+                        'label' => 'Indirizzo',
+                        'value' => function ($model) {
+                            return $model->profile && $model->profile->address ? $model->profile->address : '-';
                         }
                     ],
                     [
@@ -231,6 +257,81 @@ $this->registerJsVar('currentUserId', $model->id);
     </div>
 </div>
 
+<!-- Modal Modifica Account -->
+<div id="editAccountModal" class="fixed inset-0 z-99999 hidden overflow-y-auto">
+    <!-- Background overlay -->
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity" id="editModalOverlay"></div>
+
+    <!-- Modal panel centered -->
+    <div class="flex min-h-full items-center justify-center p-4">
+        <div class="relative w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-xl transition-all dark:bg-gray-800">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                    Modifica Dati Account
+                </h3>
+                <button type="button" class="text-gray-400 hover:text-gray-500" id="closeEditModalBtn">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="editAccountForm">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome</label>
+                        <input type="text" name="first_name" id="editFirstName"
+                               value="<?= Html::encode($model->profile ? $model->profile->first_name : '') ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cognome</label>
+                        <input type="text" name="last_name" id="editLastName"
+                               value="<?= Html::encode($model->profile ? $model->profile->last_name : '') ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email" id="editEmail"
+                               value="<?= Html::encode($model->email) ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Codice Fiscale</label>
+                        <input type="text" name="fiscal_code" id="editFiscalCode"
+                               value="<?= Html::encode($model->profile ? $model->profile->fiscal_code : '') ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase"
+                               style="text-transform: uppercase;">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefono</label>
+                        <input type="text" name="phone" id="editPhone"
+                               value="<?= Html::encode($model->profile ? $model->profile->phone : '') ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Indirizzo</label>
+                        <input type="text" name="address" id="editAddress"
+                               value="<?= Html::encode($model->profile ? $model->profile->address : '') ?>"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" id="cancelEditBtn"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+                        Annulla
+                    </button>
+                    <button type="submit" id="submitEditBtn"
+                            class="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600">
+                        Salva Modifiche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Aggiungi Paziente -->
 <div id="addPatientModal" class="fixed inset-0 z-99999 hidden overflow-y-auto">
     <!-- Background overlay -->
@@ -312,6 +413,83 @@ $this->registerJsVar('currentUserId', $model->id);
 
 <?php
 $js = <<<JS
+// Edit Account Modal handling
+const editModal = document.getElementById('editAccountModal');
+const editModalOverlay = document.getElementById('editModalOverlay');
+const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const editAccountBtn = document.getElementById('editAccountBtn');
+
+function openEditModal() {
+    editModal.classList.remove('hidden');
+}
+
+function closeEditModal() {
+    editModal.classList.add('hidden');
+}
+
+if (editAccountBtn) {
+    editAccountBtn.addEventListener('click', openEditModal);
+}
+if (closeEditModalBtn) {
+    closeEditModalBtn.addEventListener('click', closeEditModal);
+}
+if (cancelEditBtn) {
+    cancelEditBtn.addEventListener('click', closeEditModal);
+}
+if (editModalOverlay) {
+    editModalOverlay.addEventListener('click', closeEditModal);
+}
+
+// Uppercase fiscal code
+const editFiscalCodeInput = document.getElementById('editFiscalCode');
+if (editFiscalCodeInput) {
+    editFiscalCodeInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+}
+
+// Edit Account Form submission
+document.getElementById('editAccountForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById('submitEditBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Salvataggio...';
+
+    const formData = new FormData();
+    formData.append('user_id', currentUserId);
+    formData.append('first_name', document.getElementById('editFirstName').value);
+    formData.append('last_name', document.getElementById('editLastName').value);
+    formData.append('email', document.getElementById('editEmail').value);
+    formData.append('fiscal_code', document.getElementById('editFiscalCode').value);
+    formData.append('phone', document.getElementById('editPhone').value);
+    formData.append('address', document.getElementById('editAddress').value);
+    formData.append(yii.getCsrfParam(), yii.getCsrfToken());
+
+    fetch(updateAccountUrl, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeEditModal();
+            location.reload();
+        } else {
+            alert(data.error || 'Errore nel salvataggio');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Salva Modifiche';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Errore di comunicazione con il server');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Salva Modifiche';
+    });
+});
+
 // Modal handling
 const modal = document.getElementById('addPatientModal');
 const modalOverlay = document.getElementById('modalOverlay');

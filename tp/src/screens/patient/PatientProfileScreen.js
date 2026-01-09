@@ -29,6 +29,21 @@ const PatientProfileScreen = () => {
   // Debug dettagliato usando utility
   debugUserData(user, 'PatientProfileScreen User Debug');
 
+  // Debug currentPatient
+  console.log('🔍 === PATIENT PROFILE DEBUG ===');
+  console.log('👤 user object:', JSON.stringify(user, null, 2));
+  console.log('👥 patients array:', JSON.stringify(patients, null, 2));
+  console.log('🎯 currentPatient:', JSON.stringify(currentPatient, null, 2));
+  if (currentPatient) {
+    console.log('📋 currentPatient fields:');
+    console.log('   - patient_name:', currentPatient.patient_name);
+    console.log('   - birth_date:', currentPatient.birth_date);
+    console.log('   - fiscal_code:', currentPatient.fiscal_code);
+    console.log('   - gender:', currentPatient.gender);
+    console.log('   - phone_number:', currentPatient.phone_number);
+    console.log('   - full_residence_address:', currentPatient.full_residence_address);
+  }
+
   // Debug anche AsyncStorage
   const checkAsyncStorage = async () => {
     try {
@@ -64,34 +79,127 @@ const PatientProfileScreen = () => {
     }
   };
 
+  const getRelationshipLabel = relationship => {
+    const labels = {
+      self: 'Se stesso',
+      parent: 'Genitore',
+      tutor: 'Tutore',
+      other: 'Altro',
+    };
+    return labels[relationship] || relationship;
+  };
+
   return (
     <ScreenTemplate title="Profilo">
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Sezione Avatar e Info Principali */}
-        <Card style={styles.profileCard}>
-          <Card.Content style={styles.profileContent}>
-            <View style={styles.avatarSection}>
-              <Avatar.Text
-                size={80}
-                label={getUserInitials(getUserDisplayName(user))}
-                style={[styles.avatar, {backgroundColor: theme.colors.primary}]}
-              />
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{getUserDisplayName(user)}</Text>
-                <Text style={styles.userEmail}>
-                  {user?.email || 'Email non disponibile'}
-                </Text>
-                <Text style={styles.userRole}>{getUserRole(user)}</Text>
+        {/* Sezione Paziente Selezionato */}
+        {currentPatient && (
+          <Card style={styles.patientCard}>
+            <Card.Content>
+              <View style={styles.patientHeader}>
+                <Avatar.Icon
+                  size={60}
+                  icon="account"
+                  style={[styles.patientAvatar, {backgroundColor: theme.colors.primary}]}
+                />
+                <View style={styles.patientHeaderInfo}>
+                  <Text style={styles.patientName}>
+                    {currentPatient.patient_name}
+                  </Text>
+                  <View style={styles.relationshipBadge}>
+                    <Text style={styles.relationshipText}>
+                      {getRelationshipLabel(currentPatient.relationship)}
+                    </Text>
+                  </View>
+                  {currentPatient.has_parental_authority && (
+                    <Text style={styles.parentalAuthority}>
+                      Autorità Genitoriale
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-          </Card.Content>
-        </Card>
 
-        {/* Sezione Dati Personali */}
+              <Divider style={styles.patientDivider} />
+
+              {/* Dati anagrafici del paziente */}
+              <View style={styles.patientDetails}>
+                {currentPatient.birth_date && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Data di Nascita:</Text>
+                    <Text style={styles.infoValue}>
+                      {formatDate(currentPatient.birth_date)}
+                      {currentPatient.age ? ` (${currentPatient.age} anni)` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {currentPatient.birth_location && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Luogo di Nascita:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.birth_location}</Text>
+                  </View>
+                )}
+
+                {currentPatient.gender && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Sesso:</Text>
+                    <Text style={styles.infoValue}>
+                      {currentPatient.gender === 'M' ? 'Maschio' : 'Femmina'}
+                    </Text>
+                  </View>
+                )}
+
+                {currentPatient.fiscal_code && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Codice Fiscale:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.fiscal_code}</Text>
+                  </View>
+                )}
+
+                {currentPatient.phone_number && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Telefono:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.phone_number}</Text>
+                  </View>
+                )}
+
+                {currentPatient.full_residence_address && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Indirizzo:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.full_residence_address}</Text>
+                  </View>
+                )}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Sezione Account Paziente */}
         <Card style={styles.sectionCard}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>Dati Personali</Text>
+            <View style={styles.sectionHeader}>
+              <Avatar.Icon
+                size={24}
+                icon="account-circle"
+                style={styles.sectionIcon}
+              />
+              <Text style={styles.sectionTitle}>Account Paziente</Text>
+            </View>
             <Divider style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nome:</Text>
+              <Text style={styles.infoValue}>
+                {getUserDisplayName(user)}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>
+                {user?.email || 'Non disponibile'}
+              </Text>
+            </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Codice Fiscale:</Text>
@@ -108,19 +216,6 @@ const PatientProfileScreen = () => {
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Data di Nascita:</Text>
-              <Text style={styles.infoValue}>
-                {formatDate(
-                  getUserField(
-                    user,
-                    ['dataNascita', 'data_nascita', 'birth_date'],
-                    null,
-                  ),
-                )}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Indirizzo:</Text>
               <Text style={styles.infoValue}>
                 {getUserField(user, ['indirizzo', 'address'])}
@@ -130,49 +225,52 @@ const PatientProfileScreen = () => {
         </Card>
 
         {/* Sezione Pazienti Associati */}
-        {patients && patients.length > 0 && (
+        {patients && patients.length > 1 && (
           <Card style={styles.sectionCard}>
             <Card.Content>
-              <Text style={styles.sectionTitle}>Pazienti Associati</Text>
+              <View style={styles.sectionHeader}>
+                <Avatar.Icon
+                  size={24}
+                  icon="account-group"
+                  style={styles.sectionIcon}
+                />
+                <Text style={styles.sectionTitle}>Pazienti Associati</Text>
+              </View>
               <Divider style={styles.divider} />
 
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
                   <Text style={styles.statNumber}>{patients.length}</Text>
-                  <Text style={styles.statLabel}>Totale Pazienti</Text>
+                  <Text style={styles.statLabel}>Totale</Text>
                 </View>
 
                 <View style={styles.statItem}>
                   <Text style={styles.statNumber}>
                     {patients.filter(p => p.has_parental_authority).length}
                   </Text>
-                  <Text style={styles.statLabel}>Con Autorità Parentale</Text>
+                  <Text style={styles.statLabel}>Con Autorità</Text>
                 </View>
               </View>
 
-              {currentPatient && (
-                <View style={styles.currentPatientInfo}>
-                  <Text style={styles.currentPatientLabel}>
-                    Paziente Attuale:
+              {patients.map((patient, index) => (
+                <View
+                  key={patient.patient_id}
+                  style={[
+                    styles.patientListItem,
+                    currentPatient?.patient_id === patient.patient_id &&
+                      styles.patientListItemActive,
+                  ]}>
+                  <Text style={styles.patientListName}>
+                    {patient.patient_name}
                   </Text>
-                  <Text style={styles.currentPatientName}>
-                    {currentPatient.patient_name}
-                  </Text>
-                  <Text style={styles.currentPatientRelation}>
-                    Relazione:{' '}
-                    {currentPatient.relationship === 'parent'
-                      ? 'Genitore'
-                      : currentPatient.relationship}
+                  <Text style={styles.patientListRelation}>
+                    {getRelationshipLabel(patient.relationship)}
                   </Text>
                 </View>
-              )}
+              ))}
             </Card.Content>
           </Card>
         )}
-
-        {/* Sezione Statistiche App */}
-
-        {/* Sezione Azioni */}
 
         {/* Pulsante Logout */}
         <View style={styles.logoutSection}>
@@ -195,48 +293,73 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  profileCard: {
+  // Sezione Paziente Selezionato
+  patientCard: {
     marginBottom: 16,
     borderRadius: 12,
-    elevation: 2,
+    elevation: 3,
+    backgroundColor: '#E3F2FD',
   },
-  profileContent: {
-    padding: 20,
-  },
-  avatarSection: {
+  patientHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
+  patientAvatar: {
     marginRight: 16,
   },
-  userInfo: {
+  patientHeaderInfo: {
     flex: 1,
   },
-  userName: {
+  patientName: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#1565C0',
     marginBottom: 4,
   },
-  userEmail: {
-    fontSize: 14,
-    color: '#666',
+  relationshipBadge: {
+    backgroundColor: '#1565C0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
     marginBottom: 4,
   },
-  userRole: {
+  relationshipText: {
     fontSize: 12,
-    color: '#999',
-    textTransform: 'uppercase',
+    color: '#fff',
+    fontWeight: '500',
   },
+  parentalAuthority: {
+    fontSize: 11,
+    color: '#1565C0',
+    fontStyle: 'italic',
+  },
+  patientDivider: {
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  patientDetails: {
+    marginTop: 4,
+  },
+  // Sezione Card
   sectionCard: {
     marginBottom: 16,
     borderRadius: 12,
     elevation: 2,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionIcon: {
+    backgroundColor: '#E0E0E0',
+    marginRight: 8,
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 12,
+    color: '#333',
   },
   divider: {
     marginBottom: 16,
@@ -246,6 +369,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    paddingVertical: 4,
   },
   infoLabel: {
     fontSize: 14,
@@ -257,11 +381,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 2,
     textAlign: 'right',
+    color: '#333',
   },
+  // Statistiche
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 16,
+    paddingVertical: 8,
   },
   statItem: {
     alignItems: 'center',
@@ -277,29 +404,32 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  currentPatientInfo: {
-    backgroundColor: '#E3F2FD',
-    padding: 12,
+  // Lista pazienti
+  patientListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#F5F5F5',
   },
-  currentPatientLabel: {
+  patientListItemActive: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  patientListName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  patientListRelation: {
     fontSize: 12,
-    color: '#1565C0',
-    marginBottom: 4,
+    color: '#666',
   },
-  currentPatientName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1565C0',
-    marginBottom: 2,
-  },
-  currentPatientRelation: {
-    fontSize: 12,
-    color: '#1565C0',
-  },
-  actionButton: {
-    marginBottom: 12,
-  },
+  // Logout
   logoutSection: {
     marginTop: 8,
     marginBottom: 32,

@@ -197,30 +197,42 @@ export const downloadRequestDocument = async requestId => {
 
 /**
  * Utility per ottenere il colore associato allo stato
- * Aggiornato per gli stati del backend
- * @param {string} status
+ * Supporta sia valori numerici (dal backend) che stringhe
+ * @param {string|number} status
  * @returns {string}
  */
 export const getStatusColor = status => {
   const colors = {
-    inviata: '#FFA726', // Arancione - corrisponde a "pending"
-    presa_in_carico: '#42A5F5', // Blu - corrisponde a "in_progress"
-    stampato: '#7986CB', // Indaco - documento stampato
-    consegnato: '#66BB6A', // Verde - corrisponde a "completed"
-    rifiutata: '#EF5350', // Rosso - corrisponde a "rejected"
-    annullata: '#BDBDBD', // Grigio - corrisponde a "cancelled"
+    // Valori numerici (come arrivano dal backend)
+    1: '#FFA726', // Inviata - Arancione
+    2: '#42A5F5', // Presa in carico - Blu
+    3: '#7986CB', // Stampato - Indaco
+    4: '#66BB6A', // Consegnato - Verde
+    // Valori stringa (per compatibilità)
+    inviata: '#FFA726',
+    presa_in_carico: '#42A5F5',
+    stampato: '#7986CB',
+    consegnato: '#66BB6A',
+    rifiutata: '#EF5350',
+    annullata: '#BDBDBD',
   };
   return colors[status] || '#9E9E9E';
 };
 
 /**
  * Utility per ottenere l'icona associata allo stato
- * Aggiornata per gli stati del backend
- * @param {string} status
+ * Supporta sia valori numerici (dal backend) che stringhe
+ * @param {string|number} status
  * @returns {string}
  */
 export const getStatusIcon = status => {
   const icons = {
+    // Valori numerici
+    1: 'clock-outline', // Inviata
+    2: 'progress-clock', // Presa in carico
+    3: 'printer', // Stampato
+    4: 'check-circle', // Consegnato
+    // Valori stringa
     inviata: 'clock-outline',
     presa_in_carico: 'progress-clock',
     stampato: 'printer',
@@ -233,12 +245,18 @@ export const getStatusIcon = status => {
 
 /**
  * Utility per ottenere il label italiano dello stato
- * Aggiornata per gli stati del backend
- * @param {string} status
+ * Supporta sia valori numerici (dal backend) che stringhe
+ * @param {string|number} status
  * @returns {string}
  */
 export const getStatusLabel = status => {
   const labels = {
+    // Valori numerici
+    1: 'Inviata',
+    2: 'In Lavorazione',
+    3: 'Stampato',
+    4: 'Consegnato',
+    // Valori stringa
     inviata: 'Inviata',
     presa_in_carico: 'In Lavorazione',
     stampato: 'Stampato',
@@ -246,16 +264,23 @@ export const getStatusLabel = status => {
     rifiutata: 'Rifiutata',
     annullata: 'Annullata',
   };
-  return labels[status] || status;
+  return labels[status] || `Stato: ${status}`;
 };
 
 /**
  * Mappa gli stati del backend agli stati del frontend per compatibilità
- * @param {string} backendStatus
+ * Supporta sia valori numerici che stringhe
+ * @param {string|number} backendStatus
  * @returns {string}
  */
 export const mapBackendStatusToFrontend = backendStatus => {
   const statusMap = {
+    // Valori numerici
+    1: 'pending', // Inviata
+    2: 'in_progress', // Presa in carico
+    3: 'in_progress', // Stampato
+    4: 'completed', // Consegnato
+    // Valori stringa
     inviata: 'pending',
     presa_in_carico: 'in_progress',
     stampato: 'in_progress',
@@ -267,34 +292,38 @@ export const mapBackendStatusToFrontend = backendStatus => {
 };
 
 /**
- * Mappa i filtri del frontend agli stati del backend
+ * Mappa i filtri del frontend agli stati del backend (valori numerici)
  * @param {string} frontendFilter
- * @returns {string|null}
+ * @returns {number|null}
  */
 export const mapFrontendFilterToBackend = frontendFilter => {
   const filterMap = {
     all: null,
-    pending: 'inviata',
-    in_progress: 'presa_in_carico',
-    completed: 'consegnato',
+    pending: 1, // STATUS_INVIATA
+    in_progress: 2, // STATUS_PRESA_IN_CARICO
+    completed: 4, // STATUS_CONSEGNATO
   };
   return filterMap[frontendFilter];
 };
 
 /**
  * Utility per determinare se una richiesta può essere annullata
- * @param {string} status
+ * Supporta sia valori numerici che stringhe
+ * @param {string|number} status
  * @returns {boolean}
  */
 export const canCancelRequest = status => {
-  return status === 'inviata'; // Solo le richieste appena inviate possono essere annullate
+  // STATUS_INVIATA = 1 o 'inviata'
+  return status === 1 || status === 'inviata';
 };
 
 /**
  * Utility per determinare se una richiesta ha un documento scaricabile
- * @param {string} status
+ * Supporta sia valori numerici che stringhe
+ * @param {string|number} status
  * @returns {boolean}
  */
 export const hasDownloadableDocument = status => {
-  return status === 'consegnato'; // Solo le richieste consegnate hanno documenti scaricabili
+  // STATUS_CONSEGNATO = 4 o 'consegnato'
+  return status === 4 || status === 'consegnato';
 };

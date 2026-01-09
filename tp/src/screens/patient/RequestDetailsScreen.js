@@ -125,6 +125,12 @@ const RequestDetailsScreen = ({navigation, route}) => {
 
   const getStatusMessage = status => {
     const messages = {
+      // Valori numerici (come arrivano dal backend)
+      1: 'La tua richiesta è stata ricevuta e sarà elaborata a breve.',
+      2: 'La richiesta è attualmente in elaborazione da parte del nostro staff.',
+      3: 'Il documento è stato stampato e sarà presto disponibile per il ritiro.',
+      4: 'La richiesta è stata completata. Il documento è disponibile.',
+      // Valori stringa (per compatibilità)
       inviata: 'La tua richiesta è stata ricevuta e sarà elaborata a breve.',
       presa_in_carico:
         'La richiesta è attualmente in elaborazione da parte del nostro staff.',
@@ -151,46 +157,47 @@ const RequestDetailsScreen = ({navigation, route}) => {
 
   const renderTimeline = () => {
     const timelineItems = [];
+    const status = request.status;
 
-    // Richiesta creata
+    // Richiesta creata (sempre mostrata)
     timelineItems.push({
-      status: 'inviata',
+      status: 1, // inviata
       label: 'Richiesta Inviata',
       date: request.created_at,
       description: 'La richiesta è stata inviata con successo',
       completed: true,
     });
 
-    // Presa in carico
+    // Presa in carico (status >= 2)
     if (
-      request.status === 'presa_in_carico' ||
-      request.status === 'stampato' ||
-      request.status === 'consegnato'
+      status === 2 || status === 'presa_in_carico' ||
+      status === 3 || status === 'stampato' ||
+      status === 4 || status === 'consegnato'
     ) {
       timelineItems.push({
-        status: 'presa_in_carico',
+        status: 2, // presa_in_carico
         label: 'Presa in Carico',
-        date: request.updated_at, // Approssimazione
+        date: request.updated_at,
         description: 'La richiesta è stata presa in carico dal nostro staff',
         completed: true,
       });
     }
 
-    // Stampato
-    if (request.status === 'stampato' || request.status === 'consegnato') {
+    // Stampato (status >= 3)
+    if (status === 3 || status === 'stampato' || status === 4 || status === 'consegnato') {
       timelineItems.push({
-        status: 'stampato',
+        status: 3, // stampato
         label: 'Documento Stampato',
-        date: request.updated_at, // Approssimazione
+        date: request.updated_at,
         description: 'Il documento è stato stampato e preparato',
         completed: true,
       });
     }
 
-    // Consegnato
-    if (request.status === 'consegnato') {
+    // Consegnato (status = 4)
+    if (status === 4 || status === 'consegnato') {
       timelineItems.push({
-        status: 'consegnato',
+        status: 4, // consegnato
         label: 'Documento Consegnato',
         date: request.completed_at || request.updated_at,
         description: 'Il documento è stato consegnato',
@@ -199,7 +206,7 @@ const RequestDetailsScreen = ({navigation, route}) => {
     }
 
     // Rifiutata
-    if (request.status === 'rifiutata') {
+    if (status === 'rifiutata') {
       timelineItems.push({
         status: 'rifiutata',
         label: 'Richiesta Rifiutata',
@@ -211,7 +218,7 @@ const RequestDetailsScreen = ({navigation, route}) => {
     }
 
     // Annullata
-    if (request.status === 'annullata') {
+    if (status === 'annullata') {
       timelineItems.push({
         status: 'annullata',
         label: 'Richiesta Annullata',

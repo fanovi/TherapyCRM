@@ -650,9 +650,31 @@ class AuthController extends Controller
                 $patients[] = [
                     'patient_id' => $patient->id,
                     'patient_name' => $patient->fullName,
+                    'first_name' => $patient->first_name,
+                    'last_name' => $patient->last_name,
                     'relationship' => $ap->relationship_type ?? 'self',
                     'has_parental_authority' => (bool) $ap->has_parental_authority,
                     'account_patient_id' => $ap->id,
+                    // Dati anagrafici del paziente
+                    'birth_date' => $patient->birth_date,
+                    'fiscal_code' => $patient->fiscal_code,
+                    'gender' => $patient->gender,
+                    'phone_number' => $patient->phone_number,
+                    // Dati di nascita
+                    'birth_city' => $patient->birth_city,
+                    'birth_province' => $patient->birth_province_name,
+                    'birth_province_code' => $patient->birth_province_code,
+                    'born_in_italy' => (bool) $patient->born_in_italy,
+                    // Dati di residenza
+                    'residence_address' => $patient->residence_address,
+                    'residence_city' => $patient->residence_city,
+                    'residence_province' => $patient->residence_province_name,
+                    'residence_province_code' => $patient->residence_province_code,
+                    'residence_postal_code' => $patient->residence_postal_code,
+                    // Campi calcolati
+                    'age' => $patient->age,
+                    'full_residence_address' => $patient->fullResidenceAddress,
+                    'birth_location' => $patient->birthLocation,
                 ];
             }
         }

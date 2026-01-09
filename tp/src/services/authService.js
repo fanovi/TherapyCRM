@@ -14,6 +14,7 @@ const API_BASE_URL = API_CONFIG.BASE_URL;
 // Utility function for API calls with automatic token management
 const apiCall = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
+  console.log('🌐 API URL chiamato:', url);
 
   const config = {
     method: 'GET',
@@ -408,6 +409,7 @@ export const authService = {
         const {user} = response.data;
 
         // Transform API response to match app's expected format
+        // Include ALL fields like in login()
         return {
           id: user.id.toString(),
           email: user.email,
@@ -415,6 +417,17 @@ export const authService = {
           firstName: user.nome,
           lastName: user.cognome,
           fullName: `${user.nome} ${user.cognome}`,
+          codiceFiscale: user.codice_fiscale || '',
+          telefono: user.telefono || '',
+          dataNascita: user.data_nascita || '',
+          indirizzo: user.indirizzo || '',
+          status: user.status || 'attivo',
+          patients: user.patients || [],
+          // Add additional fields for therapists
+          ...(user.user_type === 'terapista' && {
+            specializzazione: user.specializzazione || '',
+            numeroAlbo: user.numero_albo || '',
+          }),
         };
       }
 

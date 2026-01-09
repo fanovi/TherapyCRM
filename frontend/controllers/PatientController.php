@@ -58,6 +58,7 @@ class PatientController extends Controller
                     'link-patient' => ['POST'],
                     'unlink-patient' => ['POST'],
                     'search-patients' => ['GET'],
+                    'update-account' => ['POST'],
                 ],
             ],
         ];
@@ -203,6 +204,76 @@ class PatientController extends Controller
             'model' => $user,
             'accountPatients' => $accountPatients,
         ]);
+    }
+
+    /**
+     * Updates account data via AJAX
+     */
+    public function actionUpdateAccount()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if (!Yii::$app->user->can('create_patient')) {
+            return ['success' => false, 'error' => 'Non hai i permessi.'];
+        }
+
+        $userId = Yii::$app->request->post('user_id');
+        if (!$userId) {
+            return ['success' => false, 'error' => 'ID utente mancante.'];
+        }
+
+        // Find user with patient_family role
+        $user = User::find()
+            ->joinWith(['authAssignments'])
+            ->where(['users.id' => $userId, 'auth_assignment.item_name' => 'patient_family'])
+            ->one();
+
+        if (!$user) {
+            return ['success' => false, 'error' => 'Account non trovato.'];
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Update email if changed
+            $newEmail = Yii::$app->request->post('email');
+            if ($newEmail && $newEmail !== $user->email) {
+                // Check if email already exists
+                $existingUser = User::find()->where(['email' => $newEmail])->andWhere(['!=', 'id', $userId])->one();
+                if ($existingUser) {
+                    return ['success' => false, 'error' => 'Questa email è già utilizzata da un altro account.'];
+                }
+                $user->email = $newEmail;
+                $user->username = $newEmail;
+                if (!$user->save()) {
+                    throw new \Exception('Errore nel salvare l\'email: ' . implode(', ', $user->getFirstErrors()));
+                }
+            }
+
+            // Update profile
+            $profile = $user->profile;
+            if (!$profile) {
+                $profile = new UserProfile();
+                $profile->user_id = $user->id;
+            }
+
+            $profile->first_name = Yii::$app->request->post('first_name', $profile->first_name);
+            $profile->last_name = Yii::$app->request->post('last_name', $profile->last_name);
+            $profile->fiscal_code = Yii::$app->request->post('fiscal_code', $profile->fiscal_code);
+            $profile->phone = Yii::$app->request->post('phone', $profile->phone);
+            $profile->address = Yii::$app->request->post('address', $profile->address);
+
+            if (!$profile->save()) {
+                throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+            }
+
+            $transaction->commit();
+            return ['success' => true, 'message' => 'Account aggiornato con successo.'];
+
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::error('Error updating account: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**
