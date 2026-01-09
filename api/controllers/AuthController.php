@@ -684,6 +684,12 @@ class AuthController extends Controller
             return null;
         }
 
+        // Debug: log dei dati del profilo
+        Yii::info("Building patient account data for user {$user->id}", __METHOD__);
+        Yii::info("Profile data - fiscal_code: " . ($profile->fiscal_code ?? 'NULL') .
+                  ", phone: " . ($profile->phone ?? 'NULL') .
+                  ", address: " . ($profile->address ?? 'NULL'), __METHOD__);
+
         $userData = [
             'id' => $user->id,
             'email' => $user->email,
@@ -695,7 +701,15 @@ class AuthController extends Controller
             'user_type' => 'paziente',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
             'patients' => $patients,  // Array di tutti i pazienti collegati
-            'first_login' => $user->requires_password_change  // TODO: Gestire correttamente
+            'first_login' => $user->requires_password_change,  // TODO: Gestire correttamente
+            // DEBUG: valori raw dal profilo - RIMUOVERE DOPO TEST
+            '_debug_profile' => [
+                'profile_id' => $profile->id,
+                'user_id' => $profile->user_id,
+                'fiscal_code_raw' => $profile->fiscal_code,
+                'phone_raw' => $profile->phone,
+                'address_raw' => $profile->address,
+            ],
         ];
 
         // Decodifica i dati sensibili se necessario
