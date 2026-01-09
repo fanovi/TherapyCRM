@@ -166,13 +166,6 @@ export const authService = {
           );
         }
 
-        // DEBUG: Log dei dati raw dal backend nel login
-        console.log('🔍 === LOGIN RAW BACKEND DATA ===');
-        console.log('📦 user.codice_fiscale:', user.codice_fiscale);
-        console.log('📦 user.telefono:', user.telefono);
-        console.log('📦 user.indirizzo:', user.indirizzo);
-        console.log('📦 user._debug_profile:', JSON.stringify(user._debug_profile, null, 2));
-
         // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
@@ -190,8 +183,6 @@ export const authService = {
           isPasswordResetRequired: !!requires_password_change,
           // Add patients info for users with patients
           patients: user.patients || [],
-          // DEBUG: passa anche i dati raw dal backend
-          _debug_profile: user._debug_profile || null,
           // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',
@@ -417,15 +408,7 @@ export const authService = {
       if (response.success && response.data) {
         const {user} = response.data;
 
-        // DEBUG: Log raw backend response
-        console.log('🔍 === VALIDATE TOKEN RAW BACKEND DATA ===');
-        console.log('📦 user.codice_fiscale:', user.codice_fiscale);
-        console.log('📦 user.telefono:', user.telefono);
-        console.log('📦 user.indirizzo:', user.indirizzo);
-        console.log('📦 user._debug_profile:', JSON.stringify(user._debug_profile, null, 2));
-
         // Transform API response to match app's expected format
-        // Include ALL fields like in login()
         return {
           id: user.id.toString(),
           email: user.email,
@@ -439,8 +422,6 @@ export const authService = {
           indirizzo: user.indirizzo || '',
           status: user.status || 'attivo',
           patients: user.patients || [],
-          // DEBUG: passa anche i dati raw dal backend
-          _debug_profile: user._debug_profile || null,
           // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',

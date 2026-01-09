@@ -53,33 +53,6 @@ const PatientProfileScreen = () => {
   return (
     <ScreenTemplate title="Profilo">
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* DEBUG BAR - RIMUOVERE DOPO TEST */}
-        <Card style={{backgroundColor: '#fff3cd', marginBottom: 16, borderRadius: 8}}>
-          <Card.Content>
-            <Text style={{fontWeight: 'bold', color: '#856404', marginBottom: 8}}>
-              DEBUG - Dati Raw User
-            </Text>
-            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
-              codice_fiscale: "{user?.codice_fiscale || 'NULL'}"
-            </Text>
-            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
-              codiceFiscale: "{user?.codiceFiscale || 'NULL'}"
-            </Text>
-            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
-              telefono: "{user?.telefono || 'NULL'}"
-            </Text>
-            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
-              indirizzo: "{user?.indirizzo || 'NULL'}"
-            </Text>
-            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
-              _debug_profile: {user?._debug_profile ? JSON.stringify(user._debug_profile) : 'NULL'}
-            </Text>
-            <Text style={{fontSize: 9, color: '#856404', marginTop: 8}}>
-              Keys: {user ? Object.keys(user).join(', ') : 'NULL'}
-            </Text>
-          </Card.Content>
-        </Card>
-
         {/* Sezione Account Collegato - Chi ha effettuato il login */}
         <Card style={styles.sectionCard}>
           <Card.Content>

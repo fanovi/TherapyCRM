@@ -572,12 +572,6 @@ class AuthController extends Controller
         // Carica il profilo utente
         $profile = $user->profile;
 
-        // DEBUG: Log del profilo caricato
-        Yii::error("DEBUG buildUserData - user_id: {$user->id}, profile exists: " . ($profile ? 'YES' : 'NO'), __METHOD__);
-        if ($profile) {
-            Yii::error("DEBUG profile data - id: {$profile->id}, fiscal_code: '{$profile->fiscal_code}', phone: '{$profile->phone}', address: '{$profile->address}'", __METHOD__);
-        }
-
         if (!$profile) {
             Yii::error("User profile not found for user: {$user->id}", __METHOD__);
             return null;
@@ -708,15 +702,7 @@ class AuthController extends Controller
             'user_type' => 'paziente',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
             'patients' => $patients,  // Array di tutti i pazienti collegati
-            'first_login' => $user->requires_password_change,  // TODO: Gestire correttamente
-            // DEBUG: valori raw dal profilo - RIMUOVERE DOPO TEST
-            '_debug_profile' => [
-                'profile_id' => $profile->id,
-                'user_id' => $profile->user_id,
-                'fiscal_code_raw' => $profile->fiscal_code,
-                'phone_raw' => $profile->phone,
-                'address_raw' => $profile->address,
-            ],
+            'first_login' => $user->requires_password_change,
         ];
 
         // Decodifica i dati sensibili se necessario
