@@ -11,12 +11,8 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {loginService} from '../../services/loginService';
 import ScreenTemplate from '../../components/ScreenTemplate';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  debugUserData,
   getUserDisplayName,
-  getUserInitials,
-  getUserRole,
   getUserField,
 } from '../../utils/userUtils';
 
@@ -26,42 +22,6 @@ const PatientProfileScreen = () => {
   const {patients, currentPatient} = useSelector(state => state.patient);
   const theme = useTheme();
 
-  // Debug dettagliato usando utility
-  debugUserData(user, 'PatientProfileScreen User Debug');
-
-  // Debug currentPatient
-  console.log('🔍 === PATIENT PROFILE DEBUG ===');
-  console.log('👤 user object:', JSON.stringify(user, null, 2));
-  console.log('👥 patients array:', JSON.stringify(patients, null, 2));
-  console.log('🎯 currentPatient:', JSON.stringify(currentPatient, null, 2));
-  if (currentPatient) {
-    console.log('📋 currentPatient fields:');
-    console.log('   - patient_name:', currentPatient.patient_name);
-    console.log('   - birth_date:', currentPatient.birth_date);
-    console.log('   - fiscal_code:', currentPatient.fiscal_code);
-    console.log('   - gender:', currentPatient.gender);
-    console.log('   - phone_number:', currentPatient.phone_number);
-    console.log('   - full_residence_address:', currentPatient.full_residence_address);
-  }
-
-  // Debug anche AsyncStorage
-  const checkAsyncStorage = async () => {
-    try {
-      const userString = await AsyncStorage.getItem('user');
-      console.log('💾 User from AsyncStorage raw:', userString);
-      if (userString) {
-        const parsedUser = JSON.parse(userString);
-        console.log('💾 User from AsyncStorage parsed:', parsedUser);
-        console.log('💾 AsyncStorage user keys:', Object.keys(parsedUser));
-      }
-    } catch (error) {
-      console.error('❌ Error reading AsyncStorage:', error);
-    }
-  };
-
-  React.useEffect(() => {
-    checkAsyncStorage();
-  }, []);
 
   const handleLogout = async () => {
     await loginService.logout(dispatch);
@@ -79,6 +39,7 @@ const PatientProfileScreen = () => {
     }
   };
 
+  // Etichetta per il tipo di relazione nella lista pazienti
   const getRelationshipLabel = relationship => {
     const labels = {
       self: 'Se stesso',
@@ -92,89 +53,34 @@ const PatientProfileScreen = () => {
   return (
     <ScreenTemplate title="Profilo">
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Sezione Paziente Selezionato */}
-        {currentPatient && (
-          <Card style={styles.patientCard}>
-            <Card.Content>
-              <View style={styles.patientHeader}>
-                <Avatar.Icon
-                  size={60}
-                  icon="account"
-                  style={[styles.patientAvatar, {backgroundColor: theme.colors.primary}]}
-                />
-                <View style={styles.patientHeaderInfo}>
-                  <Text style={styles.patientName}>
-                    {currentPatient.patient_name}
-                  </Text>
-                  <View style={styles.relationshipBadge}>
-                    <Text style={styles.relationshipText}>
-                      {getRelationshipLabel(currentPatient.relationship)}
-                    </Text>
-                  </View>
-                  {currentPatient.has_parental_authority && (
-                    <Text style={styles.parentalAuthority}>
-                      Autorità Genitoriale
-                    </Text>
-                  )}
-                </View>
-              </View>
+        {/* DEBUG BAR - RIMUOVERE DOPO TEST */}
+        <Card style={{backgroundColor: '#fff3cd', marginBottom: 16, borderRadius: 8}}>
+          <Card.Content>
+            <Text style={{fontWeight: 'bold', color: '#856404', marginBottom: 8}}>
+              DEBUG - Dati Raw User
+            </Text>
+            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
+              codice_fiscale: "{user?.codice_fiscale || 'NULL'}"
+            </Text>
+            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
+              codiceFiscale: "{user?.codiceFiscale || 'NULL'}"
+            </Text>
+            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
+              telefono: "{user?.telefono || 'NULL'}"
+            </Text>
+            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
+              indirizzo: "{user?.indirizzo || 'NULL'}"
+            </Text>
+            <Text style={{fontSize: 10, color: '#856404', marginBottom: 4}}>
+              _debug_profile: {user?._debug_profile ? JSON.stringify(user._debug_profile) : 'NULL'}
+            </Text>
+            <Text style={{fontSize: 9, color: '#856404', marginTop: 8}}>
+              Keys: {user ? Object.keys(user).join(', ') : 'NULL'}
+            </Text>
+          </Card.Content>
+        </Card>
 
-              <Divider style={styles.patientDivider} />
-
-              {/* Dati anagrafici del paziente */}
-              <View style={styles.patientDetails}>
-                {currentPatient.birth_date && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Data di Nascita:</Text>
-                    <Text style={styles.infoValue}>
-                      {formatDate(currentPatient.birth_date)}
-                      {currentPatient.age ? ` (${currentPatient.age} anni)` : ''}
-                    </Text>
-                  </View>
-                )}
-
-                {currentPatient.birth_location && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Luogo di Nascita:</Text>
-                    <Text style={styles.infoValue}>{currentPatient.birth_location}</Text>
-                  </View>
-                )}
-
-                {currentPatient.gender && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Sesso:</Text>
-                    <Text style={styles.infoValue}>
-                      {currentPatient.gender === 'M' ? 'Maschio' : 'Femmina'}
-                    </Text>
-                  </View>
-                )}
-
-                {currentPatient.fiscal_code && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Codice Fiscale:</Text>
-                    <Text style={styles.infoValue}>{currentPatient.fiscal_code}</Text>
-                  </View>
-                )}
-
-                {currentPatient.phone_number && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Telefono:</Text>
-                    <Text style={styles.infoValue}>{currentPatient.phone_number}</Text>
-                  </View>
-                )}
-
-                {currentPatient.full_residence_address && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Indirizzo:</Text>
-                    <Text style={styles.infoValue}>{currentPatient.full_residence_address}</Text>
-                  </View>
-                )}
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Sezione Account Paziente */}
+        {/* Sezione Account Collegato - Chi ha effettuato il login */}
         <Card style={styles.sectionCard}>
           <Card.Content>
             <View style={styles.sectionHeader}>
@@ -183,12 +89,12 @@ const PatientProfileScreen = () => {
                 icon="account-circle"
                 style={styles.sectionIcon}
               />
-              <Text style={styles.sectionTitle}>Account Paziente</Text>
+              <Text style={styles.sectionTitle}>Account Collegato</Text>
             </View>
             <Divider style={styles.divider} />
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nome:</Text>
+              <Text style={styles.infoLabel}>Titolare:</Text>
               <Text style={styles.infoValue}>
                 {getUserDisplayName(user)}
               </Text>
@@ -224,6 +130,92 @@ const PatientProfileScreen = () => {
           </Card.Content>
         </Card>
 
+        {/* Sezione Paziente Selezionato */}
+        {currentPatient && (
+          <Card style={styles.patientCard}>
+            <Card.Content>
+              <View style={styles.patientHeader}>
+                <Avatar.Icon
+                  size={60}
+                  icon="account"
+                  style={[styles.patientAvatar, {backgroundColor: theme.colors.primary}]}
+                />
+                <View style={styles.patientHeaderInfo}>
+                  <Text style={styles.patientName}>
+                    {currentPatient.patient_name}
+                  </Text>
+                  <View style={styles.relationshipBadge}>
+                    <Text style={styles.relationshipText}>
+                      Paziente
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Divider style={styles.patientDivider} />
+
+              {/* Dati anagrafici del paziente */}
+              <View style={styles.patientDetails}>
+                {currentPatient.birth_date ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Data di Nascita:</Text>
+                    <Text style={styles.infoValue}>
+                      {formatDate(currentPatient.birth_date)}
+                      {currentPatient.age ? ` (${currentPatient.age} anni)` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {currentPatient.birth_location ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Luogo di Nascita:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.birth_location}</Text>
+                  </View>
+                ) : null}
+
+                {currentPatient.gender ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Sesso:</Text>
+                    <Text style={styles.infoValue}>
+                      {currentPatient.gender === 'M' ? 'Maschio' : (currentPatient.gender === 'F' ? 'Femmina' : 'Non specificato')}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {currentPatient.fiscal_code ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Codice Fiscale:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.fiscal_code}</Text>
+                  </View>
+                ) : null}
+
+                {currentPatient.phone_number ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Telefono:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.phone_number}</Text>
+                  </View>
+                ) : null}
+
+                {currentPatient.full_residence_address ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Indirizzo:</Text>
+                    <Text style={styles.infoValue}>{currentPatient.full_residence_address}</Text>
+                  </View>
+                ) : null}
+
+                {/* Messaggio se mancano i dati dettagliati */}
+                {!currentPatient.birth_date && !currentPatient.fiscal_code && !currentPatient.gender && (
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoValue, {color: '#999', fontStyle: 'italic', textAlign: 'center', flex: 1}]}>
+                      Dati anagrafici non disponibili
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Sezione Pazienti Associati */}
         {patients && patients.length > 1 && (
           <Card style={styles.sectionCard}>
@@ -252,7 +244,7 @@ const PatientProfileScreen = () => {
                 </View>
               </View>
 
-              {patients.map((patient, index) => (
+              {patients.map((patient) => (
                 <View
                   key={patient.patient_id}
                   style={[

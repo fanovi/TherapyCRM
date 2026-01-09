@@ -734,11 +734,16 @@ class AuthController extends Controller
             // Decodifica il telefono se presente e crittografato
             if (!empty($userData['telefono'])) {
                 try {
-                    $decryptedPhone = Yii::$app->security->decryptByKey(
-                        base64_decode($userData['telefono']),
-                        $encryptionKey
-                    );
-                    $userData['telefono'] = $decryptedPhone;
+                    $decoded = base64_decode($userData['telefono'], true);
+                    // Solo se è base64 valido, prova a decriptare
+                    if ($decoded !== false) {
+                        $decryptedPhone = Yii::$app->security->decryptByKey($decoded, $encryptionKey);
+                        // Solo se la decrittazione riesce, usa il valore decriptato
+                        if ($decryptedPhone !== false) {
+                            $userData['telefono'] = $decryptedPhone;
+                        }
+                        // Altrimenti mantieni il valore originale (non era crittografato)
+                    }
                 } catch (\Exception $e) {
                     Yii::error('Failed to decrypt phone number: ' . $e->getMessage(), __METHOD__);
                     // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)
@@ -748,11 +753,16 @@ class AuthController extends Controller
             // Decodifica l'indirizzo se presente e crittografato
             if (!empty($userData['indirizzo'])) {
                 try {
-                    $decryptedAddress = Yii::$app->security->decryptByKey(
-                        base64_decode($userData['indirizzo']),
-                        $encryptionKey
-                    );
-                    $userData['indirizzo'] = $decryptedAddress;
+                    $decoded = base64_decode($userData['indirizzo'], true);
+                    // Solo se è base64 valido, prova a decriptare
+                    if ($decoded !== false) {
+                        $decryptedAddress = Yii::$app->security->decryptByKey($decoded, $encryptionKey);
+                        // Solo se la decrittazione riesce, usa il valore decriptato
+                        if ($decryptedAddress !== false) {
+                            $userData['indirizzo'] = $decryptedAddress;
+                        }
+                        // Altrimenti mantieni il valore originale (non era crittografato)
+                    }
                 } catch (\Exception $e) {
                     Yii::error('Failed to decrypt address: ' . $e->getMessage(), __METHOD__);
                     // Se la decodifica fallisce, mantieni il valore originale (potrebbe non essere crittografato)

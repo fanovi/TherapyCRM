@@ -81,6 +81,9 @@ const AppNavigator = () => {
       }
 
       console.log('✅ Token valido -> Dashboard');
+      console.log('🔍 === FULL BACKEND RESPONSE ===');
+      console.log('📦 result.user:', JSON.stringify(result.user, null, 2));
+      console.log('📦 result.user.patients:', JSON.stringify(result.user?.patients, null, 2));
 
       // 3. Token valido - recupera dati utente e vai alla dashboard
       const userString = await AsyncStorage.getItem('user');
