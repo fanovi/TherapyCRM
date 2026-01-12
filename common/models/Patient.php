@@ -131,11 +131,11 @@ class Patient extends ActiveRecord
             [['residence_postal_code'], 'match', 'pattern' => '/^[0-9]{5}$/', 'message' => '{attribute} deve contenere solo 5 cifre numeriche.'],
             [['phone_number'], 'string', 'max' => 20, 'message' => '{attribute} non può superare i 20 caratteri.'],
             [['phone_number'], 'match', 'pattern' => '/^[+]?[0-9\s\-\.\(\)]+$/', 'message' => '{attribute} contiene caratteri non validi.'],
-            [['fiscal_code'], 'string', 'max' => 20, 'message' => 'Il codice fiscale non può superare i 20 caratteri.'],
+            [['fiscal_code'], 'string', 'max' => 16, 'message' => 'Il codice fiscale non può superare i 16 caratteri.'],
             [
                 ['fiscal_code'],
                 'match',
-                'pattern' => '/^[A-Z0-9]{5,20}$/',
+                'pattern' => '/^[A-Z0-9]{5,16}$/',
                 'message' => 'Codice fiscale non valido (solo lettere maiuscole e numeri, lunghezza 5-20 caratteri)'
             ],
             [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
