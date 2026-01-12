@@ -14,7 +14,7 @@ $this->params['breadcrumbs'][] = $this->title;
 $useIframe = true;  // Cambia a false per usare la versione integrata
 
 // Costruisci l'URL dell'iframe con i parametri come rotta React
-$iframeSrc = 'https://calendar.sanlucacentromedico.it/';
+$iframeSrc = Yii::$app->params['iframeSrc'];
 if ($idTherapist) {
     $iframeSrc .= 'therapist/' . $idTherapist;
 } elseif ($idPatient) {
