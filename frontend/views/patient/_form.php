@@ -349,7 +349,8 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
                     <div>
                         <?= $form->field($patient, 'residence_postal_code')->textInput([
                             'placeholder' => '00100',
-                            'maxlength' => 5
+                            'maxlength' => 5,
+                            'id' => 'residence-postal-code-italy'
                         ])->label('CAP') ?>
                         <div class="text-xs text-gray-500 mt-1">
                             <span id="cap-auto-info" style="display: none;">
@@ -541,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleResidenceLocationFields() {
         const residenceCitySelect = document.getElementById('residence-city-select');
         const residenceCityForeign = document.getElementById('residence-city-foreign');
-        const residencePostalCodeItaly = document.querySelector('#residence-location-italy-fields input[name="Patient[residence_postal_code]"]');
+        const residencePostalCodeItaly = document.getElementById('residence-postal-code-italy');
         const residencePostalCodeForeign = document.getElementById('residence-postal-code-foreign');
         
         if (residenceInItalyCheckbox.checked) {
@@ -730,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Validazione CAP (solo numeri)
-    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    const capInput = document.getElementById('residence-postal-code-italy');
     if (capInput) {
         capInput.addEventListener('input', function() {
             this.value = this.value.replace(/[^0-9]/g, '');
@@ -886,7 +887,7 @@ function loadResidenceComuni(provinciaId, selectedComune = null) {
 // Funzione per configurare la compilazione automatica del CAP
 function setupCapAutoFill() {
     const comuniSelect = document.getElementById('residence-city-select');
-    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    const capInput = document.getElementById('residence-postal-code-italy');
     
     if (!comuniSelect || !capInput) {
         return;
@@ -904,7 +905,7 @@ function handleCapAutoFill() {
     const selectedComune = this.value;
     const hasCapField = this.getAttribute('data-has-cap-field') === 'true';
     const capData = this.getAttribute('data-cap-info');
-    const capInput = document.querySelector('input[name="Patient[residence_postal_code]"]');
+    const capInput = document.getElementById('residence-postal-code-italy');
     
     if (!capInput) {
         return;
