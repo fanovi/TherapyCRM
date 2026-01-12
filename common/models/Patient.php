@@ -188,6 +188,7 @@ class Patient extends ActiveRecord
             'gender' => 'Sesso',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
+            'residence_in_italy' => 'Residenza in Italia',
         ];
     }
 

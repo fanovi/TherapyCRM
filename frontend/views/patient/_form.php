@@ -321,11 +321,11 @@ if (!$isUpdate && $patient->residence_in_italy === null) {
                 <div class="flex items-center">
                     <?= $form->field($patient, 'residence_in_italy')->checkbox([
                         'id' => 'residence-in-italy-checkbox',
-                        'template' => '<div class="flex items-center">{input}{label}</div>',
+                        'template' => '<div class="flex items-center">{label}{input}</div>',
                         'labelOptions' => [
                             'class' => 'ml-2 text-sm font-medium text-gray-700 dark:text-gray-300'
                         ]
-                    ])->label('Residenza in Italia') ?>
+                    ])->label(false) ?>
                 </div>
                 
                 <!-- Campi residenza Italia -->
