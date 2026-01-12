@@ -503,11 +503,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleBirthLocationFields() {
         const birthCitySelect = document.getElementById('birth-city-select');
         const birthCityForeign = document.getElementById('birth-city-foreign');
+        const fiscalCodeGenerationButton = document.getElementById('generate-fiscal-code-btn');
         
         if (bornInItalyCheckbox.checked) {
             // Mostra campi Italia
             birthLocationItalyFields.style.display = 'grid';
             birthLocationForeignField.style.display = 'none';
+            fiscalCodeGenerationButton.style.display = 'inline-flex';
             
             // Abilita campi Italia e assegna name attribute
             birthCitySelect.disabled = false;
@@ -522,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mostra campo estero
             birthLocationItalyFields.style.display = 'none';
             birthLocationForeignField.style.display = 'grid';
+            fiscalCodeGenerationButton.style.display = 'none';
             
             // Disabilita campi Italia e rimuovi name attribute
             birthCitySelect.disabled = true;
