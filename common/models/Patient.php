@@ -136,7 +136,7 @@ class Patient extends ActiveRecord
                 ['fiscal_code'],
                 'match',
                 'pattern' => '/^[A-Z0-9]{5,16}$/',
-                'message' => 'Codice fiscale non valido (solo lettere maiuscole e numeri, lunghezza 5-20 caratteri)'
+                'message' => 'Codice fiscale non valido (solo lettere maiuscole e numeri, lunghezza 5-16 caratteri)'
             ],
             [['fiscal_code'], 'unique', 'message' => 'Questo codice fiscale è già stato registrato.'],
             [['gender'], 'string', 'max' => 1],
