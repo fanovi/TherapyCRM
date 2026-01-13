@@ -2198,7 +2198,6 @@ class CalendarController extends ActiveController
                     'appointment_type' => $appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN ? 'piano_terapeutico' : 'diretto',
                     'treatment_code' => $treatmentType ? $treatmentType->code : null,
                     'notes' => $appointment->notes,
-                    'location' => $appointment->location,
                     'therapist' => $therapistInfo,
                 ];
             }
