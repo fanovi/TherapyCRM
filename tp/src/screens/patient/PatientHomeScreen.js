@@ -38,11 +38,14 @@ const PatientHomeScreen = () => {
     await loginService.logout(dispatch);
   };
 
+  // Recupera il patient_id con fallback
+  const patientId = currentPatient?.patient_id || currentPatient?.account_patient_id;
+
   // Funzione per caricare i prossimi appuntamenti
-  const loadUpcomingAppointments = async (isRefresh = false) => {
-    if (!currentPatient?.id) {
-      console.log('❌ Paziente non selezionato');
-      setLoading(false);
+  const loadUpcomingAppointments = async (isRefresh = false, pId = patientId) => {
+    console.log('📞 loadUpcomingAppointments chiamato - isRefresh:', isRefresh, 'pId:', pId);
+    if (!pId) {
+      console.log('❌ pId è falsy, esco dalla funzione');
       return;
     }
 
@@ -54,20 +57,19 @@ const PatientHomeScreen = () => {
       }
       setError(null);
 
-      const response = await getPatientUpcomingAppointments(
-        currentPatient.id,
-        3,
-      );
+      const response = await getPatientUpcomingAppointments(pId, 3);
+      console.log('🏠 API response:', JSON.stringify(response, null, 2));
+      console.log('🏠 response.success:', response.success);
+      console.log('🏠 response.data:', response.data);
 
       if (response.success && response.data) {
+        console.log('🏠 Impostando appointments con:', response.data);
         setAppointments(response.data);
-        console.log('✅ Appuntamenti caricati:', response.data);
       } else {
+        console.log('🏠 Nessun dato, impostando array vuoto');
         setAppointments([]);
-        console.log('⚠️ Nessun appuntamento trovato');
       }
     } catch (err) {
-      console.error('❌ Errore caricamento appuntamenti:', err);
       setError(err.message || 'Errore nel caricamento degli appuntamenti');
       setAppointments([]);
 
@@ -87,8 +89,17 @@ const PatientHomeScreen = () => {
 
   // Carica gli appuntamenti all'avvio
   useEffect(() => {
-    loadUpcomingAppointments();
-  }, [currentPatient?.id]);
+    console.log('🏠 useEffect - patientId:', patientId);
+    if (patientId) {
+      loadUpcomingAppointments(false, patientId);
+    }
+  }, [patientId]);
+
+  // Debug: monitora lo stato degli appuntamenti
+  useEffect(() => {
+    console.log('🏠 appointments state aggiornato:', appointments);
+    console.log('🏠 appointments.length:', appointments.length);
+  }, [appointments]);
 
   // Funzione per formattare la data
   const formatAppointmentDate = (date, time) => {
@@ -154,13 +165,15 @@ const PatientHomeScreen = () => {
 
   // Funzione per refresh
   const onRefresh = () => {
-    loadUpcomingAppointments(true);
+    console.log('🔃 onRefresh chiamato! patientId:', patientId);
+    loadUpcomingAppointments(true, patientId);
   };
 
   return (
     <ScreenTemplate
       title="Dashboard Paziente"
       subtitle="Gestisci i tuoi appuntamenti e monitora la tua salute"
+      scrollable={false}
       headerRight={
         <IconButton
           icon="logout"
@@ -169,70 +182,17 @@ const PatientHomeScreen = () => {
           onPress={handleLogout}
         />
       }>
-      {/* Banner per i permessi delle notifiche */}
-      <DashboardNotificationBanner />
-
-      {/* Componente Debug temporaneo */}
-      {/* <DebugPatientInfo /> */}
-      {/* Quick Actions */}
-      {/* <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Azioni Rapide</Text>
-
-        <View style={styles.actionsRow}>
-          <Card style={styles.actionCard}>
-            <Card.Content style={styles.actionContent}>
-              <Avatar.Icon
-                size={40}
-                icon="calendar-plus"
-                style={styles.actionIcon}
-              />
-              <Text style={styles.actionTitle}>Prenota</Text>
-              <Text style={styles.actionSubtitle}>Nuovo appuntamento</Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.actionCard}>
-            <Card.Content style={styles.actionContent}>
-              <Avatar.Icon
-                size={40}
-                icon="file-document"
-                style={styles.actionIcon}
-              />
-              <Text style={styles.actionTitle}>Referti</Text>
-              <Text style={styles.actionSubtitle}>Visualizza risultati</Text>
-            </Card.Content>
-          </Card>
-        </View>
-
-        <View style={styles.actionsRow}>
-          <Card style={styles.actionCard}>
-            <Card.Content style={styles.actionContent}>
-              <Avatar.Icon size={40} icon="chat" style={styles.actionIcon} />
-              <Text style={styles.actionTitle}>Messaggi</Text>
-              <Text style={styles.actionSubtitle}>Chat con terapista</Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.actionCard}>
-            <Card.Content style={styles.actionContent}>
-              <Avatar.Icon
-                size={40}
-                icon="heart-pulse"
-                style={styles.actionIcon}
-              />
-              <Text style={styles.actionTitle}>Stato</Text>
-              <Text style={styles.actionSubtitle}>Condizioni di salute</Text>
-            </Card.Content>
-          </Card>
-        </View>
-      </View> */}
-
-      {/* Prossimi Appuntamenti */}
       <ScrollView
+        style={{flex: 1}}
+        contentContainerStyle={{flexGrow: 1}}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}>
+        {/* Banner per i permessi delle notifiche */}
+        <DashboardNotificationBanner />
+
+        {/* Prossimi Appuntamenti */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Prossimi Appuntamenti</Text>
 
@@ -284,7 +244,7 @@ const PatientHomeScreen = () => {
                 style={styles.appointmentCard}>
                 <Card.Content>
                   <View style={styles.appointmentHeader}>
-                    <View>
+                    <View style={styles.appointmentDateContainer}>
                       <Text style={styles.appointmentDate}>
                         {formatAppointmentDate(appointment.date)}
                       </Text>
@@ -296,11 +256,12 @@ const PatientHomeScreen = () => {
                       </Text>
                     </View>
                     <Chip
-                      icon="doctor"
+                      icon="check-circle"
                       style={[
                         styles.statusChip,
                         {backgroundColor: getStatusColor(appointment.status)},
-                      ]}>
+                      ]}
+                      textStyle={{fontSize: 12}}>
                       {appointment.status || 'Confermato'}
                     </Chip>
                   </View>
@@ -426,8 +387,14 @@ const styles = StyleSheet.create({
   appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  appointmentDateContainer: {
+    flex: 1,
+    minWidth: 120,
   },
   appointmentDate: {
     fontSize: 16,
@@ -440,6 +407,8 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     backgroundColor: '#E8F5E8',
+    maxWidth: 160,
+    height: 'auto',
   },
   appointmentDetails: {
     flexDirection: 'row',

@@ -33,7 +33,7 @@ import {
 
 // Costanti
 const DELEGA_RITIRO_BAMBINI_PDF_URL =
-  'https://app-cgm.badil.it/api/download/delega-ritiro-bimbi.pdf';
+  'https://app.sanlucacentromedico.it/api/download/delega-ritiro-bimbi.pdf';
 
 const PatientRequestsScreen = ({navigation}) => {
   const {currentPatient, patientId} = useCurrentPatient();
