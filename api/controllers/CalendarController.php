@@ -2193,7 +2193,7 @@ class CalendarController extends ActiveController
                     'time' => $datetime->format('H:i'),
                     'datetime' => $appointment->appointment_datetime,
                     'duration_minutes' => $appointment->duration_minutes,
-                    'status' => $this->getStatusLabel($appointment->status),
+                    'status' => $appointment->getStatusLabel(),
                     'type' => $treatmentType ? $treatmentType->name : 'Terapia',
                     'appointment_type' => $appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN ? 'piano_terapeutico' : 'diretto',
                     'treatment_code' => $treatmentType ? $treatmentType->code : null,
