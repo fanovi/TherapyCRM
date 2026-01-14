@@ -299,7 +299,7 @@ class ComplaintController extends Controller
                 return [
                     'success' => false,
                     'data' => [],
-                    'message' => 'Reclamo già esistente per il paziente oggi'
+                    'message' => 'Oggi è stato già creato un reclamo per il paziente'
                 ];
             }
 
