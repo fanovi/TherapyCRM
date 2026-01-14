@@ -6,42 +6,13 @@ use common\models\AccountPatient;
 use Yii;
 use yii\web\Controller;
 use yii\web\UnauthorizedHttpException;
-use yii\web\BadRequestHttpException;
 use common\models\Complaint;
 use yii\db\Expression;
 
 /**
- * @OA\Info(
- *     title="TherapyCRM API - Richieste Pazienti",
- *     version="2.0.0",
- *     description="API per la gestione delle richieste di documenti dei pazienti nel sistema TherapyCRM",
- *     @OA\Contact(
- *         email="support@therapycrm.com",
- *         name="TherapyCRM Support"
- *     )
- * )
- * 
- * @OA\Server(
- *     url="/api",
- *     description="API Server"
- * )
- * 
- * @OA\SecurityScheme(
- *     securityScheme="BearerAuth",
- *     type="http",
- *     scheme="bearer",
- *     bearerFormat="JWT",
- *     description="Inserisci il token JWT ottenuto dal login. Formato: Bearer {token}"
- * )
- *
  * @OA\Tag(
- *     name="Autenticazione",
- *     description="Operazioni di autenticazione e gestione token"
- * )
- * 
- * @OA\Tag(
- *     name="Richieste",
- *     description="Operazioni relative alle richieste dei pazienti"
+ *     name="Reclami",
+ *     description="Operazioni relative ai reclami dei pazienti"
  * )
  */
 class ComplaintController extends Controller
@@ -76,158 +47,79 @@ class ComplaintController extends Controller
 
     /**
      * @OA\Post(
-     *     path="/requests",
-     *     summary="Crea una nuova richiesta documento",
-     *     description="Crea una nuova richiesta di documento per il paziente specificato. La validazione è dinamica basata sui requisiti del tipo di richiesta selezionato.",
-     *     operationId="createRequest",
-     *     tags={"Richieste"},
+     *     path="/complaints",
+     *     summary="Crea un nuovo reclamo",
+     *     description="Crea un nuovo reclamo per il paziente specificato. È possibile creare un solo reclamo per paziente al giorno.",
+     *     operationId="createComplaint",
+     *     tags={"Reclami"},
      *     security={{"BearerAuth":{}}},
      *     @OA\RequestBody(
      *         required=true,
-     *         description="Dati della richiesta documento",
+     *         description="Dati del reclamo",
      *         @OA\MediaType(
      *             mediaType="application/json",
      *             @OA\Schema(
-     *                 required={"request_type_id", "patient_id"},
-     *                 @OA\Property(
-     *                     property="request_type_id",
-     *                     type="integer",
-     *                     description="ID della tipologia di richiesta",
-     *                     example=1
-     *                 ),
+     *                 required={"patient_id", "title", "description"},
      *                 @OA\Property(
      *                     property="patient_id",
      *                     type="integer",
-     *                     description="ID del paziente per cui fare la richiesta",
+     *                     description="ID del paziente per cui creare il reclamo",
      *                     example=1
      *                 ),
      *                 @OA\Property(
-     *                     property="therapeutic_plan_id",
-     *                     type="integer",
-     *                     nullable=true,
-     *                     description="ID del piano terapeutico associato (obbligatorio se therapeutic_plan_rule = PLAN_REQUIRED, non ammesso se PLAN_NOT_ALLOWED)",
-     *                     example=null
-     *                 ),
-     *                 @OA\Property(
-     *                     property="therapy_id",
-     *                     type="integer",
-     *                     nullable=true,
-     *                     description="ID della terapia associata (obbligatorio se require_therapy_assignment = true)",
-     *                     example=null
-     *                 ),
-     *                 @OA\Property(
-     *                     property="reason",
+     *                     property="title",
      *                     type="string",
-     *                     maxLength=1000,
-     *                     nullable=true,
-     *                     description="Motivo della richiesta (obbligatorio se requires_reason = true)",
-     *                     example="Certificato per assenza lavorativa dal 15/01 al 20/01"
+     *                     maxLength=255,
+     *                     description="Titolo del reclamo",
+     *                     example="Problema con appuntamento"
      *                 ),
      *                 @OA\Property(
-     *                     property="notes",
+     *                     property="description",
      *                     type="string",
-     *                     maxLength=2000,
-     *                     nullable=true,
-     *                     description="Note aggiuntive (obbligatorie se require_notes = true)",
-     *                     example="Note aggiuntive opzionali"
-     *                 ),
-     *                 @OA\Property(
-     *                     property="date_from",
-     *                     type="string",
-     *                     format="date",
-     *                     nullable=true,
-     *                     description="Data di inizio (obbligatoria se requires_date_range = true)",
-     *                     example="2025-01-15"
-     *                 ),
-     *                 @OA\Property(
-     *                     property="date_to",
-     *                     type="string",
-     *                     format="date",
-     *                     nullable=true,
-     *                     description="Data di fine (obbligatoria se requires_date_range = true)",
-     *                     example="2025-01-20"
+     *                     description="Descrizione dettagliata del reclamo",
+     *                     example="L'appuntamento del giorno 10/01 è stato cancellato senza preavviso"
      *                 )
      *             )
      *         )
      *     ),
      *     @OA\Response(
-     *         response=201,
-     *         description="Richiesta creata con successo",
+     *         response=200,
+     *         description="Reclamo creato con successo",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(
-     *                 property="data",
-     *                 type="object",
-     *                 @OA\Property(property="id", type="integer", example=123),
-     *                 @OA\Property(property="patient_id", type="integer", example=1),
-     *                 @OA\Property(property="request_type_id", type="integer", example=1),
-     *                 @OA\Property(property="request_type", type="string", example="Certificato Medico"),
-     *                 @OA\Property(property="therapeutic_plan_id", type="integer", nullable=true, example=null),
-     *                 @OA\Property(property="therapy_id", type="integer", nullable=true, example=null),
-     *                 @OA\Property(property="status", type="string", example="pending"),
-     *                 @OA\Property(property="status_label", type="string", example="In Attesa"),
-     *                 @OA\Property(property="created_at", type="string", format="date-time", example="2025-01-25T10:30:00Z"),
-     *                 @OA\Property(property="estimated_completion", type="string", format="date-time", example="2025-01-28T18:00:00Z"),
-     *                 @OA\Property(property="reason", type="string", nullable=true, example="Certificato per assenza lavorativa dal 15/01 al 20/01"),
-     *                 @OA\Property(property="notes", type="string", nullable=true, example="Note aggiuntive opzionali"),
-     *                 @OA\Property(property="date_from", type="string", format="date", nullable=true, example="2025-01-15"),
-     *                 @OA\Property(property="date_to", type="string", format="date", nullable=true, example="2025-01-20"),
-     *                 @OA\Property(
-     *                     property="created_by",
-     *                     type="object",
-     *                     description="Dati dell'account che ha creato la richiesta",
-     *                     @OA\Property(property="id", type="integer", example=789, description="ID dell'AccountPatient"),
-     *                     @OA\Property(property="user_id", type="integer", example=456, description="ID dell'utente"),
-     *                     @OA\Property(property="first_name", type="string", example="Mario", description="Nome dell'utente"),
-     *                     @OA\Property(property="last_name", type="string", example="Rossi", description="Cognome dell'utente"),
-     *                     @OA\Property(property="relationship_type", type="string", enum={"self", "parent", "tutor", "other"}, example="parent", description="Tipo di relazione con il paziente")
-     *                 ),
-     *                 @OA\Property(property="can_be_cancelled", type="boolean", example=true)
-     *             ),
-     *             @OA\Property(property="message", type="string", example="Richiesta creata con successo! Riceverai una notifica quando sarà pronta.")
+     *             @OA\Property(property="data", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Reclamo creato con successo")
      *         )
      *     ),
      *     @OA\Response(
      *         response=400,
-     *         description="Errore di validazione",
+     *         description="Errore di validazione o reclamo già presente",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="error", type="string", example="Errori di validazione dei campi obbligatori"),
-     *             @OA\Property(property="code", type="string", example="MISSING_REQUIRED_FIELD"),
      *             @OA\Property(
-     *                 property="details",
+     *                 property="data",
      *                 type="object",
-     *                 @OA\Property(property="patient_id", type="string", example="Il campo patient_id è obbligatorio"),
-     *                 @OA\Property(property="request_type_id", type="string", example="Il campo request_type_id è obbligatorio"),
-     *                 @OA\Property(property="therapeutic_plan_id", type="string", example="Il piano terapeutico è obbligatorio per questa tipologia"),
-     *                 @OA\Property(property="therapy_id", type="string", example="L'assegnazione terapia è obbligatoria per questa tipologia"),
-     *                 @OA\Property(property="reason", type="string", example="Il motivo è obbligatorio per questa tipologia"),
-     *                 @OA\Property(property="notes", type="string", example="Le note sono obbligatorie per questa tipologia"),
-     *                 @OA\Property(property="date_from", type="string", example="La data di inizio è obbligatoria")
-     *             )
+     *                 description="Dettagli degli errori di validazione"
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Errori di validazione dei campi obbligatori")
      *         )
      *     ),
      *     @OA\Response(
      *         response=403,
-     *         description="Accesso negato al paziente",
+     *         description="Paziente non accessibile o reclamo già creato oggi",
      *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="error", type="string", example="Non hai i permessi per fare richieste per questo paziente"),
-     *             @OA\Property(property="code", type="string", example="ACCESS_DENIED")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=404,
-     *         description="Tipologia di richiesta non trovata",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="error", type="string", example="Tipologia di richiesta non valida o non attiva"),
-     *             @OA\Property(property="code", type="string", example="INVALID_REQUEST_TYPE"),
-     *             @OA\Property(
-     *                 property="details",
-     *                 type="object",
-     *                 @OA\Property(property="request_type_id", type="string", example="Tipologia con ID 999 non trovata")
-     *             )
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     @OA\Property(property="success", type="boolean", example=false),
+     *                     @OA\Property(property="data", type="object"),
+     *                     @OA\Property(property="message", type="string", example="Paziente non trovato o non accessibile")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="success", type="boolean", example=false),
+     *                     @OA\Property(property="data", type="array", @OA\Items(type="string")),
+     *                     @OA\Property(property="message", type="string", example="Oggi è stato già creato un reclamo per il paziente")
+     *                 )
+     *             }
      *         )
      *     ),
      *     @OA\Response(
@@ -238,25 +130,31 @@ class ComplaintController extends Controller
      *             @OA\Property(property="error", type="string", example="Token non valido"),
      *             @OA\Property(property="code", type="string", example="UNAUTHORIZED")
      *         )
+     *     ),
+     *     @OA\Response(
+     *         response=405,
+     *         description="Metodo non permesso",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="data", type="array", @OA\Items(type="string")),
+     *             @OA\Property(property="message", type="string", example="Metodo non permesso")
+     *         )
      *     )
      * )
      *
-     * Crea una nuova richiesta documento
-     * POST /requests
+     * Crea un nuovo reclamo
+     * POST /complaints
      * 
-     * Questo endpoint permette ai pazienti autenticati di creare nuove richieste
-     * di documenti. La validazione è dinamica basata sui requisiti della tipologia.
+     * Questo endpoint permette agli utenti autenticati di creare nuovi reclami
+     * per i pazienti a cui hanno accesso.
      * 
      * Headers richiesti:
      * - Authorization: Bearer {jwt_token}
      * - Content-Type: application/json
      * 
-     * Validazione dinamica:
-     * - therapeutic_plan_id: obbligatorio se therapeutic_plan_rule = PLAN_REQUIRED
-     * - therapy_id: obbligatorio se require_therapy_assignment = true
-     * - reason: obbligatorio solo se requires_reason = true
-     * - notes: obbligatorio solo se require_notes = true
-     * - date_from/date_to: obbligatorie solo se requires_date_range = true
+     * Vincoli:
+     * - L'utente deve avere accesso al paziente (relazione AccountPatient)
+     * - È possibile creare un solo reclamo per paziente al giorno
      */
     public function actionCreate()
     {
