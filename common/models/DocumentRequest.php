@@ -198,8 +198,8 @@ class DocumentRequest extends ActiveRecord
         return [
             self::STATUS_INVIATA => 'Inviata',
             self::STATUS_PRESA_IN_CARICO => 'Presa in carico',
-            self::STATUS_STAMPATO => 'Stampato',
-            self::STATUS_CONSEGNATO => 'Consegnato',
+            self::STATUS_STAMPATO => 'Da ritirare',
+            self::STATUS_CONSEGNATO => 'Evaso',
         ];
     }
 

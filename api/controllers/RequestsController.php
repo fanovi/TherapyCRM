@@ -1720,9 +1720,11 @@ class RequestsController extends Controller
             'presa_in_carico' => DocumentRequest::STATUS_PRESA_IN_CARICO, // 2
             'printed' => DocumentRequest::STATUS_STAMPATO,         // 3 - "Stampato"
             'stampato' => DocumentRequest::STATUS_STAMPATO,        // 3
+            'da_ritirare' => DocumentRequest::STATUS_STAMPATO,        // 3
             'completed' => DocumentRequest::STATUS_CONSEGNATO,     // 4 - "Consegnato"
             'consegnato' => DocumentRequest::STATUS_CONSEGNATO,    // 4
-            'delivered' => DocumentRequest::STATUS_CONSEGNATO      // 4
+            'delivered' => DocumentRequest::STATUS_CONSEGNATO,      // 4
+            'evaso' => DocumentRequest::STATUS_CONSEGNATO      // 4
         ];
 
         // Converti status

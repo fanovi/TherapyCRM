@@ -82,7 +82,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     $availableStatuses[RequestStatus::STATUS_PRESA_IN_CARICO] = 'Presa in carico';
                 }
                 if ($model->status != RequestStatus::STATUS_STAMPATO) {
-                    $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
+                    $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Da ritirare';
                 }
         ?>
                 <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
@@ -122,14 +122,14 @@ $this->params['breadcrumbs'][] = $this->title;
         <?php
             else:
                 // Mostra opzione per consegnare
-                $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Consegnato'];
+                $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Evaso'];
         ?>
                 <button onclick="openStatusUpdateModal(<?= $model->id ?>, <?= Html::encode(json_encode($availableStatuses)) ?>)" 
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    Segna come Consegnato
+                    Segna come Evaso
                 </button>
         <?php
             endif;
