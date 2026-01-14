@@ -23,6 +23,7 @@ $menuMappings = [
     'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account'],
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
+    'Complaints' => ['complaint/index', 'complaint/view'],
     'Absences' => ['absence/index', 'absence/create', 'absence/view', 'absence/update'],
 ];
 
@@ -543,6 +544,36 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Document Requests -->
+
+                    <!-- Menu Item Complaints -->
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/complaint/index']) ?>"
+                            @click="selected = (selected === 'Complaints' ? '':'Complaints')"
+                            class="menu-item group"
+                            :class="(selected === 'Complaints') || <?= isMenuActive('Complaints', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Complaints') || <?= isMenuActive('Complaints', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm-7 9h-2V5h2v6zm0 4h-2v-2h2v2z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Reclami
+                            </span>
+                        </a>
+                    </li>
+                    <!-- Menu Item Complaints -->
 
                     <!-- Menu Item Notifications -->
                     <?php if (Yii::$app->user->can('view_notifications')): ?>
