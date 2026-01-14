@@ -8,6 +8,7 @@ use yii\web\Controller;
 use yii\web\UnauthorizedHttpException;
 use yii\web\BadRequestHttpException;
 use common\models\Complaint;
+use yii\db\Expression;
 
 /**
  * @OA\Info(
@@ -294,6 +295,14 @@ class ComplaintController extends Controller
                 ];
             }
 
+            if(Complaint::find()->where(['account_id' => $complaint->account_id, 'patient_id' => $complaint->patient_id])->andWhere(new Expression('DATE(created_at) = CURDATE()'))->one()) {
+                return [
+                    'success' => false,
+                    'data' => [],
+                    'message' => 'Reclamo già esistente per il paziente oggi'
+                ];
+            }
+
             if(!$complaint->validate()) {
                 return [
                     'success' => false,
@@ -313,7 +322,7 @@ class ComplaintController extends Controller
             return [
                 'success' => true,
                 'data' => $complaint->validate(),
-                'message' => 'Complaint created successfully'
+                'message' => 'Reclamo creato con successo'
             ];
 
         } catch (UnauthorizedHttpException $e) {
