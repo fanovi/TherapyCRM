@@ -7,7 +7,7 @@ use yii\helpers\Html;
 /** @var common\models\Patient $patient */
 /** @var common\models\User $account */
 
-$complaint_link = Yii::$app->urlManager->createAbsoluteUrl(['complaint/view', 'id' => $complaint->id]);
+$complaint_link = Yii::$app->params['frontendUrl'] . '/complaint/view?id=' . $complaint->id;
 
 ?>
 <div class="verify-email">
