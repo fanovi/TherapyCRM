@@ -572,9 +572,9 @@ use yii\helpers\Url;
                     
                     // Popola la select dei settings con i settings del regime corrente
                     const settingSelectNew = clone.querySelector('.setting');
-                    if (settingSelectNew && Object.keys(currentRegimeSettings).length > 0) {
+                    if (settingSelectNew && Object.keys(window.currentRegimeSettings).length > 0) {
                         settingSelectNew.innerHTML = '<option value=\"\">Seleziona setting...</option>';
-                        for (const [id, nome] of Object.entries(currentRegimeSettings)) {
+                        for (const [id, nome] of Object.entries(window.currentRegimeSettings)) {
                             const option = document.createElement('option');
                             option.value = id;
                             option.textContent = nome;
@@ -612,11 +612,28 @@ use yii\helpers\Url;
                 // Inizializza il regime corrente se già selezionato
                 updateHoursLabels();
 
-                // Inizializza le terapie esistenti
-                const postedTherapies = " . json_encode($postedTherapies ?? []) . ";
-                
-                if (postedTherapies && postedTherapies.length > 0) {
-                    postedTherapies.forEach(therapy => addTherapyWithData(therapy));
+                // Funzione per inizializzare le terapie esistenti
+                function initializeExistingTherapies() {
+                    const postedTherapies = " . json_encode($postedTherapies ?? []) . ";
+                    
+                    if (postedTherapies && postedTherapies.length > 0) {
+                        postedTherapies.forEach(therapy => addTherapyWithData(therapy));
+                    }
+                    
+                    // Aggiungi almeno una terapia se non ce ne sono (DOPO aver caricato le esistenti)
+                    if (document.getElementById('therapies-container').children.length === 0) {
+                        addTherapyWithData();
+                    }
+                }
+
+                // All'avvio, se c'è già un regime selezionato, carica i settings PRIMA delle terapie
+                const regimeSelectInit = document.getElementById('regime-select');
+                if (regimeSelectInit && regimeSelectInit.value) {
+                    // Carica i settings e poi inizializza le terapie (callback)
+                    getSettingsList(regimeSelectInit, initializeExistingTherapies);
+                } else {
+                    // Se non c'è regime, inizializza subito le terapie
+                    initializeExistingTherapies();
                 }
 
                 // Evento per aggiungere nuova terapia
@@ -637,11 +654,6 @@ use yii\helpers\Url;
                         }
                     }, 100);
                 });
-
-                // Aggiungi almeno una terapia se non ce ne sono
-                if (document.getElementById('therapies-container').children.length === 0) {
-                    addTherapyWithData();
-                }
 
                 // Validazione base al submit del form
                 document.getElementById('therapeutic-plan-form').addEventListener('submit', function(e) {
@@ -732,29 +744,34 @@ use yii\helpers\Url;
 
 <script>
     // Variabile globale per salvare i settings correnti del regime selezionato
-    let currentRegimeSettings = {};
+    window.currentRegimeSettings = {};
 
-    function getSettingsList(el) {
+    function getSettingsList(el, callback) {
         let settings_url = el.dataset.url;
         let regime_id = el.value;
 
         if (!regime_id) {
-            currentRegimeSettings = {};
+            window.currentRegimeSettings = {};
             updateAllSettingsSelects();
+            if (callback) callback();
             return;
         }
 
-        fetch(`${settings_url}/${regime_id}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                // Salva i settings per uso successivo (quando si aggiungono nuove terapie)
-                currentRegimeSettings = data.data;
-                // Aggiorna tutte le select dei settings esistenti
-                updateAllSettingsSelects();
+        // Usa jQuery.ajax invece di fetch per evitare problemi di performance con il debug toolbar
+        $.ajax({
+            url: `${settings_url}/${regime_id}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                if (data.success) {
+                    window.currentRegimeSettings = data.data;
+                    updateAllSettingsSelects();
+                }
+                if (callback) callback();
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading settings:', error);
+                if (callback) callback();
             }
         });
     }
@@ -764,7 +781,7 @@ use yii\helpers\Url;
             const currentValue = select.value;
             select.innerHTML = '<option value="">Seleziona setting...</option>';
             
-            for (const [id, nome] of Object.entries(currentRegimeSettings)) {
+            for (const [id, nome] of Object.entries(window.currentRegimeSettings)) {
                 const option = document.createElement('option');
                 option.value = id;
                 option.textContent = nome;

@@ -46,3 +46,4 @@ phpunit.phar
 /common/keys/public.key
 
 /.vscode
+/.cursor

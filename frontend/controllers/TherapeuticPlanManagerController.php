@@ -10,6 +10,7 @@ use common\models\Patient;
 use common\models\PlanTherapy;
 use common\models\PrivateCycle;
 use common\models\Regime;
+use common\models\Setting;
 use common\models\SpecializationTreatment;
 use common\models\TherapeuticPlan;
 use common\models\Therapist;
@@ -25,6 +26,7 @@ use yii\web\Response;
 use DateTime;
 use Exception;
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * TherapeuticPlanManagerController gestisce la creazione di pattern e appuntamenti
@@ -672,6 +674,37 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error('Errore creazione appuntamento di gruppo: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    public function actionGetSettingsList($regimeId = 0)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if ($regimeId > 0) {
+            // Query SQL diretta - massima velocita
+            $settings = Yii::$app->db->createCommand('
+                SELECT s.id, s.nome 
+                FROM {{%setting}} s 
+                INNER JOIN {{%regime_setting}} rs ON rs.setting_id = s.id 
+                WHERE rs.regime_id = :regimeId 
+                ORDER BY s.nome ASC
+            ', [':regimeId' => $regimeId])->queryAll();
+            
+            $data = ArrayHelper::map($settings, 'id', 'nome');
+        } else {
+            $settings = Setting::find()
+                ->select(['id', 'nome'])
+                ->orderBy(['nome' => SORT_ASC])
+                ->asArray()
+                ->all();
+            
+            $data = ArrayHelper::map($settings, 'id', 'nome');
+        }
+
+        return [
+            'success' => true,
+            'data' => $data
+        ];
     }
 
     /**

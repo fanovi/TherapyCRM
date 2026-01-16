@@ -92,7 +92,8 @@ class TherapeuticPlanController extends BaseController
                             'actions' => ['get-settings-list'],
                             'allow' => true,
                             'matchCallback' => function ($rule, $action) {
-                                return Yii::$app->user->can('create_therapeutic_plan');
+                                // Permetti sia in create che in update
+                                return Yii::$app->user->can('create_therapeutic_plan') || Yii::$app->user->can('update_therapeutic_plan');
                             }
                         ],
                     ],
@@ -684,24 +685,6 @@ class TherapeuticPlanController extends BaseController
         }
     }
 
-    public function actionGetSettingsList($regimeId = 0)
-    {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
-        $settings = Setting::find();
-
-        if($regimeId > 0) {
-            $settings->joinWith('regimes')->where(['regime.id' => $regimeId]);
-        }
-
-        $settings = $settings->orderBy(['nome' => SORT_ASC])->all() ?? [];
-
-        return [
-            'success' => true,
-            'data' => ArrayHelper::map($settings, 'id', 'nome')
-        ];
-    }
-
     /**
      * Finds the TherapeuticPlan model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
@@ -898,6 +881,43 @@ class TherapeuticPlanController extends BaseController
         return [
             'isValid' => true,
             'conflictingPlan' => null
+        ];
+    }
+
+    /**
+     * Ottiene la lista dei settings per un regime specifico
+     * 
+     * @param int $regimeId
+     * @return array
+     */
+    public function actionGetSettingsList($regimeId = 0)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        if ($regimeId > 0) {
+            // Query SQL diretta - massima velocita
+            $settings = Yii::$app->db->createCommand('
+                SELECT s.id, s.nome 
+                FROM {{%setting}} s 
+                INNER JOIN {{%regime_setting}} rs ON rs.setting_id = s.id 
+                WHERE rs.regime_id = :regimeId 
+                ORDER BY s.nome ASC
+            ', [':regimeId' => $regimeId])->queryAll();
+            
+            $data = ArrayHelper::map($settings, 'id', 'nome');
+        } else {
+            $settings = Setting::find()
+                ->select(['id', 'nome'])
+                ->orderBy(['nome' => SORT_ASC])
+                ->asArray()
+                ->all();
+            
+            $data = ArrayHelper::map($settings, 'id', 'nome');
+        }
+
+        return [
+            'success' => true,
+            'data' => $data
         ];
     }
 }
