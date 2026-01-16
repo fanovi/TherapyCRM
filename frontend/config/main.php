@@ -65,6 +65,7 @@ return [
                 'api/patient/<id:\d+>' => 'api/patient/view',
                 // Password reset route
                 'site/reset-password' => 'site/reset-password',
+                'therapeutic-plan/get-settings-list/<regimeId:\d+>' => 'therapeutic-plan/get-settings-list',
             ],
         ],
     ],

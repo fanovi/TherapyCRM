@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\TherapeuticPlan */
@@ -132,6 +133,8 @@ use yii\widgets\ActiveForm;
                         [
                             'prompt' => 'Seleziona un regime...',
                             'id' => 'regime-select',
+                            'onchange' => 'getSettingsList(this)',
+                            'data-url' => Url::to(['therapeutic-plan/get-settings-list']),
                         ]
                     )->label('Regime <span class="text-red-500">*</span>', ['encode' => false]) ?>
                     <?php if ($model->hasErrors('regime_id')): ?>
@@ -526,7 +529,6 @@ use yii\widgets\ActiveForm;
                     if (data) {
                         const treatmentTypeSelect = clone.querySelector('.treatment-type');
                         const weeklyHoursInput = clone.querySelector('.weekly-hours');
-                        const settingSelect = clone.querySelector('.setting');
                         const isGroupCheckbox = clone.querySelector('.is-group');
                         const notesTextarea = clone.querySelector('.notes');
                         
@@ -538,9 +540,7 @@ use yii\widgets\ActiveForm;
                             weeklyHoursInput.value = data.weekly_hours;
                         }
                         
-                        if (settingSelect && data.setting_id) {
-                            settingSelect.value = data.setting_id;
-                        }
+                        // Il setting viene gestito nel blocco sottostante con i settings dinamici
                         
                         if (isGroupCheckbox && data.is_group !== undefined) {
                             isGroupCheckbox.checked = data.is_group == 1 || data.is_group === true || data.is_group === 'true';
@@ -568,6 +568,22 @@ use yii\widgets\ActiveForm;
                             updateTherapyIndexes();
                             rebuildSelectedTreatmentTypes();
                         });
+                    }
+                    
+                    // Popola la select dei settings con i settings del regime corrente
+                    const settingSelectNew = clone.querySelector('.setting');
+                    if (settingSelectNew && Object.keys(currentRegimeSettings).length > 0) {
+                        settingSelectNew.innerHTML = '<option value=\"\">Seleziona setting...</option>';
+                        for (const [id, nome] of Object.entries(currentRegimeSettings)) {
+                            const option = document.createElement('option');
+                            option.value = id;
+                            option.textContent = nome;
+                            // Se abbiamo dati e un setting_id, seleziona quello
+                            if (data && data.setting_id && id == data.setting_id) {
+                                option.selected = true;
+                            }
+                            settingSelectNew.appendChild(option);
+                        }
                     }
                     
                     container.appendChild(clone);
@@ -713,6 +729,54 @@ use yii\widgets\ActiveForm;
     <?php ActiveForm::end(); ?>
 
 </div>
+
+<script>
+    // Variabile globale per salvare i settings correnti del regime selezionato
+    let currentRegimeSettings = {};
+
+    function getSettingsList(el) {
+        let settings_url = el.dataset.url;
+        let regime_id = el.value;
+
+        if (!regime_id) {
+            currentRegimeSettings = {};
+            updateAllSettingsSelects();
+            return;
+        }
+
+        fetch(`${settings_url}/${regime_id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then(response => response.json()).then(data => {
+            if (data.success) {
+                // Salva i settings per uso successivo (quando si aggiungono nuove terapie)
+                currentRegimeSettings = data.data;
+                // Aggiorna tutte le select dei settings esistenti
+                updateAllSettingsSelects();
+            }
+        });
+    }
+
+    function updateAllSettingsSelects() {
+        document.querySelectorAll('#therapies-container .setting').forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Seleziona setting...</option>';
+            
+            for (const [id, nome] of Object.entries(currentRegimeSettings)) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = nome;
+                // Preserva il valore selezionato se ancora valido
+                if (id === currentValue) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            }
+        });
+    }
+</script>
 
 <?php
 $this->registerJs('

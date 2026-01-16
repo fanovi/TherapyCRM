@@ -14,6 +14,7 @@ use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
 use common\helpers\NotificationHelper;
+use common\models\Setting;
 
 /**
  * TherapeuticPlanController implements the CRUD actions for TherapeuticPlan model.
@@ -85,6 +86,13 @@ class TherapeuticPlanController extends BaseController
                             'allow' => true,
                             'matchCallback' => function ($rule, $action) {
                                 return Yii::$app->user->can('view_therapeutic_plan') || Yii::$app->user->can('create_therapeutic_plan');
+                            }
+                        ],
+                        [
+                            'actions' => ['get-settings-list'],
+                            'allow' => true,
+                            'matchCallback' => function ($rule, $action) {
+                                return Yii::$app->user->can('create_therapeutic_plan');
                             }
                         ],
                     ],
@@ -548,7 +556,6 @@ class TherapeuticPlanController extends BaseController
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
                 return $this->redirect(['view', 'id' => $model->id]);
-
             } catch (\Exception $e) {
                 $transaction->rollBack();
                 Yii::$app->session->setFlash('error', $e->getMessage());
@@ -675,6 +682,24 @@ class TherapeuticPlanController extends BaseController
 
             return $this->redirect(['index']);
         }
+    }
+
+    public function actionGetSettingsList($regimeId = 0)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $settings = Setting::find();
+
+        if($regimeId > 0) {
+            $settings->joinWith('regimes')->where(['regime.id' => $regimeId]);
+        }
+
+        $settings = $settings->orderBy(['nome' => SORT_ASC])->all() ?? [];
+
+        return [
+            'success' => true,
+            'data' => ArrayHelper::map($settings, 'id', 'nome')
+        ];
     }
 
     /**
