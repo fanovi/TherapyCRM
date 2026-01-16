@@ -4,6 +4,8 @@ return [
     'supportEmail' => 'noreply@sanlucacentromedico.it',
     'senderEmail' => 'noreply@sanlucacentromedico.it',
     'senderName' => 'TherapyCRM',
+    // 'complaint_recipients' => ['elisa.vitolo@sanlucacentromedico.it', 'direttore.sanitario@sanlucacentromedico.it'],
+    'complaint_recipients' => ['vito.fasano@badil.it', 'alessio.apicella@badil.it'],
     'user.passwordResetTokenExpire' => 3600,
     'user.passwordMinLength' => 8,
     'user.passwordMaxLength' => 20,

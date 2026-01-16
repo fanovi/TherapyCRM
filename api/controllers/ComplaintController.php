@@ -7,6 +7,8 @@ use Yii;
 use yii\web\Controller;
 use yii\web\UnauthorizedHttpException;
 use common\models\Complaint;
+use common\models\Patient;
+use common\models\User;
 use yii\db\Expression;
 
 /**
@@ -23,7 +25,7 @@ class ComplaintController extends Controller
     public function behaviors()
     {
         $behaviors = parent::behaviors();
-        
+
         // Solo autenticazione JWT necessaria - tutto il resto è configurato globalmente:
         // - CORS: gestito in api/web/.htaccess
         // - JSON format: configurato in api/config/main.php
@@ -31,7 +33,7 @@ class ComplaintController extends Controller
             'class' => \common\components\JwtAuthBehavior::class,
             'excludeActions' => [], // Tutte le azioni richiedono autenticazione
         ];
-        
+
         return $behaviors;
     }
 
@@ -160,7 +162,7 @@ class ComplaintController extends Controller
     {
         try {
 
-            if(Yii::$app->request->isGet) {
+            if (Yii::$app->request->isGet) {
                 return [
                     'success' => false,
                     'data' => [],
@@ -185,7 +187,7 @@ class ComplaintController extends Controller
             $complaint->description = $data['description'];
             $complaint->created_at = date('Y-m-d H:i:s');
 
-            if(!AccountPatient::find()->where(['user_id' => $complaint->account_id, 'patient_id' => $complaint->patient_id])->one()) {
+            if (!AccountPatient::find()->where(['user_id' => $complaint->account_id, 'patient_id' => $complaint->patient_id])->one()) {
                 return [
                     'success' => false,
                     'data' => $complaint->errors,
@@ -193,7 +195,7 @@ class ComplaintController extends Controller
                 ];
             }
 
-            if(Complaint::find()->where(['account_id' => $complaint->account_id, 'patient_id' => $complaint->patient_id])->andWhere(new Expression('DATE(created_at) = CURDATE()'))->one()) {
+            if (Complaint::find()->where(['account_id' => $complaint->account_id, 'patient_id' => $complaint->patient_id])->andWhere(new Expression('DATE(created_at) = CURDATE()'))->one()) {
                 return [
                     'success' => false,
                     'data' => [],
@@ -201,7 +203,7 @@ class ComplaintController extends Controller
                 ];
             }
 
-            if(!$complaint->validate()) {
+            if (!$complaint->validate()) {
                 return [
                     'success' => false,
                     'data' => $complaint->errors,
@@ -209,7 +211,7 @@ class ComplaintController extends Controller
                 ];
             }
 
-            if(!$complaint->save()) {
+            if (!$complaint->save()) {
                 return [
                     'success' => false,
                     'data' => $complaint->errors,
@@ -217,34 +219,42 @@ class ComplaintController extends Controller
                 ];
             }
 
+            $complaint_patient = Patient::findOne($complaint->patient_id);
+            $complaint_account = User::findOne($complaint->account_id);
+
+            $email_sended = Yii::$app->mailer->compose(['html' => 'complaint-html', 'text' => 'complaint-text'], ['complaint' => $complaint, 'patient' => $complaint_patient, 'account' => $complaint_account])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo(Yii::$app->params['complaint_recipients'])
+                ->setSubject("Nuovo reclamo")
+                ->send();
+
             return [
                 'success' => true,
                 'data' => $complaint->validate(),
+                'email_sended' => $email_sended,
                 'message' => 'Reclamo creato con successo'
             ];
-
         } catch (UnauthorizedHttpException $e) {
             return $this->formatErrorResponse('UNAUTHORIZED', $e->getMessage(), [], 401);
-
         } catch (\Exception $e) {
             // Gestisci errori specifici di accesso e permessi
             $message = $e->getMessage();
-            
+
             // Errori di accesso paziente
             if (strpos($message, 'Non hai i permessi per fare richieste per questo paziente') !== false) {
                 return $this->formatErrorResponse('ACCESS_DENIED', $message, [], 403);
             }
-            
+
             // Errori di accesso paziente con lista accessibili
             if (strpos($message, 'Pazienti accessibili:') !== false) {
                 return $this->formatErrorResponse('ACCESS_DENIED', $message, [], 403);
             }
-            
+
             // Errori AccountPatient non trovato
             if (strpos($message, 'AccountPatient non trovato') !== false || strpos($message, 'Nessun AccountPatient trovato') !== false) {
                 return $this->formatErrorResponse('ACCESS_DENIED', 'Non hai accesso a nessun paziente. Contatta l\'amministratore.', [], 403);
             }
-            
+
             // Errori paziente non trovato
             if (strpos($message, 'Paziente non trovato') !== false) {
                 return $this->formatErrorResponse('NOT_FOUND', 'Paziente non trovato o non accessibile', [], 404);
@@ -264,17 +274,17 @@ class ComplaintController extends Controller
     private function formatErrorResponse($errorCode, $message, $details = [], $statusCode = 400)
     {
         Yii::$app->response->statusCode = $statusCode;
-        
+
         $response = [
             'success' => false,
             'error' => $message,
             'code' => $errorCode
         ];
-        
+
         if (!empty($details)) {
             $response['details'] = $details;
         }
-        
+
         return $response;
     }
-} 
+}
