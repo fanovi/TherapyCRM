@@ -2148,13 +2148,14 @@ class TherapeuticPlanManagerController extends Controller
                     Yii::info("GroupSessionId rimosso dall'appuntamento {$appointmentToUpdate->id}", __METHOD__);
                 }
 
-                // Aggiorna id_setting
-                if (!isset($data['id_setting']) && $appointmentToUpdate->id_setting == null) {
+                // Aggiorna id_setting - mantieni esistente se non specificato
+                if (isset($data['id_setting']) && $data['id_setting'] !== null) {
+                    $appointmentToUpdate->id_setting = $data['id_setting'];
+                } elseif ($appointmentToUpdate->id_setting === null) {
                     $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointmentToUpdate);
                     $appointmentToUpdate->id_setting = $setting->id;
-                } else {
-                    $appointmentToUpdate->id_setting = $data['id_setting'];
                 }
+                // altrimenti mantieni il valore esistente
 
                 if (!$appointmentToUpdate->save()) {
                     $errors = $appointmentToUpdate->getFirstErrors();
@@ -2488,12 +2489,14 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->treatment_type_id = $newTreatmentTypeId;
             $appointment->notes = $data['notes'] ?? null;
 
-            if (!isset($data['id_setting']) && $appointment->id_setting == null) {
+            // Aggiorna id_setting - mantieni esistente se non specificato
+            if (isset($data['id_setting']) && $data['id_setting'] !== null) {
+                $appointment->id_setting = $data['id_setting'];
+            } elseif ($appointment->id_setting === null) {
                 $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
                 $appointment->id_setting = $setting->id;
-            } else {
-                $appointment->id_setting = $data['id_setting'];
             }
+            // altrimenti mantieni il valore esistente
 
             if (!$appointment->save()) {
                 $errors = $appointment->getFirstErrors();
