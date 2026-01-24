@@ -47,6 +47,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     duration: 60,
     notes: "",
     isRecurring: false,
+    recurringInterval: 1, // Default: settimanale
     isGroup: false, // Aggiunto campo per appuntamento di gruppo
     id_setting: undefined,
   });
@@ -189,6 +190,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         duration: 60,
         notes: "",
         isRecurring: false,
+        recurringInterval: 1,
         isGroup: false,
         id_setting: undefined,
       });
@@ -212,6 +214,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       duration: 60,
       notes: "",
       isRecurring: false,
+      recurringInterval: 1,
       isGroup: false,
       id_setting: undefined,
     });
@@ -317,6 +320,27 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 Appuntamento ricorrente
               </Label>
             </div>
+
+            {/* Selezione frequenza ricorrenza */}
+            {formData.isRecurring && (
+              <div className="ml-6 space-y-2">
+                <Label className="text-sm">Frequenza</Label>
+                <Select
+                  value={formData.recurringInterval?.toString() || "1"}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, recurringInterval: parseInt(value) as 1 | 2 })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleziona frequenza" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Ogni settimana</SelectItem>
+                    <SelectItem value="2">Ogni 2 settimane</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Mostra checkbox gruppo solo se NON è ABA e NON è privato */}
             {!isABARegime && patient?.planTherapy && (

@@ -54,11 +54,13 @@ export const PrivateAppointmentModal: React.FC<
     duration: number;
     notes: string;
     isRecurring: boolean;
+    recurringInterval: 1 | 2;
     id_setting: number | undefined;
   }>({
     duration: 60,
     notes: "",
     isRecurring: false,
+    recurringInterval: 1, // Default: settimanale
     id_setting: undefined,
   });
 
@@ -196,6 +198,7 @@ export const PrivateAppointmentModal: React.FC<
         duration: formData.duration,
         notes: formData.notes,
         isRecurring: formData.isRecurring,
+        recurringInterval: formData.recurringInterval,
         id_setting: formData.id_setting,
       };
 
@@ -212,6 +215,7 @@ export const PrivateAppointmentModal: React.FC<
         duration: 60,
         notes: "",
         isRecurring: false,
+        recurringInterval: 1,
         id_setting: undefined,
       });
     } catch (error) {
@@ -231,6 +235,7 @@ export const PrivateAppointmentModal: React.FC<
       duration: 60,
       notes: "",
       isRecurring: false,
+      recurringInterval: 1,
       id_setting: undefined,
     });
   };
@@ -352,17 +357,40 @@ export const PrivateAppointmentModal: React.FC<
             )}
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="recurring"
-              checked={formData.isRecurring}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, isRecurring: checked as boolean })
-              }
-            />
-            <Label htmlFor="recurring" className="text-sm">
-              Appuntamento ricorrente (settimanale per il mese corrente)
-            </Label>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="recurring"
+                checked={formData.isRecurring}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isRecurring: checked as boolean })
+                }
+              />
+              <Label htmlFor="recurring" className="text-sm">
+                Appuntamento ricorrente
+              </Label>
+            </div>
+
+            {/* Selezione frequenza ricorrenza */}
+            {formData.isRecurring && (
+              <div className="ml-6 space-y-2">
+                <Label className="text-sm">Frequenza</Label>
+                <Select
+                  value={formData.recurringInterval?.toString() || "1"}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, recurringInterval: parseInt(value) as 1 | 2 })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleziona frequenza" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Ogni settimana</SelectItem>
+                    <SelectItem value="2">Ogni 2 settimane</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="p-3 bg-amber-50 rounded-lg text-sm">

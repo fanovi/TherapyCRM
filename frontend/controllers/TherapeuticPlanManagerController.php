@@ -106,8 +106,8 @@ class TherapeuticPlanManagerController extends Controller
                 // Crea pattern
                 $pattern = $this->createAppointmentPattern($data);
 
-                // Genera appuntamenti
-                $result = $this->generateAppointments($pattern, $therapist, $planTherapy, $patient);
+                // Genera appuntamenti (passa anche $data per weekInterval)
+                $result = $this->generateAppointments($pattern, $therapist, $planTherapy, $patient, $data);
 
                 $response = array_merge($response, $result);
                 $response['success'] = true;
@@ -2216,6 +2216,8 @@ class TherapeuticPlanManagerController extends Controller
         ];
 
         $currentDate = new DateTime();
+        $weekInterval = $data['weekInterval'] ?? 1; // 1 = settimanale (default), 2 = ogni 2 settimane
+        $daysToAdd = 7 * $weekInterval;
 
         // Usa la data fornita in $data['appointmentDateTime'] come punto di partenza
         $startDate = new DateTime($data['appointmentDateTime']);
@@ -2226,7 +2228,7 @@ class TherapeuticPlanManagerController extends Controller
         $endDate = new DateTime("$currentYear-$currentMonth-01");
         $endDate->modify('last day of this month');
 
-        Yii::info("Date calcolate - corrente: {$currentDate->format('Y-m-d H:i:s')}, inizio: {$startDate->format('Y-m-d H:i:s')}, fine: {$endDate->format('Y-m-d')}", __METHOD__);
+        Yii::info("Date calcolate - corrente: {$currentDate->format('Y-m-d H:i:s')}, inizio: {$startDate->format('Y-m-d H:i:s')}, fine: {$endDate->format('Y-m-d')}, intervallo: ogni {$weekInterval} settimana/e", __METHOD__);
 
         while ($startDate <= $endDate) {
             // Usa il datetime completo dalla data corrente del ciclo
@@ -2236,7 +2238,7 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica che l'appuntamento non sia nel passato
             if ($startDate <= $currentDate) {
                 Yii::info("Saltato appuntamento nel passato: {$appointmentDateTime}", __METHOD__);
-                $startDate->modify('+7 days');
+                $startDate->modify("+{$daysToAdd} days");
                 continue;
             }
 
@@ -2257,7 +2259,7 @@ class TherapeuticPlanManagerController extends Controller
                     $startDate->format('H:i'),
                     $data['therapistId']
                 );
-                $startDate->modify('+7 days');
+                $startDate->modify("+{$daysToAdd} days");
                 continue;
             } else {
                 Yii::info("Nessun conflitto terapista per {$appointmentDateTime}", __METHOD__);
@@ -2273,7 +2275,7 @@ class TherapeuticPlanManagerController extends Controller
             if ($patientSlotConflict) {
                 Yii::info("Conflitto slot temporale paziente rilevato per {$appointmentDateTime}: " . json_encode($patientSlotConflict), __METHOD__);
                 $result['conflicts'][] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
-                $startDate->modify('+7 days');
+                $startDate->modify("+{$daysToAdd} days");
                 continue;
             } else {
                 Yii::info("Nessun conflitto slot paziente per {$appointmentDateTime}", __METHOD__);
@@ -2293,7 +2295,7 @@ class TherapeuticPlanManagerController extends Controller
                     $startDate->format('Y-m-d'),
                     $startDate->format('H:i')
                 );
-                $startDate->modify('+7 days');
+                $startDate->modify("+{$daysToAdd} days");
                 continue;
             } else {
                 Yii::info("Nessun conflitto trattamento per {$appointmentDateTime}", __METHOD__);
@@ -2334,8 +2336,8 @@ class TherapeuticPlanManagerController extends Controller
                 Yii::error('Errore creazione appuntamento privato: ' . $e->getMessage(), __METHOD__);
             }
 
-            // Passa alla settimana successiva
-            $startDate->modify('+7 days');
+            // Passa alla settimana successiva (o ogni 2 settimane se weekInterval = 2)
+            $startDate->modify("+{$daysToAdd} days");
         }
 
         Yii::info("Risultato generazione appuntamenti privati: {$result['appointmentsCreated']} creati, " . count($result['conflicts']) . ' conflitti', __METHOD__);
@@ -3198,9 +3200,11 @@ class TherapeuticPlanManagerController extends Controller
      * @param AppointmentPattern $pattern
      * @param Therapist $therapist
      * @param PlanTherapy $planTherapy
+     * @param Patient $patient
+     * @param array $data Dati della richiesta (contiene weekInterval)
      * @return array
      */
-    private function generateAppointments($pattern, $therapist, $planTherapy, $patient)
+    private function generateAppointments($pattern, $therapist, $planTherapy, $patient, $data = [])
     {
         $result = [
             'appointmentsCreated' => 0,
@@ -3210,11 +3214,22 @@ class TherapeuticPlanManagerController extends Controller
 
         $currentDate = new DateTime($pattern->valid_from);
         $endDate = new DateTime($pattern->valid_to);
+        $weekInterval = isset($data['weekInterval']) ? (int)$data['weekInterval'] : 1; // 1 = settimanale, 2 = ogni 2 settimane
+        $weekCounter = 0; // Contatore per tracciare le settimane
 
-        Yii::info("Generazione appuntamenti - Pattern ID: {$pattern->id}, Da: {$pattern->valid_from}, A: {$pattern->valid_to}, Giorno: {$pattern->day_of_week}, Ora: {$pattern->start_time}", __METHOD__);
+        Yii::info("Generazione appuntamenti - Pattern ID: {$pattern->id}, Da: {$pattern->valid_from}, A: {$pattern->valid_to}, Giorno: {$pattern->day_of_week}, Ora: {$pattern->start_time}, Intervallo: ogni {$weekInterval} settimana/e", __METHOD__);
 
         while ($currentDate <= $endDate) {
             if ($currentDate->format('N') == $pattern->day_of_week) {
+                // Verifica se dobbiamo creare l'appuntamento in questa settimana in base all'intervallo
+                if ($weekCounter % $weekInterval !== 0) {
+                    Yii::info("Settimana saltata per intervallo bi-settimanale: {$currentDate->format('Y-m-d')}", __METHOD__);
+                    $weekCounter++;
+                    $currentDate->modify('+1 day');
+                    continue;
+                }
+                $weekCounter++;
+
                 // Assicurati che start_time sia nel formato corretto HH:mm
                 $startTime = $pattern->start_time;
                 if (!preg_match('/^\d{2}:\d{2}$/', $startTime)) {

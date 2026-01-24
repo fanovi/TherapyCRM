@@ -131,6 +131,7 @@ export interface AppointmentData {
   duration: number;
   notes?: string;
   isRecurring?: boolean;
+  recurringInterval?: 1 | 2; // 1 = settimanale, 2 = ogni 2 settimane
   planTherapy?: PlanTherapy;
   appointmentType?: "terapia" | "parent_training" | "supervisione";
   isGroup?: boolean;
@@ -152,12 +153,13 @@ export interface CreateAppointmentRequest {
 export interface CreatePatternRequest {
   planTherapyId: number;
   therapistId: number;
-  patientId: number; // AGGIUNGI QUESTA RIGA
+  patientId: number;
   dayOfWeek: number; // 1=Lunedì, 7=Domenica
   startTime: string; // HH:mm
   durationMinutes: number;
   validFrom: string; // YYYY-MM-DD
   validTo?: string; // YYYY-MM-DD - opzionale, verrà ricavato dal backend se non fornito
+  weekInterval?: number; // 1 = settimanale (default), 2 = ogni 2 settimane
   isGroup?: boolean;
   id_setting?: number;
 }
@@ -230,6 +232,7 @@ export interface PrivateAppointmentData {
   duration: number;
   notes?: string;
   isRecurring?: boolean;
+  recurringInterval?: 1 | 2; // 1 = settimanale, 2 = ogni 2 settimane
   id_setting?: number;
 }
 

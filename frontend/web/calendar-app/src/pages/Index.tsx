@@ -684,6 +684,7 @@ const Index = () => {
           validFrom,
           isGroup: appointmentData.isGroup,
           id_setting: appointmentData.id_setting,
+          weekInterval: appointmentData.recurringInterval || 1, // 1 = settimanale, 2 = ogni 2 settimane
           // validTo verrà ricavato dal backend dal piano terapeutico
         };
 
@@ -835,6 +836,7 @@ const Index = () => {
           notes: appointmentData.notes,
           appointmentDateTime: appointmentDateTime,
           id_setting: appointmentData.id_setting,
+          weekInterval: appointmentData.recurringInterval || 1, // 1 = settimanale, 2 = ogni 2 settimane
         };
 
         // console.log("request", request);
