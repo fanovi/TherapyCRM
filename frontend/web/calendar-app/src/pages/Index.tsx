@@ -898,19 +898,51 @@ const Index = () => {
           id_setting: appointmentData.id_setting,
         };
 
-        await therapyAPI.createPrivateAppointment(request);
+        const result = await therapyAPI.createPrivateAppointment(request);
+
+        // Aggiorna stato locale senza refresh
+        const newAppointment: Appointment = {
+          id: result.appointmentId,
+          datetime: appointmentDateTime,
+          duration: appointmentData.duration,
+          status: "scheduled",
+          notes: appointmentData.notes || "",
+          treatmentType: selectedTreatmentType?.name || "",
+          therapist: {
+            id: selectedTherapist.id,
+            name: selectedTherapist.name,
+          },
+          patient: {
+            id: currentPatient.id,
+            name: currentPatient.name,
+          },
+          setting_id: appointmentData.id_setting,
+          isGroup: false,
+          groupPatients: [],
+          groupSessionId: null,
+          appointmentSource: "private",
+          isPrivate: true,
+          isRecurring: false,
+        };
+
+        setAppointments((prev) => [...prev, newAppointment]);
+        setTherapistAppointments((prev) => [...prev, newAppointment]);
+        setWeeklyHoursRefreshTrigger((prev) => prev + 1);
+
         showSuccess(
           "Appuntamento privato creato",
           "L'appuntamento privato è stato creato con successo"
         );
+
+        setIsPrivateModalOpen(false);
+        setSelectedSlot(null);
+        return; // Esci qui per evitare il refresh
       }
 
-      // Ricarica appuntamenti per il range visibile
+      // Per cicli ricorrenti: ricarica appuntamenti
       await reloadCurrentVisibleAppointments();
-
-      // Forza anche un refresh immediato con un piccolo delay
       setRefreshKey((prev) => prev + 1);
-      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
+      restoreScrollPosition(scrollPos);
       setIsPrivateModalOpen(false);
       setSelectedSlot(null);
     } catch (err) {
@@ -1447,12 +1479,8 @@ const Index = () => {
                   <Switch
                     id="private-mode"
                     checked={isPrivateMode}
-                    onCheckedChange={(checked) => {
-                      if (canCreateNormalAppointments || checked) {
-                        setIsPrivateMode(checked);
-                      }
-                    }}
-                    disabled={!canCreateNormalAppointments && !isPrivateMode}
+                    onCheckedChange={setIsPrivateMode}
+                    disabled={!canCreateNormalAppointments && isPrivateMode}
                     className="data-[state=checked]:bg-purple-600"
                   />
                 </div>
