@@ -18,12 +18,12 @@ interface DualFullCalendarViewProps {
   appointments: Appointment[];
   onSlotClick: (date: Date, time: string) => void;
   onAppointmentClick?: (appointmentId: string) => void;
-  onAppointmentMove: (
+  onAppointmentMove?: (
     appointmentId: string,
     newDate: Date,
     newTime: string,
     eventData?: any
-  ) => void;
+  ) => Promise<boolean> | void;
   viewType: CalendarViewType;
   onViewTypeChange: (viewType: CalendarViewType) => void;
   hidePatientCalendar?: boolean;
@@ -345,16 +345,23 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   };
 
   // Gestione movimento appuntamenti con sincronizzazione
-  const handleAppointmentMoveWithSync = (
+  const handleAppointmentMoveWithSync = async (
     appointmentId: string,
     newDate: Date,
     newTime: string,
     eventData?: any
-  ) => {
-    // Chiama la funzione originale per aggiornare il backend
-    onAppointmentMove(appointmentId, newDate, newTime, eventData);
+  ): Promise<boolean> => {
+    if (!onAppointmentMove) return false;
 
-    // Calcola il nuovo datetime
+    // Chiama la funzione originale per aggiornare il backend
+    const result = await onAppointmentMove(appointmentId, newDate, newTime, eventData);
+
+    // Se fallisce, ritorna false (il chiamante farà revert)
+    if (result === false) {
+      return false;
+    }
+
+    // Calcola il nuovo datetime per sincronizzazione locale
     const newDateTime = new Date(newDate);
     const [hours, minutes] = newTime.split(":");
     newDateTime.setHours(parseInt(hours), parseInt(minutes));
@@ -362,22 +369,18 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     // Usa i dati dell'evento per ottenere le informazioni necessarie
     const duration = eventData?.duration || 60;
     const patientId = eventData?.patient_id;
-    const therapistId = eventData?.therapist_id;
 
     const newStart = newDateTime.toISOString();
     const newEnd = new Date(
       newDateTime.getTime() + duration * 60000
     ).toISOString();
 
-    // Aggiungi questo log per debug
-
     // Sincronizza con il calendario del paziente se l'evento appartiene al paziente visualizzato
     if (patientId === currentPatientId && patientCalendarRef.current) {
-      // console.log(
-      //   `✅ Aggiornamento calendario paziente per evento ${appointmentId}`
-      // );
       patientCalendarRef.current.updateEvent(appointmentId, newStart, newEnd);
     }
+
+    return true;
   };
 
   // Filtra eventi per il calendario del terapista

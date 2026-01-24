@@ -1125,14 +1125,13 @@ const Index = () => {
     newDate: Date,
     newTime: string,
     eventData?: any
-  ) => {
-    const scrollPos = saveScrollPosition();
+  ): Promise<boolean> => {
     try {
       const numericId = parseInt(appointmentId);
       if (isNaN(numericId)) {
         throw new Error("ID appuntamento non valido");
       }
-      // console.log("this is my appointments", combinedAppointments, numericId);
+
       const appointment = combinedAppointments.find(
         (apt) => +apt.id === numericId
       );
@@ -1154,14 +1153,9 @@ const Index = () => {
         id_setting: appointment.setting_id,
       };
 
-      // console.log("🔄 Spostamento appuntamento:", {
-      //   appointmentId: numericId,
-      //   originalTherapist: appointment.therapist?.id,
-      //   newDateTime,
-      // });
-
       await therapyAPI.updateAppointment(request);
 
+      // Aggiorna stato locale senza refresh - FullCalendar ha già spostato visivamente
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === numericId ? { ...apt, datetime: newDateTime } : apt
@@ -1183,10 +1177,12 @@ const Index = () => {
         "Appuntamento spostato",
         "L'appuntamento è stato spostato con successo"
       );
+
+      return true;
     } catch (err) {
       console.error("Errore nello spostamento dell'appuntamento:", err);
-      setRefreshKey((prev) => prev + 1);
-      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
+
+      // Gestione errori - FullCalendar farà revert visivo automaticamente
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
 
@@ -1222,6 +1218,8 @@ const Index = () => {
           `Non è stato possibile spostare l'appuntamento: ${errorMessage}`
         );
       }
+
+      return false;
     }
   };
 

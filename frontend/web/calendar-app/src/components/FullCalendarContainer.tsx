@@ -26,7 +26,7 @@ interface FullCalendarContainerProps {
     newDate: Date,
     newTime: string,
     eventData?: any
-  ) => void;
+  ) => Promise<boolean> | void;
   readOnly?: boolean;
   currentView?: "dayGridMonth" | "timeGridWeek" | "timeGridDay" | "listWeek";
   onViewChange?: (
@@ -604,7 +604,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   };
 
   // Gestione drag and drop eventi
-  const handleEventDrop = (dropInfo: any) => {
+  const handleEventDrop = async (dropInfo: any) => {
     // Se è readOnly, non permettere drag and drop
     if (readOnly) {
       dropInfo.revert();
@@ -617,7 +617,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       const newTime = newDate.toTimeString().slice(0, 5); // "HH:mm"
       const eventData = dropInfo.event.extendedProps;
 
-      onAppointmentMove(eventId, newDate, newTime, eventData);
+      // Aspetta il risultato e fa revert se fallisce
+      const success = await onAppointmentMove(eventId, newDate, newTime, eventData);
+      if (success === false) {
+        dropInfo.revert();
+      }
     }
   };
 
