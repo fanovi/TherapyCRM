@@ -2102,6 +2102,34 @@ class TherapeuticPlanManagerController extends Controller
             }
         }
 
+        // Verifica limite ore settimanali del terapista se cambiano data/ora o durata
+        if (
+            $data['appointmentDateTime'] != $appointment->appointment_datetime ||
+            $data['durationMinutes'] != $appointment->duration_minutes ||
+            $data['therapistId'] != $appointment->therapist_id
+        ) {
+            $therapist = Therapist::findOne($data['therapistId']);
+            if ($therapist && $therapist->weekly_hours_contract > 0) {
+                $weeklyLimitInfo = $this->checkWeeklyLimit(
+                    $therapist,
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes'],
+                    $appointment->id // Escludi l'appuntamento corrente dal calcolo
+                );
+
+                if ($weeklyLimitInfo) {
+                    return [
+                        'success' => false,
+                        'error' => "Superato il limite ore settimanali del terapista ({$weeklyLimitInfo['limitHours']}h). " .
+                            "Ore già assegnate: {$weeklyLimitInfo['currentHours']}h, " .
+                            "Ore con modifica: " . number_format($weeklyLimitInfo['newTotal'], 1) . "h",
+                        'code' => 'THERAPIST_WEEKLY_LIMIT_EXCEEDED',
+                        'weeklyLimitExceeded' => $weeklyLimitInfo
+                    ];
+                }
+            }
+        }
+
         // Gestione aggiornamento gruppo se applicabile
         $applyToGroup = $data['applyToGroup'] ?? false;
         $appointmentsToUpdate = [$appointment];
@@ -3806,7 +3834,7 @@ class TherapeuticPlanManagerController extends Controller
      * @param int $durationMinutes
      * @return array|null
      */
-    private function checkWeeklyLimit($therapist, $appointmentDateTime, $durationMinutes)
+    private function checkWeeklyLimit($therapist, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
         $weekStart = clone $appointmentDate;
@@ -3817,7 +3845,7 @@ class TherapeuticPlanManagerController extends Controller
         $daysToSubtract = ($dayOfWeek - 1);  // Se lunedì (1), sottrae 0; se domenica (7), sottrae 6
         $weekStart->modify("-{$daysToSubtract} days");
 
-        $currentWeeklyHours = $this->calculateWeeklyHours($therapist->id, $weekStart->format('Y-m-d'));
+        $currentWeeklyHours = $this->calculateWeeklyHours($therapist->id, $weekStart->format('Y-m-d'), $excludeAppointmentId);
         $newTotal = $currentWeeklyHours + ($durationMinutes / 60);
 
         if ($newTotal > $therapist->weekly_hours_contract) {
@@ -3839,17 +3867,22 @@ class TherapeuticPlanManagerController extends Controller
      * @param string $weekStartDate
      * @return float
      */
-    private function calculateWeeklyHours($therapistId, $weekStartDate)
+    private function calculateWeeklyHours($therapistId, $weekStartDate, $excludeAppointmentId = null)
     {
         $weekStart = new DateTime($weekStartDate);
         $weekEnd = clone $weekStart;
         $weekEnd->modify('+6 days 23:59:59');
 
-        $totalMinutes = Appointment::find()
+        $query = Appointment::find()
             ->where(['therapist_id' => $therapistId])
             ->andWhere(['in', 'status', [Appointment::STATUS_SCHEDULED, Appointment::STATUS_COMPLETED]])
-            ->andWhere(['between', 'appointment_datetime', $weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')])
-            ->sum('duration_minutes') ?: 0;
+            ->andWhere(['between', 'appointment_datetime', $weekStart->format('Y-m-d H:i:s'), $weekEnd->format('Y-m-d H:i:s')]);
+
+        if ($excludeAppointmentId) {
+            $query->andWhere(['!=', 'id', $excludeAppointmentId]);
+        }
+
+        $totalMinutes = $query->sum('duration_minutes') ?: 0;
 
         return $totalMinutes / 60;
     }

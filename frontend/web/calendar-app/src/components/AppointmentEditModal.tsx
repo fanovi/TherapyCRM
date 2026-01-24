@@ -26,7 +26,22 @@ interface AppointmentEditModalProps {
   onClose: () => void;
   appointment: Appointment | null;
   therapists: Therapist[];
-  onAppointmentUpdate: (appointmentId: string, refresh: boolean) => void;
+  onAppointmentUpdate: (
+    appointmentId: string,
+    options?: {
+      refresh?: boolean;
+      updatedData?: {
+        datetime?: string;
+        therapistId?: number;
+        duration?: number;
+        notes?: string;
+        id_setting?: number;
+        appointment_category?: string;
+      };
+      applyToGroup?: boolean;
+      groupIds?: number[];
+    }
+  ) => void;
   onAppointmentDelete: (
     appointmentId: string,
     options?: { deletedIds?: number[]; needsReload?: boolean }
@@ -41,6 +56,9 @@ interface AppointmentEditModalProps {
   isABARegime?: boolean;
   patient?: Patient | null;
   onSetGroupAppointment?: (appointmentId: number) => Promise<void>;
+  // Toast functions from parent
+  showSuccess?: (title: string, message?: string) => void;
+  showError?: (title: string, message?: string) => void;
 }
 
 export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
@@ -56,6 +74,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   isABARegime,
   patient,
   onSetGroupAppointment,
+  showSuccess: showSuccessProp,
+  showError: showErrorProp,
 }) => {
   // console.log("appointment IN MODAL", appointment);
   const [isEditing, setIsEditing] = useState(false);
@@ -94,7 +114,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  const { showSuccess, showError } = useToast();
+  // Usa le funzioni toast dal parent se fornite, altrimenti fallback a toast locale
+  const localToast = useToast();
+  const showSuccess = showSuccessProp || localToast.showSuccess;
+  const showError = showErrorProp || localToast.showError;
 
   // Determina se è un appuntamento privato
   const isPrivateAppointment =
@@ -278,7 +301,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         "Paziente aggiunto",
         "Il paziente è stato aggiunto al gruppo"
       );
-      onAppointmentUpdate(appointment.id.toString(), true);
+      // Gruppo modificato - serve refresh completo
+      onAppointmentUpdate(appointment.id.toString(), { refresh: true });
       onClose();
     } catch (error) {
       console.error("Errore aggiunta al gruppo:", error);
@@ -352,7 +376,22 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           : "L'appuntamento è stato modificato con successo"
       );
 
-      onAppointmentUpdate(appointment.id.toString(), true);
+      // Per gruppi con applyToWholeGroup serve refresh completo
+      if (applyToWholeGroup && isGroupAppointment) {
+        onAppointmentUpdate(appointment.id.toString(), { refresh: true });
+      } else {
+        // Aggiornamento locale per singolo appuntamento
+        onAppointmentUpdate(selectedAppointmentId.toString(), {
+          updatedData: {
+            datetime: appointmentDateTime,
+            therapistId: formData.therapistId,
+            duration: formData.duration,
+            notes: formData.notes,
+            id_setting: formData.id_setting,
+            appointment_category: formData.appointment_category,
+          },
+        });
+      }
       setIsEditing(false);
       onClose();
     } catch (error) {

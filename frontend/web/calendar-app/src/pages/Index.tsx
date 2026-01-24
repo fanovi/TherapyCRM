@@ -735,9 +735,41 @@ const Index = () => {
         }
       }
 
-      await reloadCurrentVisibleAppointments();
-      setRefreshKey((prev) => prev + 1);
-      restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
+      // Per appuntamenti singoli (non ricorrenti), aggiorna stato locale senza refresh
+      if (!appointmentData.isRecurring && result?.appointmentId) {
+        const newAppointment: Appointment = {
+          id: result.appointmentId,
+          datetime: appointmentDateTime,
+          duration: appointmentData.duration,
+          status: "scheduled",
+          notes: appointmentData.notes || "",
+          treatmentType: selectedSpecialization?.name || "",
+          therapist: {
+            id: selectedTherapist.id,
+            name: selectedTherapist.name,
+          },
+          patient: {
+            id: currentPatient.id,
+            name: currentPatient.name,
+          },
+          setting_id: appointmentData.id_setting,
+          isGroup: appointmentData.isGroup || false,
+          groupPatients: [],
+          groupSessionId: null,
+          appointmentSource: "therapeutic_plan",
+          isRecurring: false,
+          appointmentType: appointmentData.appointmentType,
+        };
+
+        setAppointments((prev) => [...prev, newAppointment]);
+        setTherapistAppointments((prev) => [...prev, newAppointment]);
+      } else {
+        // Per appuntamenti ricorrenti o casi speciali, fa reload
+        await reloadCurrentVisibleAppointments();
+        setRefreshKey((prev) => prev + 1);
+        restoreScrollPosition(scrollPos);
+      }
+
       setIsModalOpen(false);
       setSelectedSlot(null);
       setExistingSlotAppointments([]);
@@ -1026,13 +1058,53 @@ const Index = () => {
 
   const handleAppointmentUpdate = async (
     appointmentId: string,
-    refresh: boolean = false
+    options?: {
+      refresh?: boolean;
+      updatedData?: {
+        datetime?: string;
+        therapistId?: number;
+        duration?: number;
+        notes?: string;
+        id_setting?: number;
+        appointment_category?: string;
+      };
+      applyToGroup?: boolean;
+      groupIds?: number[];
+    }
   ) => {
-    const scrollPos = saveScrollPosition();
-    if (refresh) {
+    const numericId = parseInt(appointmentId);
+
+    // Se richiesto refresh esplicito (per gruppi o casi complessi)
+    if (options?.refresh) {
+      const scrollPos = saveScrollPosition();
       await reloadCurrentVisibleAppointments();
       setRefreshKey((prev) => prev + 1);
       restoreScrollPosition(scrollPos);
+      return;
+    }
+
+    // Aggiornamento locale per singolo appuntamento
+    if (options?.updatedData) {
+      const updateAppointment = (apt: Appointment): Appointment => {
+        if (apt.id === numericId || (options.groupIds && options.groupIds.includes(apt.id))) {
+          return {
+            ...apt,
+            datetime: options.updatedData?.datetime || apt.datetime,
+            duration: options.updatedData?.duration || apt.duration,
+            notes: options.updatedData?.notes ?? apt.notes,
+            setting_id: options.updatedData?.id_setting ?? apt.setting_id,
+            appointment_category: (options.updatedData?.appointment_category as "regular" | "recovery") || apt.appointment_category,
+            // Se il terapista è cambiato, aggiorna anche quello
+            therapist: options.updatedData?.therapistId && apt.therapist
+              ? { ...apt.therapist, id: options.updatedData.therapistId }
+              : apt.therapist
+          };
+        }
+        return apt;
+      };
+
+      setAppointments((prev) => prev.map(updateAppointment));
+      setTherapistAppointments((prev) => prev.map(updateAppointment));
     }
   };
 
@@ -1558,8 +1630,10 @@ const Index = () => {
           onAppointmentUpdate={handleAppointmentUpdate}
           onAppointmentDelete={handleAppointmentDelete}
           onTherapistSubstitution={handleTherapistSubstitution}
-          onSetGroupAppointment={handleSetGroupAppointment} // NUOVO
+          onSetGroupAppointment={handleSetGroupAppointment}
           isTherapistView={isTherapistView}
+          showSuccess={showSuccess}
+          showError={showError}
         />
 
         <TherapistSubstitutionModal
