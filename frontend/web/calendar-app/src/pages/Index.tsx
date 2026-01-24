@@ -1083,11 +1083,30 @@ const Index = () => {
     setIsModalOpen(true);
   };
 
-  const handleAppointmentDelete = async (appointmentId: string) => {
-    const scrollPos = saveScrollPosition();
-    await handleAppointmentUpdate(appointmentId);
-    setRefreshKey((prev) => prev + 1);
-    restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
+  const handleAppointmentDelete = async (
+    appointmentId: string,
+    options?: { deletedIds?: number[]; needsReload?: boolean }
+  ) => {
+    const numericId = parseInt(appointmentId);
+
+    if (options?.needsReload) {
+      // Eliminazione multipla (pattern/ciclo) - serve ricaricare
+      await reloadCurrentVisibleAppointments();
+    } else if (options?.deletedIds && options.deletedIds.length > 0) {
+      // Eliminazione di gruppo - rimuovi tutti gli ID specificati
+      setAppointments((prev) =>
+        prev.filter((apt) => !options.deletedIds!.includes(apt.id))
+      );
+      setTherapistAppointments((prev) =>
+        prev.filter((apt) => !options.deletedIds!.includes(apt.id))
+      );
+    } else {
+      // Eliminazione singola - rimuovi solo questo appuntamento
+      setAppointments((prev) => prev.filter((apt) => apt.id !== numericId));
+      setTherapistAppointments((prev) =>
+        prev.filter((apt) => apt.id !== numericId)
+      );
+    }
   };
 
   const handleTherapistSubstitution = async (substitutionData: {

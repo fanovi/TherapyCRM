@@ -415,6 +415,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
         })
       );
     },
+    removeEvent: (eventId: string) => {
+      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    },
+    removeEvents: (eventIds: string[]) => {
+      setEvents((prev) => prev.filter((event) => !eventIds.includes(event.id as string)));
+    },
     refreshEvents: (startDate?: Date, endDate?: Date) => {
       loadAppointments(startDate, endDate);
     },

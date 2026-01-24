@@ -27,7 +27,10 @@ interface AppointmentEditModalProps {
   appointment: Appointment | null;
   therapists: Therapist[];
   onAppointmentUpdate: (appointmentId: string, refresh: boolean) => void;
-  onAppointmentDelete: (appointmentId: string) => void;
+  onAppointmentDelete: (
+    appointmentId: string,
+    options?: { deletedIds?: number[]; needsReload?: boolean }
+  ) => void;
   onTherapistSubstitution?: (substitutionData: {
     appointmentId: number;
     newTherapistId: number;
@@ -446,7 +449,18 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         );
       }
 
-      onAppointmentDelete(appointment.id.toString());
+      // Determina le opzioni per l'aggiornamento UI
+      if (deleteAllFuture) {
+        // Eliminazione pattern/ciclo - serve reload completo
+        onAppointmentDelete(appointment.id.toString(), { needsReload: true });
+      } else if (isGroupAppointment && applyToWholeGroup && appointment.groupPatients) {
+        // Eliminazione gruppo - passa tutti gli ID del gruppo
+        const groupIds = appointment.groupPatients.map((gp: any) => gp.appointmentId);
+        onAppointmentDelete(appointment.id.toString(), { deletedIds: groupIds });
+      } else {
+        // Eliminazione singola
+        onAppointmentDelete(appointment.id.toString());
+      }
       onClose();
     } catch (error) {
       console.error("Errore eliminazione appuntamento:", error);
