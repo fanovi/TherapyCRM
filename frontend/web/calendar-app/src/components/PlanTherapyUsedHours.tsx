@@ -91,6 +91,16 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
     return null;
   }
 
+  // Formatta ore decimali in formato "Xh Ym"
+  const formatHoursMinutes = (decimalHours: number): string => {
+    const hours = Math.floor(decimalHours);
+    const minutes = Math.round((decimalHours - hours) * 60);
+    if (hours === 0 && minutes === 0) return "0h";
+    if (hours === 0) return `${minutes}m`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  };
+
   // ore_assegnate = ore già utilizzate/assegnate nel periodo
   // ore_limite = limite massimo di ore per il periodo
   // ore_rimanenti = ore ancora disponibili rispetto al limite
@@ -169,29 +179,25 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
         {/* Statistiche */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">Ore Assegnate:</span>
+            <span className="text-gray-500">Utilizzate:</span>
             <div className={`font-semibold ${getStatusColor()}`}>
-              {oreAssegnate}h
+              {formatHoursMinutes(oreAssegnate)}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">Ore Limite:</span>
-            <div className="font-semibold text-gray-900">{oreLimite}h</div>
-          </div>
-          <div>
-            <span className="text-gray-500">Minuti Utilizzati:</span>
-            <div className="font-semibold text-gray-600">
-              {planHours.minuti_assegnati}
+            <span className="text-gray-500">Limite:</span>
+            <div className="font-semibold text-gray-900">
+              {formatHoursMinutes(oreLimite)}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">Ore Rimanenti:</span>
+            <span className="text-gray-500">Rimanenti:</span>
             <div
               className={`font-semibold ${
                 planHours.ore_rimanenti > 0 ? "text-green-600" : "text-red-600"
               }`}
             >
-              {planHours.ore_rimanenti}h
+              {formatHoursMinutes(planHours.ore_rimanenti)}
             </div>
           </div>
         </div>

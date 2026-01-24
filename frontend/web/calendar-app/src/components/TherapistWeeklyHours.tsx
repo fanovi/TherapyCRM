@@ -82,6 +82,16 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
     return null;
   }
 
+  // Formatta ore decimali in formato "Xh Ym"
+  const formatHoursMinutes = (decimalHours: number): string => {
+    const hours = Math.floor(decimalHours);
+    const minutes = Math.round((decimalHours - hours) * 60);
+    if (hours === 0 && minutes === 0) return "0h";
+    if (hours === 0) return `${minutes}m`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  };
+
   const getStatusColor = () => {
     if (weeklyHours.isOverContract) {
       return "text-red-600";
@@ -143,13 +153,13 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
           <div>
             <span className="text-gray-500">Ore Effettive:</span>
             <div className={`font-semibold ${getStatusColor()}`}>
-              {weeklyHours.totalHours}h
+              {formatHoursMinutes(weeklyHours.totalHours)}
             </div>
           </div>
           <div>
             <span className="text-gray-500">Ore Contratto:</span>
             <div className="font-semibold text-gray-900">
-              {weeklyHours.contractHours}h
+              {formatHoursMinutes(weeklyHours.contractHours)}
             </div>
           </div>
           <div>
@@ -167,10 +177,11 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
                 weeklyHours.isOverContract ? "text-red-600" : "text-green-600"
               }`}
             >
-              {weeklyHours.isOverContract
-                ? weeklyHours.exceededHours
-                : weeklyHours.remainingHours}
-              h
+              {formatHoursMinutes(
+                weeklyHours.isOverContract
+                  ? weeklyHours.exceededHours
+                  : weeklyHours.remainingHours
+              )}
             </div>
           </div>
         </div>
