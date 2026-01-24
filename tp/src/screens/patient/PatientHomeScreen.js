@@ -17,7 +17,6 @@ import {
 } from 'react-native-paper';
 import {useSelector, useDispatch} from 'react-redux';
 import ScreenTemplate from '../../components/ScreenTemplate';
-import DebugPatientInfo from '../../components/DebugPatientInfo';
 import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 import {loginService} from '../../services/loginService';
 import {getPatientUpcomingAppointments} from '../../api/calendar';
@@ -43,9 +42,7 @@ const PatientHomeScreen = () => {
 
   // Funzione per caricare i prossimi appuntamenti
   const loadUpcomingAppointments = async (isRefresh = false, pId = patientId) => {
-    console.log('📞 loadUpcomingAppointments chiamato - isRefresh:', isRefresh, 'pId:', pId);
     if (!pId) {
-      console.log('❌ pId è falsy, esco dalla funzione');
       return;
     }
 
@@ -58,15 +55,10 @@ const PatientHomeScreen = () => {
       setError(null);
 
       const response = await getPatientUpcomingAppointments(pId, 3);
-      console.log('🏠 API response:', JSON.stringify(response, null, 2));
-      console.log('🏠 response.success:', response.success);
-      console.log('🏠 response.data:', response.data);
 
       if (response.success && response.data) {
-        console.log('🏠 Impostando appointments con:', response.data);
         setAppointments(response.data);
       } else {
-        console.log('🏠 Nessun dato, impostando array vuoto');
         setAppointments([]);
       }
     } catch (err) {
@@ -89,17 +81,10 @@ const PatientHomeScreen = () => {
 
   // Carica gli appuntamenti all'avvio
   useEffect(() => {
-    console.log('🏠 useEffect - patientId:', patientId);
     if (patientId) {
       loadUpcomingAppointments(false, patientId);
     }
   }, [patientId]);
-
-  // Debug: monitora lo stato degli appuntamenti
-  useEffect(() => {
-    console.log('🏠 appointments state aggiornato:', appointments);
-    console.log('🏠 appointments.length:', appointments.length);
-  }, [appointments]);
 
   // Funzione per formattare la data
   const formatAppointmentDate = (date, time) => {
@@ -165,7 +150,6 @@ const PatientHomeScreen = () => {
 
   // Funzione per refresh
   const onRefresh = () => {
-    console.log('🔃 onRefresh chiamato! patientId:', patientId);
     loadUpcomingAppointments(true, patientId);
   };
 

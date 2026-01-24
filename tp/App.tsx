@@ -5,11 +5,11 @@
  * @format
  */
 
-import React from 'react';
+import React, {useEffect} from 'react';
 import {Provider} from 'react-redux';
 import {PersistGate} from 'redux-persist/integration/react';
 import {PaperProvider} from 'react-native-paper';
-import {ActivityIndicator, View} from 'react-native';
+import {ActivityIndicator, View, Platform} from 'react-native';
 import {store, persistor} from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import lightTheme from './src/theme';
@@ -19,6 +19,7 @@ import {setStore as setAuthUtilsStore} from './src/utils/authUtils';
 import ErrorModal from './src/components/ErrorModal';
 import oneSignalService from './src/services/oneSignalService';
 import blockingNotificationService from './src/services/blockingNotificationService';
+import ScreenGuard from 'react-native-screenguard';
 import moment from 'moment';
 import 'moment/locale/it';
 import 'react-native-gesture-handler';
@@ -36,6 +37,15 @@ oneSignalService.initialize();
 
 // Inizializza il servizio notifiche bloccanti
 blockingNotificationService.setStore(store);
+
+// Abilita protezione screenshot per iOS (Android usa FLAG_SECURE in MainActivity.kt)
+if (Platform.OS === 'ios') {
+  ScreenGuard.register(null, error => {
+    if (error) {
+      console.log('ScreenGuard error:', error);
+    }
+  });
+}
 
 // Debug token al caricamento (solo in sviluppo) - DISABILITATO PER DEBUG
 /*

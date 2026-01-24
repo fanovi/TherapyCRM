@@ -8,6 +8,7 @@ import PatientCalendarScreen from '../screens/patient/PatientCalendarScreen';
 import PatientNotificationsScreen from '../screens/patient/PatientNotificationsScreen';
 import NotificationDetailScreen from '../screens/patient/NotificationDetailScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
+import ComplaintsScreen from '../screens/patient/ComplaintsScreen';
 import PatientRequestsScreen from '../screens/patient/PatientRequestsScreen';
 import CreateRequestScreen from '../screens/patient/CreateRequestScreen';
 import RequestDetailsScreen from '../screens/patient/RequestDetailsScreen';
@@ -38,6 +39,16 @@ const RequestsStack = () => {
       <Stack.Screen name="RequestsList" component={PatientRequestsScreen} />
       <Stack.Screen name="CreateRequest" component={CreateRequestScreen} />
       <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+    </Stack.Navigator>
+  );
+};
+
+// Stack Navigator per il Profilo
+const ProfileStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Screen name="ProfileMain" component={PatientProfileScreen} />
+      <Stack.Screen name="Complaints" component={ComplaintsScreen} />
     </Stack.Navigator>
   );
 };
@@ -99,7 +110,7 @@ const PatientNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={PatientProfileScreen}
+        component={ProfileStack}
         options={{title: 'Profilo'}}
       />
     </Tab.Navigator>

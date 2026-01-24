@@ -16,7 +16,7 @@ import {
   getUserField,
 } from '../../utils/userUtils';
 
-const PatientProfileScreen = () => {
+const PatientProfileScreen = ({navigation}) => {
   const dispatch = useDispatch();
   const {user} = useSelector(state => state.auth);
   const {patients, currentPatient} = useSelector(state => state.patient);
@@ -237,6 +237,29 @@ const PatientProfileScreen = () => {
           </Card>
         )}
 
+        {/* Sezione Azioni */}
+        <Card style={styles.sectionCard}>
+          <Card.Content>
+            <View style={styles.sectionHeader}>
+              <Avatar.Icon
+                size={24}
+                icon="cog"
+                style={styles.sectionIcon}
+              />
+              <Text style={styles.sectionTitle}>Azioni</Text>
+            </View>
+            <Divider style={styles.divider} />
+
+            <Button
+              mode="outlined"
+              onPress={() => navigation.navigate('Complaints')}
+              icon="message-alert"
+              style={styles.actionButton}>
+              Apri un Reclamo
+            </Button>
+          </Card.Content>
+        </Card>
+
         {/* Pulsante Logout */}
         <View style={styles.logoutSection}>
           <Button
@@ -393,6 +416,10 @@ const styles = StyleSheet.create({
   patientListRelation: {
     fontSize: 12,
     color: '#666',
+  },
+  // Azioni
+  actionButton: {
+    borderRadius: 8,
   },
   // Logout
   logoutSection: {

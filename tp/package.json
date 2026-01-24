@@ -33,6 +33,7 @@
     "react-native-permissions": "^5.4.2",
     "react-native-reanimated": "^3.18.0",
     "react-native-safe-area-context": "^5.4.1",
+    "react-native-screenguard": "^2.0.0-beta0",
     "react-native-screens": "^4.11.1",
     "react-native-vector-icons": "^10.2.0",
     "react-redux": "^9.2.0",
