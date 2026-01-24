@@ -6,6 +6,7 @@ import moment from "moment";
 interface TherapistWeeklyHoursProps {
   therapist: Therapist;
   currentDate: Date;
+  refreshTrigger?: number;
 }
 
 interface WeeklyHoursData {
@@ -23,6 +24,7 @@ interface WeeklyHoursData {
 export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
   therapist,
   currentDate,
+  refreshTrigger,
 }) => {
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHoursData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,9 +56,11 @@ export const TherapistWeeklyHours: React.FC<TherapistWeeklyHoursProps> = ({
     };
 
     loadWeeklyHours();
-  }, [therapist, currentDate]);
+  }, [therapist, currentDate, refreshTrigger]);
 
-  if (loading) {
+  // Mostra loader solo al primo caricamento (quando non ci sono dati)
+  // Durante il refresh, manteniamo i dati vecchi visibili
+  if (loading && !weeklyHours) {
     return (
       <div className="flex items-center gap-2 text-gray-500">
         <Clock className="w-4 h-4 animate-spin" />

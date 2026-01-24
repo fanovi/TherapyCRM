@@ -68,6 +68,7 @@ const Index = () => {
     end: Date;
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [weeklyHoursRefreshTrigger, setWeeklyHoursRefreshTrigger] = useState(0);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
   const [canCreateNormalAppointments, setCanCreateNormalAppointments] =
     useState(true);
@@ -693,8 +694,6 @@ const Index = () => {
         appointmentsCreated = patternResult.appointmentsCreated;
         weeklyLimitExceeded = patternResult.weeklyLimitExceeded || [];
 
-        console.log("appointmetData", appointmentData);
-
         if (patternResult.conflicts && patternResult.conflicts.length > 0) {
           showInfo(
             "Conflitti rilevati",
@@ -763,6 +762,8 @@ const Index = () => {
 
         setAppointments((prev) => [...prev, newAppointment]);
         setTherapistAppointments((prev) => [...prev, newAppointment]);
+        // Aggiorna le ore settimanali dopo creazione locale
+        setWeeklyHoursRefreshTrigger((prev) => prev + 1);
       } else {
         // Per appuntamenti ricorrenti o casi speciali, fa reload
         await reloadCurrentVisibleAppointments();
@@ -1105,6 +1106,11 @@ const Index = () => {
 
       setAppointments((prev) => prev.map(updateAppointment));
       setTherapistAppointments((prev) => prev.map(updateAppointment));
+
+      // Se durata o terapista sono cambiati, aggiorna le ore settimanali
+      if (options.updatedData.duration !== undefined || options.updatedData.therapistId !== undefined) {
+        setWeeklyHoursRefreshTrigger((prev) => prev + 1);
+      }
     }
   };
 
@@ -1172,12 +1178,16 @@ const Index = () => {
       setTherapistAppointments((prev) =>
         prev.filter((apt) => !options.deletedIds!.includes(apt.id))
       );
+      // Aggiorna le ore settimanali dopo eliminazione
+      setWeeklyHoursRefreshTrigger((prev) => prev + 1);
     } else {
       // Eliminazione singola - rimuovi solo questo appuntamento
       setAppointments((prev) => prev.filter((apt) => apt.id !== numericId));
       setTherapistAppointments((prev) =>
         prev.filter((apt) => apt.id !== numericId)
       );
+      // Aggiorna le ore settimanali dopo eliminazione
+      setWeeklyHoursRefreshTrigger((prev) => prev + 1);
     }
   };
 
@@ -1263,6 +1273,9 @@ const Index = () => {
           )
         );
       }
+
+      // Aggiorna le ore settimanali dopo spostamento
+      setWeeklyHoursRefreshTrigger((prev) => prev + 1);
 
       showSuccess(
         "Appuntamento spostato",
@@ -1584,6 +1597,7 @@ const Index = () => {
           isABARegime={isABARegime} // Aggiungi questa prop
           readOnly={isTherapistView} // Disabilita tutte le modifiche in vista terapista
           therapistAbsences={therapistAbsences} // Passa le assenze del terapista
+          weeklyHoursRefreshTrigger={weeklyHoursRefreshTrigger}
         />
 
         <AppointmentModal

@@ -36,6 +36,7 @@ interface DualFullCalendarViewProps {
   isABARegime?: boolean; // Aggiungi
   readOnly?: boolean; // Nuova prop per disabilitare modifiche
   therapistAbsences?: TherapistAbsence[]; // Nuova prop per le assenze
+  weeklyHoursRefreshTrigger?: number; // Trigger per aggiornare le ore settimanali
 }
 
 export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
@@ -57,6 +58,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   isABARegime,
   readOnly = false,
   therapistAbsences = [],
+  weeklyHoursRefreshTrigger,
 }) => {
   const [selectedDate, setSelectedDate] = useState(
     externalSelectedDate || new Date()
@@ -415,6 +417,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               <TherapistWeeklyHours
                 therapist={selectedTherapist}
                 currentDate={currentWeekStart}
+                refreshTrigger={weeklyHoursRefreshTrigger}
               />
             )}
 
@@ -424,6 +427,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
                 specialization={selectedSpecialization}
                 currentDate={currentWeekStart}
                 isABARegime={isABARegime}
+                refreshTrigger={weeklyHoursRefreshTrigger}
               />
             )}
           </div>
@@ -473,6 +477,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
             <TherapistWeeklyHours
               therapist={selectedTherapist}
               currentDate={currentWeekStart}
+              refreshTrigger={weeklyHoursRefreshTrigger}
             />
           )}
 
@@ -482,6 +487,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               specialization={selectedSpecialization}
               currentDate={currentWeekStart}
               isABARegime={isABARegime}
+              refreshTrigger={weeklyHoursRefreshTrigger}
             />
           )}
         </div>

@@ -9,6 +9,7 @@ interface PlanTherapyUsedHoursProps {
   specialization: Specialization | null;
   currentDate: Date;
   isABARegime?: boolean;
+  refreshTrigger?: number;
 }
 
 interface PlanTherapyHoursData {
@@ -30,6 +31,7 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
   specialization,
   currentDate,
   isABARegime = false,
+  refreshTrigger,
 }) => {
   const [planHours, setPlanHours] = useState<PlanTherapyHoursData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,9 +65,11 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
     };
 
     loadPlanTherapyHours();
-  }, [specialization, currentDate, isABARegime]);
+  }, [specialization, currentDate, isABARegime, refreshTrigger]);
 
-  if (loading) {
+  // Mostra loader solo al primo caricamento (quando non ci sono dati)
+  // Durante il refresh, manteniamo i dati vecchi visibili
+  if (loading && !planHours) {
     return (
       <div className="flex items-center gap-2 text-gray-500">
         <Clock className="w-4 h-4 animate-spin" />
