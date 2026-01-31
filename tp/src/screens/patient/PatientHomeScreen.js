@@ -257,6 +257,7 @@ const PatientHomeScreen = () => {
                       style={styles.doctorAvatar}
                     />
                     <View style={styles.doctorInfo}>
+                      {/* Nome terapista nascosto per privacy
                       <Text style={styles.doctorName}>
                         {appointment.therapist?.name ||
                           `${appointment.therapist?.first_name || ''} ${
@@ -264,6 +265,7 @@ const PatientHomeScreen = () => {
                           }`.trim() ||
                           'Terapista non assegnato'}
                       </Text>
+                      */}
                       <Text style={styles.appointmentType}>
                         {appointment.type ||
                           appointment.appointment_type ||

@@ -334,12 +334,14 @@ const PatientCalendarScreen = () => {
         </View>
 
         <View style={styles.appointmentDetails}>
+          {/* Nome terapista nascosto per privacy
           {appointment.therapist && (
             <Text
               style={[styles.therapistName, {color: theme.colors.onSurface}]}>
               {appointment.therapist.name}
             </Text>
           )}
+          */}
           <Text style={[styles.appointmentType, {color: theme.colors.primary}]}>
             {appointment.type}
           </Text>
