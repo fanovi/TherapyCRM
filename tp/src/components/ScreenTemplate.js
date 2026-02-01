@@ -1,7 +1,8 @@
 import React from 'react';
-import {View, StyleSheet, ScrollView, StatusBar} from 'react-native';
+import {View, StyleSheet, ScrollView, StatusBar, TouchableOpacity} from 'react-native';
 import {Text, IconButton, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
+import {useNavigation} from '@react-navigation/native';
 import NotificationBadge from './NotificationBadge';
 import FloatingPatientSelector from './FloatingPatientSelector';
 
@@ -15,12 +16,23 @@ const ScreenTemplate = ({
   useBackgroundColor = true,
   useHeaderBackground = true,
   showNotifications = true,
+  showBackButton = false,
+  onBackPress,
   message,
 }) => {
   const theme = useTheme();
+  const navigation = useNavigation();
   const {user} = useSelector(state => state.auth);
   const {patients, currentPatient} = useSelector(state => state.patient);
   const ContentComponent = scrollable ? ScrollView : View;
+
+  const handleBackPress = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      navigation.goBack();
+    }
+  };
 
   const backgroundColor = useBackgroundColor
     ? theme.colors.background
@@ -53,12 +65,25 @@ const ScreenTemplate = ({
             },
           ]}>
           <View style={styles.headerContent}>
-            <View style={styles.headerLeft}>
-              {/* Saluto utente connesso */}
-              <Text
-                style={[styles.welcomeText, {color: theme.colors.onSurface}]}>
-                Ciao, {user?.firstName || user?.name || 'Utente'}
-              </Text>
+            {showBackButton && (
+              <TouchableOpacity
+                onPress={handleBackPress}
+                style={styles.backButton}>
+                <IconButton
+                  icon="arrow-left"
+                  size={24}
+                  iconColor={theme.colors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+            <View style={[styles.headerLeft, showBackButton && styles.headerLeftWithBack]}>
+              {/* Saluto utente connesso - nascosto se c'è il pulsante indietro */}
+              {!showBackButton && (
+                <Text
+                  style={[styles.welcomeText, {color: theme.colors.onSurface}]}>
+                  Ciao, {user?.firstName || user?.name || 'Utente'}
+                </Text>
+              )}
 
               {/* Titoli originali */}
               {title && (
@@ -148,6 +173,13 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  headerLeftWithBack: {
+    marginLeft: -8,
+  },
+  backButton: {
+    marginLeft: -12,
+    marginRight: 4,
   },
   headerRight: {
     flexDirection: 'row',

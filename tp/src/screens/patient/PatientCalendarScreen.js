@@ -2,7 +2,6 @@ import React, {useState, useEffect} from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   Alert,
   RefreshControl,
   ScrollView,
@@ -472,7 +471,17 @@ const PatientCalendarScreen = () => {
 
   return (
     <ScreenTemplate title="Calendario" subtitle="I tuoi appuntamenti">
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+          />
+        }>
         {/* Calendario */}
         <Card style={styles.calendarCard}>
           <Card.Content>
@@ -507,25 +516,19 @@ const PatientCalendarScreen = () => {
                 Caricamento appuntamenti...
               </Text>
             </View>
+          ) : dayAppointments.length === 0 ? (
+            renderEmptyState()
           ) : (
-            <FlatList
-              data={dayAppointments}
-              renderItem={renderAppointmentItem}
-              keyExtractor={item => item.id.toString()}
-              ListEmptyComponent={renderEmptyState}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  colors={[theme.colors.primary]}
-                />
-              }
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContainer}
-            />
+            <View style={styles.listContainer}>
+              {dayAppointments.map(item => (
+                <View key={item.id.toString()}>
+                  {renderAppointmentItem({item})}
+                </View>
+              ))}
+            </View>
           )}
         </View>
-      </View>
+      </ScrollView>
 
       {/* Dialog conferma cancellazione */}
       <Portal>
@@ -642,6 +645,10 @@ const PatientCalendarScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   calendarCard: {
     marginHorizontal: 16,

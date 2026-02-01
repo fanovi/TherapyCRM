@@ -20,7 +20,8 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
+  private baseURL =
+    "https://app.sanlucacentromedico.it/therapeutic-plan-manager";
 
   // Cache per i settings
   private settingsCache: { id: number; nome: string }[] | null = null;
@@ -32,7 +33,7 @@ class TherapeuticPlanManagerAPI {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseURL}/${endpoint}`;
 
@@ -69,7 +70,7 @@ class TherapeuticPlanManagerAPI {
    */
   private async get<T>(
     endpoint: string,
-    params?: Record<string, string | number>
+    params?: Record<string, string | number>,
   ): Promise<T> {
     let url = endpoint;
 
@@ -113,18 +114,18 @@ class TherapeuticPlanManagerAPI {
    * Ottiene la lista dei terapisti filtrati per tipo di trattamento
    */
   async getTherapistsByTreatment(
-    treatmentTypeId: number
+    treatmentTypeId: number,
   ): Promise<Therapist[]> {
     const response = await this.get<APIResponse<Therapist[]>>(
       "get-therapists-by-treatment",
       {
         treatmentTypeId,
-      }
+      },
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento terapisti per trattamento"
+        response.error || "Errore nel caricamento terapisti per trattamento",
       );
     }
 
@@ -153,7 +154,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento specializzazioni paziente"
+        response.error || "Errore nel caricamento specializzazioni paziente",
       );
     }
 
@@ -171,7 +172,7 @@ class TherapeuticPlanManagerAPI {
       time: string; // H:i
       duration: number; // minuti
       appointmentId?: number; // ID appuntamento per escludere terapista originale
-    }
+    },
   ): Promise<Therapist[]> {
     const params: Record<string, string | number> = {
       specializationId,
@@ -189,13 +190,13 @@ class TherapeuticPlanManagerAPI {
 
     const response = await this.get<APIResponse<Therapist[]>>(
       "get-therapists-by-specialization",
-      params
+      params,
     );
 
     if (!response.success) {
       throw new Error(
         response.error ||
-          "Errore nel caricamento terapisti per specializzazione"
+          "Errore nel caricamento terapisti per specializzazione",
       );
     }
 
@@ -206,18 +207,18 @@ class TherapeuticPlanManagerAPI {
    * Ottiene i specialization_treatments disponibili per un terapista basati sulla sua specializzazione
    */
   async getTherapistSpecializationTreatments(
-    therapistId: number
+    therapistId: number,
   ): Promise<SpecializationTreatment[]> {
     const response = await this.get<APIResponse<SpecializationTreatment[]>>(
       "get-therapist-specialization-treatments",
       {
         therapistId,
-      }
+      },
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento trattamenti specializzati"
+        response.error || "Errore nel caricamento trattamenti specializzati",
       );
     }
 
@@ -249,7 +250,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       const error = new Error(
-        response.error || "Errore nel caricamento dati paziente"
+        response.error || "Errore nel caricamento dati paziente",
       ) as any;
       // Passa il codice di errore se presente
       if ((response as any).code) {
@@ -273,7 +274,7 @@ class TherapeuticPlanManagerAPI {
   async getTherapistAppointments(
     therapistId: number,
     month: number,
-    year: number
+    year: number,
   ): Promise<Appointment[]> {
     const response = await this.get<APIResponse<Appointment[]>>(
       "get-therapist-appointments",
@@ -281,12 +282,12 @@ class TherapeuticPlanManagerAPI {
         therapistId,
         month,
         year,
-      }
+      },
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento appuntamenti terapista"
+        response.error || "Errore nel caricamento appuntamenti terapista",
       );
     }
 
@@ -299,7 +300,7 @@ class TherapeuticPlanManagerAPI {
   async getPatientAppointments(
     patientId: number,
     month: number,
-    year: number
+    year: number,
   ): Promise<Appointment[]> {
     const response = await this.get<APIResponse<Appointment[]>>(
       "get-patient-appointments",
@@ -307,12 +308,12 @@ class TherapeuticPlanManagerAPI {
         patientId,
         month,
         year,
-      }
+      },
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento appuntamenti paziente"
+        response.error || "Errore nel caricamento appuntamenti paziente",
       );
     }
 
@@ -327,12 +328,12 @@ class TherapeuticPlanManagerAPI {
       "get-appointment-details",
       {
         appointmentId,
-      }
+      },
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento dettagli appuntamento"
+        response.error || "Errore nel caricamento dettagli appuntamento",
       );
     }
 
@@ -358,14 +359,14 @@ class TherapeuticPlanManagerAPI {
       // Se c'è un conflitto, includiamo le informazioni del conflitto nell'errore
       if (response.conflict) {
         const error = new Error(
-          response.error || "Conflitto appuntamento rilevato"
+          response.error || "Conflitto appuntamento rilevato",
         ) as any;
         error.conflict = response.conflict;
         throw error;
       }
 
       throw new Error(
-        response.error || "Errore nella creazione dell'appuntamento"
+        response.error || "Errore nella creazione dell'appuntamento",
       );
     }
 
@@ -376,11 +377,11 @@ class TherapeuticPlanManagerAPI {
    * Crea un pattern di appuntamenti ricorrenti
    */
   async createPattern(
-    request: CreatePatternRequest
+    request: CreatePatternRequest,
   ): Promise<CreatePatternResponse> {
     const response = await this.post<CreatePatternResponse | APIResponse<any>>(
       "create-pattern",
-      request
+      request,
     );
 
     if (!response.success) {
@@ -431,7 +432,7 @@ class TherapeuticPlanManagerAPI {
         throw error;
       }
       throw new Error(
-        response.error || "Errore nell'aggiornamento dell'appuntamento"
+        response.error || "Errore nell'aggiornamento dell'appuntamento",
       );
     }
 
@@ -453,13 +454,13 @@ class TherapeuticPlanManagerAPI {
   }> {
     const response = await this.post<any>(
       "update-pattern-appointments",
-      request
+      request,
     );
 
     if (!response.success) {
       throw new Error(
         response.error ||
-          "Errore nell'aggiornamento degli appuntamenti del pattern"
+          "Errore nell'aggiornamento degli appuntamenti del pattern",
       );
     }
 
@@ -472,7 +473,7 @@ class TherapeuticPlanManagerAPI {
 
   async deleteAppointment(
     appointmentId: number,
-    options?: { applyToGroup?: boolean }
+    options?: { applyToGroup?: boolean },
   ): Promise<void> {
     const response = await this.post<any>("delete-appointment", {
       appointmentId,
@@ -481,7 +482,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nella cancellazione dell'appuntamento"
+        response.error || "Errore nella cancellazione dell'appuntamento",
       );
     }
   }
@@ -490,16 +491,16 @@ class TherapeuticPlanManagerAPI {
    * Sostituisce il terapista di un appuntamento
    */
   async substituteTherapist(
-    request: TherapistSubstitutionRequest
+    request: TherapistSubstitutionRequest,
   ): Promise<TherapistSubstitutionResponse> {
     const response = await this.post<TherapistSubstitutionResponse>(
       "substitute-therapist",
-      request
+      request,
     );
 
     if (!response.success) {
       throw new Error(
-        response.message || "Errore nella sostituzione del terapista"
+        response.message || "Errore nella sostituzione del terapista",
       );
     }
 
@@ -514,13 +515,13 @@ class TherapeuticPlanManagerAPI {
   }> {
     const response = await this.post<any>(
       "delete-pattern-appointments",
-      request
+      request,
     );
 
     if (!response.success) {
       throw new Error(
         response.error ||
-          "Errore nella cancellazione degli appuntamenti del pattern"
+          "Errore nella cancellazione degli appuntamenti del pattern",
       );
     }
 
@@ -540,7 +541,7 @@ class TherapeuticPlanManagerAPI {
     if (!response.success) {
       throw new Error(
         response.error ||
-          "Errore nella cancellazione degli appuntamenti del ciclo privato"
+          "Errore nella cancellazione degli appuntamenti del ciclo privato",
       );
     }
 
@@ -552,7 +553,7 @@ class TherapeuticPlanManagerAPI {
    */
   async getTherapistWeeklyHours(
     therapistId: number,
-    startDate: string
+    startDate: string,
   ): Promise<{
     therapistId: number;
     weekStart: string;
@@ -571,7 +572,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel calcolo delle ore settimanali"
+        response.error || "Errore nel calcolo delle ore settimanali",
       );
     }
 
@@ -583,7 +584,7 @@ class TherapeuticPlanManagerAPI {
    */
   async getPlanTherapyForTherapist(
     patientId: number,
-    therapistId: number
+    therapistId: number,
   ): Promise<{
     planTherapyId: number;
     treatmentTypeId: number;
@@ -602,7 +603,7 @@ class TherapeuticPlanManagerAPI {
           patientId,
           therapistId,
         }),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -612,7 +613,7 @@ class TherapeuticPlanManagerAPI {
     const data = await response.json();
     if (!data.success) {
       throw new Error(
-        data.message || data.error || "Errore nel recupero piano terapia"
+        data.message || data.error || "Errore nel recupero piano terapia",
       );
     }
 
@@ -643,7 +644,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento tipi trattamento"
+        response.error || "Errore nel caricamento tipi trattamento",
       );
     }
 
@@ -665,21 +666,21 @@ class TherapeuticPlanManagerAPI {
   }> {
     const response = await this.post<any>(
       "create-private-appointment",
-      request
+      request,
     );
 
     if (!response.success) {
       // Se c'è un conflitto, includiamo le informazioni del conflitto nell'errore
       if (response.conflict) {
         const error = new Error(
-          response.error || "Conflitto appuntamento rilevato"
+          response.error || "Conflitto appuntamento rilevato",
         ) as any;
         error.conflict = response.conflict;
         throw error;
       }
 
       throw new Error(
-        response.error || "Errore nella creazione dell'appuntamento privato"
+        response.error || "Errore nella creazione dell'appuntamento privato",
       );
     }
 
@@ -706,7 +707,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nella creazione del ciclo privato"
+        response.error || "Errore nella creazione del ciclo privato",
       );
     }
 
@@ -734,14 +735,14 @@ class TherapeuticPlanManagerAPI {
     if (!response.success) {
       if (response.conflict) {
         const error = new Error(
-          response.error || "Conflitto appuntamento ABA rilevato"
+          response.error || "Conflitto appuntamento ABA rilevato",
         ) as any;
         error.conflict = response.conflict;
         throw error;
       }
 
       throw new Error(
-        response.error || "Errore nella creazione dell'appuntamento ABA"
+        response.error || "Errore nella creazione dell'appuntamento ABA",
       );
     }
 
@@ -753,7 +754,7 @@ class TherapeuticPlanManagerAPI {
    */
   async getPlanTherapyUsedHours(
     therapyId: number,
-    startDate: string
+    startDate: string,
   ): Promise<{
     is_private: boolean;
     treatment_type: string;
@@ -775,7 +776,8 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel recupero ore utilizzate piano terapeutico"
+        response.error ||
+          "Errore nel recupero ore utilizzate piano terapeutico",
       );
     }
 
@@ -789,7 +791,7 @@ class TherapeuticPlanManagerAPI {
    * I settings vengono cachati per 24 ore per evitare chiamate ripetute
    */
   async getSettings(
-    regimeId?: number
+    regimeId?: number,
   ): Promise<{ id: number; nome: string }[]> {
     // Controlla se la cache è valida
     const now = Date.now();
@@ -836,7 +838,7 @@ class TherapeuticPlanManagerAPI {
   async getTherapistAbsences(
     therapistId: number,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ): Promise<TherapistAbsence[]> {
     const params: Record<string, string | number> = {
       therapistId: therapistId,
@@ -851,12 +853,12 @@ class TherapeuticPlanManagerAPI {
 
     const response = await this.get<APIResponse<TherapistAbsencesResponse>>(
       "get-therapist-absences",
-      params
+      params,
     );
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nel caricamento assenze terapista"
+        response.error || "Errore nel caricamento assenze terapista",
       );
     }
 
@@ -876,7 +878,8 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nell'impostazione dell'appuntamento di gruppo"
+        response.error ||
+          "Errore nell'impostazione dell'appuntamento di gruppo",
       );
     }
 
@@ -888,7 +891,7 @@ class TherapeuticPlanManagerAPI {
    */
   async addPatientToGroup(
     appointmentId: number,
-    patientId: number
+    patientId: number,
   ): Promise<{
     appointmentId: number;
     groupSessionId: string;
@@ -900,7 +903,7 @@ class TherapeuticPlanManagerAPI {
 
     if (!response.success) {
       throw new Error(
-        response.error || "Errore nell'aggiungere il paziente al gruppo"
+        response.error || "Errore nell'aggiungere il paziente al gruppo",
       );
     }
 
@@ -912,14 +915,14 @@ class TherapeuticPlanManagerAPI {
    */
   async checkPatientInGroup(
     groupSessionId: string,
-    patientId: number
+    patientId: number,
   ): Promise<boolean> {
     const response = await this.get<{ success: boolean; isInGroup: boolean }>(
       "check-patient-in-group",
       {
         groupSessionId,
         patientId,
-      }
+      },
     );
 
     if (!response.success) {

@@ -298,7 +298,8 @@ const RequestDetailsScreen = ({navigation, route}) => {
   return (
     <ScreenTemplate
       title="Dettagli Richiesta"
-      subtitle={`#${request.id} - ${request.request_type}`}>
+      subtitle={`#${request.id} - ${request.request_type}`}
+      showBackButton={true}>
       <ScrollView style={styles.container}>
         {/* Stato Richiesta */}
         <Card style={styles.statusCard}>

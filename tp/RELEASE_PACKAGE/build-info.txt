@@ -1,5 +1,5 @@
 TherapyCRM - Build Info
-Data: Mon Jan 12 16:25:52 CET 2026
-Versione: 1.7
-Version Code: 11
+Data: Sun Feb  1 09:14:15 CET 2026
+Versione: 1.8
+Version Code: 12
 Package: com.tp.cgm.badil
