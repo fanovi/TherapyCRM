@@ -7,6 +7,7 @@ use Yii;
 use common\models\TherapeuticPlan;
 use common\models\Patient;
 use common\models\Regime;
+use common\models\District;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -15,6 +16,7 @@ use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
 use common\helpers\NotificationHelper;
 use common\models\Setting;
+use frontend\models\TherapeuticPlanSearch;
 
 /**
  * TherapeuticPlanController implements the CRUD actions for TherapeuticPlan model.
@@ -109,20 +111,18 @@ class TherapeuticPlanController extends BaseController
      */
     public function actionIndex()
     {
-        $dataProvider = new ActiveDataProvider([
-            'query' => TherapeuticPlan::find()->with(['patient', 'regime', 'createdBy']),
-            'pagination' => [
-                'pageSize' => 20,
-            ],
-            'sort' => [
-                'defaultOrder' => [
-                    'created_at' => SORT_DESC,
-                ]
-            ],
-        ]);
+        $searchModel = new TherapeuticPlanSearch();
+        $dataProvider = $searchModel->search($this->request->queryParams);
+
+        // Get lists for filter dropdowns
+        $regimes = ArrayHelper::map(Regime::find()->orderBy(['nome' => SORT_ASC])->all(), 'id', 'nome');
+        $districts = ArrayHelper::map(District::find()->orderBy(['name' => SORT_ASC])->all(), 'id', 'name');
 
         return $this->render('index', [
+            'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'regimes' => $regimes,
+            'districts' => $districts,
         ]);
     }
 

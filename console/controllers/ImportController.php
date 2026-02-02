@@ -997,4 +997,321 @@ class ImportController extends Controller
 
         return $district_id;
     }
+
+    /**
+     * Array per tracciare piani saltati (già esistenti)
+     */
+    public $skippedPlans = [];
+    public $patientsNotFound = [];
+
+    /**
+     * Importa piani terapeutici dal file CSV San Luca
+     *
+     * @param string $filePath Path del file CSV
+     * @return int Exit code
+     */
+    public function actionSanLuca($filePath)
+    {
+        $importTag = '[IMPORT_SAN_LUCA_' . date('Y-m-d') . ']';
+
+        $this->stdout("=== IMPORTAZIONE SAN LUCA ===\n");
+        $this->stdout("File: {$filePath}\n");
+        $this->stdout("Tag: {$importTag}\n\n");
+
+        // Verifica file
+        if (!file_exists($filePath)) {
+            $this->stderr("File non trovato: {$filePath}\n", Console::FG_RED);
+            return self::EXIT_CODE_ERROR;
+        }
+
+        $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
+        if (strtolower($fileExtension) !== 'csv') {
+            $this->stderr("Il file deve essere in formato CSV\n", Console::FG_RED);
+            return self::EXIT_CODE_ERROR;
+        }
+
+        // Contatori
+        $rowsProcessed = 0;
+        $plansCreated = 0;
+        $therapiesCreated = 0;
+        $patients = [];  // Cache pazienti
+        $plans = [];     // Raggruppa piani per hash(protocol+district)
+        $planTherapies = []; // Terapie per piano
+
+        // Apri CSV
+        if (($handle = fopen($filePath, 'r')) === false) {
+            $this->stderr("Impossibile aprire il file CSV\n", Console::FG_RED);
+            return self::EXIT_CODE_ERROR;
+        }
+
+        // Leggi header
+        $headers = fgetcsv($handle, 0, ';', '"', '\\');
+        if (!$headers) {
+            $this->stderr("Errore lettura header CSV\n", Console::FG_RED);
+            fclose($handle);
+            return self::EXIT_CODE_ERROR;
+        }
+
+        // Mappa colonne
+        $columnMap = array_flip($headers);
+        $this->stdout("Colonne trovate: " . implode(', ', $headers) . "\n\n");
+
+        // Verifica colonne richieste
+        $requiredColumns = [
+            'data emissione', 'n. ptot.', 'DataInizioTerapia', 'DataScadenza',
+            'CodiceFiscale', 'Distretto', 'TipoDiAssistenza', 'Trattamento', 'Terapia', 'Frequenza'
+        ];
+        foreach ($requiredColumns as $col) {
+            if (!isset($columnMap[$col])) {
+                $this->stderr("Colonna richiesta '{$col}' non trovata nel CSV\n", Console::FG_RED);
+                fclose($handle);
+                return self::EXIT_CODE_ERROR;
+            }
+        }
+
+        $this->stdout("Elaborazione righe...\n");
+
+        // Processa righe
+        $rowNum = 1;
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
+            $rowNum++;
+            $rowsProcessed++;
+
+            try {
+                // Estrai dati dalla riga
+                $fiscalCode = trim($data[$columnMap['CodiceFiscale']] ?? '');
+                $protocolNumber = trim($data[$columnMap['n. ptot.']] ?? '');
+                $districtNum = trim($data[$columnMap['Distretto']] ?? '');
+                $approvalDateRaw = trim($data[$columnMap['data emissione']] ?? '');
+                $startDateRaw = trim($data[$columnMap['DataInizioTerapia']] ?? '');
+                $endDateRaw = trim($data[$columnMap['DataScadenza']] ?? '');
+                $regimeType = trim($data[$columnMap['TipoDiAssistenza']] ?? '');
+                $settingName = trim($data[$columnMap['Trattamento']] ?? '');
+                $therapyName = trim($data[$columnMap['Terapia']] ?? '');
+                $weeklyHours = (float) trim($data[$columnMap['Frequenza']] ?? '0');
+
+                // Skip righe vuote
+                if (empty($fiscalCode) || empty($startDateRaw)) {
+                    continue;
+                }
+
+                // Trova paziente (cache)
+                if (!isset($patients[$fiscalCode])) {
+                    $patient = Patient::findOne(['fiscal_code' => $fiscalCode]);
+                    if (!$patient) {
+                        $this->patientsNotFound[] = "Riga {$rowNum}: {$fiscalCode}";
+                        continue;
+                    }
+                    $patients[$fiscalCode] = $patient;
+                }
+                $patient = $patients[$fiscalCode];
+
+                // Parse date
+                $approvalDate = $this->parseDate($approvalDateRaw, 'd/m/Y'); // EU format
+                $startDate = $this->parseDate($startDateRaw, 'm/d/Y');       // US format
+                $endDate = $this->parseDate($endDateRaw, 'm/d/Y');           // US format
+
+                if (!$startDate || !$endDate) {
+                    $this->errors[] = "Riga {$rowNum}: date non valide (start: {$startDateRaw}, end: {$endDateRaw})";
+                    continue;
+                }
+
+                // Calcola durata
+                $durationDays = $this->getDays($startDate, $endDate);
+
+                // Verifica piano già esistente (stesse date di validità)
+                $existingPlan = TherapeuticPlan::find()
+                    ->where([
+                        'patient_id' => $patient->id,
+                        'start_date' => $startDate,
+                        'duration_days' => $durationDays
+                    ])
+                    ->one();
+
+                if ($existingPlan) {
+                    $this->skippedPlans[] = "Riga {$rowNum}: {$fiscalCode} - dal {$startDate} al {$endDate}";
+                    continue;
+                }
+
+                // Crea identificatore piano (hash protocol+district)
+                $districtId = $this->checkDistrictSimple($districtNum);
+                $planKey = hash('sha256', $protocolNumber . $districtId . $patient->id);
+
+                // Determina regime
+                $regimeId = $this->getRegimeId($regimeType);
+
+                // Crea o aggiorna piano nel buffer
+                if (!isset($plans[$planKey])) {
+                    $plans[$planKey] = [
+                        'patient_id' => $patient->id,
+                        'start_date' => $startDate,
+                        'duration_days' => $durationDays,
+                        'created_by' => 1,
+                        'regime_id' => $regimeId,
+                        'approval_date' => $approvalDate,
+                        'protocol_number' => $protocolNumber,
+                        'status' => $this->getPlanStatus($startDate, $endDate),
+                        'district_id' => $districtId,
+                        'notes' => $importTag,
+                    ];
+                    $planTherapies[$planKey] = [];
+                }
+
+                // Aggiungi terapia
+                $settingId = $this->getSetting($settingName);
+                $treatmentTypeId = $this->getTerapia($therapyName);
+
+                if (!$treatmentTypeId) {
+                    $this->errors[] = "Riga {$rowNum}: terapia non riconosciuta '{$therapyName}'";
+                    continue;
+                }
+
+                $planTherapies[$planKey][] = [
+                    'treatment_type_id' => $treatmentTypeId,
+                    'weekly_hours' => $weeklyHours,
+                    'is_group' => $treatmentTypeId == 21 ? 1 : 0,  // TER. OCCUPAZIONALE PG
+                    'setting_id' => $settingId ?? 1,
+                ];
+
+            } catch (\Exception $e) {
+                $this->errors[] = "Riga {$rowNum}: " . $e->getMessage();
+            }
+
+            // Progress ogni 100 righe
+            if ($rowsProcessed % 100 == 0) {
+                $this->stdout("Processate {$rowsProcessed} righe...\n");
+            }
+        }
+
+        fclose($handle);
+
+        $this->stdout("\nInserimento nel database...\n");
+
+        // Inserisci piani e terapie
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            foreach ($plans as $planKey => $planData) {
+                // Inserisci piano
+                $plan = new TherapeuticPlan();
+                $plan->attributes = $planData;
+
+                if ($plan->save()) {
+                    $plansCreated++;
+
+                    // Inserisci terapie per questo piano
+                    foreach ($planTherapies[$planKey] as $therapy) {
+                        Yii::$app->db->createCommand()->insert('plan_therapies', [
+                            'therapeutic_plan_id' => $plan->id,
+                            'treatment_type_id' => $therapy['treatment_type_id'],
+                            'weekly_hours' => $therapy['weekly_hours'],
+                            'is_group' => $therapy['is_group'],
+                            'setting_id' => $therapy['setting_id'],
+                        ])->execute();
+                        $therapiesCreated++;
+                    }
+                } else {
+                    $this->errors[] = "Errore salvataggio piano: " . implode(', ', $plan->getFirstErrors());
+                }
+            }
+
+            $transaction->commit();
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            $this->stderr("Errore database: " . $e->getMessage() . "\n", Console::FG_RED);
+            return self::EXIT_CODE_ERROR;
+        }
+
+        // Report finale
+        $this->stdout("\n" . str_repeat("=", 50) . "\n");
+        $this->stdout("=== REPORT IMPORTAZIONE SAN LUCA ===\n");
+        $this->stdout(str_repeat("=", 50) . "\n");
+        $this->stdout("Righe processate: {$rowsProcessed}\n", Console::FG_CYAN);
+        $this->stdout("Pazienti non trovati: " . count($this->patientsNotFound) . "\n", Console::FG_YELLOW);
+        $this->stdout("Piani già esistenti (saltati): " . count($this->skippedPlans) . "\n", Console::FG_YELLOW);
+        $this->stdout("Piani creati: {$plansCreated}\n", Console::FG_GREEN);
+        $this->stdout("Terapie create: {$therapiesCreated}\n", Console::FG_GREEN);
+        $this->stdout("Errori: " . count($this->errors) . "\n", Console::FG_RED);
+
+        // Dettagli errori
+        if (count($this->patientsNotFound) > 0) {
+            $this->stdout("\n--- Pazienti non trovati ---\n", Console::FG_YELLOW);
+            foreach ($this->patientsNotFound as $pnf) {
+                $this->stdout("  - {$pnf}\n");
+            }
+        }
+
+        if (count($this->skippedPlans) > 0) {
+            $this->stdout("\n--- Piani saltati (già esistenti) ---\n", Console::FG_YELLOW);
+            foreach ($this->skippedPlans as $sp) {
+                $this->stdout("  - {$sp}\n");
+            }
+        }
+
+        if (count($this->errors) > 0) {
+            $this->stdout("\n--- Errori ---\n", Console::FG_RED);
+            foreach ($this->errors as $err) {
+                $this->stderr("  - {$err}\n");
+            }
+        }
+
+        $this->stdout("\nTag import per query: {$importTag}\n");
+        $this->stdout("Query rollback:\n");
+        $this->stdout("  DELETE FROM plan_therapies WHERE therapeutic_plan_id IN (SELECT id FROM therapeutic_plans WHERE notes LIKE '%IMPORT_SAN_LUCA%');\n");
+        $this->stdout("  DELETE FROM therapeutic_plans WHERE notes LIKE '%IMPORT_SAN_LUCA%';\n");
+
+        return self::EXIT_CODE_NORMAL;
+    }
+
+    /**
+     * Parse date con formato specifico
+     */
+    private function parseDate($dateString, $format)
+    {
+        if (empty($dateString)) {
+            return null;
+        }
+
+        $dateObj = \DateTime::createFromFormat($format, $dateString);
+        if ($dateObj !== false) {
+            return $dateObj->format('Y-m-d');
+        }
+
+        // Fallback: prova altri formati
+        $formats = ['d/m/Y', 'm/d/Y', 'Y-m-d', 'd-m-Y'];
+        foreach ($formats as $fmt) {
+            $dateObj = \DateTime::createFromFormat($fmt, $dateString);
+            if ($dateObj !== false) {
+                return $dateObj->format('Y-m-d');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check district semplificato (solo numero)
+     */
+    private function checkDistrictSimple($districtNum)
+    {
+        if (empty($districtNum)) {
+            $district = District::find()->one();
+            return $district ? $district->id : null;
+        }
+
+        // Cerca per codice numerico
+        $district = District::find()->where(['code' => (string)$districtNum])->one();
+
+        if ($district) {
+            return $district->id;
+        }
+
+        // Crea nuovo distretto
+        $district = new District();
+        $district->code = (string)$districtNum;
+        $district->name = "Distretto " . $districtNum;
+        $district->asl_reference = 'Salerno';
+        $district->save();
+
+        return $district->id;
+    }
 }

@@ -6,7 +6,10 @@ use yii\helpers\Html;
 use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
+/* @var $searchModel frontend\models\TherapeuticPlanSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
+/* @var $regimes array */
+/* @var $districts array */
 
 $this->title = 'Piani Terapeutici';
 $this->params['breadcrumbs'][] = $this->title;
@@ -65,15 +68,19 @@ $this->params['breadcrumbs'][] = $this->title;
             
             <?= GridView::widget(array_merge([
                 'dataProvider' => $dataProvider,
+                'filterModel' => $searchModel,
                 'options' => ['class' => 'min-w-full'],
                 'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
                 'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
                 'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
+                'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                 'columns' => [
                     [
                         'attribute' => 'id',
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'ID...'],
                         'options' => ['style' => 'width: 80px;'],
                     ],
                     [
@@ -81,6 +88,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'label' => 'N. Protocollo',
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Protocollo...'],
                         'content' => function ($model) {
                             if (!$model->protocol_number) {
                                 return '<span class="text-sm text-gray-500 dark:text-gray-400">N/A</span>';
@@ -91,13 +100,15 @@ $this->params['breadcrumbs'][] = $this->title;
                         'options' => ['style' => 'width: 140px;'],
                     ],
                     [
-                        'attribute' => 'patient_id',
+                        'attribute' => 'patientName',
                         'label' => 'Paziente',
                         'value' => function ($model) {
                             return $model->patient ? $model->patient->fullName : 'N/A';
                         },
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Paziente...'],
                         'content' => function ($model) {
                             $patientName = $model->patient ? $model->patient->fullName : 'N/A';
                             return '<div class="text-sm font-medium text-gray-900 dark:text-white">' . Html::encode($patientName) . '</div>';
@@ -111,10 +122,43 @@ $this->params['breadcrumbs'][] = $this->title;
                         },
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => Html::activeDropDownList(
+                            $searchModel,
+                            'regime_id',
+                            $regimes,
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
                         'content' => function ($model) {
                             $regimeName = $model->regime ? $model->regime->nome : 'N/A';
                             return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">'
                                 . Html::encode($regimeName) . '</span>';
+                        }
+                    ],
+                    [
+                        'attribute' => 'district_id',
+                        'label' => 'Distretto',
+                        'value' => function ($model) {
+                            return $model->district ? $model->district->name : 'N/A';
+                        },
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => Html::activeDropDownList(
+                            $searchModel,
+                            'district_id',
+                            $districts,
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
+                        'content' => function ($model) {
+                            $districtName = $model->district ? $model->district->name : '-';
+                            return '<span class="text-sm text-gray-900 dark:text-white">' . Html::encode($districtName) . '</span>';
                         }
                     ],
                     [
@@ -123,6 +167,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function ($model) {
                             return $model->start_date ? Yii::$app->formatter->asDate($model->start_date) : 'N/A';
                         },
+                        'filter' => false,
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
                     ],
@@ -132,6 +177,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function ($model) {
                             return $model->getFormattedDuration();
                         },
+                        'filter' => false,
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
                     ],
@@ -141,6 +187,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function ($model) {
                             return $model->end_date ? Yii::$app->formatter->asDate($model->end_date) : 'N/A';
                         },
+                        'filter' => false,
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'content' => function ($model) {
