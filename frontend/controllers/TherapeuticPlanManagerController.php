@@ -1158,6 +1158,7 @@ class TherapeuticPlanManagerController extends Controller
      * @param string $time Orario dell'appuntamento (H:i) - opzionale
      * @param int $duration Durata in minuti - opzionale
      * @param int $appointmentId ID appuntamento per escludere il terapista originale - opzionale
+     * @param bool $force Se true, restituisce tutti i terapisti ignorando il filtro specializzazione
      * @return array
      */
     public function actionGetTherapistsBySpecialization($specializationId)

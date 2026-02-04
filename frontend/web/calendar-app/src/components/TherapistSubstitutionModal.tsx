@@ -57,6 +57,7 @@ export const TherapistSubstitutionModal: React.FC<
   const [originalTherapist, setOriginalTherapist] = useState<Therapist | null>(
     null
   );
+  const [hasForced, setHasForced] = useState(false);
 
   // Reset del form e caricamento terapisti quando si apre/chiude la modale
   useEffect(() => {
@@ -66,6 +67,7 @@ export const TherapistSubstitutionModal: React.FC<
       setDontRegisterAbsence(false);
       setAvailableTherapists([]);
       setOriginalTherapist(null);
+      setHasForced(false);
 
       // Carica i terapisti della stessa specializzazione
       loadTherapistsBySpecialization();
@@ -74,7 +76,7 @@ export const TherapistSubstitutionModal: React.FC<
 
   if (!appointment) return null;
 
-  const loadTherapistsBySpecialization = async () => {
+  const loadTherapistsBySpecialization = async (force: boolean = false) => {
     if (!appointment?.therapist?.name) return;
 
     setLoadingTherapists(true);
@@ -106,13 +108,28 @@ export const TherapistSubstitutionModal: React.FC<
             time: timeString,
             duration: appointment.duration,
             appointmentId: appointment.id, // Backend userà questo per escludere il terapista originale
+            force: force, // Se true, restituisce tutti i terapisti ignorando filtri
           }
         );
 
-      setAvailableTherapists(therapistsBySpecialization);
+      if (force) {
+        // Merge: aggiungi nuovi terapisti a quelli esistenti (evita duplicati)
+        setAvailableTherapists((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const newTherapists = therapistsBySpecialization.filter(
+            (t: Therapist) => !existingIds.has(t.id)
+          );
+          return [...prev, ...newTherapists];
+        });
+        setHasForced(true);
+      } else {
+        setAvailableTherapists(therapistsBySpecialization);
+      }
     } catch (error) {
       console.error("Errore nel caricamento terapisti:", error);
-      setAvailableTherapists([]);
+      if (!force) {
+        setAvailableTherapists([]);
+      }
     } finally {
       setLoadingTherapists(false);
     }
@@ -257,19 +274,32 @@ export const TherapistSubstitutionModal: React.FC<
               </div>
             </div>
           ) : availableTherapists.length === 0 ? (
-            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="h-4 w-4 text-orange-600" />
-                <span className="font-medium text-orange-800">
-                  Nessun terapista disponibile
-                </span>
+            <>
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                  <span className="font-medium text-orange-800">
+                    Nessun terapista disponibile
+                  </span>
+                </div>
+                <p className="text-sm text-orange-700">
+                  Non ci sono altri terapisti con specializzazione{" "}
+                  <strong>{originalTherapist?.specialization}</strong> disponibili
+                  per la sostituzione.
+                </p>
               </div>
-              <p className="text-sm text-orange-700">
-                Non ci sono altri terapisti con specializzazione{" "}
-                <strong>{originalTherapist?.specialization}</strong> disponibili
-                per la sostituzione.
-              </p>
-            </div>
+              {/* Pulsante per mostrare tutti i terapisti */}
+              {!hasForced && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => loadTherapistsBySpecialization(true)}
+                  className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
+                >
+                  Mostra tutti i terapisti
+                </Button>
+              )}
+            </>
           ) : (
             <>
               {/* Messaggio informativo specializzazione */}
@@ -306,6 +336,19 @@ export const TherapistSubstitutionModal: React.FC<
                   )
                 );
               })()}
+
+              {/* Pulsante per mostrare tutti i terapisti */}
+              {!hasForced && !loadingTherapists && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadTherapistsBySpecialization(true)}
+                  className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
+                >
+                  Mostra tutti i terapisti
+                </Button>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Selezione nuovo terapista */}

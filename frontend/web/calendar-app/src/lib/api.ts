@@ -172,6 +172,7 @@ class TherapeuticPlanManagerAPI {
       time: string; // H:i
       duration: number; // minuti
       appointmentId?: number; // ID appuntamento per escludere terapista originale
+      force?: boolean; // Se true, ignora filtri e restituisce tutti i terapisti
     },
   ): Promise<Therapist[]> {
     const params: Record<string, string | number> = {
@@ -185,6 +186,9 @@ class TherapeuticPlanManagerAPI {
       params.duration = availabilityCheck.duration;
       if (availabilityCheck.appointmentId) {
         params.appointmentId = availabilityCheck.appointmentId;
+      }
+      if (availabilityCheck.force) {
+        params.force = 1; // Boolean come numero per l'API
       }
     }
 
