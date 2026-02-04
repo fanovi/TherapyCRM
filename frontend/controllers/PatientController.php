@@ -408,6 +408,13 @@ class PatientController extends Controller
             ->with(['user', 'user.profile'])
             ->all();
 
+        // Decrypt sensitive data for display
+        foreach ($accountPatients as $accountPatient) {
+            if ($accountPatient->user && $accountPatient->user->profile) {
+                $this->decryptSensitiveData($accountPatient->user->profile);
+            }
+        }
+
         return $this->render('view', [
             'model' => $model,
             'accountPatients' => $accountPatients,
@@ -1322,6 +1329,51 @@ class PatientController extends Controller
             }
         } catch (\Exception $e) {
             Yii::error('Error in encryptSensitiveData: ' . $e->getMessage(), __METHOD__);
+        }
+    }
+
+    /**
+     * Decrypts sensitive data in user profile (phone and address) for display
+     * @param UserProfile $profile
+     */
+    private function decryptSensitiveData($profile)
+    {
+        if (!$profile) {
+            return;
+        }
+
+        try {
+            $encryptionKey = Yii::$app->params['encryptionKey'];
+
+            if (!empty($profile->phone)) {
+                try {
+                    $decryptedPhone = Yii::$app->security->decryptByKey(
+                        base64_decode($profile->phone),
+                        $encryptionKey
+                    );
+                    if ($decryptedPhone !== false) {
+                        $profile->phone = $decryptedPhone;
+                    }
+                } catch (\Exception $e) {
+                    Yii::error('Failed to decrypt phone number: ' . $e->getMessage(), __METHOD__);
+                }
+            }
+
+            if (!empty($profile->address)) {
+                try {
+                    $decryptedAddress = Yii::$app->security->decryptByKey(
+                        base64_decode($profile->address),
+                        $encryptionKey
+                    );
+                    if ($decryptedAddress !== false) {
+                        $profile->address = $decryptedAddress;
+                    }
+                } catch (\Exception $e) {
+                    Yii::error('Failed to decrypt address: ' . $e->getMessage(), __METHOD__);
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error('Error in decryptSensitiveData: ' . $e->getMessage(), __METHOD__);
         }
     }
 }
