@@ -9,6 +9,7 @@ use common\models\Patient;
 use common\models\TherapeuticPlan;
 use common\models\Therapist;
 use common\models\User;
+use frontend\models\ChangePasswordForm;
 use frontend\models\ContactForm;
 use frontend\models\LoginForm;
 use frontend\models\PasswordResetRequestForm;
@@ -444,6 +445,25 @@ class SiteController extends BaseController
 
         return $this->render('resendVerificationEmail', [
             'model' => $model
+        ]);
+    }
+
+    /**
+     * Cambia la password dell'utente loggato
+     *
+     * @return mixed
+     */
+    public function actionChangePassword()
+    {
+        $model = new ChangePasswordForm();
+
+        if ($model->load(Yii::$app->request->post()) && $model->changePassword()) {
+            Yii::$app->session->setFlash('success', 'Password modificata con successo.');
+            return $this->redirect(['site/change-password']);
+        }
+
+        return $this->render('change-password', [
+            'model' => $model,
         ]);
     }
 

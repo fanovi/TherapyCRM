@@ -351,6 +351,27 @@ use yii\helpers\Url;
             </span>
           </div>
 
+          <!-- Modifica Password Button -->
+          <a
+            href="<?= yii\helpers\Url::to(['/site/change-password']) ?>"
+            class="group text-theme-sm mt-3 flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 w-full">
+            <svg
+              class="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg">
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M12 1C8.13 1 5 4.13 5 8C5 8.55 4.55 9 4 9H3C2.45 9 2 9.45 2 10V20C2 21.1 2.9 22 4 22H20C21.1 22 22 21.1 22 20V10C22 9.45 21.55 9 21 9H20C19.45 9 19 8.55 19 8C19 4.13 15.87 1 12 1ZM12 3C14.76 3 17 5.24 17 8C17 8.55 16.55 9 16 9H8C7.45 9 7 8.55 7 8C7 5.24 9.24 3 12 3ZM4 11H20V20H4V11ZM13 14C13 14.55 12.55 15 12 15C11.45 15 11 14.55 11 14V13C11 12.45 11.45 12 12 12C12.55 12 13 12.45 13 13V14Z"
+                fill="" />
+            </svg>
+
+            Modifica Password
+          </a>
+
          
           <?= yii\helpers\Html::beginForm(['/site/logout'], 'post', ['class' => 'w-full']) ?>
             <button
