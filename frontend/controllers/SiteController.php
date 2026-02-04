@@ -458,6 +458,18 @@ class SiteController extends BaseController
         $model = new ChangePasswordForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->changePassword()) {
+            // Dopo il cambio password, l'auth_key viene rigenerato e la sessione viene invalidata
+            // Dobbiamo fare il re-login per mantenere l'utente autenticato
+            $userId = Yii::$app->user->id;
+            if ($userId) {
+                // Ricarica l'utente dal database per ottenere il nuovo auth_key
+                $user = User::findOne($userId);
+                if ($user) {
+                    // Effettua il login con la nuova identità
+                    Yii::$app->user->login($user, 3600 * 24 * 30); // Login per 30 giorni
+                }
+            }
+            
             Yii::$app->session->setFlash('success', 'Password modificata con successo.');
             return $this->redirect(['site/change-password']);
         }
