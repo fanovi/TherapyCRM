@@ -29,7 +29,7 @@ class DistrictsController extends Controller
                         'allow' => true,
                         'roles' => ['@'],
                         'matchCallback' => function ($rule, $action) {
-                            return Yii::$app->user->can('admin');
+                            return Yii::$app->user->can('super_admin');
                         }
                     ],
                 ],
