@@ -114,7 +114,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <?php ActiveForm::end(); ?>
     </div>
 
-    <?php Pjax::begin(); ?>
+    <?php Pjax::begin(['id' => 'pjax-grid-activity-log']); ?>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <?= GridView::widget([
@@ -122,6 +122,17 @@ $this->params['breadcrumbs'][] = $this->title;
             'tableOptions' => ['class' => 'min-w-full divide-y divide-gray-200 dark:divide-gray-700'],
             'headerRowOptions' => ['class' => 'bg-gray-50 dark:bg-gray-700'],
             'rowOptions' => ['class' => 'hover:bg-gray-50 dark:hover:bg-gray-600'],
+            'pager' => [
+                'options' => ['class' => 'pagination-wrapper flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600'],
+                'linkOptions' => ['class' => 'px-3 py-2 mx-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white'],
+                'activePageCssClass' => 'active',
+                'disabledPageCssClass' => 'disabled',
+                'prevPageCssClass' => 'prev',
+                'nextPageCssClass' => 'next',
+                'firstPageCssClass' => 'first',
+                'lastPageCssClass' => 'last',
+                'maxButtonCount' => 10,
+            ],
             'columns' => [
                 [
                     'attribute' => 'created_at',
@@ -186,6 +197,54 @@ $this->params['breadcrumbs'][] = $this->title;
     <?php Pjax::end(); ?>
 
 </div>
+
+<style>
+.pagination-wrapper a.active,
+.pagination-wrapper span.active {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    font-weight: 600;
+}
+
+.pagination-wrapper a.disabled,
+.pagination-wrapper span.disabled {
+    background-color: #f3f4f6 !important;
+    color: #9ca3af !important;
+    border-color: #e5e7eb !important;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.pagination-wrapper a:hover:not(.disabled):not(.active) {
+    background-color: #f9fafb !important;
+    border-color: #3b82f6 !important;
+    color: #3b82f6 !important;
+}
+
+.dark .pagination-wrapper a.disabled,
+.dark .pagination-wrapper span.disabled {
+    background-color: #374151 !important;
+    color: #6b7280 !important;
+    border-color: #4b5563 !important;
+}
+
+.dark .pagination-wrapper a:hover:not(.disabled):not(.active) {
+    background-color: #4b5563 !important;
+    border-color: #60a5fa !important;
+    color: #60a5fa !important;
+}
+
+.pagination-wrapper .summary {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-right: 1rem;
+}
+
+.dark .pagination-wrapper .summary {
+    color: #d1d5db;
+}
+</style>
 
 <script>
 $(document).ready(function() {
