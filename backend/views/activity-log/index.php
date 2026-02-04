@@ -198,6 +198,16 @@ $this->params['breadcrumbs'][] = $this->title;
 <style>
 /* Evidenziazione pagina attiva nel paginatore */
 /* Selettore principale usando la classe active-page */
+.active-page {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px 0 rgba(59, 130, 246, 0.3), 0 1px 2px 0 rgba(59, 130, 246, 0.2) !important;
+    transform: scale(1.05);
+    transition: all 0.2s ease-in-out;
+}
+
 a.active-page,
 span.active-page,
 a.active-page.bg-brand-500,
