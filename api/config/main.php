@@ -13,7 +13,8 @@ $params = array_merge(
 );
 
 return [
-    'id' => 'app-api',
+    'id' => 'sanluca-api',
+    'name' => 'San Luca Plus',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
     'controllerNamespace' => 'api\controllers',

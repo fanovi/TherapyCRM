@@ -12,7 +12,8 @@ $params = array_merge(
 );
 
 return [
-    'id' => 'app-backend',
+    'id' => 'sanluca-backend',
+    'name' => 'San Luca CGM',
     'basePath' => dirname(__DIR__),
     'controllerNamespace' => 'backend\controllers',
     'bootstrap' => ['log'],
@@ -46,8 +47,7 @@ return [
         'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
-            'rules' => [
-            ],
+            'rules' => [],
         ],
     ],
     'params' => $params,
