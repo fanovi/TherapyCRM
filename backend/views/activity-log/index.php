@@ -195,6 +195,41 @@ $this->params['breadcrumbs'][] = $this->title;
 
 </div>
 
+<style>
+/* Evidenziazione pagina attiva nel paginatore */
+a.bg-brand-500,
+span.bg-brand-500 {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px 0 rgba(59, 130, 246, 0.3), 0 1px 2px 0 rgba(59, 130, 246, 0.2) !important;
+    transform: scale(1.05);
+    transition: all 0.2s ease-in-out;
+}
+
+a.bg-brand-500:hover,
+span.bg-brand-500:hover {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4), 0 2px 4px -1px rgba(59, 130, 246, 0.3) !important;
+    transform: scale(1.08);
+}
+
+.dark a.bg-brand-500,
+.dark span.bg-brand-500 {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+}
+
+.dark a.bg-brand-500:hover,
+.dark span.bg-brand-500:hover {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+</style>
+
 <script>
 $(document).ready(function() {
     // Auto-refresh ogni 30 secondi
