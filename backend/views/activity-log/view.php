@@ -7,6 +7,32 @@ use yii\widgets\DetailView;
 /** @var common\models\ActivityLog $model */
 
 $this->title = 'Log Attività #' . $model->id;
+
+/**
+ * Helper function to decrypt sensitive fields
+ */
+$decryptValue = function($field, $value) {
+    $sensitiveFields = ['phone', 'address'];
+
+    if (!in_array($field, $sensitiveFields) || empty($value)) {
+        return $value;
+    }
+
+    try {
+        $encryptionKey = Yii::$app->params['encryptionKey'];
+        $decoded = base64_decode($value, true);
+        if ($decoded !== false) {
+            $decrypted = Yii::$app->security->decryptByKey($decoded, $encryptionKey);
+            if ($decrypted !== false) {
+                return $decrypted;
+            }
+        }
+    } catch (\Exception $e) {
+        // If decryption fails, return original value (might not be encrypted)
+    }
+
+    return $value;
+};
 $this->params['breadcrumbs'][] = ['label' => 'Log Attività', 'url' => ['index']];
 $this->params['breadcrumbs'][] = 'Dettaglio #' . $model->id;
 ?>
@@ -138,9 +164,9 @@ $this->params['breadcrumbs'][] = 'Dettaglio #' . $model->id;
                     sort($allFields);
                     
                     foreach ($allFields as $field):
-                        $oldValue = isset($oldValues[$field]) ? $oldValues[$field] : '';
-                        $newValue = isset($newValues[$field]) ? $newValues[$field] : '';
-                        
+                        $oldValue = isset($oldValues[$field]) ? $decryptValue($field, $oldValues[$field]) : '';
+                        $newValue = isset($newValues[$field]) ? $decryptValue($field, $newValues[$field]) : '';
+
                         if ($oldValue !== $newValue):
                     ?>
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30">
@@ -205,7 +231,7 @@ $this->params['breadcrumbs'][] = 'Dettaglio #' . $model->id;
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                             <div class="max-w-md overflow-hidden">
-                                <?= Html::encode(is_array($value) ? json_encode($value) : $value) ?>
+                                <?= Html::encode(is_array($value) ? json_encode($value) : $decryptValue($field, $value)) ?>
                             </div>
                         </td>
                     </tr>
@@ -250,7 +276,7 @@ $this->params['breadcrumbs'][] = 'Dettaglio #' . $model->id;
                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                             <div class="max-w-md overflow-hidden">
                                 <span class="text-red-600 dark:text-red-400">
-                                    <?= Html::encode(is_array($value) ? json_encode($value) : $value) ?>
+                                    <?= Html::encode(is_array($value) ? json_encode($value) : $decryptValue($field, $value)) ?>
                                 </span>
                             </div>
                         </td>

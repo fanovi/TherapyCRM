@@ -185,6 +185,16 @@ $pageTitle = $isUpdate ? 'Modifica Manager' : 'Nuovo Manager';
         <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
+                    <?= $form->field($user, 'username')->textInput([
+                        'placeholder' => 'Username (opzionale, default: email)'
+                    ])->label('Username') ?>
+                </div>
+
+                <div>
+                    <!-- Spazio vuoto per allineamento griglia -->
+                </div>
+
+                <div>
                     <?= $form->field($user, 'password')->passwordInput([
                         'placeholder' => 'Inserisci password',
                         'minlength' => 6
