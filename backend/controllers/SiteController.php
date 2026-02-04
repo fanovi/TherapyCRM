@@ -90,7 +90,13 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
+            // Backend consentito solo agli utenti con ruolo super_admin
+            if (!Yii::$app->user->can('super_admin')) {
+                Yii::$app->user->logout();
+                $model->addError('password', 'Accesso consentito solo agli utenti Super Admin.');
+            } else {
+                return $this->goBack();
+            }
         }
 
         $model->password = '';
