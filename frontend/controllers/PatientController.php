@@ -200,6 +200,11 @@ class PatientController extends Controller
             ->with(['patient'])
             ->all();
 
+        // Decrypt sensitive data for display
+        if ($user->profile) {
+            $this->decryptSensitiveData($user->profile);
+        }
+
         return $this->render('view-account', [
             'model' => $user,
             'accountPatients' => $accountPatients,
