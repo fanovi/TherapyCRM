@@ -125,7 +125,7 @@ $this->params['breadcrumbs'][] = $this->title;
             'pager' => [
                 'options' => ['class' => 'flex items-center justify-center space-x-1 py-4'],
                 'linkOptions' => ['class' => 'px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'],
-                'activePageCssClass' => 'bg-brand-500 text-white border-brand-500 hover:bg-brand-600',
+                'activePageCssClass' => 'active-page bg-brand-500 text-white border-brand-500 hover:bg-brand-600',
                 'disabledPageCssClass' => 'opacity-50 cursor-not-allowed',
                 'prevPageLabel' => '&laquo;',
                 'nextPageLabel' => '&raquo;',
@@ -197,8 +197,11 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <style>
 /* Evidenziazione pagina attiva nel paginatore */
-a.bg-brand-500,
-span.bg-brand-500 {
+/* Selettore principale usando la classe active-page */
+a.active-page,
+span.active-page,
+a.active-page.bg-brand-500,
+span.active-page.bg-brand-500 {
     background-color: #3b82f6 !important;
     color: #ffffff !important;
     border-color: #3b82f6 !important;
@@ -208,14 +211,28 @@ span.bg-brand-500 {
     transition: all 0.2s ease-in-out;
 }
 
-a.bg-brand-500:hover,
-span.bg-brand-500:hover {
+a.active-page:hover,
+span.active-page:hover,
+a.active-page.bg-brand-500:hover,
+span.active-page.bg-brand-500:hover {
     background-color: #2563eb !important;
     border-color: #2563eb !important;
     box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4), 0 2px 4px -1px rgba(59, 130, 246, 0.3) !important;
     transform: scale(1.08);
 }
 
+/* Fallback per selettori con bg-brand-500 */
+a.bg-brand-500,
+span.bg-brand-500 {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px 0 rgba(59, 130, 246, 0.3), 0 1px 2px 0 rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark a.active-page,
+.dark span.active-page,
 .dark a.bg-brand-500,
 .dark span.bg-brand-500 {
     background-color: #3b82f6 !important;
@@ -223,6 +240,8 @@ span.bg-brand-500:hover {
     border-color: #3b82f6 !important;
 }
 
+.dark a.active-page:hover,
+.dark span.active-page:hover,
 .dark a.bg-brand-500:hover,
 .dark span.bg-brand-500:hover {
     background-color: #2563eb !important;
@@ -232,6 +251,29 @@ span.bg-brand-500:hover {
 
 <script>
 $(document).ready(function() {
+    // Funzione per evidenziare la pagina attiva
+    function highlightActivePage() {
+        // Cerca link con classe active-page o bg-brand-500
+        $('a.active-page, span.active-page, a.bg-brand-500, span.bg-brand-500').each(function() {
+            $(this).css({
+                'background-color': '#3b82f6',
+                'color': '#ffffff',
+                'border-color': '#3b82f6',
+                'font-weight': '600',
+                'box-shadow': '0 2px 4px 0 rgba(59, 130, 246, 0.3), 0 1px 2px 0 rgba(59, 130, 246, 0.2)',
+                'transform': 'scale(1.05)'
+            });
+        });
+    }
+    
+    // Applica subito
+    highlightActivePage();
+    
+    // Applica dopo ogni reload Pjax
+    $(document).on('pjax:complete', function() {
+        highlightActivePage();
+    });
+    
     // Auto-refresh ogni 30 secondi
     setInterval(function() {
         $.pjax.reload({container: '#pjax-grid-activity-log'});
