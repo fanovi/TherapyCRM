@@ -689,7 +689,7 @@ class TherapeuticPlanManagerController extends Controller
                 WHERE rs.regime_id = :regimeId 
                 ORDER BY s.nome ASC
             ', [':regimeId' => $regimeId])->queryAll();
-            
+
             $data = ArrayHelper::map($settings, 'id', 'nome');
         } else {
             $settings = Setting::find()
@@ -697,7 +697,7 @@ class TherapeuticPlanManagerController extends Controller
                 ->orderBy(['nome' => SORT_ASC])
                 ->asArray()
                 ->all();
-            
+
             $data = ArrayHelper::map($settings, 'id', 'nome');
         }
 
@@ -1171,13 +1171,17 @@ class TherapeuticPlanManagerController extends Controller
             $checkTime = $request->get('time');  // H:i
             $checkDuration = (int) $request->get('duration', 60);  // minuti
             $appointmentId = (int) $request->get('appointmentId');  // ID appuntamento per escludere terapista originale
+            $force = $request->get('force', false);
 
             $therapists = Therapist::find()
                 ->alias('t')
                 ->innerJoin('{{%users}} u', 'u.id = t.user_id')
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
-                ->where(['t.is_active' => true])
-                ->andWhere(['t.specialization_id' => $specializationId]);
+                ->where(['t.is_active' => true]);
+
+            if (!$force) {
+                $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
+            }
 
             // Se è fornito appointmentId, escludi il terapista originale dell'appuntamento
             if ($appointmentId > 0) {
