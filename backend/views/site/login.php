@@ -7,202 +7,93 @@
 use yii\widgets\ActiveForm;
 use yii\helpers\Html;
 
-$this->title = 'Accedi';
-$this->params['breadcrumbs'][] = $this->title;
+$this->title = 'Accedi - Backend';
 ?>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-        <div>
-            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900">
-                <svg class="h-6 w-6 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-            </div>
-            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-                Accedi al tuo account
-            </h2>
-            <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-                Inserisci le tue credenziali per accedere al sistema
-            </p>
+<div class="w-full max-w-md">
+    <div class="text-center mb-8">
+        <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+            <svg class="h-8 w-8 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
         </div>
-
-        <!-- Login Form -->
-        <div class="rounded-2xl border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="p-8 space-y-6">
-                <?php $form = ActiveForm::begin([
-                    'id' => 'login-form',
-                    'options' => ['class' => 'space-y-6'],
-                ]); ?>
-
-                    <!-- Username Field -->
-                    <div>
-                        <?= $form->field($model, 'username', [
-                            'template' => '<label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{label}</label>
-                                         <div class="relative">
-                                             <span class="absolute top-1/2 left-0 -translate-y-1/2 border-r border-gray-200 px-3.5 py-3 text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-
-                                                     <path fill-rule="evenodd" clip-rule="evenodd" d="M10 11.5C7.51472 11.5 5.5 13.5147 5.5 16C5.5 16.2761 5.27614 16.5 5 16.5C4.72386 16.5 4.5 16.2761 4.5 16C4.5 12.9624 6.96243 10.5 10 10.5C13.0376 10.5 15.5 12.9624 15.5 16C15.5 16.2761 15.2761 16.5 15 16.5C14.7239 16.5 14.5 16.2761 14.5 16C14.5 13.5147 12.4853 11.5 10 11.5Z" fill="#667085"/>
-                                                 </svg>
-                                             </span>
-                                             {input}
-                                         </div>
-                                         {error}',
-                            'labelOptions' => [],
-                        ])->textInput([
-                            'placeholder' => 'inserisci il tuo username',
-                            'autofocus' => true,
-                            'class' => 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pl-[62px] text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
-                        ]) ?>
-                    </div>
-
-                    <!-- Password Field -->
-                    <!-- Password Field -->
-                    <div x-data="{ showPassword: false }">
-                        <?= $form->field($model, 'password', [
-                            'template' => '<label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{label}</label>
-                                         <div class="relative">
-                                             {input}
-                                             <span @click="showPassword = !showPassword" class="absolute top-1/2 right-4 z-30 -translate-y-1/2 cursor-pointer">
-                                                 <svg x-show="!showPassword" class="fill-gray-500 dark:fill-gray-400" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                     <path fill-rule="evenodd" clip-rule="evenodd" d="M10.0002 13.8619C7.23361 13.8619 4.86803 12.1372 3.92328 9.70241C4.86804 7.26761 7.23361 5.54297 10.0002 5.54297C12.7667 5.54297 15.1323 7.26762 16.0771 9.70243C15.1323 12.1372 12.7667 13.8619 10.0002 13.8619ZM10.0002 4.04297C6.48191 4.04297 3.49489 6.30917 2.4155 9.4593C2.3615 9.61687 2.3615 9.78794 2.41549 9.94552C3.49488 13.0957 6.48191 15.3619 10.0002 15.3619C13.5184 15.3619 16.5055 13.0957 17.5849 9.94555C17.6389 9.78797 17.6389 9.6169 17.5849 9.45932C16.5055 6.30919 13.5184 4.04297 10.0002 4.04297ZM9.99151 7.84413C8.96527 7.84413 8.13333 8.67606 8.13333 9.70231C8.13333 10.7286 8.96527 11.5605 9.99151 11.5605H10.0064C11.0326 11.5605 11.8646 10.7286 11.8646 9.70231C11.8646 8.67606 11.0326 7.84413 10.0064 7.84413H9.99151Z"/>
-                                                 </svg>
-                                                 <svg x-show="showPassword" class="fill-gray-500 dark:fill-gray-400" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                     <path fill-rule="evenodd" clip-rule="evenodd" d="M4.63803 3.57709C4.34513 3.2842 3.87026 3.2842 3.57737 3.57709C3.28447 3.86999 3.28447 4.34486 3.57737 4.63775L4.85323 5.91362C3.74609 6.84199 2.89363 8.06395 2.4155 9.45936C2.3615 9.61694 2.3615 9.78801 2.41549 9.94558C3.49488 13.0957 6.48191 15.3619 10.0002 15.3619C11.255 15.3619 12.4422 15.0737 13.4994 14.5598L15.3625 16.4229C15.6554 16.7158 16.1302 16.7158 16.4231 16.4229C16.716 16.13 16.716 15.6551 16.4231 15.3622L4.63803 3.57709ZM12.3608 13.4212L10.4475 11.5079C10.3061 11.5423 10.1584 11.5606 10.0064 11.5606H9.99151C8.96527 11.5606 8.13333 10.7286 8.13333 9.70237C8.13333 9.5461 8.15262 9.39434 8.18895 9.24933L5.91885 6.97923C5.03505 7.69015 4.34057 8.62704 3.92328 9.70247C4.86803 12.1373 7.23361 13.8619 10.0002 13.8619C10.8326 13.8619 11.6287 13.7058 12.3608 13.4212ZM16.0771 9.70249C15.7843 10.4569 15.3552 11.1432 14.8199 11.7311L15.8813 12.7925C16.6329 11.9813 17.2187 11.0143 17.5849 9.94561C17.6389 9.78803 17.6389 9.61696 17.5849 9.45938C16.5055 6.30925 13.5184 4.04303 10.0002 4.04303C9.13525 4.04303 8.30244 4.17999 7.52218 4.43338L8.75139 5.66259C9.1556 5.58413 9.57311 5.54303 10.0002 5.54303C12.7667 5.54303 15.1323 7.26768 16.0771 9.70249Z"/>
-                                                 </svg>
-                                             </span>
-                                         </div>
-                                         {error}',
-                            'labelOptions' => [],
-                        ])->textInput([
-                            'placeholder' => 'inserisci la tua password',
-                            'class' => 'dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 pl-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                            'x-bind:type' => "showPassword ? 'text' : 'password'"
-                        ]) ?>
-                    </div>
-
-   
-                 
-
-                    <!-- Submit Button -->
-                    <div>
-                        <?= Html::submitButton('Accedi', [
-                            'class' => 'w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200',
-                            'name' => 'login-button',
-                            'style' => 'background-color: #2563eb !important; color: white !important;'
-                        ]) ?>
-                    </div>
-
-                <?php ActiveForm::end(); ?>
-            </div>
-        </div>
-
-        <!-- Footer Links -->
-        <!-- <div class="text-center">
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-                Hai problemi ad accedere?
-                <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
-                    Contatta l'amministratore
-                </a>
-            </p>
-        </div> -->
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+            Backend Admin
+        </h2>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Accedi con le tue credenziali amministratore
+        </p>
     </div>
+
+    <!-- Login Form -->
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+        <div class="p-8">
+            <?php $form = ActiveForm::begin([
+                'id' => 'login-form',
+                'options' => ['class' => 'space-y-5'],
+            ]); ?>
+
+            <!-- Username Field -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                <?= $form->field($model, 'username', [
+                    'template' => '{input}{error}',
+                ])->textInput([
+                    'placeholder' => 'Inserisci il tuo username',
+                    'autofocus' => true,
+                    'class' => 'w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 focus:outline-none transition dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
+                ]) ?>
+            </div>
+
+            <!-- Password Field -->
+            <div x-data="{ showPassword: false }">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                <div class="relative">
+                    <?= $form->field($model, 'password', [
+                        'template' => '{input}{error}',
+                    ])->textInput([
+                        'placeholder' => 'Inserisci la tua password',
+                        'class' => 'w-full px-4 py-3 pr-12 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 focus:outline-none transition dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400',
+                        'x-bind:type' => "showPassword ? 'text' : 'password'"
+                    ]) ?>
+                    <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        <svg x-show="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2">
+                <?= Html::submitButton('Accedi', [
+                    'class' => 'w-full py-3 px-4 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl',
+                    'name' => 'login-button'
+                ]) ?>
+            </div>
+
+            <?php ActiveForm::end(); ?>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+        San Luca Centro Medico &copy; <?= date('Y') ?>
+    </p>
 </div>
 
-<!-- Custom Styles for Validation Errors -->
 <style>
-.field-loginform-username.has-error .form-control,
-.field-loginform-password.has-error .form-control {
-    border-color: #fca5a5 !important;
+/* Stili per errori di validazione */
+.has-error input {
+    border-color: #ef4444 !important;
 }
-
-.dark .field-loginform-username.has-error .form-control,
-.dark .field-loginform-password.has-error .form-control {
-    border-color: #b91c1c !important;
-}
-
-.field-loginform-username .help-block,
-.field-loginform-password .help-block,
-.field-loginform-rememberme .help-block {
-    color: #ef4444 !important;
-    font-size: 0.875rem !important;
-    margin-top: 0.25rem !important;
-}
-
-/* Animazioni per il form */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.min-h-screen > div {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* Loading spinner per il submit */
-.btn-loading {
-    color: transparent;
-}
-
-.btn-loading::after {
-    content: "";
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    top: 50%;
-    left: 50%;
-    margin-left: -8px;
-    margin-top: -8px;
-    border: 2px solid #ffffff;
-    border-radius: 50%;
-    border-top-color: transparent;
-    animation: spinner 0.6s linear infinite;
-}
-
-@keyframes spinner {
-    to {
-        transform: rotate(360deg);
-    }
+.help-block {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
 }
 </style>
-
-<?php
-// JavaScript per feedback visivo
-$this->registerJs("
-// Aggiungi classe loading al submit
-$('#login-form').on('beforeSubmit', function() {
-    const btn = $(this).find('button[type=\"submit\"]');
-    btn.addClass('btn-loading relative');
-    btn.prop('disabled', true);
-    return true;
-});
-
-// Animazione shake per errori
-$('#login-form').on('afterValidate', function(event, messages, errorAttributes) {
-    if (errorAttributes.length > 0) {
-        $('.rounded-2xl').addClass('animate-shake');
-        setTimeout(() => {
-            $('.rounded-2xl').removeClass('animate-shake');
-        }, 500);
-    }
-});
-");
-
-// CSS per animazione shake
-$this->registerCss("
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-
-");
-?>

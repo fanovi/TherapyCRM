@@ -19,7 +19,7 @@ import {setStore as setAuthUtilsStore} from './src/utils/authUtils';
 import ErrorModal from './src/components/ErrorModal';
 import oneSignalService from './src/services/oneSignalService';
 import blockingNotificationService from './src/services/blockingNotificationService';
-import ScreenGuard from 'react-native-screenguard';
+import {CaptureProtection} from 'react-native-capture-protection';
 import moment from 'moment';
 import 'moment/locale/it';
 import 'react-native-gesture-handler';
@@ -40,11 +40,18 @@ blockingNotificationService.setStore(store);
 
 // Abilita protezione screenshot per iOS (Android usa FLAG_SECURE in MainActivity.kt)
 if (Platform.OS === 'ios') {
-  ScreenGuard.register(null, error => {
-    if (error) {
-      console.log('ScreenGuard error:', error);
-    }
-  });
+  // react-native-capture-protection - blocca screenshot, registrazione e app switcher
+  CaptureProtection.prevent({
+    screenshot: true,
+    record: true,
+    appSwitcher: true,
+  })
+    .then(() => {
+      console.log('CaptureProtection: protezione iOS attivata con successo');
+    })
+    .catch(error => {
+      console.log('CaptureProtection error:', error);
+    });
 }
 
 // Debug token al caricamento (solo in sviluppo) - DISABILITATO PER DEBUG
