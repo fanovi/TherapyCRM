@@ -262,6 +262,9 @@ class PatientController extends Controller
             $profile->phone = Yii::$app->request->post('phone', $profile->phone);
             $profile->address = Yii::$app->request->post('address', $profile->address);
 
+            // Encrypt sensitive data before saving
+            $this->encryptSensitiveData($profile);
+
             if (!$profile->save()) {
                 throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
             }
@@ -560,6 +563,8 @@ class PatientController extends Controller
 
                 // Save profile
                 $profile->user_id = $user->id;
+                // Encrypt sensitive data before saving
+                $this->encryptSensitiveData($profile);
                 if (!$profile->save()) {
                     throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
                 }
@@ -1289,5 +1294,34 @@ class PatientController extends Controller
         }
 
         throw new NotFoundHttpException('La pagina richiesta non esiste.');
+    }
+
+    /**
+     * Encrypts sensitive data in user profile (phone and address)
+     * @param UserProfile $profile
+     */
+    private function encryptSensitiveData($profile)
+    {
+        try {
+            $encryptionKey = Yii::$app->params['encryptionKey'];
+
+            if (!empty($profile->phone)) {
+                $encryptedPhone = base64_encode(Yii::$app->security->encryptByKey(
+                    $profile->phone,
+                    $encryptionKey
+                ));
+                $profile->phone = $encryptedPhone;
+            }
+
+            if (!empty($profile->address)) {
+                $encryptedAddress = base64_encode(Yii::$app->security->encryptByKey(
+                    $profile->address,
+                    $encryptionKey
+                ));
+                $profile->address = $encryptedAddress;
+            }
+        } catch (\Exception $e) {
+            Yii::error('Error in encryptSensitiveData: ' . $e->getMessage(), __METHOD__);
+        }
     }
 }
