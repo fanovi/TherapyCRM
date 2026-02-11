@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import FullCalendarContainer from "./FullCalendarContainer";
-import { CalendarViewType } from "./CalendarViewSelector";
+import { CalendarViewSelector, CalendarViewType } from "./CalendarViewSelector";
 import { TherapistWeeklyHours } from "./TherapistWeeklyHours";
 import {
   Therapist,
