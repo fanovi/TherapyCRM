@@ -68,6 +68,10 @@ return [
                 'site/reset-password' => 'site/reset-password',
                 'therapeutic-plan-manager/get-settings-list/<regimeId:\d+>' => 'therapeutic-plan-manager/get-settings-list',
                 'therapeutic-plan/get-settings-list/<regimeId:\d+>' => 'therapeutic-plan/get-settings-list',
+                // Manuale d'uso
+                'manuale' => 'site/manuale',
+                'manuale/gestionale' => 'site/manuale-gestionale',
+                'manuale/app' => 'site/manuale-app',
             ],
         ],
     ],

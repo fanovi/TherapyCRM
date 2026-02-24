@@ -484,4 +484,34 @@ class SiteController extends BaseController
     {
         return $this->render('form');
     }
+
+    /**
+     * Manuale d'uso - pagina di smistamento.
+     *
+     * @return mixed
+     */
+    public function actionManuale()
+    {
+        return $this->render('manuale');
+    }
+
+    /**
+     * Manuale d'uso del gestionale web.
+     *
+     * @return mixed
+     */
+    public function actionManualeGestionale()
+    {
+        return $this->render('manuale-gestionale');
+    }
+
+    /**
+     * Manuale d'uso dell'app mobile.
+     *
+     * @return mixed
+     */
+    public function actionManualeApp()
+    {
+        return $this->render('manuale-app');
+    }
 }
