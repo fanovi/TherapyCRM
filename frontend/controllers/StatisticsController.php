@@ -489,6 +489,11 @@ class StatisticsController extends BaseController
             ])
             ->from('statistics_patients_mv sp');
 
+        // Filtro piano terapeutico attivo (default ON)
+        if ($searchModel->activePlanOnly) {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        }
+
         // Applica i filtri dal searchModel
         // Filtro età
         if ($searchModel->ageFrom !== null && $searchModel->ageFrom !== '') {

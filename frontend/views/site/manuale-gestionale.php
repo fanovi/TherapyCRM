@@ -589,7 +589,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc list-inside">
                     <li><strong>Dashboard Statistiche</strong> - Metriche chiave e grafici: pazienti, terapisti, piani, ore settimanali, crescita, top trattamenti</li>
                     <li><strong>Statistiche Assenze</strong> - Tasso assenza mensile, assenze per motivazione/terapista/trattamento, andamento nel tempo</li>
-                    <li><strong>Statistiche Pazienti</strong> - Distribuzione demografica, pazienti per distretto, andamento iscrizioni</li>
+                    <li><strong>Statistiche Pazienti</strong> - Distribuzione demografica, pazienti per distretto, andamento iscrizioni. Di default mostra solo pazienti con piano terapeutico attivo (checkbox disattivabile)</li>
                     <li><strong>Statistiche Trattamenti</strong> - Trattamenti piu richiesti, combinazioni, ore per tipo, utilizzo terapisti</li>
                     <li><strong>Statistiche Piani</strong> - Piani per stato/regime, durata, tasso scadenza, piani in scadenza prossimi 30 giorni</li>
                 </ul>
@@ -655,7 +655,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc list-inside">
                     <li><strong>Amministratori</strong> - Accesso completo. Compilare username, email, password, dati personali, distretto.</li>
                     <li><strong>Manager</strong> - Gestiscono le operazioni quotidiane. Permessi simili ma non possono gestire altri manager o amministratori.</li>
-                    <li><strong>Coordinatori</strong> - Supervisionano gruppi di terapisti. Associazione ai gruppi coordinatori.</li>
+                    <li><strong>Coordinatori</strong> - Supervisionano gruppi di terapisti. Accesso in sola lettura ai dati dei terapisti del proprio gruppo (non possono modificarli). Associazione ai gruppi coordinatori.</li>
                 </ul>
 
                 <!-- Placeholder img-21 -->
@@ -760,7 +760,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                         <tbody class="text-gray-600 dark:text-gray-400">
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Dashboard completa</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-yellow-500">Limitata</td><td class="px-2 py-1.5 text-center text-yellow-500">Limitata</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Gestire Admin/Manager</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
-                            <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Gestire Coordinatori/Terapisti</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
+                            <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Gestire Coordinatori/Terapisti</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-yellow-500">Solo lettura</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Creare/Modificare Pazienti</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Creare/Modificare Piani</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Calendario</td><td class="px-2 py-1.5 text-center">Tutto</td><td class="px-2 py-1.5 text-center">Tutto</td><td class="px-2 py-1.5 text-center">Proprio gruppo</td><td class="px-2 py-1.5 text-center">Proprio</td></tr>

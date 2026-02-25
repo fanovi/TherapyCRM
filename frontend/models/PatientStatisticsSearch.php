@@ -23,6 +23,7 @@ class PatientStatisticsSearch extends Model
     public $status;
     public $dateFrom;
     public $dateTo;
+    public $activePlanOnly = 1; // Default: mostra solo pazienti con piano terapeutico attivo
 
     /**
      * {@inheritdoc}
@@ -33,7 +34,7 @@ class PatientStatisticsSearch extends Model
             [['gender'], 'in', 'range' => ['M', 'F', 'N', 'all']],
             [['ageFrom', 'ageTo', 'districtId', 'regimeId'], 'integer', 'min' => 0],
             [['treatmentTypeIds'], 'each', 'rule' => ['integer']],
-            [['hasMultipleTreatments'], 'boolean'],
+            [['hasMultipleTreatments', 'activePlanOnly'], 'boolean'],
             [['status'], 'in', 'range' => ['active', 'dismissed', 'all']],
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
             [['ageFrom'], 'compare', 'compareAttribute' => 'ageTo', 'operator' => '<=', 'when' => function ($model) {
@@ -55,6 +56,7 @@ class PatientStatisticsSearch extends Model
             'regimeId' => 'Regime',
             'treatmentTypeIds' => 'Tipi di Trattamento',
             'hasMultipleTreatments' => 'Ha Trattamenti Multipli',
+            'activePlanOnly' => 'Solo pazienti con piano terapeutico attivo',
             'status' => 'Stato',
             'dateFrom' => 'Data Creazione da',
             'dateTo' => 'Data Creazione a',
@@ -70,6 +72,11 @@ class PatientStatisticsSearch extends Model
     {
         $query = (new Query())
             ->from('statistics_patients_mv sp');
+
+        // Filtro piano terapeutico attivo (default ON)
+        if ($this->activePlanOnly) {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        }
 
         // Applica filtri
         if ($this->gender && $this->gender !== 'all') {
@@ -252,6 +259,10 @@ class PatientStatisticsSearch extends Model
         if ($this->ageFrom === '') $this->ageFrom = null;
         if ($this->ageTo === '') $this->ageTo = null;
         if (empty($this->treatmentTypeIds)) $this->treatmentTypeIds = [];
+        // Se il form è stato inviato ma activePlanOnly non è presente, vuol dire che la checkbox è deselezionata
+        if ($loaded && !isset($params[$this->formName()]['activePlanOnly']) && !isset($params['activePlanOnly'])) {
+            $this->activePlanOnly = 0;
+        }
 
         return $loaded;
     }
@@ -349,6 +360,11 @@ class PatientStatisticsSearch extends Model
      */
     protected function applyFilters($query)
     {
+        // Filtro piano terapeutico attivo (default ON)
+        if ($this->activePlanOnly) {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        }
+
         // Filtro genere
         if ($this->gender && $this->gender !== 'all') {
             $query->andWhere(['sp.gender' => $this->gender]);

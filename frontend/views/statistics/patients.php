@@ -31,10 +31,11 @@ $byRegime = $byRegime ?? [];
 $multiTreatmentStats = $multiTreatmentStats ?? ['patients' => [], 'stats' => []];
 
 // Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->gender) || !empty($searchModel->ageFrom) || 
-                    !empty($searchModel->ageTo) || !empty($searchModel->status) || 
+$hasActiveFilters = !empty($searchModel->gender) || !empty($searchModel->ageFrom) ||
+                    !empty($searchModel->ageTo) || !empty($searchModel->status) ||
                     !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
-                    !empty($searchModel->treatmentTypeIds) || !empty($searchModel->districtId);
+                    !empty($searchModel->treatmentTypeIds) || !empty($searchModel->districtId) ||
+                    !$searchModel->activePlanOnly;
 
 // Calcola il totale pazienti
 $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
@@ -171,6 +172,21 @@ function calculatePercentage($part, $total, $decimals = 1) {
                             </svg>
                         </span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtro piano attivo -->
+        <div class="filter-section" style="padding-top: 0;">
+            <div class="filter-row">
+                <div class="filter-col">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <?= Html::activeCheckbox($searchModel, 'activePlanOnly', [
+                            'label' => false,
+                            'class' => 'h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500',
+                        ]) ?>
+                        <span class="text-sm font-medium text-gray-700">Mostra solo pazienti con piano terapeutico attivo</span>
+                    </label>
                 </div>
             </div>
         </div>
