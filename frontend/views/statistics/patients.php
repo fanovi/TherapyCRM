@@ -790,10 +790,18 @@ function loadAgeChart() {
 
 // Carica grafico genere
 function loadGenderChart() {
-    
+
     // Prepara i dati dalle statistiche demografiche
     var genderData = " . json_encode($demographics['gender_distribution'] ?? []) . ";
-    
+
+    // Mappa colori per genere (non per indice array)
+    var colorMap = {
+        'M': {bg: 'rgba(54, 162, 235, 0.8)', border: 'rgba(54, 162, 235, 1)'},
+        'F': {bg: 'rgba(255, 99, 132, 0.8)', border: 'rgba(255, 99, 132, 1)'},
+        'N': {bg: 'rgba(201, 203, 207, 0.8)', border: 'rgba(201, 203, 207, 1)'}
+    };
+    var defaultColor = {bg: 'rgba(201, 203, 207, 0.8)', border: 'rgba(201, 203, 207, 1)'};
+
     if (genderData && genderData.length > 0) {
         destroyChart(genderChart);
         var ctx = document.getElementById('gender-chart');
@@ -805,16 +813,8 @@ function loadGenderChart() {
                     datasets: [{
                         label: 'Pazienti',
                         data: genderData.map(function(g) { return g.count; }),
-                        backgroundColor: [
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(201, 203, 207, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(201, 203, 207, 1)'
-                        ],
+                        backgroundColor: genderData.map(function(g) { return (colorMap[g.gender] || defaultColor).bg; }),
+                        borderColor: genderData.map(function(g) { return (colorMap[g.gender] || defaultColor).border; }),
                         borderWidth: 1
                     }]
                 },
