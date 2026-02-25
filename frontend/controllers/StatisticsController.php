@@ -575,6 +575,18 @@ class StatisticsController extends BaseController
 
         $genderData = $searchModel->getGenderDistribution();
 
+        // Mappa colori per genere (non per indice array)
+        $colorMap = [
+            'M' => 'rgba(54, 162, 235, 0.8)',   // Blu per maschi
+            'F' => 'rgba(255, 99, 132, 0.8)',    // Rosa per femmine
+            'N' => 'rgba(201, 203, 207, 0.8)',   // Grigio per non specificato
+        ];
+
+        $colors = [];
+        foreach ($genderData as $row) {
+            $colors[] = $colorMap[$row['gender']] ?? 'rgba(201, 203, 207, 0.8)';
+        }
+
         return [
             'success' => true,
             'data' => [
@@ -583,11 +595,7 @@ class StatisticsController extends BaseController
                     [
                         'label' => 'Distribuzione Genere',
                         'data' => ArrayHelper::getColumn($genderData, 'count'),
-                        'backgroundColor' => [
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(201, 203, 207, 0.8)',
-                        ]
+                        'backgroundColor' => $colors,
                     ]
                 ]
             ]
