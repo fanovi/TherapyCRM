@@ -49,7 +49,7 @@ class PatientStatisticsService
             ])
             ->from('treatment_types tt')
             ->leftJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
-            ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
+            ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id AND tp.end_date >= CURDATE()')
             ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
 
         // Se ci sono filtri per treatmentTypeIds, mostra solo quelli
@@ -85,7 +85,7 @@ class PatientStatisticsService
                 'AVG(tp.duration_days) as avg_duration'
             ])
             ->from('regime r')
-            ->leftJoin('therapeutic_plans tp', 'r.id = tp.regime_id')
+            ->leftJoin('therapeutic_plans tp', 'r.id = tp.regime_id AND tp.end_date >= CURDATE()')
             ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
 
         // Applica filtri del search model
@@ -383,6 +383,11 @@ class PatientStatisticsService
      */
     protected function applyPatientFilters($query, $searchModel)
     {
+        // Filtro piano terapeutico attivo (coerente con PatientStatisticsSearch)
+        if ($searchModel->activePlanOnly) {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        }
+
         if ($searchModel->gender && $searchModel->gender !== 'all') {
             $query->andWhere(['sp.gender' => $searchModel->gender]);
         }

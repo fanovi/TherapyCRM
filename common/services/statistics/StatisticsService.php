@@ -555,7 +555,7 @@ public function getPatientGrowthData($params = [])
 
         // Filtro data fine
         if (!empty($searchModel->dateTo)) {
-            $query->andWhere(['<=', 'DATE(tp.start_date)', $searchModel->dateTo]);
+            $query->andWhere(['<=', 'DATE(tp.end_date)', $searchModel->dateTo]);
         }
 
         // Filtro paziente

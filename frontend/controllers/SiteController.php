@@ -160,9 +160,9 @@ class SiteController extends BaseController
 
         $requestsGrowthPercentage = $lastMonthCompletedRequests > 0 ? round((($completedDocumentRequestsThisMonth - $lastMonthCompletedRequests) / $lastMonthCompletedRequests) * 100, 2) : 0;
 
-        // Piani terapeutici attivi
+        // Piani terapeutici attivi (con end_date >= oggi)
         $activeTherapeuticPlans = TherapeuticPlan::find()
-            // ->where(['status' => 'active'])
+            ->where(['>=', 'end_date', date('Y-m-d')])
             ->count();
 
         // Notifiche non lette dell'utente
