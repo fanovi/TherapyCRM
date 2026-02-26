@@ -361,9 +361,13 @@ export const loginService = {
         // Non bloccare il logout se l'API fallisce
       }
 
-      // 2. Pulisci AsyncStorage
+      // 2. Pulisci AsyncStorage (preserva deviceToken per "ricorda dispositivo")
+      const savedDeviceToken = await AsyncStorage.getItem('deviceToken');
       await AsyncStorage.clear();
-      console.log('🧹 AsyncStorage cleared');
+      if (savedDeviceToken) {
+        await AsyncStorage.setItem('deviceToken', savedDeviceToken);
+      }
+      console.log('🧹 AsyncStorage cleared (deviceToken preserved)');
 
       // 3. Reset pazienti
       dispatch(resetPatients());
@@ -379,10 +383,14 @@ export const loginService = {
 
       // Fallback: forza la pulizia anche in caso di errore
       try {
+        const fallbackDeviceToken = await AsyncStorage.getItem('deviceToken');
         await AsyncStorage.clear();
+        if (fallbackDeviceToken) {
+          await AsyncStorage.setItem('deviceToken', fallbackDeviceToken);
+        }
         dispatch(resetPatients());
         dispatch(logoutUser());
-        console.log('🧹 Force cleanup completed');
+        console.log('🧹 Force cleanup completed (deviceToken preserved)');
       } catch (finalError) {
         // Ultima risorsa: almeno reset Redux
         console.error('❌ Final cleanup error:', finalError);

@@ -1655,14 +1655,33 @@ class AuthController extends Controller
             ];
         }
 
-        // Codice valido - genera token di accesso completo
+        // Codice valido - ricarica dati utente dal database
+        $user = User::findOne($tokenData['user_id']);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        $userData = $this->buildUserData($user);
+        if (!$userData) {
+            return [
+                'success' => false,
+                'message' => 'Errore nel recupero dati utente',
+                'error_code' => 'USER_DATA_BUILD_FAILED'
+            ];
+        }
+
+        // Genera token di accesso completo
         $accessToken = $this->generateAccessToken([
             'user_id' => $tokenData['user_id'],
             'email' => $tokenData['email']
         ]);
 
         $responseData = [
-            'user' => $tokenData['user_data'],
+            'user' => $userData,
             'access_token' => $accessToken,
             'token_type' => 'Bearer',
             'expires_in' => 3600,
@@ -1852,35 +1871,63 @@ class AuthController extends Controller
     }
 
     /**
-     * Genera un token temporaneo per la sfida 2FA
+     * Genera un token temporaneo per la sfida 2FA (firmato con HMAC)
      */
     private function generate2faTempToken($userData)
     {
+        // Rimuovi dati sensibili dei pazienti dal token per ridurre dimensione
+        $safeUserData = $userData;
+        unset($safeUserData['patients']);
+
         $payload = [
             'user_id' => $userData['id'],
             'user_type' => $userData['user_type'],
             'email' => $userData['email'],
             'purpose' => '2fa_challenge',
-            'user_data' => $userData,
             'exp' => time() + 300  // Scade in 5 minuti
         ];
 
-        return base64_encode(json_encode($payload));
+        $payloadJson = json_encode($payload);
+        $signature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+
+        return base64_encode($payloadJson . '.' . $signature);
     }
 
     /**
-     * Verifica un token temporaneo 2FA
+     * Verifica un token temporaneo 2FA (verifica HMAC)
      */
     private function verify2faTempToken($token)
     {
         try {
-            $payload = json_decode(base64_decode($token), true);
+            $decoded = base64_decode($token);
+            if ($decoded === false) {
+                return null;
+            }
+
+            $lastDot = strrpos($decoded, '.');
+            if ($lastDot === false) {
+                return null;
+            }
+
+            $payloadJson = substr($decoded, 0, $lastDot);
+            $signature = substr($decoded, $lastDot + 1);
+
+            // Verifica firma HMAC
+            $expectedSignature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+            if (!hash_equals($expectedSignature, $signature)) {
+                Yii::error('2FA temp token signature mismatch', __METHOD__);
+                return null;
+            }
+
+            $payload = json_decode($payloadJson, true);
 
             if (!$payload ||
                     !isset($payload['exp']) ||
                     $payload['exp'] < time() ||
                     !isset($payload['purpose']) ||
-                    $payload['purpose'] !== '2fa_challenge') {
+                    $payload['purpose'] !== '2fa_challenge' ||
+                    !isset($payload['user_id']) ||
+                    !isset($payload['email'])) {
                 return null;
             }
 
@@ -1888,7 +1935,6 @@ class AuthController extends Controller
                 'user_id' => $payload['user_id'],
                 'email' => $payload['email'],
                 'user_type' => $payload['user_type'],
-                'user_data' => $payload['user_data'] ?? null,
             ];
         } catch (\Exception $e) {
             return null;

@@ -56,7 +56,7 @@ class UserTwoFactorAuth extends ActiveRecord
             [['user_id', 'is_enabled', 'totp_confirmed_at', 'email_otp_expires_at', 'email_otp_attempts', 'created_at', 'updated_at'], 'integer'],
             [['preferred_method'], 'string', 'max' => 10],
             [['preferred_method'], 'in', 'range' => ['email', 'totp']],
-            [['totp_secret'], 'string', 'max' => 64],
+            [['totp_secret'], 'string', 'max' => 255],
             [['email_otp_code'], 'string', 'max' => 255],
             [['user_id'], 'unique'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],

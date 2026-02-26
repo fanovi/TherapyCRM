@@ -29,7 +29,23 @@ const apiCall = async (endpoint, options = {}) => {
     const response = await fetch(url, config);
 
     // Gestione automatica errori di autenticazione
-    if (response.status === 401 || response.status === 403) {
+    // Non fare auto-logout per endpoint che non usano JWT (2FA, login, etc.)
+    const noAutoLogoutEndpoints = [
+      '/auth/login',
+      '/auth/2fa/verify',
+      '/auth/2fa/send-email-otp',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/change-first-password',
+    ];
+    const isProtectedEndpoint = !noAutoLogoutEndpoints.some(ep =>
+      endpoint.includes(ep),
+    );
+
+    if (
+      (response.status === 401 || response.status === 403) &&
+      isProtectedEndpoint
+    ) {
       console.warn('🚨 Token scaduto o non valido - logout automatico');
 
       // Rimuovi token dal Keychain

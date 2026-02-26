@@ -43,7 +43,7 @@ const LoginScreen = () => {
     if (requires2fa) {
       navigation.navigate('TwoFactor');
     }
-  });
+  }, [user, requiresPasswordChange, requires2fa, navigation]);
 
   const handleLogin = async () => {
     console.log('🔐 === LOGIN DEBUG START ===');

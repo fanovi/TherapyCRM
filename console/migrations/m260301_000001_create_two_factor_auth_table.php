@@ -11,7 +11,7 @@ class m260301_000001_create_two_factor_auth_table extends Migration
             'user_id' => $this->integer()->notNull()->unique(),
             'is_enabled' => $this->tinyInteger(1)->notNull()->defaultValue(0),
             'preferred_method' => $this->string(10)->notNull()->defaultValue('email'),
-            'totp_secret' => $this->string(64)->null(),
+            'totp_secret' => $this->string(255)->null(),
             'totp_confirmed_at' => $this->integer()->null(),
             'email_otp_code' => $this->string(255)->null(),
             'email_otp_expires_at' => $this->integer()->null(),
