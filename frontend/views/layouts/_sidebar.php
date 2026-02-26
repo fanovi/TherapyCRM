@@ -24,7 +24,7 @@ $menuMappings = [
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
     'Complaints' => ['complaint/index', 'complaint/view'],
-    'Absences' => ['absence/index', 'absence/create', 'absence/view', 'absence/update'],
+    'Absences' => ['absence/index', 'absence/patients', 'absence/create', 'absence/view', 'absence/update'],
     'Manuale' => ['site/manuale', 'site/manuale-gestionale', 'site/manuale-app'],
 ];
 
@@ -360,7 +360,14 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                 <a
                     href="<?= \yii\helpers\Url::to(['/absence/index']) ?>"
                     class="menu-dropdown-item group <?= isSubmenuActive(['absence/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                    Visualizza Assenze
+                    Assenze Terapisti
+                </a>
+            </li>
+            <li>
+                <a
+                    href="<?= \yii\helpers\Url::to(['/absence/patients']) ?>"
+                    class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                    Assenze Pazienti
                 </a>
             </li>
             <?php endif; ?>
@@ -368,7 +375,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                 <a
                     href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
                     class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                    Nuova Assenza
+                    Nuova Assenza Terapista
                 </a>
             </li>
         </ul>

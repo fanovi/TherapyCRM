@@ -29,7 +29,7 @@ class AbsenceController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view'],
+                        'actions' => ['index', 'patients', 'view'],
                         'allow' => true,
                         'roles' => ['view_absence'],
                     ],
@@ -58,14 +58,24 @@ class AbsenceController extends Controller
         $searchModel = new AbsenceSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        $patientSearchModel = new PatientAbsenceSearch();
-        $patientDataProvider = $patientSearchModel->search(Yii::$app->request->queryParams);
-
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'patientSearchModel' => $patientSearchModel,
-            'patientDataProvider' => $patientDataProvider,
+        ]);
+    }
+
+    /**
+     * Lists patient absences (appointments with absent status).
+     * @return mixed
+     */
+    public function actionPatients()
+    {
+        $searchModel = new PatientAbsenceSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('patients', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
         ]);
     }
 

@@ -7,32 +7,18 @@ use yii\widgets\Pjax;
 /** @var yii\web\View $this */
 /** @var common\models\AbsenceSearch $searchModel */
 /** @var yii\data\ActiveDataProvider $dataProvider */
-/** @var common\models\PatientAbsenceSearch $patientSearchModel */
-/** @var yii\data\ActiveDataProvider $patientDataProvider */
 
-$this->title = 'Assenze';
+$this->title = 'Assenze Terapisti';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
-    <!-- Page Header -->
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90"><?= Html::encode($this->title) ?></h2>
-    </div>
+    <!-- Breadcrumb Start -->
+    <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
 
-    <!-- ======================= -->
-    <!-- SEZIONE ASSENZE TERAPISTI -->
-    <!-- ======================= -->
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                    Assenze Terapisti
-                </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Gestisci le assenze dei terapisti.
-                </p>
-            </div>
+            <!-- Action Button -->
             <?php if (Yii::$app->user->can('create_absence')): ?>
             <div>
                 <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Nuova Assenza Terapista',
@@ -41,6 +27,19 @@ $this->params['breadcrumbs'][] = $this->title;
                 ]) ?>
             </div>
             <?php endif; ?>
+        </div>
+    </div>
+    <!-- Breadcrumb End -->
+
+    <!-- Content Start -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Lista Assenze Terapisti
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Gestisci le assenze dei terapisti.
+            </p>
         </div>
 
         <!-- Filter Controls -->
@@ -59,7 +58,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </div>
         </div>
 
-        <!-- Table -->
+        <!-- Scrollable Table Container -->
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
             <?php Pjax::begin(['id' => 'absence-grid-pjax']); ?>
 
@@ -209,130 +208,6 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]);
                             },
                         ],
-                    ],
-                ],
-            ]); ?>
-
-            <?php Pjax::end(); ?>
-        </div>
-    </div>
-
-    <!-- ======================= -->
-    <!-- SEZIONE ASSENZE PAZIENTI -->
-    <!-- ======================= -->
-    <div class="mt-6 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Assenze Pazienti
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Appuntamenti in cui il paziente risulta assente.
-            </p>
-        </div>
-
-        <!-- Filter Controls -->
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex justify-between items-center">
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-                <?= 'Trovate ' . $patientDataProvider->totalCount . ' assenze' ?>
-            </div>
-            <div class="flex gap-2">
-                <?= Html::a('Reset Filtri', ['index'], [
-                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
-                ]) ?>
-                <?= Html::button('Aggiorna', [
-                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-brand-600 border border-transparent rounded-md shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
-                    'onclick' => '$.pjax.reload({container:"#patient-absence-grid-pjax"});'
-                ]) ?>
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
-            <?php Pjax::begin(['id' => 'patient-absence-grid-pjax']); ?>
-
-            <?= GridView::widget([
-                'dataProvider' => $patientDataProvider,
-                'filterModel' => $patientSearchModel,
-                'options' => ['class' => 'min-w-full'],
-                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
-                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0'],
-                'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
-                'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
-                'columns' => [
-                    [
-                        'attribute' => 'patient_name',
-                        'label' => 'Paziente',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cerca paziente...'],
-                        'value' => function($model) {
-                            $patient = $model->getActualPatient();
-                            return $patient ? $patient->getFullName() : 'N/A';
-                        }
-                    ],
-                    [
-                        'attribute' => 'date_from',
-                        'label' => 'Data/Ora',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[160px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'type' => 'date'],
-                        'value' => function($model) {
-                            return Yii::$app->formatter->asDatetime($model->appointment_datetime, 'php:d/m/Y H:i');
-                        }
-                    ],
-                    [
-                        'attribute' => 'therapist_id',
-                        'label' => 'Terapista',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => \yii\helpers\Html::activeDropDownList($patientSearchModel, 'therapist_id',
-                            \common\models\PatientAbsenceSearch::getTherapistsList(),
-                            [
-                                'prompt' => 'Tutti',
-                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
-                            ]
-                        ),
-                        'value' => function($model) {
-                            return $model->therapist && $model->therapist->user && $model->therapist->user->profile
-                                ? $model->therapist->user->profile->last_name . ' ' . $model->therapist->user->profile->first_name
-                                : '';
-                        }
-                    ],
-                    [
-                        'attribute' => 'duration_minutes',
-                        'label' => 'Durata',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
-                        'format' => 'raw',
-                        'content' => function($model) {
-                            return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-900">' . $model->duration_minutes . ' min</span>';
-                        }
-                    ],
-                    [
-                        'attribute' => 'status',
-                        'label' => 'Stato',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => \yii\helpers\Html::activeDropDownList($patientSearchModel, 'status',
-                            \common\models\PatientAbsenceSearch::getStatusList(),
-                            [
-                                'prompt' => 'Tutti',
-                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
-                            ]
-                        ),
-                        'format' => 'raw',
-                        'content' => function($model) {
-                            $isJustified = $model->status === \common\models\Appointment::STATUS_ABSENT_JUSTIFIED;
-                            $statusClass = $isJustified
-                                ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900'
-                                : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900';
-                            $label = $isJustified ? 'Giustificata' : 'Non giustificata';
-                            return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $label . '</span>';
-                        }
                     ],
                 ],
             ]); ?>
