@@ -9,6 +9,7 @@ use common\models\Therapist;
 use common\models\TrustedDevice;
 use common\models\User;
 use common\models\UserProfile;
+use common\models\UserTwoFactorAuth;
 use common\models\SystemSetting;
 use common\services\TwoFactorService;
 use yii\web\Controller;
@@ -1146,7 +1147,33 @@ class AuthController extends Controller
             $userData['isFirstLogin'] = false;  // Campo per compatibilità con app
             $userData['isPasswordResetRequired'] = false;  // Password non richiede più reset
 
-            // Genera token di accesso normale dopo il cambio password
+            // Check 2FA before issuing JWT
+            $tfaService = new TwoFactorService();
+            if ($tfaService->is2faRequired($userModel)) {
+                $method = $tfaService->getPreferredMethod($userModel->id);
+
+                // Se metodo è email, invia OTP automaticamente
+                if ($method === 'email') {
+                    $tfaService->sendEmailOtp($userModel);
+                }
+
+                $tempToken2fa = $this->generate2faTempToken($userData);
+
+                return [
+                    'success' => true,
+                    'message' => 'Password cambiata. Verifica a due fattori richiesta.',
+                    'data' => [
+                        'user' => $userData,
+                        'requires_2fa' => true,
+                        'two_factor_method' => $method,
+                        'temp_token' => $tempToken2fa,
+                        'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
+                        'requires_password_change' => 0
+                    ]
+                ];
+            }
+
+            // Genera token di accesso normale dopo il cambio password (no 2FA needed)
             $accessToken = $this->generateAccessToken([
                 'user_id' => $userData['id'],
                 'email' => $userData['email']
@@ -1172,7 +1199,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Genera un token temporaneo per il cambio password
+     * Genera un token temporaneo per il cambio password (firmato con HMAC)
      */
     private function generateTempToken($user)
     {
@@ -1185,22 +1212,47 @@ class AuthController extends Controller
             'exp' => time() + 600  // Scade in 10 minuti
         ];
 
-        return base64_encode(json_encode($payload));
+        $payloadJson = json_encode($payload);
+        $signature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+
+        return base64_encode($payloadJson . '.' . $signature);
     }
 
     /**
-     * Verifica un token temporaneo per il cambio password
+     * Verifica un token temporaneo per il cambio password (verifica HMAC)
      */
     private function verifyTempToken($token)
     {
         try {
-            $payload = json_decode(base64_decode($token), true);
+            $decoded = base64_decode($token);
+            if ($decoded === false) {
+                return null;
+            }
+
+            $lastDot = strrpos($decoded, '.');
+            if ($lastDot === false) {
+                return null;
+            }
+
+            $payloadJson = substr($decoded, 0, $lastDot);
+            $signature = substr($decoded, $lastDot + 1);
+
+            // Verifica firma HMAC
+            $expectedSignature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+            if (!hash_equals($expectedSignature, $signature)) {
+                Yii::error('Password change temp token signature mismatch', __METHOD__);
+                return null;
+            }
+
+            $payload = json_decode($payloadJson, true);
 
             if (!$payload ||
                     !isset($payload['exp']) ||
                     $payload['exp'] < time() ||
                     !isset($payload['purpose']) ||
-                    $payload['purpose'] !== 'password_change') {
+                    $payload['purpose'] !== 'password_change' ||
+                    !isset($payload['user_id']) ||
+                    !isset($payload['email'])) {
                 return null;  // Token scaduto, non valido o non per cambio password
             }
 
@@ -1741,6 +1793,19 @@ class AuthController extends Controller
                 'message' => 'Utente non trovato',
                 'error_code' => 'USER_NOT_FOUND'
             ];
+        }
+
+        // Rate limit: impedisci reinvio OTP se generato meno di 60 secondi fa
+        $tfa = UserTwoFactorAuth::findOne(['user_id' => $tokenData['user_id']]);
+        if ($tfa && $tfa->email_otp_expires_at) {
+            $otpCreatedAt = $tfa->email_otp_expires_at - SystemSetting::getEmailOtpExpirySeconds();
+            if (time() - $otpCreatedAt < 60) {
+                return [
+                    'success' => false,
+                    'message' => 'Attendi prima di richiedere un nuovo codice',
+                    'error_code' => 'RATE_LIMIT_EXCEEDED'
+                ];
+            }
         }
 
         $tfaService = new TwoFactorService();

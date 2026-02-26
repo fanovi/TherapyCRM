@@ -29,8 +29,6 @@ class m260301_000001_create_two_factor_auth_table extends Migration
             'CASCADE',
             'CASCADE'
         );
-
-        $this->createIndex('idx-user_two_factor_auth-user_id', '{{%user_two_factor_auth}}', 'user_id', true);
     }
 
     public function safeDown()

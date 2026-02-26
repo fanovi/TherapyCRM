@@ -106,7 +106,10 @@ class UserTwoFactorAuth extends ActiveRecord
         $this->email_otp_code = Yii::$app->security->generatePasswordHash($code);
         $this->email_otp_expires_at = time() + SystemSetting::getEmailOtpExpirySeconds();
         $this->email_otp_attempts = 0;
-        $this->save();
+        if (!$this->save()) {
+            Yii::error('Failed to save email OTP: ' . json_encode($this->errors), 'app.2fa');
+            throw new \RuntimeException('Impossibile generare il codice OTP');
+        }
 
         return $code;
     }
@@ -131,7 +134,9 @@ class UserTwoFactorAuth extends ActiveRecord
 
         // Incrementa tentativi
         $this->email_otp_attempts += 1;
-        $this->save();
+        if (!$this->save()) {
+            Yii::error('Failed to save OTP attempt increment: ' . json_encode($this->errors), 'app.2fa');
+        }
 
         // Valida hash
         if (!Yii::$app->security->validatePassword($code, $this->email_otp_code)) {
@@ -142,7 +147,9 @@ class UserTwoFactorAuth extends ActiveRecord
         $this->email_otp_code = null;
         $this->email_otp_expires_at = null;
         $this->email_otp_attempts = 0;
-        $this->save();
+        if (!$this->save()) {
+            Yii::error('Failed to invalidate OTP after use: ' . json_encode($this->errors), 'app.2fa');
+        }
 
         return true;
     }

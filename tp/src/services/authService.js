@@ -1,5 +1,5 @@
 import {API_CONFIG, ERROR_MESSAGES} from '../config/api';
-import * as Keychain from 'react-native-keychain';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Store per il dispatch (sarà inizializzato dall'app)
 let store = null;
@@ -48,8 +48,8 @@ const apiCall = async (endpoint, options = {}) => {
     ) {
       console.warn('🚨 Token scaduto o non valido - logout automatico');
 
-      // Rimuovi token dal Keychain
-      await Keychain.resetInternetCredentials('cms-terapisti-token');
+      // Rimuovi token da AsyncStorage
+      await AsyncStorage.removeItem('authToken');
 
       // Dispatch logout se store è disponibile
       if (store) {
@@ -89,20 +89,16 @@ const isTokenExpired = token => {
 // Funzione per ottenere un token valido (con controllo automatico)
 const getValidToken = async () => {
   try {
-    const credentials = await Keychain.getInternetCredentials(
-      'cms-terapisti-token',
-    );
+    const token = await AsyncStorage.getItem('authToken');
 
-    if (!credentials) {
+    if (!token) {
       throw new Error('Nessun token trovato');
     }
-
-    const token = credentials.password;
 
     // Verifica se il token è scaduto
     if (isTokenExpired(token)) {
       console.warn('🚨 Token scaduto - rimozione automatica');
-      await Keychain.resetInternetCredentials('cms-terapisti-token');
+      await AsyncStorage.removeItem('authToken');
 
       // Usa le nuove funzioni di utilità per logout
       const {performAutoLogout} = require('../utils/authUtils');

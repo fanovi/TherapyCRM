@@ -133,11 +133,12 @@ class TwoFactorService
         }
 
         $google2fa = new Google2FA();
-        if (!$google2fa->verifyKey($secret, $code)) {
+        $newTimestamp = $google2fa->verifyKeyNewer($secret, $code, 0);
+        if ($newTimestamp === false) {
             return false;
         }
 
-        $tfa->totp_confirmed_at = time();
+        $tfa->totp_confirmed_at = $newTimestamp;
         $tfa->preferred_method = 'totp';
         $tfa->is_enabled = 1;
         return $tfa->save();
@@ -153,7 +154,7 @@ class TwoFactorService
     public function verifyTotpCode($userId, $code)
     {
         $tfa = UserTwoFactorAuth::findOne(['user_id' => $userId]);
-        if (!$tfa) {
+        if (!$tfa || !$tfa->is_enabled) {
             return false;
         }
 
@@ -163,7 +164,17 @@ class TwoFactorService
         }
 
         $google2fa = new Google2FA();
-        return $google2fa->verifyKey($secret, $code);
+        $lastTimestamp = $tfa->totp_confirmed_at ?: 0;
+        $newTimestamp = $google2fa->verifyKeyNewer($secret, $code, $lastTimestamp);
+
+        if ($newTimestamp !== false) {
+            // Update last used timestamp to prevent replay
+            $tfa->totp_confirmed_at = $newTimestamp;
+            $tfa->save(false);
+            return true;
+        }
+
+        return false;
     }
 
     /**
