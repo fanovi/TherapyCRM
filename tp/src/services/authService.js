@@ -119,6 +119,9 @@ export const authService = {
       const formData = new FormData();
       formData.append('email', credentials.email);
       formData.append('password', credentials.password);
+      if (credentials.device_token) {
+        formData.append('device_token', credentials.device_token);
+      }
 
       const response = await apiCall(API_CONFIG.ENDPOINTS.LOGIN, {
         method: 'POST',
@@ -133,40 +136,16 @@ export const authService = {
         const {
           user,
           requires_password_change,
+          requires_2fa,
+          two_factor_method,
+          show_remember_device,
           temp_token,
           access_token,
           token_type,
           expires_in,
         } = response.data;
 
-        console.log('🔍 === TOKEN EXTRACTION DEBUG ===');
-        console.log('🎫 access_token tipo:', typeof access_token);
-        console.log('🎫 access_token valore:', access_token);
-
-        // Estrai il token JWT vero dall'oggetto access_token
-        let actualToken = null;
-        if (typeof access_token === 'object' && access_token !== null) {
-          // Il backend restituisce access_token come oggetto con token dentro
-          actualToken = access_token.token;
-          console.log(
-            '✅ Token estratto da access_token.token:',
-            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
-          );
-        } else if (typeof access_token === 'string') {
-          // Se fosse già una stringa (caso futuro)
-          actualToken = access_token;
-          console.log(
-            '✅ Token è già una stringa:',
-            actualToken.substring(0, 30) + '...',
-          );
-        } else {
-          console.log(
-            '❌ access_token non è né oggetto né stringa:',
-            access_token,
-          );
-        }
-
-        // Transform API response to match app's expected format
+        // Transform user data to app format
         const transformedUser = {
           id: user.id.toString(),
           email: user.email,
@@ -181,14 +160,50 @@ export const authService = {
           status: user.status || 'attivo',
           isFirstLogin: !!requires_password_change,
           isPasswordResetRequired: !!requires_password_change,
-          // Add patients info for users with patients
           patients: user.patients || [],
-          // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',
             numeroAlbo: user.numero_albo || '',
           }),
         };
+
+        // Check if 2FA is required
+        if (requires_2fa) {
+          console.log('🔐 2FA required, method:', two_factor_method);
+          return {
+            user: transformedUser,
+            requires2fa: true,
+            twoFactorMethod: two_factor_method,
+            showRememberDevice: !!show_remember_device,
+            tempToken: temp_token,
+            requiresPasswordChange: false,
+          };
+        }
+
+        console.log('🔍 === TOKEN EXTRACTION DEBUG ===');
+        console.log('🎫 access_token tipo:', typeof access_token);
+        console.log('🎫 access_token valore:', access_token);
+
+        // Estrai il token JWT vero dall'oggetto access_token
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          actualToken = access_token.token;
+          console.log(
+            '✅ Token estratto da access_token.token:',
+            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
+          );
+        } else if (typeof access_token === 'string') {
+          actualToken = access_token;
+          console.log(
+            '✅ Token è già una stringa:',
+            actualToken.substring(0, 30) + '...',
+          );
+        } else {
+          console.log(
+            '❌ access_token non è né oggetto né stringa:',
+            access_token,
+          );
+        }
 
         console.log(
           '✅ Final token to return:',
@@ -199,7 +214,7 @@ export const authService = {
           user: transformedUser,
           requiresPasswordChange: !!requires_password_change,
           tempToken: temp_token,
-          token: actualToken || temp_token, // Usa il token estratto
+          token: actualToken || temp_token,
           tokenType: token_type,
           expiresIn: expires_in,
         };
@@ -208,6 +223,97 @@ export const authService = {
       throw new Error('Risposta del server non valida');
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
+    }
+  },
+
+  async verify2fa(tempToken, code, rememberDevice = false, deviceName = null) {
+    try {
+      const formData = new FormData();
+      formData.append('temp_token', tempToken);
+      formData.append('code', code);
+      if (rememberDevice) {
+        formData.append('remember_device', '1');
+      }
+      if (deviceName) {
+        formData.append('device_name', deviceName);
+      }
+
+      const response = await apiCall(API_CONFIG.ENDPOINTS.TWO_FACTOR_VERIFY, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.success && response.data) {
+        const {user, access_token, token_type, expires_in, device_token} =
+          response.data;
+
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          actualToken = access_token.token;
+        } else if (typeof access_token === 'string') {
+          actualToken = access_token;
+        }
+
+        const transformedUser = {
+          id: user.id.toString(),
+          email: user.email,
+          role: user.user_type === 'paziente' ? 'patient' : 'therapist',
+          firstName: user.nome,
+          lastName: user.cognome,
+          fullName: `${user.nome} ${user.cognome}`,
+          codiceFiscale: user.codice_fiscale || '',
+          telefono: user.telefono || '',
+          dataNascita: user.data_nascita || '',
+          indirizzo: user.indirizzo || '',
+          status: user.status || 'attivo',
+          isFirstLogin: false,
+          isPasswordResetRequired: false,
+          patients: user.patients || [],
+          ...(user.user_type === 'terapista' && {
+            specializzazione: user.specializzazione || '',
+            numeroAlbo: user.numero_albo || '',
+          }),
+        };
+
+        return {
+          user: transformedUser,
+          token: actualToken,
+          tokenType: token_type,
+          expiresIn: expires_in,
+          deviceToken: device_token || null,
+        };
+      }
+
+      throw new Error('Risposta del server non valida');
+    } catch (error) {
+      console.error('2FA verify error:', error);
+      throw error;
+    }
+  },
+
+  async resendEmailOtp(tempToken) {
+    try {
+      const formData = new FormData();
+      formData.append('temp_token', tempToken);
+
+      const response = await apiCall(
+        API_CONFIG.ENDPOINTS.TWO_FACTOR_SEND_EMAIL_OTP,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      return response;
+    } catch (error) {
+      console.error('Resend OTP error:', error);
       throw error;
     }
   },

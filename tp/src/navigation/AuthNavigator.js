@@ -4,6 +4,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordWithTokenScreen from '../screens/auth/ResetPasswordWithTokenScreen';
+import TwoFactorScreen from '../screens/auth/TwoFactorScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -21,6 +22,7 @@ const AuthNavigator = () => {
         name="ResetPasswordWithToken"
         component={ResetPasswordWithTokenScreen}
       />
+      <Stack.Screen name="TwoFactor" component={TwoFactorScreen} />
     </Stack.Navigator>
   );
 };

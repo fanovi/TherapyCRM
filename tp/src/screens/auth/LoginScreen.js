@@ -26,9 +26,8 @@ import {logo} from '../../assets/images';
 const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {isLoading, error, user, requiresPasswordChange} = useSelector(
-    state => state.auth,
-  );
+  const {isLoading, error, user, requiresPasswordChange, requires2fa} =
+    useSelector(state => state.auth);
   const theme = useTheme();
 
   const [email, setEmail] = useState('');
@@ -39,6 +38,10 @@ const LoginScreen = () => {
     // Se l'utente ha effettuato il login ma deve cambiare password
     if (user && requiresPasswordChange) {
       navigation.navigate('ResetPassword');
+    }
+    // Se 2FA è richiesto, naviga alla schermata 2FA
+    if (requires2fa) {
+      navigation.navigate('TwoFactor');
     }
   });
 

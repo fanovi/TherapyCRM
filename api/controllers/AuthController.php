@@ -6,8 +6,11 @@ use common\models\AccountPatient;
 use common\models\AuthToken;
 use common\models\Patient;
 use common\models\Therapist;
+use common\models\TrustedDevice;
 use common\models\User;
 use common\models\UserProfile;
+use common\models\SystemSetting;
+use common\services\TwoFactorService;
 use yii\web\Controller;
 use yii\web\HttpException;
 use Yii;
@@ -231,6 +234,35 @@ class AuthController extends Controller
                         'user' => $userData,
                         'requires_password_change' => 1,
                         'temp_token' => $this->generateTempToken($userData)  // Token temporaneo per cambio password
+                    ]
+                ];
+            }
+
+            // Check 2FA
+            $tfaService = new TwoFactorService();
+            $deviceToken = $request->post('device_token');
+            $user = User::findOne($userData['id']);
+
+            if ($user && $tfaService->is2faRequired($user, $deviceToken)) {
+                $method = $tfaService->getPreferredMethod($user->id);
+
+                // Se metodo è email, invia OTP automaticamente
+                if ($method === 'email') {
+                    $tfaService->sendEmailOtp($user);
+                }
+
+                $tempToken2fa = $this->generate2faTempToken($userData);
+
+                return [
+                    'success' => true,
+                    'message' => 'Verifica a due fattori richiesta.',
+                    'data' => [
+                        'user' => $userData,
+                        'requires_2fa' => true,
+                        'two_factor_method' => $method,
+                        'temp_token' => $tempToken2fa,
+                        'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
+                        'requires_password_change' => 0
                     ]
                 ];
             }
@@ -1565,6 +1597,301 @@ class AuthController extends Controller
                 'message' => 'Errore durante il reset della password',
                 'error_code' => 'UPDATE_FAILED'
             ];
+        }
+    }
+
+    /**
+     * Verifica codice 2FA e completa il login
+     * POST /auth/2fa/verify
+     */
+    public function action2faVerify()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+        $code = $request->post('code');
+        $rememberDevice = (bool) $request->post('remember_device', false);
+        $deviceName = $request->post('device_name');
+
+        if (empty($tempToken) || empty($code)) {
+            return [
+                'success' => false,
+                'message' => 'Token e codice sono obbligatori',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        // Verifica temp token 2FA
+        $tokenData = $this->verify2faTempToken($tempToken);
+        if (!$tokenData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        $userId = $tokenData['user_id'];
+        $tfaService = new TwoFactorService();
+        $method = $tfaService->getPreferredMethod($userId);
+
+        // Verifica il codice in base al metodo
+        $valid = false;
+        if ($method === 'totp') {
+            $valid = $tfaService->verifyTotpCode($userId, $code);
+        } else {
+            $valid = $tfaService->verifyEmailOtp($userId, $code);
+        }
+
+        if (!$valid) {
+            return [
+                'success' => false,
+                'message' => 'Codice di verifica non valido',
+                'error_code' => 'INVALID_2FA_CODE'
+            ];
+        }
+
+        // Codice valido - genera token di accesso completo
+        $accessToken = $this->generateAccessToken([
+            'user_id' => $tokenData['user_id'],
+            'email' => $tokenData['email']
+        ]);
+
+        $responseData = [
+            'user' => $tokenData['user_data'],
+            'access_token' => $accessToken,
+            'token_type' => 'Bearer',
+            'expires_in' => 3600,
+            'requires_password_change' => 0
+        ];
+
+        // Se "ricorda dispositivo" richiesto e abilitato
+        if ($rememberDevice && SystemSetting::isRememberDeviceEnabled()) {
+            $device = TrustedDevice::createTrusted($userId, $deviceName);
+            if ($device) {
+                $responseData['device_token'] = $device->device_token;
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Autenticazione completata con successo',
+            'data' => $responseData
+        ];
+    }
+
+    /**
+     * Reinvia OTP email
+     * POST /auth/2fa/send-email-otp
+     */
+    public function action2faSendEmailOtp()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+
+        if (empty($tempToken)) {
+            return [
+                'success' => false,
+                'message' => 'Token obbligatorio',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        $tokenData = $this->verify2faTempToken($tempToken);
+        if (!$tokenData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        $user = User::findOne($tokenData['user_id']);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        $tfaService = new TwoFactorService();
+        $sent = $tfaService->sendEmailOtp($user);
+
+        if ($sent) {
+            return [
+                'success' => true,
+                'message' => 'Codice di verifica inviato via email'
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Errore nell\'invio del codice. Riprova.',
+            'error_code' => 'EMAIL_SEND_FAILED'
+        ];
+    }
+
+    /**
+     * Setup TOTP - genera secret e URI
+     * POST /auth/2fa/setup
+     * Richiede JWT auth (utente già loggato)
+     */
+    public function action2faSetup()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        // Richiede JWT - verifica token dall'header
+        $authHeader = $request->getHeaders()->get('Authorization');
+        if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso mancante',
+                'error_code' => 'TOKEN_MISSING'
+            ];
+        }
+
+        $userData = $this->verifyTokenWithDatabase($matches[1]);
+        if (!$userData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'TOKEN_INVALID'
+            ];
+        }
+
+        $user = User::findOne($userData['id']);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        $tfaService = new TwoFactorService();
+        $setupData = $tfaService->initTotpSetup($user);
+
+        return [
+            'success' => true,
+            'message' => 'Setup TOTP inizializzato',
+            'data' => [
+                'secret' => $setupData['secret'],
+                'otpauth_uri' => $setupData['otpauth_uri'],
+            ]
+        ];
+    }
+
+    /**
+     * Conferma setup TOTP con primo codice
+     * POST /auth/2fa/confirm-setup
+     * Richiede JWT auth (utente già loggato)
+     */
+    public function action2faConfirmSetup()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        // Richiede JWT
+        $authHeader = $request->getHeaders()->get('Authorization');
+        if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso mancante',
+                'error_code' => 'TOKEN_MISSING'
+            ];
+        }
+
+        $userData = $this->verifyTokenWithDatabase($matches[1]);
+        if (!$userData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'TOKEN_INVALID'
+            ];
+        }
+
+        $code = $request->post('code');
+        if (empty($code)) {
+            return [
+                'success' => false,
+                'message' => 'Codice obbligatorio',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        $tfaService = new TwoFactorService();
+        if ($tfaService->confirmTotpSetup($userData['id'], $code)) {
+            return [
+                'success' => true,
+                'message' => 'TOTP configurato con successo'
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Codice non valido. Riprova.',
+            'error_code' => 'INVALID_TOTP_CODE'
+        ];
+    }
+
+    /**
+     * Genera un token temporaneo per la sfida 2FA
+     */
+    private function generate2faTempToken($userData)
+    {
+        $payload = [
+            'user_id' => $userData['id'],
+            'user_type' => $userData['user_type'],
+            'email' => $userData['email'],
+            'purpose' => '2fa_challenge',
+            'user_data' => $userData,
+            'exp' => time() + 300  // Scade in 5 minuti
+        ];
+
+        return base64_encode(json_encode($payload));
+    }
+
+    /**
+     * Verifica un token temporaneo 2FA
+     */
+    private function verify2faTempToken($token)
+    {
+        try {
+            $payload = json_decode(base64_decode($token), true);
+
+            if (!$payload ||
+                    !isset($payload['exp']) ||
+                    $payload['exp'] < time() ||
+                    !isset($payload['purpose']) ||
+                    $payload['purpose'] !== '2fa_challenge') {
+                return null;
+            }
+
+            return [
+                'user_id' => $payload['user_id'],
+                'email' => $payload['email'],
+                'user_type' => $payload['user_type'],
+                'user_data' => $payload['user_data'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            return null;
         }
     }
 

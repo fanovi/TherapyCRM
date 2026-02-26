@@ -27,7 +27,8 @@
 17. [Componenti e Servizi Condivisi](#17-componenti-e-servizi-condivisi)
 18. [Regole di Business Importanti](#18-regole-di-business-importanti)
 19. [Configurazione e Deploy](#19-configurazione-e-deploy)
-20. [Documentazione Esistente](#20-documentazione-esistente)
+20. [Autenticazione a Due Fattori (2FA)](#20-autenticazione-a-due-fattori-2fa)
+21. [Documentazione Esistente](#21-documentazione-esistente)
 
 ---
 
@@ -726,12 +727,21 @@ Il backend e' riservato agli amministratori di sistema.
 Autenticazione JWT per mobile e calendar app.
 
 ```
-POST /api/auth/login            # Login con email/password -> JWT tokens
+POST /api/auth/login            # Login con email/password -> JWT tokens (o 2FA challenge)
 POST /api/auth/register         # Registrazione nuovo utente
 POST /api/auth/refresh          # Refresh del JWT access token
 POST /api/auth/logout           # Logout (invalida refresh token)
 GET  /api/auth/me               # Dati utente corrente
 POST /api/auth/forgot-password  # Reset password
+
+# 2FA (vedi sezione 20 per dettagli)
+POST /api/auth/2fa/verify          # Verifica codice 2FA (email OTP o TOTP)
+POST /api/auth/2fa/send-email-otp  # Reinvia codice OTP via email
+POST /api/auth/2fa/setup           # Setup TOTP (genera secret + QR URI)
+POST /api/auth/2fa/confirm-totp    # Conferma setup TOTP con primo codice
+POST /api/auth/2fa/enable          # Abilita 2FA per l'utente corrente
+POST /api/auth/2fa/disable         # Disabilita 2FA per l'utente corrente
+GET  /api/auth/2fa/status          # Stato 2FA dell'utente corrente
 ```
 
 #### CalendarController
@@ -1549,6 +1559,12 @@ Tipi predefiniti:
 |----------|-------------|
 | `ActivityLogBehavior` | Logging automatico di tutte le operazioni CRUD sui modelli. Registra utente, azione, vecchi/nuovi valori in JSON, IP, user agent. |
 
+### Servizi (`common/services/`)
+
+| Servizio | Descrizione |
+|----------|-------------|
+| `TwoFactorService` | Orchestrazione 2FA: verifica se richiesto, invio email OTP, verifica TOTP, setup, enable/disable per utente |
+
 ### Servizi Statistiche (`common/services/statistics/`)
 
 | Servizio | Descrizione |
@@ -1685,7 +1701,308 @@ npx react-native run-ios
 
 ---
 
-## 20. Documentazione Esistente
+## 20. Autenticazione a Due Fattori (2FA)
+
+Il sistema supporta l'autenticazione a due fattori con due metodi: **Email OTP** e **TOTP** (Google Authenticator). La funzionalita' e' configurabile globalmente dall'admin e attivabile per ogni utente.
+
+### Architettura
+
+```
+                         +-------------------+
+                         |  SystemSetting    |
+                         |  (config globale) |
+                         +--------+----------+
+                                  |
+   Login API                      v
+   +--------+    +----------------+---------------+
+   | Client | -> | AuthController (login)         |
+   +--------+    |   -> TwoFactorService          |
+        |        |     -> is2faRequired()          |
+        |        |     -> sendEmailOtp() / verify  |
+        |        +----------------+---------------+
+        |                         |
+        |        +----------------+---------------+
+        |        | UserTwoFactorAuth (per utente) |
+        |        | TrustedDevice (dispositivi)    |
+        |        +--------------------------------+
+        |
+        v
+   TwoFactorScreen (React Native)
+```
+
+### Tabelle Database
+
+#### `user_two_factor_auth`
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | int PK | ID |
+| `user_id` | int FK | Riferimento a `user.id` |
+| `is_enabled` | tinyint | 2FA attivo per questo utente (0/1) |
+| `preferred_method` | enum | `'email'` o `'totp'` |
+| `totp_secret` | text | Secret TOTP criptato (AES-256-CBC) |
+| `totp_confirmed_at` | int | Timestamp conferma setup TOTP |
+| `email_otp_code` | varchar | Hash del codice OTP email (bcrypt) |
+| `email_otp_expires_at` | int | Scadenza OTP email |
+| `email_otp_attempts` | int | Tentativi falliti (max configurabile) |
+
+#### `trusted_devices`
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | int PK | ID |
+| `user_id` | int FK | Riferimento a `user.id` |
+| `device_token` | varchar(64) | Token univoco del dispositivo |
+| `device_name` | varchar(255) | Nome dispositivo (es. "iPhone", "Android") |
+| `expires_at` | int | Scadenza del trust (configurabile, default 30 giorni) |
+
+#### `system_setting`
+
+| Campo | Tipo | Descrizione |
+|-------|------|-------------|
+| `id` | int PK | ID |
+| `category` | varchar(50) | Categoria (es. `'2fa'`) |
+| `key` | varchar(100) | Chiave impostazione |
+| `value` | text | Valore |
+| `type` | varchar(20) | Tipo dato (`'string'`, `'integer'`, `'boolean'`) |
+
+### Impostazioni 2FA (categoria `'2fa'`)
+
+| Chiave | Default | Descrizione |
+|--------|---------|-------------|
+| `enabled` | `false` | 2FA abilitato globalmente |
+| `remember_device_enabled` | `true` | Permetti "Ricorda dispositivo" |
+| `remember_device_days` | `30` | Giorni di validita' dispositivo fidato |
+| `email_otp_expiry_seconds` | `300` | Scadenza codice email OTP (5 minuti) |
+| `max_otp_attempts` | `5` | Tentativi massimi prima del blocco |
+| `totp_issuer_name` | `'TherapyCRM'` | Nome issuer nel QR code TOTP |
+
+### Flusso di Login con 2FA
+
+```
+1. Client invia POST /api/auth/login (email + password + deviceToken?)
+2. AuthController verifica credenziali
+3. Se credenziali valide:
+   a. TwoFactorService->is2faRequired($user, $deviceToken)
+   b. Se 2FA NON richiesto (disabilitato, utente senza 2FA, o device fidato):
+      -> Risposta normale con access_token + refresh_token
+   c. Se 2FA richiesto:
+      -> Genera tempToken (JWT con scadenza 5 min, claim 'purpose' = '2fa')
+      -> Se metodo = 'email': invia OTP via email
+      -> Risposta: { requires_2fa: true, temp_token, method, show_remember_device }
+
+4. Client mostra TwoFactorScreen
+5. Utente inserisce codice a 6 cifre
+6. Client invia POST /api/auth/2fa/verify (tempToken + code + rememberDevice + deviceName)
+7. AuthController verifica il codice:
+   - Email OTP: UserTwoFactorAuth->validateEmailOtp($code)
+   - TOTP: Google2FA->verifyKey($secret, $code)
+8. Se valido:
+   -> Se rememberDevice=true: crea record TrustedDevice con token
+   -> Genera access_token + refresh_token
+   -> Risposta: { access_token, refresh_token, device_token? }
+```
+
+### Modelli
+
+#### `UserTwoFactorAuth` (`common/models/UserTwoFactorAuth.php`)
+
+Model ActiveRecord per la configurazione 2FA di ogni utente.
+
+**Metodi principali:**
+- `findOrCreate($userId)` - Trova o crea record per l'utente
+- `generateEmailOtp()` - Genera codice OTP 6 cifre, lo salva hashato con bcrypt, imposta scadenza
+- `validateEmailOtp($code)` - Verifica OTP (controlla scadenza, tentativi, hash bcrypt)
+- `setTotpSecretEncrypted($secret)` - Cripta il secret TOTP con AES-256-CBC
+- `getTotpSecretDecrypted()` - Decripta il secret TOTP
+- `isTotpConfigured()` - True se TOTP e' stato confermato
+
+**Sicurezza OTP email:**
+- Il codice viene hashato con `Yii::$app->security->generatePasswordHash()` (bcrypt)
+- Scadenza configurabile (default 5 minuti)
+- Contatore tentativi con limite massimo
+- Dopo la verifica il codice viene invalidato
+
+**Sicurezza TOTP:**
+- Il secret viene criptato con AES-256-CBC prima del salvataggio
+- Chiave di crittografia: `Yii::$app->params['totpEncryptionKey']` (32 bytes)
+- IV generato casualmente per ogni crittografia, salvato con il ciphertext
+
+#### `TrustedDevice` (`common/models/TrustedDevice.php`)
+
+Gestisce i dispositivi fidati per saltare il 2FA nei login successivi.
+
+**Metodi principali:**
+- `isDeviceTrusted($userId, $deviceToken)` - Verifica se un device e' ancora fidato (non scaduto)
+- `trustDevice($userId, $deviceToken, $deviceName)` - Registra un nuovo dispositivo fidato
+- `revokeAllForUser($userId)` - Revoca tutti i dispositivi (es. quando si disabilita 2FA)
+- `cleanExpired()` - Pulizia dispositivi scaduti (per cron job)
+
+#### `SystemSetting` (`common/models/SystemSetting.php`)
+
+Model key-value per impostazioni di sistema, organizzate per categoria.
+
+**Metodi principali:**
+- `getByCategory($category)` - Tutte le impostazioni di una categoria
+- `getValue($category, $key, $default)` - Singolo valore con default
+- `setValue($category, $key, $value)` - Salva/aggiorna un valore
+- `clearCache()` - Svuota la cache in memoria
+
+**Helper 2FA (metodi statici):**
+- `is2faEnabled()` - 2FA abilitato globalmente?
+- `isRememberDeviceEnabled()` - "Ricorda dispositivo" attivo?
+- `getRememberDeviceDays()` - Giorni validita' dispositivo
+- `getEmailOtpExpirySeconds()` - Scadenza OTP email
+- `getMaxOtpAttempts()` - Max tentativi OTP
+- `getTotpIssuerName()` - Nome issuer per QR
+
+### Service (`common/services/TwoFactorService.php`)
+
+Orchestrazione centrale della logica 2FA.
+
+| Metodo | Descrizione |
+|--------|-------------|
+| `is2faRequired($user, $deviceToken)` | Verifica se l'utente deve fare 2FA (controlla: globale abilitato, utente abilitato, dispositivo fidato) |
+| `getPreferredMethod($userId)` | Ritorna `'email'` o `'totp'` |
+| `sendEmailOtp($user)` | Genera codice e invia email HTML con template formattato |
+| `verifyEmailOtp($userId, $code)` | Verifica codice email OTP |
+| `initTotpSetup($user)` | Genera secret TOTP, salva criptato, ritorna `{secret, otpauth_uri}` per QR |
+| `confirmTotpSetup($userId, $code)` | Conferma TOTP con primo codice valido, imposta come metodo preferito |
+| `verifyTotpCode($userId, $code)` | Verifica codice TOTP durante login |
+| `enableForUser($userId, $method)` | Abilita 2FA per utente |
+| `disableForUser($userId)` | Disabilita 2FA, cancella secret TOTP, revoca dispositivi fidati |
+
+### API Endpoints 2FA
+
+#### `POST /api/auth/2fa/verify`
+
+Verifica il codice 2FA e completa il login.
+
+**Request:**
+```json
+{
+  "tempToken": "eyJhbGci...",
+  "code": "123456",
+  "rememberDevice": true,
+  "deviceName": "iPhone"
+}
+```
+
+**Response (successo):**
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGci...",
+    "refresh_token": "eyJhbGci...",
+    "device_token": "abc123..."
+  }
+}
+```
+
+#### `POST /api/auth/2fa/send-email-otp`
+
+Reinvia codice OTP via email (per metodo email).
+
+**Request:** `{ "tempToken": "..." }`
+
+#### `POST /api/auth/2fa/setup`
+
+Inizializza setup TOTP per l'utente autenticato.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "secret": "JBSWY3DPEHPK3PXP",
+    "otpauth_uri": "otpauth://totp/TherapyCRM:user@email.com?secret=..."
+  }
+}
+```
+
+#### `POST /api/auth/2fa/confirm-totp`
+
+Conferma setup TOTP con il primo codice valido.
+
+**Request:** `{ "code": "123456" }`
+
+#### `POST /api/auth/2fa/enable`
+
+Abilita 2FA per l'utente corrente.
+
+**Request:** `{ "method": "email" }`
+
+#### `POST /api/auth/2fa/disable`
+
+Disabilita 2FA per l'utente corrente. Cancella secret TOTP e revoca dispositivi fidati.
+
+#### `GET /api/auth/2fa/status`
+
+Ritorna lo stato 2FA dell'utente corrente.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "is_enabled": true,
+    "preferred_method": "totp",
+    "totp_configured": true,
+    "global_2fa_enabled": true,
+    "remember_device_enabled": true
+  }
+}
+```
+
+### Pannello Admin 2FA
+
+**URL**: `/system-setting/two-factor`
+**Controller**: `SystemSettingController` (richiede permesso `create_admin`)
+**View**: `frontend/views/system-setting/two-factor.php`
+
+L'admin puo' configurare:
+- Abilitazione/disabilitazione globale 2FA
+- "Ricorda dispositivo" on/off e durata in giorni
+- Scadenza codice email OTP (secondi)
+- Numero massimo tentativi OTP
+- Disabilitare 2FA per singoli utenti
+
+### App Mobile - TwoFactorScreen
+
+**File**: `tp/src/screens/auth/TwoFactorScreen.js`
+
+Schermata React Native mostrata dopo il login quando il server richiede 2FA.
+
+**Funzionalita':**
+- Input codice 6 cifre (solo numeri, filtrato con regex)
+- Supporto metodo email e TOTP (testo descrittivo dinamico)
+- Checkbox "Ricorda questo dispositivo" (mostrata solo se abilitata dal server)
+- Pulsante "Reinvia codice" con countdown 60 secondi (solo metodo email)
+- Pulsante "Torna al login" per annullare
+- Snackbar per errori e messaggi di conferma
+
+**Redux state (`authSlice`):**
+- `twoFactorMethod` - `'email'` o `'totp'`
+- `showRememberDevice` - mostra/nascondi checkbox
+- `twoFactorTempToken` - token temporaneo per la verifica
+
+### Migrazioni
+
+| Migrazione | Descrizione |
+|------------|-------------|
+| `m260301_000001_create_two_factor_auth_table` | Crea tabella `user_two_factor_auth` |
+| `m260301_000002_create_trusted_devices_table` | Crea tabella `trusted_devices` |
+| `m260301_000003_create_system_settings_table` | Crea tabella `system_setting` con valori default 2FA |
+
+### Dipendenze
+
+- `pragmarx/google2fa` - Libreria PHP per generazione/verifica codici TOTP (RFC 6238)
+- Funzioni PHP native: `openssl_encrypt`/`openssl_decrypt` per crittografia TOTP secret
+
+---
+
+## 21. Documentazione Esistente
 
 | File | Contenuto |
 |------|-----------|

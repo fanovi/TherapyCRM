@@ -20,9 +20,8 @@ const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const {isAuthenticated, user, requiresPasswordChange} = useSelector(
-    state => state.auth,
-  );
+  const {isAuthenticated, user, requiresPasswordChange, requires2fa} =
+    useSelector(state => state.auth);
   const [isLoading, setIsLoading] = useState(true);
 
   // Inizializza OneSignal e gestisce i tag dell'utente
@@ -178,7 +177,7 @@ const AppNavigator = () => {
     <SafeAreaWrapper>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{headerShown: false}}>
-          {!isAuthenticated || requiresPasswordChange ? (
+          {!isAuthenticated || requiresPasswordChange || requires2fa ? (
             <Stack.Screen name="Auth" component={AuthNavigator} />
           ) : user?.user_type === 'paziente' || user?.role === 'patient' ? (
             <Stack.Screen name="Patient" component={PatientNavigator} />

@@ -11,6 +11,11 @@ const initialState = {
   isInitialized: false, // Per gestire lo stato di inizializzazione
   requiresPasswordChange: false, // Per gestire il cambio password obbligatorio
   tempToken: null, // Token temporaneo per il cambio password
+  // 2FA state
+  requires2fa: false,
+  twoFactorMethod: null, // 'totp' | 'email'
+  showRememberDevice: false,
+  twoFactorTempToken: null,
 };
 
 const authSlice = createSlice({
@@ -71,6 +76,43 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
+    // 2FA reducers
+    twoFactorRequired: (state, action) => {
+      state.isLoading = false;
+      state.error = null;
+      state.requires2fa = true;
+      state.twoFactorMethod = action.payload.twoFactorMethod;
+      state.showRememberDevice = action.payload.showRememberDevice || false;
+      state.twoFactorTempToken = action.payload.tempToken;
+      state.user = action.payload.user;
+    },
+    twoFactorSuccess: (state, action) => {
+      state.isAuthenticated = true;
+      state.token = action.payload.token;
+      state.user = action.payload.user;
+      state.isLoading = false;
+      state.error = null;
+      state.requires2fa = false;
+      state.twoFactorMethod = null;
+      state.showRememberDevice = false;
+      state.twoFactorTempToken = null;
+      state.currentRole =
+        action.payload.user.roles?.[action.payload.user.roles.length - 1] ||
+        action.payload.user.role ||
+        action.payload.user.user_type;
+    },
+    twoFactorFailure: (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload;
+    },
+    clear2faState: state => {
+      state.requires2fa = false;
+      state.twoFactorMethod = null;
+      state.showRememberDevice = false;
+      state.twoFactorTempToken = null;
+      state.isLoading = false;
+      state.error = null;
+    },
   },
 });
 
@@ -84,6 +126,10 @@ export const {
   setCurrentRole,
   setInitialized,
   resetPasswordRequestSuccess,
+  twoFactorRequired,
+  twoFactorSuccess,
+  twoFactorFailure,
+  clear2faState,
 } = authSlice.actions;
 
 export default authSlice.reducer;

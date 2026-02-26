@@ -10,6 +10,12 @@ export const API_CONFIG = {
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh', // Future implementation
 
+    // 2FA
+    TWO_FACTOR_VERIFY: '/auth/2fa/verify',
+    TWO_FACTOR_SEND_EMAIL_OTP: '/auth/2fa/send-email-otp',
+    TWO_FACTOR_SETUP: '/auth/2fa/setup',
+    TWO_FACTOR_CONFIRM_SETUP: '/auth/2fa/confirm-setup',
+
     // Notifications
     NOTIFICATIONS: '/notifications',
     NOTIFICATION_DETAIL: id => `/notifications/${id}`,

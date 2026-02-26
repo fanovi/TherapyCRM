@@ -85,6 +85,11 @@ return [
                 'POST auth/login' => 'auth/login',
                 'POST auth/logout' => 'auth/logout',
                 'GET auth/verify' => 'auth/verify',
+                // 2FA routes
+                'POST auth/2fa/verify' => 'auth/2fa-verify',
+                'POST auth/2fa/send-email-otp' => 'auth/2fa-send-email-otp',
+                'POST auth/2fa/setup' => 'auth/2fa-setup',
+                'POST auth/2fa/confirm-setup' => 'auth/2fa-confirm-setup',
                 // Calendar routes
                 'POST calendar/patient-appointments' => 'calendar/patient-appointments',
                 'POST calendar/patient-marked-dates' => 'calendar/patient-marked-dates',

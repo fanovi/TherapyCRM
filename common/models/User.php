@@ -155,6 +155,15 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
     /**
+     * Relazione con le impostazioni 2FA dell'utente
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTwoFactorAuth()
+    {
+        return $this->hasOne(UserTwoFactorAuth::class, ['user_id' => 'id']);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public static function findIdentity($id)

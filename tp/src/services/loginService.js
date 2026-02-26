@@ -6,6 +6,9 @@ import {
   changePasswordSuccess,
   logoutUser,
   resetPasswordRequestSuccess,
+  twoFactorRequired,
+  twoFactorSuccess,
+  twoFactorFailure,
 } from '../slices/authSlice';
 import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
@@ -16,14 +19,46 @@ export const loginService = {
 
     try {
       console.log('🚀 Starting login process...');
-      const response = await authService.login(credentials);
+
+      // Leggi device_token da AsyncStorage per "ricorda dispositivo"
+      let deviceToken = null;
+      try {
+        deviceToken = await AsyncStorage.getItem('deviceToken');
+      } catch (e) {
+        // Ignora errore di lettura device token
+      }
+
+      // Aggiungi device_token alle credenziali se presente
+      const loginCredentials = deviceToken
+        ? {...credentials, device_token: deviceToken}
+        : credentials;
+
+      const response = await authService.login(loginCredentials);
 
       console.log('✅ Login response received:', {
         hasUser: !!response.user,
         requiresPasswordChange: response.requiresPasswordChange,
+        requires2fa: response.requires2fa,
         hasTempToken: !!response.tempToken,
         hasToken: !!response.token,
       });
+
+      // Check 2FA richiesto
+      if (response.requires2fa) {
+        console.log(
+          '🔐 2FA required - method:',
+          response.twoFactorMethod,
+        );
+        dispatch(
+          twoFactorRequired({
+            user: response.user,
+            twoFactorMethod: response.twoFactorMethod,
+            showRememberDevice: response.showRememberDevice,
+            tempToken: response.tempToken,
+          }),
+        );
+        return response;
+      }
 
       if (response.requiresPasswordChange) {
         // Primo login - richiede cambio password
@@ -223,6 +258,73 @@ export const loginService = {
     } catch (error) {
       console.error('❌ Password reset failed:', error.message);
       dispatch(loginFailure(error.message));
+      throw error;
+    }
+  },
+
+  async verify2fa(
+    dispatch,
+    {tempToken, code, rememberDevice = false, deviceName = null},
+  ) {
+    dispatch(loginStart());
+
+    try {
+      console.log('🔐 Starting 2FA verification...');
+      const response = await authService.verify2fa(
+        tempToken,
+        code,
+        rememberDevice,
+        deviceName,
+      );
+
+      console.log('✅ 2FA verification successful');
+
+      // Salva il token di autenticazione
+      const authToken = response.token ? String(response.token) : '';
+      const userString = JSON.stringify(response.user);
+
+      await AsyncStorage.multiSet([
+        ['authToken', authToken],
+        ['user', userString],
+      ]);
+
+      // Se c'è un device_token (ricorda dispositivo), salvalo
+      if (response.deviceToken) {
+        await AsyncStorage.setItem('deviceToken', response.deviceToken);
+      }
+
+      dispatch(
+        twoFactorSuccess({
+          user: response.user,
+          token: response.token,
+        }),
+      );
+
+      // Gestisci i pazienti
+      if (response.user.patients && response.user.patients.length > 0) {
+        console.log(
+          '👥 Setting patients after 2FA:',
+          response.user.patients.length,
+        );
+        dispatch(setPatientsFromLogin(response.user.patients));
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ 2FA verification failed:', error.message);
+      dispatch(twoFactorFailure(error.message));
+      throw error;
+    }
+  },
+
+  async resendEmailOtp(dispatch, tempToken) {
+    try {
+      console.log('📧 Resending email OTP...');
+      const response = await authService.resendEmailOtp(tempToken);
+      console.log('✅ Email OTP resent successfully');
+      return response;
+    } catch (error) {
+      console.error('❌ Resend OTP failed:', error.message);
       throw error;
     }
   },

@@ -1030,6 +1030,37 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <?php endif; ?>
                     <!-- Menu Item Coordinator Groups -->
 
+                    <!-- Menu Item Impostazioni 2FA -->
+                    <?php if (Yii::$app->user->can('create_admin')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/system-setting/two-factor']) ?>"
+                            class="menu-item group"
+                            :class="'<?= ($currentController === 'system-setting') ? 'menu-item-active' : 'menu-item-inactive' ?>'">
+                            <svg
+                                :class="'<?= ($currentController === 'system-setting') ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 2C9.23858 2 7 4.23858 7 7V10H6C4.89543 10 4 10.8954 4 12V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V12C20 10.8954 19.1046 10 18 10H17V7C17 4.23858 14.7614 2 12 2ZM15 10V7C15 5.34315 13.6569 4 12 4C10.3431 4 9 5.34315 9 7V10H15ZM12 15C12.5523 15 13 14.5523 13 14C13 13.4477 12.5523 13 12 13C11.4477 13 11 13.4477 11 14C11 14.5523 11.4477 15 12 15ZM12 17C13.1046 17 14 16.1046 14 15V14C14 12.8954 13.1046 12 12 12C10.8954 12 10 12.8954 10 14V15C10 16.1046 10.8954 17 12 17Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Impostazioni 2FA
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Impostazioni 2FA End -->
+
                     <!-- Menu Item Manuale d'Uso (nascosto) -->
                     <!-- Menu Item Manuale d'Uso End -->
 
