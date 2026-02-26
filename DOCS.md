@@ -97,11 +97,17 @@ TherapyCRM e' una piattaforma completa per la gestione di centri di riabilitazio
 | Tecnologia | Versione | Uso |
 |------------|----------|-----|
 | React Native | 0.79.3 | Framework mobile cross-platform |
+| React | 19.0.0 | UI library |
+| TypeScript | 5.0.4 | Type safety |
 | Redux Toolkit | 2.8.2 | State management globale |
-| React Navigation | 7.x | Navigazione tra schermate |
+| Redux Persist | 6.0.0 | Persistenza stato su AsyncStorage |
+| React Navigation | 7.x | Navigazione (native-stack, bottom-tabs, stack) |
 | React Native Paper | 5.14.5 | Material Design UI components |
 | OneSignal | 5.2.12 | Push notifications |
 | Axios | 1.9.0 | HTTP client per API |
+| react-native-calendars | 1.1312.1 | Componente calendario |
+| react-native-keychain | 10.0.0 | Archiviazione sicura token |
+| Moment.js | 2.30.1 | Gestione date (locale italiano) |
 
 ---
 
@@ -195,14 +201,23 @@ TherapyCRM/
 |               +-- types/        # TypeScript types (therapy.ts)
 |
 |-- tp/                           # App Mobile React Native
+|   |-- android/                  # Progetto Android nativo
+|   |-- ios/                      # Progetto iOS nativo
+|   |-- build-release.sh          # Script build release (APK/AAB)
+|   |-- RELEASE_PACKAGE/          # Pacchetto rilascio (APK, AAB, keystore)
 |   +-- src/
-|       |-- screens/              # Schermate (patient/, therapist/, auth/)
-|       |-- components/           # Componenti riutilizzabili
-|       |-- services/             # Servizi (auth, oneSignal, ecc.)
-|       |-- api/                  # Moduli API
-|       |-- hooks/                # Custom hooks
-|       |-- store/                # Redux store
-|       +-- navigation/           # React Navigation config
+|       |-- screens/              # Schermate (auth/, patient/, therapist/)
+|       |-- components/           # 11 componenti riutilizzabili
+|       |-- services/             # Servizi (auth, axios, oneSignal, blocking, therapist)
+|       |-- api/                  # 5 moduli API (auth, calendar, notifications, requests, complaints)
+|       |-- hooks/                # 6 custom hooks
+|       |-- slices/               # 3 Redux slices (auth, patient, ui)
+|       |-- store/                # Configurazione Redux store con persist
+|       |-- navigation/           # 4 navigator (App, Auth, Patient, Therapist)
+|       |-- config/               # Configurazione API (base URL, endpoints)
+|       |-- theme/                # Tema React Native Paper
+|       |-- types/                # Tipi TypeScript
+|       +-- utils/                # Utility (JWT, auth, token debug)
 |
 |-- environments/                 # Configurazioni per ambiente (dev, prod, test)
 |-- imports/                      # Script importazione dati
@@ -915,62 +930,480 @@ npm run build:dev    # Build development
 
 **Percorso**: `/tp/`
 
-Applicazione mobile cross-platform (iOS/Android) per pazienti e terapisti.
+Applicazione mobile cross-platform (iOS/Android) per pazienti e terapisti. Sviluppata in React Native 0.79 con Redux Toolkit per lo state management e React Native Paper per l'interfaccia Material Design.
 
-### Struttura Schermate
+### Stack Tecnologico Completo
+
+| Tecnologia | Versione | Uso |
+|------------|----------|-----|
+| React Native | 0.79.3 | Framework mobile cross-platform |
+| React | 19.0.0 | UI library |
+| TypeScript | 5.0.4 | Type safety (configurazione, tipi) |
+| Redux Toolkit | 2.8.2 | State management globale |
+| Redux Persist | 6.0.0 | Persistenza stato su AsyncStorage |
+| React Navigation | 7.x | Navigazione (native-stack, bottom-tabs, stack, drawer) |
+| React Native Paper | 5.14.5 | Material Design UI components |
+| Axios | 1.9.0 | HTTP client per API REST |
+| OneSignal (react-native-onesignal) | 5.2.12 | Push notifications |
+| react-native-calendars | 1.1312.1 | Componente calendario |
+| react-native-keychain | 10.0.0 | Archiviazione sicura token (Keychain iOS / Keystore Android) |
+| AsyncStorage | 2.2.0 | Storage locale persistente |
+| Moment.js | 2.30.1 | Gestione date (locale italiano) |
+| react-native-gesture-handler | 2.28.0 | Gesture handling |
+| react-native-reanimated | 3.18.0 | Animazioni avanzate |
+| react-native-vector-icons | 10.2.0 | Icone MaterialIcons |
+| react-native-linear-gradient | 2.8.3 | Gradienti UI |
+| react-native-capture-protection | 2.4.1 | Protezione screenshot/registrazione schermo |
+| react-native-permissions | 5.4.2 | Gestione permessi OS |
+| react-native-blur | 4.4.1 | Effetti blur |
+| react-native-safe-area-context | 5.4.1 | Safe area insets |
+| react-native-screens | 4.11.1 | Schermate native ottimizzate |
+| base-64 | 1.0.0 | Encoding/decoding Base64 (JWT) |
+
+**Requisiti**: Node.js >= 18
+
+### Entry Point e Inizializzazione (App.tsx)
+
+All'avvio dell'app vengono eseguiti in ordine:
+1. **Configurazione Moment.js** - locale italiano (`moment.locale('it')`)
+2. **Inizializzazione Store** - il Redux store viene passato a `authService`, `axiosConfig` e `authUtils`
+3. **Inizializzazione OneSignal** - `oneSignalService.initialize()` registra l'app con OneSignal
+4. **Inizializzazione Notifiche Bloccanti** - `blockingNotificationService.setStore(store)`
+5. **Protezione Screenshot (iOS)** - `CaptureProtection.prevent()` blocca screenshot, registrazione schermo e app switcher (Android usa `FLAG_SECURE` in `MainActivity.kt`)
+
+L'albero dei componenti root:
+```
+<Provider store={store}>           <!-- Redux Provider -->
+  <PersistGate persistor={persistor}>  <!-- Redux Persist -->
+    <PaperProvider theme={lightTheme}>  <!-- React Native Paper Theme -->
+      <AppNavigator />                  <!-- Navigazione principale -->
+      <ErrorModal />                    <!-- Modal errori globale -->
+    </PaperProvider>
+  </PersistGate>
+</Provider>
+```
+
+### Struttura Cartelle
 
 ```
-src/screens/
-|-- auth/
-|   |-- LoginScreen.js             # Login
-|   +-- RegisterScreen.js          # Registrazione
+tp/src/
+|-- actions/               # Action creators (auth.js - legacy)
+|-- api/                   # Moduli API per comunicazione con backend
+|   |-- auth.js            # Login, refresh token, verifica token
+|   |-- calendar.js        # Appuntamenti paziente/terapista, date marcate, cancellazioni, assenze
+|   |-- complaints.js      # Invio e lista reclami
+|   |-- notifications.js   # CRUD notifiche, bloccanti, conferme lettura
+|   +-- requests.js        # Richieste documenti (tipi, creazione, lista, dettagli)
 |
-|-- patient/
-|   |-- PatientHomeScreen.js       # Dashboard paziente
-|   |-- PatientCalendarScreen.js   # Calendario appuntamenti
-|   |-- PatientProfileScreen.js    # Profilo paziente
-|   |-- PatientRequestsScreen.js   # Lista richieste documenti
-|   |-- CreateRequestScreen.js     # Crea richiesta documento
-|   |-- RequestDetailsScreen.js    # Dettagli richiesta
-|   |-- PatientNotificationsScreen.js
-|   |-- NotificationDetailScreen.js
-|   +-- ComplaintsScreen.js        # Reclami
+|-- components/            # Componenti riutilizzabili
+|   |-- BlockingNotificationOverlay.js  # Overlay fullscreen per notifiche obbligatorie
+|   |-- DashboardNotificationBanner.js  # Banner notifiche in dashboard
+|   |-- ErrorModal.js                   # Modal errori globale
+|   |-- FloatingPatientSelector.js      # Selettore paziente flottante
+|   |-- NotificationBadge.js            # Badge contatore notifiche
+|   |-- NotificationModal.js            # Modal lettura notifica
+|   |-- NotificationPermissionRequest.js # Richiesta permessi notifiche
+|   |-- PatientSelector.js              # Selettore paziente (multi-paziente)
+|   |-- SafeAreaWrapper.js              # Wrapper safe area
+|   +-- ScreenTemplate.js              # Template schermata base
 |
-+-- therapist/
-    |-- TherapistHomeScreen.js     # Dashboard terapista
-    |-- TherapistCalendarScreen.js # Calendario terapista (~65 KB)
-    |-- TherapistPatientsScreen.js # Lista pazienti assegnati
-    +-- TherapistNotificationsScreen.js
+|-- config/
+|   +-- api.js             # Configurazione API: BASE_URL, ENDPOINTS, ERROR_MESSAGES
+|
+|-- hooks/                 # Custom React hooks
+|   |-- useAuthMonitor.js              # Monitoraggio stato autenticazione
+|   |-- useBlockingNotifications.js    # Gestione notifiche bloccanti (polling 30s)
+|   |-- useCurrentPatient.js           # Accesso paziente corrente dal Redux store
+|   |-- useNotificationPermissionManager.js # Gestione permessi notifiche OS
+|   |-- useOneSignal.js                # Inizializzazione e gestione tag OneSignal
+|   +-- usePatientLogin.js            # Logica login paziente
+|
+|-- navigation/            # Configurazione navigazione
+|   |-- AppNavigator.js    # Navigator root: Auth vs Patient vs Therapist
+|   |-- AuthNavigator.js   # Stack: Login -> ResetPassword -> ForgotPassword -> ResetPasswordWithToken
+|   |-- PatientNavigator.js # Bottom tabs: Home, Calendario, Richieste, Notifiche, Profilo
+|   +-- TherapistNavigator.js # Bottom tabs: Dashboard, Pazienti, Agenda, Notifiche, Profilo
+|
+|-- screens/               # Schermate dell'app
+|   |-- auth/              # Schermate autenticazione (4)
+|   |-- patient/           # Schermate paziente (11)
+|   +-- therapist/         # Schermate terapista (8)
+|
+|-- services/              # Servizi di business logic
+|   |-- authService.js     # Servizio autenticazione (login, logout, validazione, cambio password)
+|   |-- axiosConfig.js     # Istanza Axios con interceptor (token auto, gestione 401, errori rete)
+|   |-- blockingNotificationService.js # Servizio singleton notifiche bloccanti
+|   |-- loginService.js    # Orchestrazione login/logout con dispatch Redux e AsyncStorage
+|   |-- notificationPermissionService.js # Gestione permessi notifiche OS
+|   |-- oneSignalService.js # Servizio singleton OneSignal (push notifications)
+|   +-- therapistService.js # API terapista (dashboard, ore, appuntamenti, pazienti, note)
+|
+|-- slices/                # Redux Toolkit slices
+|   |-- authSlice.js       # Stato autenticazione
+|   |-- patientSlice.js    # Stato pazienti
+|   +-- uiSlice.js         # Stato UI (errori rete, loading, notifiche bloccanti, modal)
+|
+|-- store/
+|   +-- index.js           # Configurazione Redux store con persist
+|
+|-- theme/
+|   +-- index.js           # Tema React Native Paper (lightTheme)
+|
+|-- types/
+|   +-- auth.ts            # Tipi TypeScript per autenticazione
+|
++-- utils/                 # Utility
+    |-- authUtils.js       # Validazione token, auto-logout
+    |-- jwt.js             # Decodifica e verifica scadenza JWT
+    |-- tokenDebug.js      # Debug token (solo sviluppo)
+    +-- userUtils.js       # Utility utente
 ```
+
+### Navigazione
+
+L'app usa React Navigation 7 con tre navigator principali, selezionati in base allo stato di autenticazione:
+
+```
+AppNavigator (Native Stack)
+|
+|-- Non autenticato / Cambio password obbligatorio:
+|   +-- AuthNavigator (Native Stack)
+|       |-- LoginScreen
+|       |-- ResetPasswordScreen (cambio password primo login)
+|       |-- ForgotPasswordScreen (richiesta reset)
+|       +-- ResetPasswordWithTokenScreen (reset con token email)
+|
+|-- Utente autenticato con ruolo "paziente":
+|   +-- PatientNavigator (Bottom Tabs)
+|       |-- Home -> PatientHomeScreen (dashboard con prossimi appuntamenti)
+|       |-- Calendario -> PatientCalendarScreen (calendario mensile + lista giornaliera)
+|       |-- Richieste -> RequestsStack (Stack Navigator)
+|       |   |-- RequestsList -> PatientRequestsScreen
+|       |   |-- CreateRequest -> CreateRequestScreen
+|       |   +-- RequestDetails -> RequestDetailsScreen
+|       |-- Notifiche -> NotificationsStack (Stack Navigator)
+|       |   |-- NotificationsList -> PatientNotificationsScreen
+|       |   +-- NotificationDetail -> NotificationDetailScreen
+|       +-- Profilo -> ProfileStack (Stack Navigator)
+|           |-- ProfileMain -> PatientProfileScreen
+|           +-- Complaints -> ComplaintsScreen
+|
++-- Utente autenticato con ruolo "terapista":
+    +-- TherapistNavigator (Bottom Tabs)
+        |-- Dashboard -> TherapistDashboardScreen (riepilogo giornata)
+        |-- Pazienti -> TherapistPatientsScreen (lista pazienti assegnati)
+        |-- Agenda -> TherapistCalendarScreen (calendario con appuntamenti)
+        |-- Notifiche -> TherapistNotificationsStack (Stack Navigator)
+        |   |-- NotificationsList -> TherapistNotificationsScreen
+        |   +-- NotificationDetail -> TherapistNotificationDetailScreen
+        +-- Profilo -> TherapistProfileScreen
+```
+
+Overlay globali (visibili sopra qualsiasi schermata quando l'utente e' autenticato):
+- `BlockingNotificationOverlay` - overlay fullscreen per notifiche a lettura obbligatoria
+- `NotificationModal` - modal per lettura dettaglio notifica
+
+### Schermate
+
+#### Auth (4 schermate)
+
+| Schermata | File | Descrizione |
+|-----------|------|-------------|
+| LoginScreen | `auth/LoginScreen.js` | Login con email/password, validazione credenziali |
+| ResetPasswordScreen | `auth/ResetPasswordScreen.js` | Cambio password obbligatorio al primo login |
+| ForgotPasswordScreen | `auth/ForgotPasswordScreen.js` | Richiesta reset password via email |
+| ResetPasswordWithTokenScreen | `auth/ResetPasswordWithTokenScreen.js` | Reset password con token ricevuto via email |
+
+#### Paziente (11 schermate)
+
+| Schermata | File | Descrizione |
+|-----------|------|-------------|
+| PatientHomeScreen | `patient/PatientHomeScreen.js` | Dashboard con prossimi appuntamenti e banner notifiche |
+| PatientDashboard | `patient/PatientDashboard.js` | Componente dashboard alternativo |
+| PatientCalendarScreen | `patient/PatientCalendarScreen.js` | Calendario mensile (react-native-calendars) con date marcate e lista appuntamenti giornaliera |
+| PatientAppointmentsScreen | `patient/PatientAppointmentsScreen.js` | Lista dettagliata appuntamenti |
+| PatientRequestsScreen | `patient/PatientRequestsScreen.js` | Lista richieste documenti con filtri per stato |
+| CreateRequestScreen | `patient/CreateRequestScreen.js` | Form creazione richiesta documento (selezione tipo, piano terapeutico, terapia, note) |
+| RequestDetailsScreen | `patient/RequestDetailsScreen.js` | Dettagli richiesta con storico stati |
+| PatientNotificationsScreen | `patient/PatientNotificationsScreen.js` | Lista notifiche con paginazione |
+| NotificationDetailScreen | `patient/NotificationDetailScreen.js` | Dettaglio notifica con conferma lettura |
+| PatientProfileScreen | `patient/PatientProfileScreen.js` | Profilo paziente (dati anagrafici, selettore paziente) |
+| ComplaintsScreen | `patient/ComplaintsScreen.js` | Invio e visualizzazione reclami |
+
+#### Terapista (8 schermate)
+
+| Schermata | File | Descrizione |
+|-----------|------|-------------|
+| TherapistDashboardScreen | `therapist/TherapistDashboardScreen.js` | Dashboard con riepilogo giornata e statistiche |
+| TherapistHomeScreen | `therapist/TherapistHomeScreen.js` | Home terapista |
+| TherapistCalendarScreen | `therapist/TherapistCalendarScreen.js` | Calendario agenda con appuntamenti giornalieri, gestione assenze paziente, note appuntamento |
+| TherapistScheduleScreen | `therapist/TherapistScheduleScreen.js` | Visualizzazione orario settimanale |
+| TherapistPatientsScreen | `therapist/TherapistPatientsScreen.js` | Lista pazienti assegnati con dettagli |
+| TherapistNotificationsScreen | `therapist/TherapistNotificationsScreen.js` | Lista notifiche terapista |
+| TherapistNotificationDetailScreen | `therapist/TherapistNotificationDetailScreen.js` | Dettaglio notifica terapista |
+| TherapistProfileScreen | `therapist/TherapistProfileScreen.js` | Profilo terapista |
 
 ### Redux Store
 
+Lo store e' configurato con Redux Toolkit e Redux Persist (su AsyncStorage).
+
 ```javascript
+// store/index.js
 {
-  auth: {
-    user: { id, name, email, role, ... },
-    token: "JWT_TOKEN",
-    isAuthenticated: boolean
+  auth: {                          // Persistito (whitelist: user, token, isAuthenticated)
+    isAuthenticated: boolean,
+    user: {
+      id, email, role,             // 'patient' | 'therapist'
+      firstName, lastName, fullName,
+      codiceFiscale, telefono, dataNascita, indirizzo,
+      status,                      // 'attivo' | 'inattivo'
+      isFirstLogin, isPasswordResetRequired,
+      patients: [...],             // Array pazienti associati (per utenti paziente/famiglia)
+      specializzazione, numeroAlbo, // Solo per terapisti
+    },
+    token: "JWT_ACCESS_TOKEN",     // Token JWT per le API
+    isLoading: boolean,
+    error: string | null,
+    isInitialized: boolean,
+    requiresPasswordChange: boolean,
+    tempToken: string | null,      // Token temporaneo per cambio password primo login
   },
-  patient: {
-    patients: [...],              // Lista pazienti (un account puo' avere piu' pazienti)
-    currentPatient: { ... }       // Paziente attualmente selezionato
+
+  patient: {                       // Persistito (whitelist: patients, currentPatient)
+    patients: [...],               // Lista pazienti associati all'account
+    currentPatient: { ... },       // Paziente attualmente selezionato (auto-selezionato se uno solo)
+    isLoading: boolean,
+    error: string | null,
   },
-  notifications: {
-    items: [...],
-    unreadCount: number,
-    blockingNotifications: [...]  // Notifiche che bloccano l'uso dell'app
+
+  ui: {                            // NON persistito
+    networkError: object | null,   // Errore di rete corrente
+    isLoading: boolean,
+    loadingMessage: string | null,
+    blockingNotifications: [...],  // Notifiche bloccanti attive
+    isAppBlocked: boolean,         // true se ci sono notifiche bloccanti
+    selectedNotification: object | null,
+    isNotificationModalOpen: boolean,
   }
 }
 ```
 
-### Notifiche Bloccanti
+**Redux Slices**:
 
-Le notifiche con `requires_read_confirmation = true` (tipo `mandatory_read`) bloccano l'uso dell'app finche' non vengono confermate tramite `BlockingNotificationOverlay`.
+| Slice | File | Descrizione |
+|-------|------|-------------|
+| `authSlice` | `slices/authSlice.js` | Gestione autenticazione con 5 async thunks: `loginUser`, `resetPassword`, `validateToken`, `changePassword`, `logoutUser`. Salva token in Keychain via `react-native-keychain`. |
+| `patientSlice` | `slices/patientSlice.js` | Gestione lista pazienti e paziente corrente. Azioni: `setPatientsFromLogin`, `selectPatient`, `resetPatients`. Auto-seleziona il primo paziente se ce n'e' uno solo. |
+| `uiSlice` | `slices/uiSlice.js` | Stato UI globale: errori rete, loading, notifiche bloccanti, modal notifiche. Azioni: `setBlockingNotifications`, `removeBlockingNotification`, `openNotificationModal`, ecc. |
+
+### Integrazione API (Backend Yii2)
+
+L'app comunica con il backend REST API Yii2 tramite un'istanza Axios configurata in `services/axiosConfig.js`.
+
+**Configurazione base**: `config/api.js`
+- Base URL: `https://app-cgm.badil.it/api`
+- Timeout: 10 secondi
+
+**Interceptor Request** (automatico su ogni chiamata):
+1. Recupera il token JWT da AsyncStorage
+2. Verifica la validita' del token localmente (decodifica JWT, controlla scadenza)
+3. Se il token e' scaduto, esegue auto-logout
+4. Aggiunge l'header `Authorization: Bearer {token}`
+
+**Interceptor Response** (gestione errori automatica):
+- **401** - Errore autenticazione: auto-logout e redirect a login
+- **401 non-auth** - Errore permessi: mostra messaggio senza logout
+- **Errore rete** - Dispatch `setNetworkError` nello store UI
+- **5xx** - Errore server: dispatch errore nello store UI
+
+**Moduli API**:
+
+| Modulo | File | Endpoint Backend | Funzionalita' |
+|--------|------|-----------------|----------------|
+| auth | `api/auth.js` | `/auth/*` | Login, refresh token, verifica validita' token |
+| calendar | `api/calendar.js` | `/calendar/*` | Appuntamenti paziente/terapista, date marcate, cancellazione appuntamenti, segnalazione assenza paziente |
+| notifications | `api/notifications.js` | `/notifications/*` | Lista notifiche (paginata), dettaglio, segna letta, conferma lettura, notifiche bloccanti, invio |
+| requests | `api/requests.js` | `/requests/*` | Tipi richiesta, creazione, lista (paginata), dettagli, annullamento |
+| complaints | `api/complaints.js` | `/complaint/*` | Invio reclamo, lista reclami paziente |
+
+**Endpoint utilizzati dall'app**:
+
+```
+# Autenticazione
+POST /auth/login                    # Login (FormData: email, password)
+GET  /auth/verify                   # Verifica validita' token
+POST /auth/logout                   # Logout (invalida token)
+POST /auth/change-first-password    # Cambio password primo login
+POST /auth/request-password-reset   # Richiesta reset password
+POST /auth/reset-password           # Reset password con token
+POST /auth/refresh                  # Refresh token (futuro)
+
+# Calendario Paziente
+POST /calendar/patient-appointments         # Appuntamenti per data
+POST /calendar/patient-marked-dates         # Date con appuntamenti nel mese
+POST /calendar/patient-upcoming-appointments # Prossimi N appuntamenti
+POST /calendar/cancel-appointment           # Cancella appuntamento (>24h prima)
+
+# Calendario Terapista
+POST /calendar/therapist-appointments       # Appuntamenti terapista per data
+POST /calendar/therapist-marked-dates       # Date con appuntamenti nel mese
+POST /calendar/therapist-dashboard          # Dati dashboard terapista
+GET  /calendar/therapist-weekly-hours       # Ore settimanali
+GET  /calendar/therapist-patients           # Pazienti assegnati
+POST /calendar/mark-patient-absent          # Segna paziente assente
+GET  /calendar/set-appointment-note         # Aggiorna note appuntamento
+
+# Notifiche
+GET  /notifications                         # Lista notifiche (paginata)
+GET  /notifications/:id                     # Dettaglio notifica
+POST /notifications/:id/mark-read           # Segna come letta
+POST /notifications/:id/confirm-read        # Conferma lettura obbligatoria
+POST /notifications/:id/mark-viewed         # Segna come visualizzata
+GET  /notifications/unread                  # Notifiche non lette
+GET  /notifications/blocking                # Notifiche bloccanti attive
+GET  /notifications/has-blocking            # Verifica se ci sono bloccanti
+POST /notifications/send                    # Invia notifica
+POST /notifications/send-template           # Invia da template
+POST /notifications/create-test             # Crea notifica test (dev)
+
+# Richieste Documenti
+GET  /requests/types                        # Tipi disponibili (con regole)
+POST /requests                              # Crea richiesta
+GET  /requests                              # Lista richieste (paginata, filtri)
+GET  /requests/:id                          # Dettagli richiesta
+
+# Reclami
+POST /complaint/create                      # Invia reclamo
+GET  /complaint/list                        # Lista reclami paziente
+```
+
+### Flusso di Autenticazione
+
+```
+1. App si avvia -> AppNavigator
+   |
+   |-- Controlla se esiste token in AsyncStorage
+   |   |
+   |   |-- NO token -> Mostra AuthNavigator (Login)
+   |   |
+   |   +-- SI token -> Verifica con GET /auth/verify
+   |       |
+   |       |-- Token invalido -> Pulisci storage, mostra Login
+   |       |
+   |       +-- Token valido -> Ripristina sessione
+   |           |-- Dispatch loginSuccess (authSlice)
+   |           |-- Dispatch setPatientsFromLogin (patientSlice)
+   |           +-- Mostra PatientNavigator o TherapistNavigator
+
+2. Login -> POST /auth/login (FormData)
+   |
+   |-- requires_password_change = true -> Salva tempToken, mostra ResetPasswordScreen
+   |   +-- Cambio password -> POST /auth/change-first-password -> Autenticato
+   |
+   +-- Login normale -> Salva token in AsyncStorage + Keychain
+       |-- Dispatch loginSuccess
+       |-- Dispatch setPatientsFromLogin (se ruolo paziente con pazienti associati)
+       +-- Mostra navigator appropriato per ruolo
+
+3. Token JWT salvato in:
+   - AsyncStorage (chiave 'authToken') - per lettura rapida nell'interceptor Axios
+   - react-native-keychain (chiave 'cms-terapisti-token') - storage sicuro
+
+4. Logout -> loginService.logout()
+   |-- POST /auth/logout (invalida token sul server)
+   |-- AsyncStorage.clear()
+   |-- Dispatch resetPatients
+   |-- Dispatch logoutUser
+   +-- OneSignal: tag user_id = -1 (disassocia dispositivo)
+```
 
 ### Push Notifications (OneSignal)
 
-L'app si registra su OneSignal al login. Le notifiche push vengono inviate dal backend PHP via `OneSignalService`.
+**Servizio**: `services/oneSignalService.js` (singleton)
+
+L'app utilizza OneSignal SDK 5.x per le push notifications.
+
+**Inizializzazione** (all'avvio in App.tsx):
+- `OneSignal.initialize(appId)` con App ID configurato
+- Setup handler per notifiche in foreground (mostra notifica) e click (navigazione)
+
+**Gestione utenti** (via hook `useOneSignal`):
+- Al login: `OneSignal.User.addTag('user_id', userId)` - associa dispositivo all'utente
+- Al logout: `OneSignal.User.addTag('user_id', '-1')` - disassocia dispositivo
+
+**Flusso push notification**:
+```
+Backend PHP (Yii2)
+  |-- common/components/OneSignalService invia push
+  |-- Targeting: filtro per tag user_id = {userId}
+  |
+  v
+Dispositivo mobile
+  |-- foregroundWillDisplay: mostra notifica anche con app aperta
+  |-- click: gestisce navigazione basata su additionalData
+  +-- Se additionalData.notification_ids: segna come lette via API
+```
+
+**Permessi notifiche**: gestiti da `notificationPermissionService.js` e hook `useNotificationPermissionManager.js` con richiesta esplicita all'utente.
+
+### Notifiche Bloccanti
+
+Le notifiche con `requires_read_confirmation = true` (tipo `mandatory_read`) bloccano completamente l'uso dell'app finche' non vengono confermate.
+
+**Servizio**: `services/blockingNotificationService.js` (singleton)
+
+**Funzionamento**:
+1. Hook `useBlockingNotifications` controlla le notifiche bloccanti:
+   - Al mount (autoCheck)
+   - Polling ogni 30 secondi (enablePolling)
+   - Quando l'app torna in foreground (checkOnForeground)
+2. Se ci sono notifiche bloccanti -> `uiSlice.isAppBlocked = true`
+3. `BlockingNotificationOverlay` si sovrappone a tutta l'app
+4. L'utente deve leggere e confermare ogni notifica (POST `/notifications/:id/confirm-read`)
+5. Quando tutte le notifiche sono confermate -> `isAppBlocked = false` -> app sbloccata
+
+### Protezione Contenuti
+
+L'app implementa protezione contro screenshot e registrazione schermo:
+- **iOS**: `react-native-capture-protection` blocca screenshot, registrazione e preview nell'app switcher
+- **Android**: `FLAG_SECURE` configurato in `MainActivity.kt`
+
+### Supporto Multi-Paziente
+
+Un account utente (paziente/famiglia) puo' essere associato a piu' pazienti (es. genitore con piu' figli):
+- Al login, la lista pazienti viene salvata in `patientSlice`
+- Se c'e' un solo paziente, viene selezionato automaticamente
+- Se ci sono piu' pazienti, l'utente puo' selezionare con `PatientSelector` / `FloatingPatientSelector`
+- Il `currentPatient` determina quali dati vengono mostrati nelle schermate
+
+### Build e Release
+
+**Comandi di sviluppo**:
+```bash
+cd tp
+npm install                         # Installa dipendenze
+npx react-native start             # Metro bundler
+npx react-native run-android       # Run su device/emulatore Android
+npx react-native run-ios           # Run su simulatore iOS
+```
+
+**Build release** (`build-release.sh`):
+```bash
+cd tp
+./build-release.sh clean           # Pulisci build precedenti
+./build-release.sh build           # Crea APK release
+./build-release.sh bundle          # Crea AAB (Android App Bundle)
+./build-release.sh all             # APK + AAB + pacchetto release completo
+```
+
+Il comando `all` genera:
+- `android/app/build/outputs/apk/release/app-release.apk` - APK installabile
+- `android/app/build/outputs/bundle/release/app-release.aab` - Bundle per Google Play
+- `RELEASE_PACKAGE/` - Cartella con APK, AAB, keystore, configurazione e build-info.txt
+
+**Keystore release**: `android/app/release.keystore` (necessario per firma APK/AAB)
+
+**Documentazione release**: `tp/RELEASE_PACKAGE/README_RELEASE.md` e `RELEASE_CHECKLIST.md`
 
 ---
 
@@ -1256,17 +1689,24 @@ npx react-native run-ios
 
 | File | Contenuto |
 |------|-----------|
-| `APPOINTMENT_PATTERNS_RULES.md` | Regole dettagliate per i pattern appuntamenti ricorrenti |
-| `NOTIFICATION_SYSTEM.md` | Dettagli sistema notifiche |
-| `NOTIFICATION_DEBUG_GUIDE.md` | Guida debug notifiche |
-| `NOTIFICATION_PAGINATION_UPDATE.md` | Aggiornamenti paginazione notifiche |
-| `CRONJOB.md` | Configurazione cron jobs |
-| `README_ACTIVITY_LOG.md` | Documentazione sistema activity log |
-| `PERFORMANCE_ANALYSIS_REPORT.md` | Report analisi performance |
-| `DOCUMENT_REQUESTS_IMPLEMENTATION.md` | Implementazione richieste documenti |
-| `PROMPT_DOCUMENT_REQUEST_STATUS_HISTORY_IMPLEMENTATION.md` | Storico stati richieste |
+| `DOCS.md` | Documentazione completa del sistema (questo file) |
+| `README.md` | Quick start e panoramica progetto |
+| `CRONJOB.md` | Configurazione cron jobs di produzione |
+| `LICENSE.md` | Licenza del progetto |
 | `therapy-rules.mdc` | Regole e pattern di sviluppo (Cursor rules) |
-| `docs/` | Cartella documentazione aggiuntiva |
+| `docs/MANUALE_UTENTE.md` | Manuale utente del sistema |
+| `docs/RBAC_PERMISSIONS_MAP.md` | Matrice completa permessi per ruolo |
+| `console/migrations/RBAC_MIGRATION_GUIDE.md` | Guida migrazioni RBAC |
+| `console/migrations/README_DOCUMENT_REQUESTS_CHANGES.md` | Changelog migrazioni richieste documenti |
+| `console/migrations/README_REQUEST_TYPES_CHANGES.md` | Changelog migrazioni tipi richiesta |
+| `frontend/docs/CALENDAR_INTEGRATION.md` | Integrazione calendario React |
+| `frontend/docs/APPOINTMENT_VALIDATION_RULES.md` | Regole validazione appuntamenti |
+| `frontend/docs/THERAPEUTIC_PLAN_MANAGER_API.md` | API gestione piani terapeutici |
+| `frontend/docs/STATISTICS_MODULE.md` | Modulo statistiche frontend |
+| `api/docs/REQUESTS_API.md` | Documentazione API richieste documenti |
+| `tp/README.md` | README app mobile |
+| `tp/RELEASE_PACKAGE/README_RELEASE.md` | Guida al rilascio app mobile |
+| `tp/RELEASE_PACKAGE/RELEASE_CHECKLIST.md` | Checklist per rilascio app mobile |
 
 ---
 
