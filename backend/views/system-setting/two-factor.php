@@ -9,6 +9,15 @@ use yii\helpers\Url;
 $this->title = 'Impostazioni 2FA';
 ?>
 
+<style>
+    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; border-radius: 9999px; transition: background-color 0.2s; }
+    .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .toggle-switch input:checked + .toggle-slider { background-color: #4f46e5; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+</style>
+
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900"><?= Html::encode($this->title) ?></h1>
@@ -37,31 +46,31 @@ $this->title = 'Impostazioni 2FA';
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-medium text-gray-900">Impostazioni generali</h2>
         </div>
-        <div class="px-6 py-4 space-y-4">
+        <div class="px-6 py-4">
 
             <!-- Toggle 2FA globale -->
-            <div class="flex items-center justify-between py-3 border-b border-gray-100">
-                <div>
+            <div class="flex items-center justify-between py-4 border-b border-gray-100">
+                <div class="pr-4">
                     <label class="text-sm font-medium text-gray-900">Abilita 2FA globalmente</label>
-                    <p class="text-sm text-gray-500">Quando attivo, gli utenti con 2FA abilitato dovranno inserire un codice di verifica al login nell'app.</p>
+                    <p class="text-sm text-gray-500 mt-1">Quando attivo, gli utenti con 2FA abilitato dovranno inserire un codice di verifica al login nell'app.</p>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="hidden" name="enabled" value="0">
-                    <input type="checkbox" name="enabled" value="1" class="sr-only peer" <?= !empty($settings['enabled']) ? 'checked' : '' ?>>
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <input type="hidden" name="enabled" value="0">
+                <label class="toggle-switch">
+                    <input type="checkbox" name="enabled" value="1" <?= !empty($settings['enabled']) ? 'checked' : '' ?>>
+                    <span class="toggle-slider"></span>
                 </label>
             </div>
 
             <!-- Toggle Ricorda dispositivo -->
-            <div class="flex items-center justify-between py-3">
-                <div>
+            <div class="flex items-center justify-between py-4">
+                <div class="pr-4">
                     <label class="text-sm font-medium text-gray-900">Permetti "Ricorda dispositivo"</label>
-                    <p class="text-sm text-gray-500">Gli utenti potranno scegliere di non inserire il codice 2FA su dispositivi fidati.</p>
+                    <p class="text-sm text-gray-500 mt-1">Gli utenti potranno scegliere di non inserire il codice 2FA su dispositivi fidati.</p>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="hidden" name="remember_device_enabled" value="0">
-                    <input type="checkbox" name="remember_device_enabled" value="1" class="sr-only peer" <?= !empty($settings['remember_device_enabled']) ? 'checked' : '' ?>>
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <input type="hidden" name="remember_device_enabled" value="0">
+                <label class="toggle-switch">
+                    <input type="checkbox" name="remember_device_enabled" value="1" <?= !empty($settings['remember_device_enabled']) ? 'checked' : '' ?>>
+                    <span class="toggle-slider"></span>
                 </label>
             </div>
         </div>
@@ -78,7 +87,7 @@ $this->title = 'Impostazioni 2FA';
             <div>
                 <label class="block text-sm font-medium text-gray-700">Giorni validità dispositivo fidato</label>
                 <input type="number" name="remember_device_days" value="<?= Html::encode($settings['remember_device_days'] ?? 30) ?>" min="1" max="365"
-                       class="mt-1 block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                       class="mt-1 block w-64 rounded-md border border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <p class="mt-1 text-sm text-gray-500">Numero di giorni prima che un dispositivo fidato debba ripetere la verifica 2FA.</p>
             </div>
 
@@ -86,7 +95,7 @@ $this->title = 'Impostazioni 2FA';
             <div>
                 <label class="block text-sm font-medium text-gray-700">Scadenza OTP email (secondi)</label>
                 <input type="number" name="email_otp_expiry_seconds" value="<?= Html::encode($settings['email_otp_expiry_seconds'] ?? 300) ?>" min="60" max="3600"
-                       class="mt-1 block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                       class="mt-1 block w-64 rounded-md border border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <p class="mt-1 text-sm text-gray-500">Tempo in secondi prima che il codice OTP email scada (default: 300 = 5 minuti).</p>
             </div>
 
@@ -94,7 +103,7 @@ $this->title = 'Impostazioni 2FA';
             <div>
                 <label class="block text-sm font-medium text-gray-700">Max tentativi OTP</label>
                 <input type="number" name="max_otp_attempts" value="<?= Html::encode($settings['max_otp_attempts'] ?? 5) ?>" min="1" max="20"
-                       class="mt-1 block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                       class="mt-1 block w-64 rounded-md border border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <p class="mt-1 text-sm text-gray-500">Numero massimo di tentativi errati prima di bloccare il codice OTP.</p>
             </div>
         </div>
