@@ -55,6 +55,7 @@ export const loginService = {
             twoFactorMethod: response.twoFactorMethod,
             showRememberDevice: response.showRememberDevice,
             tempToken: response.tempToken,
+            totpConfigured: response.totpConfigured,
           }),
         );
         return response;
@@ -264,7 +265,7 @@ export const loginService = {
 
   async verify2fa(
     dispatch,
-    {tempToken, code, rememberDevice = false, deviceName = null},
+    {tempToken, code, method, rememberDevice = false, deviceName = null},
   ) {
     dispatch(loginStart());
 
@@ -273,6 +274,7 @@ export const loginService = {
       const response = await authService.verify2fa(
         tempToken,
         code,
+        method,
         rememberDevice,
         deviceName,
       );

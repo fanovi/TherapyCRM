@@ -247,10 +247,9 @@ class AuthController extends Controller
             if ($user && $tfaService->is2faRequired($user, $deviceToken)) {
                 $method = $tfaService->getPreferredMethod($user->id);
 
-                // Se metodo è email, invia OTP automaticamente
-                if ($method === 'email') {
-                    $tfaService->sendEmailOtp($user);
-                }
+                // Check if TOTP is already configured
+                $tfa = UserTwoFactorAuth::findOne(['user_id' => $user->id]);
+                $totpConfigured = $tfa && !empty($tfa->totp_secret) && !empty($tfa->totp_confirmed_at);
 
                 $tempToken2fa = $this->generate2faTempToken($userData);
 
@@ -261,6 +260,7 @@ class AuthController extends Controller
                         'user' => $userData,
                         'requires_2fa' => true,
                         'two_factor_method' => $method,
+                        'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
                         'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
                         'requires_password_change' => 0
@@ -1152,10 +1152,9 @@ class AuthController extends Controller
             if ($tfaService->is2faRequired($userModel)) {
                 $method = $tfaService->getPreferredMethod($userModel->id);
 
-                // Se metodo è email, invia OTP automaticamente
-                if ($method === 'email') {
-                    $tfaService->sendEmailOtp($userModel);
-                }
+                // Check if TOTP is already configured
+                $tfa = UserTwoFactorAuth::findOne(['user_id' => $userModel->id]);
+                $totpConfigured = $tfa && !empty($tfa->totp_secret) && !empty($tfa->totp_confirmed_at);
 
                 $tempToken2fa = $this->generate2faTempToken($userData);
 
@@ -1166,6 +1165,7 @@ class AuthController extends Controller
                         'user' => $userData,
                         'requires_2fa' => true,
                         'two_factor_method' => $method,
+                        'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
                         'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
                         'requires_password_change' => 0
@@ -1689,7 +1689,12 @@ class AuthController extends Controller
 
         $userId = $tokenData['user_id'];
         $tfaService = new TwoFactorService();
-        $method = $tfaService->getPreferredMethod($userId);
+
+        $method = $request->post('method');
+        if (empty($method)) {
+            // Fallback to preferred method
+            $method = $tfaService->getPreferredMethod($userId);
+        }
 
         // Verifica il codice in base al metodo
         $valid = false;
@@ -1705,6 +1710,21 @@ class AuthController extends Controller
                 'message' => 'Codice di verifica non valido',
                 'error_code' => 'INVALID_2FA_CODE'
             ];
+        }
+
+        // Update preferred method based on what the user actually used
+        if ($method === 'totp') {
+            $tfa = UserTwoFactorAuth::findOne(['user_id' => $userId]);
+            if ($tfa && $tfa->preferred_method !== 'totp') {
+                $tfa->preferred_method = 'totp';
+                $tfa->save(false);
+            }
+        } elseif ($method === 'email') {
+            $tfa = UserTwoFactorAuth::findOne(['user_id' => $userId]);
+            if ($tfa && $tfa->preferred_method !== 'email') {
+                $tfa->preferred_method = 'email';
+                $tfa->save(false);
+            }
         }
 
         // Codice valido - ricarica dati utente dal database
@@ -1932,6 +1952,58 @@ class AuthController extends Controller
             'success' => false,
             'message' => 'Codice non valido. Riprova.',
             'error_code' => 'INVALID_TOTP_CODE'
+        ];
+    }
+
+    /**
+     * Setup TOTP durante il flusso 2FA (usa temp_token)
+     * POST /auth/2fa/setup-temp
+     */
+    public function action2faSetupTemp()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+        if (empty($tempToken)) {
+            return [
+                'success' => false,
+                'message' => 'Token obbligatorio',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        $tokenData = $this->verify2faTempToken($tempToken);
+        if (!$tokenData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        $user = User::findOne($tokenData['user_id']);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        $tfaService = new TwoFactorService();
+        $setupData = $tfaService->initTotpSetup($user);
+
+        return [
+            'success' => true,
+            'message' => 'Setup TOTP inizializzato',
+            'data' => [
+                'secret' => $setupData['secret'],
+                'otpauth_uri' => $setupData['otpauth_uri'],
+            ]
         ];
     }
 

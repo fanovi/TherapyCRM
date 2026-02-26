@@ -14,6 +14,7 @@ export const API_CONFIG = {
     TWO_FACTOR_VERIFY: '/auth/2fa/verify',
     TWO_FACTOR_SEND_EMAIL_OTP: '/auth/2fa/send-email-otp',
     TWO_FACTOR_SETUP: '/auth/2fa/setup',
+    TWO_FACTOR_SETUP_TEMP: '/auth/2fa/setup-temp',
     TWO_FACTOR_CONFIRM_SETUP: '/auth/2fa/confirm-setup',
 
     // Notifications

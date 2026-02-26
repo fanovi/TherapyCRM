@@ -16,6 +16,7 @@ const initialState = {
   twoFactorMethod: null, // 'totp' | 'email'
   showRememberDevice: false,
   twoFactorTempToken: null,
+  totpConfigured: false,
 };
 
 const authSlice = createSlice({
@@ -85,6 +86,7 @@ const authSlice = createSlice({
       state.showRememberDevice = action.payload.showRememberDevice || false;
       state.twoFactorTempToken = action.payload.tempToken;
       state.user = action.payload.user;
+      state.totpConfigured = action.payload.totpConfigured || false;
     },
     twoFactorSuccess: (state, action) => {
       state.isAuthenticated = true;
@@ -110,6 +112,7 @@ const authSlice = createSlice({
       state.twoFactorMethod = null;
       state.showRememberDevice = false;
       state.twoFactorTempToken = null;
+      state.totpConfigured = false;
       state.isLoading = false;
       state.error = null;
     },

@@ -34,6 +34,7 @@ const apiCall = async (endpoint, options = {}) => {
       '/auth/login',
       '/auth/2fa/verify',
       '/auth/2fa/send-email-otp',
+      '/auth/2fa/setup-temp',
       '/auth/forgot-password',
       '/auth/reset-password',
       '/auth/change-first-password',
@@ -188,6 +189,7 @@ export const authService = {
             twoFactorMethod: two_factor_method,
             showRememberDevice: !!show_remember_device,
             tempToken: temp_token,
+            totpConfigured: !!response.data.totp_configured,
             requiresPasswordChange: false,
           };
         }
@@ -239,11 +241,12 @@ export const authService = {
     }
   },
 
-  async verify2fa(tempToken, code, rememberDevice = false, deviceName = null) {
+  async verify2fa(tempToken, code, method, rememberDevice = false, deviceName = null) {
     try {
       const formData = new FormData();
       formData.append('temp_token', tempToken);
       formData.append('code', code);
+      formData.append('method', method);
       if (rememberDevice) {
         formData.append('remember_device', '1');
       }
@@ -326,6 +329,33 @@ export const authService = {
       return response;
     } catch (error) {
       console.error('Resend OTP error:', error);
+      throw error;
+    }
+  },
+
+  async setup2faTemp(tempToken) {
+    try {
+      const formData = new FormData();
+      formData.append('temp_token', tempToken);
+
+      const response = await apiCall(API_CONFIG.ENDPOINTS.TWO_FACTOR_SETUP_TEMP, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.success && response.data) {
+        return {
+          secret: response.data.secret,
+          otpauthUri: response.data.otpauth_uri,
+        };
+      }
+
+      throw new Error('Risposta del server non valida');
+    } catch (error) {
+      console.error('2FA setup temp error:', error);
       throw error;
     }
   },

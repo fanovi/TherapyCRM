@@ -34,6 +34,7 @@ const ENDPOINTS_WITHOUT_TOKEN = [
   '/auth/register',
   '/auth/2fa/verify', // Usa temp_token nel body
   '/auth/2fa/send-email-otp', // Usa temp_token nel body
+  '/auth/2fa/setup-temp', // Usa temp_token nel body
 ];
 
 // Funzione per verificare se l'endpoint richiede il token
