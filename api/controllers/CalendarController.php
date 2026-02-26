@@ -1323,7 +1323,8 @@ class CalendarController extends ActiveController
                     'appointment_date' => $appointmentDate,
                     'appointment_time' => $appointmentTime,
                     'type' => 'appointment_cancellation'
-                ]
+                ],
+                true
             );
 
             // Notifica al terapista
@@ -1402,7 +1403,8 @@ class CalendarController extends ActiveController
                     'appointment_date' => $appointmentDate,
                     'appointment_time' => $appointmentTime,
                     'type' => 'patient_absence_reported'
-                ]
+                ],
+                true
             );
 
             // Notifica al paziente (trova l'utente associato al paziente)
