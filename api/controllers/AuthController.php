@@ -1994,17 +1994,26 @@ class AuthController extends Controller
             ];
         }
 
-        $tfaService = new TwoFactorService();
-        $setupData = $tfaService->initTotpSetup($user);
+        try {
+            $tfaService = new TwoFactorService();
+            $setupData = $tfaService->initTotpSetup($user);
 
-        return [
-            'success' => true,
-            'message' => 'Setup TOTP inizializzato',
-            'data' => [
-                'secret' => $setupData['secret'],
-                'otpauth_uri' => $setupData['otpauth_uri'],
-            ]
-        ];
+            return [
+                'success' => true,
+                'message' => 'Setup TOTP inizializzato',
+                'data' => [
+                    'secret' => $setupData['secret'],
+                    'otpauth_uri' => $setupData['otpauth_uri'],
+                ]
+            ];
+        } catch (\Exception $e) {
+            Yii::error('TOTP setup-temp error: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ':' . $e->getLine(), __METHOD__);
+            return [
+                'success' => false,
+                'message' => 'Errore configurazione TOTP: ' . $e->getMessage(),
+                'error_code' => 'TOTP_SETUP_FAILED'
+            ];
+        }
     }
 
     /**

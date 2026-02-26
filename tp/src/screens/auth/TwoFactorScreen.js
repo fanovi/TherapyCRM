@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform} from 'react-native';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Platform} from 'react-native';
+import ClipboardPkg from '@react-native-clipboard/clipboard';
 import {
   Text,
   TextInput,
@@ -475,6 +476,18 @@ const TwoFactorScreen = () => {
           </View>
 
           <Button
+            mode="outlined"
+            onPress={() => {
+              ClipboardPkg.setString(totpSecret);
+              setSnackbarMessage('Codice copiato negli appunti');
+              setSnackbarVisible(true);
+            }}
+            style={styles.copyButton}
+            icon="content-copy">
+            Copia codice
+          </Button>
+
+          <Button
             mode="contained"
             onPress={() => {
               setCode('');
@@ -608,7 +621,8 @@ const TwoFactorScreen = () => {
         visible={!!error}
         onDismiss={handleClearError}
         duration={4000}
-        style={styles.errorSnackbar}>
+        style={styles.errorSnackbar}
+        wrapperStyle={styles.snackbarWrapper}>
         {error}
       </Snackbar>
 
@@ -621,7 +635,8 @@ const TwoFactorScreen = () => {
           snackbarMessage.includes('inviato')
             ? styles.successSnackbar
             : styles.errorSnackbar
-        }>
+        }
+        wrapperStyle={styles.snackbarWrapper}>
         {snackbarMessage}
       </Snackbar>
     </View>
@@ -795,6 +810,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     textAlign: 'center',
+  },
+  copyButton: {
+    marginBottom: 24,
+    borderRadius: 8,
+  },
+  snackbarWrapper: {
+    top: 0,
+    bottom: undefined,
+    position: 'absolute',
   },
   errorSnackbar: {
     backgroundColor: '#f44336',

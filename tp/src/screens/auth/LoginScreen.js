@@ -201,7 +201,8 @@ const LoginScreen = () => {
         visible={!!error}
         onDismiss={handleClearError}
         duration={4000}
-        style={styles.snackbar}>
+        style={styles.snackbar}
+        wrapperStyle={styles.snackbarWrapper}>
         {error}
       </Snackbar>
     </View>
@@ -301,6 +302,11 @@ const styles = StyleSheet.create({
   },
   snackbar: {
     backgroundColor: '#f44336',
+  },
+  snackbarWrapper: {
+    top: 0,
+    bottom: undefined,
+    position: 'absolute',
   },
 });
 
