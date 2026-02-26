@@ -123,6 +123,12 @@ class StatisticsController extends BaseController
         $searchModel = new AbsenceStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
+        // Default: ultimi 30 giorni se nessuna data specificata
+        if (empty($searchModel->dateFrom) && empty($searchModel->dateTo)) {
+            $searchModel->dateFrom = date('Y-m-d', strtotime('-30 days'));
+            $searchModel->dateTo = date('Y-m-d');
+        }
+
         try {
             // Estrai filtri una volta sola
             $filters = $this->extractFilters($searchModel);
