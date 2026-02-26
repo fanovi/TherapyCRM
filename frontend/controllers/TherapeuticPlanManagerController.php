@@ -1245,7 +1245,10 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $therapists = Therapist::find()
+            // Get treatment type code for SUP/PT filtering
+            $treatmentType = TreatmentType::findOne($treatmentTypeId);
+
+            $query = Therapist::find()
                 ->alias('t')
                 ->innerJoin('{{%specializations}} s', 's.id = t.specialization_id')
                 ->innerJoin('{{%specialization_treatments}} st', 'st.specialization_id = s.id')
@@ -1253,8 +1256,16 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
                 ->where(['t.is_active' => true])
                 ->andWhere(['st.treatment_type_id' => $treatmentTypeId])
-                ->orderBy(['up.last_name' => SORT_ASC])
-                ->all();
+                ->orderBy(['up.last_name' => SORT_ASC]);
+
+            // Filter by capability flags for supervision and parental training
+            if ($treatmentType && $treatmentType->code === 'SUP') {
+                $query->andWhere(['t.can_supervise' => 1]);
+            } elseif ($treatmentType && $treatmentType->code === 'PT') {
+                $query->andWhere(['t.can_parental_training' => 1]);
+            }
+
+            $therapists = $query->all();
 
             $result = [];
             foreach ($therapists as $therapist) {

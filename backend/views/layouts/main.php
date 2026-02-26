@@ -38,6 +38,9 @@ AppAsset::register($this);
                                 <?= Html::a('Home', ['/site/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                                 <?= Html::a('Distretti', ['/districts/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                                 <?= Html::a('Log Attività', ['/activity-log/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
+                                <?= Html::a('Gestione Ruoli', ['/roles/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
+                                <?= Html::a('Permessi Utente', ['/user-permissions/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
+                                <?= Html::a('Gestione Permessi', ['/permissions/index'], ['class' => 'text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium']) ?>
                             </div>
                         </div>
                     </div>

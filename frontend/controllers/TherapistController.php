@@ -96,6 +96,26 @@ class TherapistController extends Controller
 
         $model = $this->findModel($id);
 
+        // Coordinators can only view therapists in their own group
+        if (Yii::$app->user->can('coordinator') && !Yii::$app->user->can('manager')) {
+            $coordinatorGroup = \common\models\CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => Yii::$app->user->id])
+                ->one();
+
+            $allowedIds = [];
+            if ($coordinatorGroup) {
+                $allowedIds = \common\models\GroupTherapist::find()
+                    ->select('therapist_id')
+                    ->where(['group_id' => $coordinatorGroup->id])
+                    ->andWhere(['assigned_to' => null])
+                    ->column();
+            }
+
+            if (!in_array($model->id, $allowedIds)) {
+                throw new ForbiddenHttpException('Non hai i permessi per visualizzare questo terapista.');
+            }
+        }
+
         // Decodifica i dati sensibili del profilo utente
         $this->decryptSensitiveData($model->user->profile);
 

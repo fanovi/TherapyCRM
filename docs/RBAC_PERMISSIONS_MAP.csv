@@ -1,0 +1,94 @@
+Categoria,Permesso,Descrizione,super_admin,admin,manager,coordinator,therapist,patient,patient_family
+Accesso Sistema,platform_login,Accesso alla piattaforma web,SI,SI,SI,SI,NO,NO,NO
+Accesso Sistema,app_login,Accesso all'app mobile,SI,SI,NO,NO,SI,SI,SI
+Accesso Sistema,manage_system,Configurazione di sistema,SI,SI,NO,NO,NO,NO,NO
+Accesso Sistema,manage_notifications,Gestire notifiche di sistema,SI,SI,NO,NO,NO,NO,NO
+Accesso Sistema,view_statistics,Visualizzare statistiche e dashboard,SI,SI,SI,NO,NO,NO,NO
+Gestione Admin,create_admin,Creare amministratori,SI,SI,NO,NO,NO,NO,NO
+Gestione Admin,view_admin,Visualizzare amministratori,SI,SI,NO,NO,NO,NO,NO
+Gestione Admin,update_admin,Modificare amministratori,SI,SI,NO,NO,NO,NO,NO
+Gestione Admin,delete_admin,Eliminare amministratori,SI,SI,NO,NO,NO,NO,NO
+Gestione Manager,create_manager,Creare manager,SI,SI,NO,NO,NO,NO,NO
+Gestione Manager,view_manager,Visualizzare manager,SI,SI,NO,NO,NO,NO,NO
+Gestione Manager,update_manager,Modificare manager,SI,SI,NO,NO,NO,NO,NO
+Gestione Manager,delete_manager,Eliminare manager,SI,SI,NO,NO,NO,NO,NO
+Gestione Coordinatori,create_coordinator,Creare coordinatori,SI,SI,NO,NO,NO,NO,NO
+Gestione Coordinatori,view_coordinator,Visualizzare coordinatori,SI,SI,NO,NO,NO,NO,NO
+Gestione Coordinatori,update_coordinator,Modificare coordinatori,SI,SI,NO,NO,NO,NO,NO
+Gestione Coordinatori,delete_coordinator,Eliminare coordinatori,SI,SI,NO,NO,NO,NO,NO
+Gestione Coordinatori,manage_coordinator_groups,Gestire gruppi di coordinamento,SI,SI,NO,SI,NO,NO,NO
+Gestione Terapisti,create_therapist,Creare terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Terapisti,view_therapist,Visualizzare terapisti,SI,SI,SI,SI,NO,NO,NO
+Gestione Terapisti,update_therapist,Modificare terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Terapisti,delete_therapist,Eliminare terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Terapisti,manage_therapist_schedule,Gestire calendario terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Terapisti,manage_therapist_substitutions,Gestire sostituzioni terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Terapisti,view_therapist_statistics,Statistiche terapisti,SI,SI,SI,NO,NO,NO,NO
+Gestione Pazienti,create_patient,Creare pazienti,SI,SI,SI,NO,NO,NO,NO
+Gestione Pazienti,view_patient,Visualizzare pazienti,SI,SI,SI,SI,NO,NO,SI
+Gestione Pazienti,update_patient,Modificare pazienti,SI,SI,SI,NO,NO,NO,NO
+Gestione Pazienti,delete_patient,Eliminare pazienti,SI,SI,SI,NO,NO,NO,NO
+Gestione Pazienti,manage_patient_accounts,Gestire account pazienti,SI,SI,SI,NO,NO,NO,NO
+Gestione Pazienti,view_patient_statistics,Statistiche pazienti,SI,SI,SI,NO,NO,NO,NO
+Gestione Utenti Generica,create_user,Creare utenti,SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,view_user,Visualizzare utenti,SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,update_user,Modificare utenti,SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,delete_user,Eliminare utenti,SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,manage_users,Gestire utenti (generale),SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,manage_patients,Gestire pazienti (generale),SI,SI,NO,NO,NO,NO,NO
+Gestione Utenti Generica,manage_therapists,Gestire terapisti (generale),SI,SI,NO,NO,NO,NO,NO
+Piani Terapeutici,create_therapeutic_plan,Creare piani terapeutici,SI,SI,SI,NO,NO,NO,NO
+Piani Terapeutici,view_therapeutic_plan,Visualizzare piani terapeutici,SI,SI,SI,NO,NO,NO,NO
+Piani Terapeutici,update_therapeutic_plan,Modificare piani terapeutici,SI,SI,SI,NO,NO,NO,NO
+Piani Terapeutici,delete_therapeutic_plan,Eliminare piani terapeutici,SI,SI,SI,NO,NO,NO,NO
+Piani Terapeutici,manage_plan_therapies,Gestire terapie del piano,SI,SI,SI,NO,NO,NO,NO
+Piani Terapeutici,manage_plans,Gestire piani (generale),SI,SI,SI,NO,NO,NO,NO
+Appuntamenti,create_appointment,Creare appuntamenti,SI,SI,SI,NO,NO,NO,NO
+Appuntamenti,view_appointment,Visualizzare appuntamenti,SI,SI,SI,SI,SI,NO,SI
+Appuntamenti,update_appointment,Modificare appuntamenti,SI,SI,SI,SI,SI,NO,NO
+Appuntamenti,delete_appointment,Eliminare appuntamenti,SI,SI,SI,NO,NO,NO,NO
+Appuntamenti,manage_appointments,Gestire appuntamenti (generale),SI,SI,SI,NO,NO,NO,NO
+Appuntamenti,manage_appointment_patterns,Gestire pattern ricorrenti,SI,SI,SI,NO,NO,NO,NO
+Calendario,view_calendar,Visualizzare calendario,SI,SI,SI,SI,SI,NO,NO
+Calendario,manage_calendar,Gestire calendario completo,SI,SI,SI,NO,NO,NO,NO
+Calendario,view_own_appointments,Visualizzare propri appuntamenti,SI,SI,NO,NO,SI,SI,NO
+Calendario,manage_own_schedule,Gestire proprio calendario,SI,SI,NO,NO,SI,NO,NO
+Assenze,create_absence,Registrare assenze,SI,SI,SI,NO,SI,NO,NO
+Assenze,view_absence,Visualizzare assenze,SI,SI,SI,NO,SI,NO,NO
+Assenze,update_absence,Modificare assenze,SI,SI,SI,NO,SI,NO,NO
+Assenze,delete_absence,Eliminare assenze,SI,SI,SI,NO,NO,NO,NO
+Assenze,manage_absence_recovery,Gestire recuperi assenze,SI,SI,SI,NO,NO,NO,NO
+Assenze,view_absence_statistics,Statistiche assenze,SI,SI,SI,NO,NO,NO,NO
+Notifiche,create_notification,Creare notifiche,SI,SI,SI,NO,NO,NO,NO
+Notifiche,view_notification,Visualizzare notifiche,SI,SI,SI,NO,SI,SI,SI
+Notifiche,update_notification,Modificare notifiche,SI,SI,SI,NO,NO,NO,NO
+Notifiche,delete_notification,Eliminare notifiche,SI,SI,SI,NO,NO,NO,NO
+Notifiche,manage_notification_templates,Gestire template notifiche,SI,SI,SI,NO,NO,NO,NO
+Notifiche,send_notifications,Inviare notifiche,SI,SI,SI,NO,NO,NO,NO
+Documenti,create_document_request,Creare richieste documenti,SI,SI,SI,NO,NO,NO,NO
+Documenti,view_document_request,Visualizzare richieste documenti,SI,SI,SI,NO,NO,NO,NO
+Documenti,update_document_request,Modificare richieste documenti,SI,SI,SI,NO,NO,NO,NO
+Documenti,delete_document_request,Eliminare richieste documenti,SI,SI,SI,NO,NO,NO,NO
+Documenti,manage_documents,Gestire documenti (generale),SI,SI,SI,NO,NO,NO,NO
+Documenti,view_documents,Visualizzare documenti,SI,SI,SI,SI,NO,SI,SI
+Documenti,download_documents,Scaricare documenti,SI,SI,SI,SI,NO,SI,SI
+Specializzazioni,create_specialization,Creare specializzazioni,SI,SI,SI,NO,NO,NO,NO
+Specializzazioni,view_specialization,Visualizzare specializzazioni,SI,SI,SI,NO,NO,NO,NO
+Specializzazioni,update_specialization,Modificare specializzazioni,SI,SI,SI,NO,NO,NO,NO
+Specializzazioni,delete_specialization,Eliminare specializzazioni,SI,SI,SI,NO,NO,NO,NO
+Specializzazioni,manage_treatment_types,Gestire tipi di trattamento,SI,SI,SI,NO,NO,NO,NO
+Visite Specialistiche,create_specialist_visit,Creare visite specialistiche,SI,SI,SI,NO,NO,NO,NO
+Visite Specialistiche,view_specialist_visit,Visualizzare visite specialistiche,SI,SI,SI,NO,NO,NO,NO
+Visite Specialistiche,update_specialist_visit,Modificare visite specialistiche,SI,SI,SI,NO,NO,NO,NO
+Visite Specialistiche,delete_specialist_visit,Eliminare visite specialistiche,SI,SI,SI,NO,NO,NO,NO
+Report,view_reports,Visualizzare rapporti,SI,SI,SI,SI,NO,NO,NO
+Report,generate_reports,Generare rapporti,SI,SI,SI,NO,NO,NO,NO
+Report,export_data,Esportare dati,SI,SI,SI,NO,NO,NO,NO
+Comunicazioni,manage_communications,Gestire comunicazioni,SI,SI,SI,NO,NO,NO,NO
+Comunicazioni,send_messages,Inviare messaggi,SI,SI,SI,NO,NO,NO,NO
+Comunicazioni,view_messages,Visualizzare messaggi,SI,SI,SI,SI,SI,SI,SI
+Dati Personali,view_own_data,Visualizzare propri dati,SI,SI,NO,SI,SI,SI,SI
+Dati Personali,update_own_data,Modificare propri dati,SI,SI,NO,SI,SI,SI,SI
+Dati Personali,view_assigned_patients,Visualizzare pazienti assegnati,SI,SI,NO,NO,SI,NO,NO
+Configurazione,manage_districts,Gestire distretti,SI,SI,SI,NO,NO,NO,NO
+Configurazione,manage_settings,Gestire impostazioni,SI,SI,SI,NO,NO,NO,NO
