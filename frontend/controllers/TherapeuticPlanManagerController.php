@@ -2041,19 +2041,42 @@ class TherapeuticPlanManagerController extends Controller
 
             // Controllo conflitti slot temporale paziente
             $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
-            $patientSlotConflict = $this->checkPatientTimeSlotConflict(
-                $patientId,
-                $data['appointmentDateTime'],
-                $data['durationMinutes'],
-                $appointment->id
-            );
+            $therapeuticPlan = $appointment->planTherapy->therapeuticPlan;
 
-            if ($patientSlotConflict) {
-                return [
-                    'success' => false,
-                    'error' => 'Slot paziente già occupato',
-                    'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
-                ];
+            if ($this->isABARegime($therapeuticPlan)) {
+                // Per piani ABA: usa checkABAConflicts che permette coesistenza terapia/supervisione
+                $abaConflict = $this->checkABAConflicts(
+                    $patientId,
+                    $data['therapistId'],
+                    $data['appointmentDateTime'],
+                    $appointment->appointment_type,
+                    $appointment->planTherapy->treatment_type_id,
+                    $appointment->id
+                );
+
+                if ($abaConflict) {
+                    return [
+                        'success' => false,
+                        'error' => 'Conflitto rilevato',
+                        'conflict' => $this->formatABAConflictInfo($abaConflict)
+                    ];
+                }
+            } else {
+                // Per piani non-ABA: controllo generico sovrapposizione slot
+                $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                    $patientId,
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes'],
+                    $appointment->id
+                );
+
+                if ($patientSlotConflict) {
+                    return [
+                        'success' => false,
+                        'error' => 'Slot paziente già occupato',
+                        'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
+                    ];
+                }
             }
         }
 
@@ -4716,7 +4739,7 @@ class TherapeuticPlanManagerController extends Controller
     /**
      * Verifica conflitti specifici per modalità ABA
      */
-    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId)
+    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId, $excludeAppointmentId = null)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
         $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
@@ -4727,7 +4750,7 @@ class TherapeuticPlanManagerController extends Controller
             $therapistId,
             $appointmentDateTime,
             60,  // assumiamo durata standard, puoi passarla come parametro
-            null,
+            $excludeAppointmentId,
             null
         );
 
@@ -4758,6 +4781,10 @@ class TherapeuticPlanManagerController extends Controller
             ])
             ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
             ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
+
+        if ($excludeAppointmentId) {
+            $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
+        }
 
         return $query->one();
     }
