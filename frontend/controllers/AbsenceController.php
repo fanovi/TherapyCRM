@@ -7,6 +7,7 @@ use common\models\Absence;
 use common\models\Appointment;
 use common\models\Therapist;
 use common\models\AbsenceSearch;
+use common\models\PatientAbsenceSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -57,9 +58,14 @@ class AbsenceController extends Controller
         $searchModel = new AbsenceSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
+        $patientSearchModel = new PatientAbsenceSearch();
+        $patientDataProvider = $patientSearchModel->search(Yii::$app->request->queryParams);
+
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'patientSearchModel' => $patientSearchModel,
+            'patientDataProvider' => $patientDataProvider,
         ]);
     }
 
