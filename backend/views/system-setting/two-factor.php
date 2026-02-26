@@ -110,10 +110,9 @@ $this->title = 'Impostazioni 2FA';
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utente</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metodo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato 2FA</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azione</th>
                     </tr>
@@ -123,14 +122,20 @@ $this->title = 'Impostazioni 2FA';
                     <?php
                         $tfa = $user->twoFactorAuth;
                         $isEnabled = $tfa && $tfa->is_enabled;
-                        $method = $tfa ? $tfa->preferred_method : '-';
                         $name = $user->profile ? $user->profile->getFullName() : $user->username;
+                        $type = $userTypes[$user->id] ?? '-';
+                        $isTerapista = ($type === 'Terapista');
                     ?>
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= $user->id ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?= Html::encode($name) ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= Html::encode($user->email) ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= $isEnabled ? Html::encode($method) : '-' ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <?php if ($isTerapista): ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Terapista</span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Paziente</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <?php if ($isEnabled): ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Attivo</span>

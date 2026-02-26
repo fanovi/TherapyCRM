@@ -6,6 +6,8 @@ use Yii;
 use common\models\SystemSetting;
 use common\models\User;
 use common\models\UserTwoFactorAuth;
+use common\models\Therapist;
+use common\models\AccountPatient;
 use common\services\TwoFactorService;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -42,15 +44,35 @@ class SystemSettingController extends Controller
     {
         $settings = SystemSetting::getByCategory('2fa');
 
-        $users = User::find()
-            ->where(['status' => User::STATUS_ACTIVE])
-            ->with(['profile', 'twoFactorAuth'])
-            ->orderBy(['id' => SORT_ASC])
-            ->all();
+        // Prendi solo gli utenti che usano l'app mobile (terapisti + account pazienti)
+        $therapistUserIds = Therapist::find()->select('user_id')->column();
+        $patientUserIds = AccountPatient::find()->select('user_id')->distinct()->column();
+        $appUserIds = array_unique(array_merge($therapistUserIds, $patientUserIds));
+
+        $users = [];
+        if (!empty($appUserIds)) {
+            $users = User::find()
+                ->where(['id' => $appUserIds, 'status' => User::STATUS_ACTIVE])
+                ->with(['profile', 'twoFactorAuth'])
+                ->orderBy(['id' => SORT_ASC])
+                ->all();
+        }
+
+        // Mappa per sapere il tipo di ogni utente
+        $userTypes = [];
+        foreach ($therapistUserIds as $uid) {
+            $userTypes[$uid] = 'Terapista';
+        }
+        foreach ($patientUserIds as $uid) {
+            if (!isset($userTypes[$uid])) {
+                $userTypes[$uid] = 'Paziente';
+            }
+        }
 
         return $this->render('two-factor', [
             'settings' => $settings,
             'users' => $users,
+            'userTypes' => $userTypes,
         ]);
     }
 
@@ -113,7 +135,15 @@ class SystemSettingController extends Controller
 
     public function actionEnableAll2fa()
     {
-        $users = User::find()->where(['status' => User::STATUS_ACTIVE])->all();
+        // Solo utenti app mobile (terapisti + account pazienti)
+        $therapistUserIds = Therapist::find()->select('user_id')->column();
+        $patientUserIds = AccountPatient::find()->select('user_id')->distinct()->column();
+        $appUserIds = array_unique(array_merge($therapistUserIds, $patientUserIds));
+
+        $users = User::find()
+            ->where(['id' => $appUserIds, 'status' => User::STATUS_ACTIVE])
+            ->all();
+
         $tfaService = new TwoFactorService();
         $count = 0;
 
