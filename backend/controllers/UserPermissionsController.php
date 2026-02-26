@@ -51,15 +51,14 @@ class UserPermissionsController extends Controller
 
         $query = User::find()
             ->joinWith('profile')
-            ->innerJoin('{{%auth_assignment}} aa', 'aa.user_id = CAST(users.id AS CHAR)')
+            ->innerJoin('{{%auth_assignment}} aa', 'aa.user_id COLLATE utf8_unicode_ci = CAST(users.id AS CHAR) COLLATE utf8_unicode_ci')
             ->where(['users.status' => User::STATUS_ACTIVE])
             ->andWhere([
                 'or',
                 ['aa.item_name' => $rolesWithPlatformLogin],
                 ['aa.item_name' => 'platform_login']
             ])
-            ->distinct()
-            ->orderBy(['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC]);
+            ->distinct();
 
         $search = Yii::$app->request->get('search');
         if ($search) {
@@ -71,14 +70,38 @@ class UserPermissionsController extends Controller
             ]);
         }
 
+        // Role filter
+        $roleFilter = Yii::$app->request->get('role');
+        if ($roleFilter) {
+            $query->andWhere(['aa.item_name' => $roleFilter]);
+        }
+
+        // Sorting
+        $sort = Yii::$app->request->get('sort', 'name');
+        switch ($sort) {
+            case 'role':
+                $query->orderBy(['aa.item_name' => SORT_ASC, 'user_profiles.last_name' => SORT_ASC]);
+                break;
+            case 'email':
+                $query->orderBy(['users.email' => SORT_ASC]);
+                break;
+            default:
+                $query->orderBy(['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC]);
+                break;
+        }
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => ['pageSize' => 20],
+            'sort' => false, // handled manually
         ]);
 
         return $this->render('index', [
             'dataProvider' => $dataProvider,
             'search' => $search,
+            'roleFilter' => $roleFilter,
+            'availableRoles' => $rolesWithPlatformLogin,
+            'currentSort' => $sort,
         ]);
     }
 
@@ -129,12 +152,25 @@ class UserPermissionsController extends Controller
         }
         $availablePermissions = $availableQuery->orderBy(['name' => SORT_ASC])->all();
 
+        // Build description map for all permissions
+        $allPermNames = array_unique(array_merge(array_keys($rolePermissions), $directPermissions));
+        $permDescriptions = [];
+        if (!empty($allPermNames)) {
+            $items = AuthItem::find()
+                ->where(['name' => $allPermNames, 'type' => AuthItem::TYPE_PERMISSION])
+                ->all();
+            foreach ($items as $item) {
+                $permDescriptions[$item->name] = $item->description;
+            }
+        }
+
         return $this->render('view', [
             'user' => $user,
             'userRoles' => $userRoles,
             'rolePermissions' => $rolePermissions,
             'directPermissions' => $directPermissions,
             'availablePermissions' => $availablePermissions,
+            'permDescriptions' => $permDescriptions,
         ]);
     }
 

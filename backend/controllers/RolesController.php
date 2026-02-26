@@ -10,6 +10,8 @@ use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use common\models\AuthItem;
 use common\models\AuthItemChild;
+use common\models\AuthAssignment;
+use common\models\User;
 
 class RolesController extends Controller
 {
@@ -32,6 +34,8 @@ class RolesController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'toggle-permission' => ['POST'],
+                    'get-role-users' => ['GET'],
+                    'assign-permission-to-users' => ['POST'],
                 ],
             ],
         ];
@@ -132,6 +136,86 @@ class RolesController extends Controller
             AuthItemChild::deleteAll(['parent' => $roleName, 'child' => $permissionName]);
             return ['status' => 'success', 'message' => 'Permesso rimosso.'];
         }
+    }
+
+    /**
+     * Returns users that have a specific role (for the reassign modal)
+     */
+    public function actionGetRoleUsers($role, $permission)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $userIds = AuthAssignment::find()
+            ->select('user_id')
+            ->where(['item_name' => $role])
+            ->column();
+
+        if (empty($userIds)) {
+            return ['status' => 'success', 'users' => []];
+        }
+
+        $users = User::find()
+            ->joinWith('profile')
+            ->where(['users.id' => $userIds, 'users.status' => User::STATUS_ACTIVE])
+            ->orderBy(['user_profiles.last_name' => SORT_ASC])
+            ->all();
+
+        $result = [];
+        foreach ($users as $user) {
+            // Check if user already has this permission directly
+            $hasDirect = AuthAssignment::find()
+                ->where(['user_id' => (string)$user->id, 'item_name' => $permission])
+                ->exists();
+
+            $result[] = [
+                'id' => $user->id,
+                'name' => $user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : $user->username,
+                'email' => $user->email,
+                'hasPermission' => $hasDirect,
+            ];
+        }
+
+        return ['status' => 'success', 'users' => $result];
+    }
+
+    /**
+     * Assigns a permission directly to selected users
+     */
+    public function actionAssignPermissionToUsers()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $permissionName = Yii::$app->request->post('permission');
+        $userIds = Yii::$app->request->post('user_ids', []);
+
+        if (!$permissionName) {
+            return ['status' => 'error', 'message' => 'Parametri mancanti.'];
+        }
+
+        $permission = AuthItem::find()
+            ->where(['name' => $permissionName, 'type' => AuthItem::TYPE_PERMISSION])
+            ->one();
+
+        if (!$permission) {
+            return ['status' => 'error', 'message' => 'Permesso non trovato.'];
+        }
+
+        $assigned = 0;
+        foreach ($userIds as $userId) {
+            $existing = AuthAssignment::find()
+                ->where(['item_name' => $permissionName, 'user_id' => (string)$userId])
+                ->one();
+            if (!$existing) {
+                if (AuthAssignment::assign($permissionName, $userId)) {
+                    $assigned++;
+                }
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'message' => "Permesso assegnato a {$assigned} utente/i.",
+        ];
     }
 
     private function getCategoryFromName($name)
