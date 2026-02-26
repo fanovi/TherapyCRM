@@ -2081,7 +2081,10 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         // Verifica conflitti tipologia trattamento se cambia la data O il plan_therapy_id
+        // Per piani ABA questo check è già gestito da checkABAConflicts sopra
+        $isABA = $this->isABARegime($appointment->planTherapy->therapeuticPlan);
         if (
+            !$isABA &&
             ($is_regular_appointment_category) &&
             ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
                 $newPlanTherapyId != $appointment->plan_therapy_id)
@@ -2104,29 +2107,30 @@ class TherapeuticPlanManagerController extends Controller
                     'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
                 ];
             }
+        }
 
-            // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
-            if (
-                ($is_regular_appointment_category) &&
-                ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
-                    $data['durationMinutes'] != $appointment->duration_minutes ||
-                    $newPlanTherapyId != $appointment->plan_therapy_id)
-            ) {
-                $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
-                    Appointment::SOURCE_THERAPEUTIC_PLAN,
-                    $newPlanTherapyId,
-                    $data['appointmentDateTime'],
-                    $data['durationMinutes'],
-                    $appointment->id
-                );
+        // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
+        // (vale sia per ABA che non-ABA)
+        if (
+            ($is_regular_appointment_category) &&
+            ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
+                $data['durationMinutes'] != $appointment->duration_minutes ||
+                $newPlanTherapyId != $appointment->plan_therapy_id)
+        ) {
+            $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                Appointment::SOURCE_THERAPEUTIC_PLAN,
+                $newPlanTherapyId,
+                $data['appointmentDateTime'],
+                $data['durationMinutes'],
+                $appointment->id
+            );
 
-                if ($hoursLimitCheck) {
-                    return [
-                        'success' => false,
-                        'error' => $hoursLimitCheck['message'],
-                        'code' => $hoursLimitCheck['code']
-                    ];
-                }
+            if ($hoursLimitCheck) {
+                return [
+                    'success' => false,
+                    'error' => $hoursLimitCheck['message'],
+                    'code' => $hoursLimitCheck['code']
+                ];
             }
         }
 
