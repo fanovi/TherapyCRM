@@ -4,20 +4,16 @@ namespace backend\controllers;
 
 use Yii;
 use common\models\SystemSetting;
+use common\models\User;
 use common\models\UserTwoFactorAuth;
 use common\services\TwoFactorService;
 use yii\web\Controller;
+use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
-/**
- * SystemSettingController gestisce le impostazioni di sistema nel backend
- */
 class SystemSettingController extends Controller
 {
-    /**
-     * {@inheritdoc}
-     */
     public function behaviors()
     {
         return [
@@ -26,7 +22,7 @@ class SystemSettingController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'], // Solo utenti autenticati nel backend
+                        'roles' => ['@'],
                     ],
                 ],
             ],
@@ -34,27 +30,30 @@ class SystemSettingController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'update-two-factor' => ['POST'],
+                    'enable-user-2fa' => ['POST'],
                     'disable-user-2fa' => ['POST'],
+                    'enable-all-2fa' => ['POST'],
                 ],
             ],
         ];
     }
 
-    /**
-     * Pagina impostazioni 2FA
-     */
     public function actionTwoFactor()
     {
         $settings = SystemSetting::getByCategory('2fa');
 
+        $users = User::find()
+            ->where(['status' => User::STATUS_ACTIVE])
+            ->with(['profile', 'twoFactorAuth'])
+            ->orderBy(['id' => SORT_ASC])
+            ->all();
+
         return $this->render('two-factor', [
             'settings' => $settings,
+            'users' => $users,
         ]);
     }
 
-    /**
-     * Salva impostazioni 2FA
-     */
     public function actionUpdateTwoFactor()
     {
         $request = Yii::$app->request;
@@ -69,34 +68,64 @@ class SystemSettingController extends Controller
 
         foreach ($fields as $key => $type) {
             $value = $request->post($key);
-
             if ($type === 'boolean') {
                 $value = $value ? '1' : '0';
             }
-
             if ($value !== null) {
                 SystemSetting::setValue('2fa', $key, $value);
             }
         }
 
-        // Svuota cache dopo aggiornamento
         SystemSetting::clearCache();
-
         Yii::$app->session->setFlash('success', 'Impostazioni 2FA aggiornate con successo.');
-
         return $this->redirect(['two-factor']);
     }
 
-    /**
-     * Disabilita 2FA per un utente specifico
-     */
+    public function actionEnableUser2fa($userId)
+    {
+        $user = User::findOne($userId);
+        if (!$user) {
+            throw new NotFoundHttpException('Utente non trovato.');
+        }
+
+        $tfaService = new TwoFactorService();
+        $tfaService->enableForUser($userId, 'email');
+
+        $name = $user->profile ? $user->profile->getFullName() : $user->email;
+        Yii::$app->session->setFlash('success', "2FA abilitato per {$name}.");
+        return $this->redirect(Yii::$app->request->referrer ?: ['two-factor']);
+    }
+
     public function actionDisableUser2fa($userId)
     {
+        $user = User::findOne($userId);
+        if (!$user) {
+            throw new NotFoundHttpException('Utente non trovato.');
+        }
+
         $tfaService = new TwoFactorService();
         $tfaService->disableForUser($userId);
 
-        Yii::$app->session->setFlash('success', '2FA disabilitato per l\'utente.');
-
+        $name = $user->profile ? $user->profile->getFullName() : $user->email;
+        Yii::$app->session->setFlash('success', "2FA disabilitato per {$name}.");
         return $this->redirect(Yii::$app->request->referrer ?: ['two-factor']);
+    }
+
+    public function actionEnableAll2fa()
+    {
+        $users = User::find()->where(['status' => User::STATUS_ACTIVE])->all();
+        $tfaService = new TwoFactorService();
+        $count = 0;
+
+        foreach ($users as $user) {
+            $tfa = UserTwoFactorAuth::findOne(['user_id' => $user->id]);
+            if (!$tfa || !$tfa->is_enabled) {
+                $tfaService->enableForUser($user->id, 'email');
+                $count++;
+            }
+        }
+
+        Yii::$app->session->setFlash('success', "2FA abilitato per {$count} utenti.");
+        return $this->redirect(['two-factor']);
     }
 }
