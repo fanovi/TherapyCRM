@@ -2030,7 +2030,7 @@ class AuthController extends Controller
             'user_type' => $userData['user_type'],
             'email' => $userData['email'],
             'purpose' => '2fa_challenge',
-            'exp' => time() + 300  // Scade in 5 minuti
+            'exp' => time() + 600  // Scade in 10 minuti
         ];
 
         $payloadJson = json_encode($payload);

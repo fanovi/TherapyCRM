@@ -1,6 +1,5 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity, Platform} from 'react-native';
-import ClipboardPkg from '@react-native-clipboard/clipboard';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Platform, Share} from 'react-native';
 import {
   Text,
   TextInput,
@@ -477,10 +476,12 @@ const TwoFactorScreen = () => {
 
           <Button
             mode="outlined"
-            onPress={() => {
-              ClipboardPkg.setString(totpSecret);
-              setSnackbarMessage('Codice copiato negli appunti');
-              setSnackbarVisible(true);
+            onPress={async () => {
+              try {
+                await Share.share({message: totpSecret});
+              } catch (e) {
+                // fallback: il testo è già selezionabile
+              }
             }}
             style={styles.copyButton}
             icon="content-copy">
