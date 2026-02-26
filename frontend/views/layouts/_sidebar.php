@@ -363,6 +363,8 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     Assenze Terapisti
                 </a>
             </li>
+            <?php endif; ?>
+            <?php if (Yii::$app->user->can('view_patient_absence')): ?>
             <li>
                 <a
                     href="<?= \yii\helpers\Url::to(['/absence/patients']) ?>"

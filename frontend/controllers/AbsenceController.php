@@ -29,9 +29,14 @@ class AbsenceController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'patients', 'view'],
+                        'actions' => ['index', 'view'],
                         'allow' => true,
                         'roles' => ['view_absence'],
+                    ],
+                    [
+                        'actions' => ['patients'],
+                        'allow' => true,
+                        'roles' => ['view_patient_absence'],
                     ],
                     [
                         'actions' => ['create', 'update', 'delete', 'check-appointments'],
