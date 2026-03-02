@@ -929,7 +929,7 @@ $this->registerJs('
         
         if (startDate && duration && duration > 0) {
             var start = new Date(startDate);
-            var end = new Date(start.getTime() + (duration * 24 * 60 * 60 * 1000));
+            var end = new Date(start.getTime() + ((duration - 1) * 24 * 60 * 60 * 1000));
             var endDateStr = end.toISOString().split('T')[0];
             
             // Show calculated end date info

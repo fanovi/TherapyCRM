@@ -318,7 +318,7 @@ class TherapeuticPlan extends ActiveRecord
             return null;
         }
 
-        return date('Y-m-d', strtotime($this->start_date . ' + ' . $this->duration_days . ' days'));
+        return date('Y-m-d', strtotime($this->start_date . ' + ' . ($this->duration_days - 1) . ' days'));
     }
 
     /**

@@ -1807,7 +1807,7 @@ class RequestsController extends Controller
         } catch (\Exception $e) {
             // Calcola manualmente se necessario
             if ($plan->start_date && $plan->duration_days) {
-                $endDate = date('Y-m-d', strtotime($plan->start_date . ' + ' . $plan->duration_days . ' days'));
+                $endDate = date('Y-m-d', strtotime($plan->start_date . ' + ' . ($plan->duration_days - 1) . ' days'));
             }
         }
 
