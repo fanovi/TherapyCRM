@@ -99,6 +99,7 @@ return [
                 'POST calendar/therapist-appointments' => 'calendar/therapist-appointments',
                 'POST calendar/therapist-marked-dates' => 'calendar/therapist-marked-dates',
                 'POST calendar/mark-patient-absent' => 'calendar/mark-patient-absent',
+                'POST calendar/remove-absence' => 'calendar/remove-absence',
                 'POST calendar/patient-calendar-settings' => 'calendar/patient-calendar-settings',
                 // Altre route qui...
             ],

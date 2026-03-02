@@ -4,12 +4,17 @@ namespace frontend\controllers;
 
 use Yii;
 use common\models\Absence;
+use common\models\ActivityLog;
 use common\models\Appointment;
 use common\models\Therapist;
+use common\models\Notification;
 use common\models\AbsenceSearch;
 use common\models\PatientAbsenceSearch;
+use common\helpers\NotificationHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\BadRequestHttpException;
+use yii\web\Response;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
@@ -34,7 +39,7 @@ class AbsenceController extends Controller
                         'roles' => ['view_absence'],
                     ],
                     [
-                        'actions' => ['patients'],
+                        'actions' => ['patients', 'remove-patient-absence'],
                         'allow' => true,
                         'roles' => ['view_patient_absence'],
                     ],
@@ -49,6 +54,7 @@ class AbsenceController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'remove-patient-absence' => ['POST'],
                 ],
             ],
         ];
@@ -284,6 +290,169 @@ class AbsenceController extends Controller
             ->andWhere(['status' => Appointment::STATUS_SCHEDULED])
             ->orderBy('appointment_datetime')
             ->all();
+    }
+
+    /**
+     * AJAX action to remove patient absence and restore appointment to scheduled.
+     * @return mixed
+     */
+    public function actionRemovePatientAbsence()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $id = Yii::$app->request->post('id');
+        if (!$id) {
+            return ['success' => false, 'error' => 'ID appuntamento mancante'];
+        }
+
+        $appointment = Appointment::findOne($id);
+        if (!$appointment) {
+            return ['success' => false, 'error' => 'Appuntamento non trovato'];
+        }
+
+        // Verifica che lo status sia assente
+        if (!in_array($appointment->status, [Appointment::STATUS_ABSENT_JUSTIFIED, Appointment::STATUS_ABSENT_NOT_JUSTIFIED])) {
+            return ['success' => false, 'error' => 'L\'appuntamento non ha stato assente'];
+        }
+
+        // Vincolo 1 ora prima dell'inizio
+        $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
+        $now = new \DateTime();
+        $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
+        if ($now >= $oneHourBefore) {
+            return ['success' => false, 'error' => 'Non è possibile rimuovere l\'assenza a meno di 1 ora dall\'inizio dell\'appuntamento'];
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+
+        try {
+            // Identifica l'operatore per le notifiche
+            $user = Yii::$app->user->identity;
+            $removedBy = 'Operatore';
+            if ($user && $user->profile) {
+                $removedBy = 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name;
+            }
+
+            // Salva lo status precedente per il log
+            $oldStatus = $appointment->status;
+
+            // Riporta lo status a scheduled
+            $appointment->status = Appointment::STATUS_SCHEDULED;
+
+            if (!$appointment->save()) {
+                throw new \Exception("Errore nel salvataggio: " . json_encode($appointment->errors));
+            }
+
+            // Log esplicito dell'operazione di rimozione assenza
+            $activityLog = new ActivityLog([
+                'user_id' => Yii::$app->user->id,
+                'action' => ActivityLog::ACTION_UPDATE,
+                'entity_name' => 'Appointment',
+                'entity_id' => $appointment->id,
+                'old_values' => json_encode([
+                    'status' => $oldStatus,
+                    'operation' => 'absence_active',
+                ]),
+                'new_values' => json_encode([
+                    'status' => Appointment::STATUS_SCHEDULED,
+                    'operation' => 'absence_removed',
+                    'removed_by' => $removedBy,
+                    'source' => 'gestionale',
+                ]),
+                'ip_address' => Yii::$app->request->getUserIP(),
+                'user_agent' => Yii::$app->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+            if (!$activityLog->save()) {
+                Yii::warning('Failed to save activity log for absence removal: ' . json_encode($activityLog->getErrors()), __METHOD__);
+            }
+
+            // Invia notifiche
+            $this->sendRemoveAbsenceNotifications($appointment, $removedBy);
+
+            $transaction->commit();
+
+            Yii::info("Assenza rimossa per appuntamento {$id} da {$removedBy} (gestionale)", __METHOD__);
+
+            return ['success' => true];
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::error('Errore rimozione assenza paziente: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Invia notifiche di rimozione assenza
+     */
+    private function sendRemoveAbsenceNotifications($appointment, $removedBy)
+    {
+        try {
+            $patient = $appointment->getActualPatient();
+            $therapist = $appointment->therapist;
+            $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
+
+            $patientName = $patient ? $patient->getFullName() : 'Paziente non disponibile';
+            $therapistName = ($therapist && $therapist->user && $therapist->user->profile)
+                ? ($therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name)
+                : 'Terapista non disponibile';
+            $appointmentDate = $appointmentDateTime->format('d/m/Y');
+            $appointmentTime = $appointmentDateTime->format('H:i');
+
+            // Notifica al manager
+            NotificationHelper::sendToManagers(
+                'Assenza Rimossa dal Gestionale',
+                "L'assenza per l'appuntamento del {$appointmentDate} alle {$appointmentTime} è stata rimossa.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nRimossa da: {$removedBy}",
+                Notification::TYPE_INFO,
+                [
+                    'appointment_id' => $appointment->id,
+                    'removed_by' => $removedBy,
+                    'type' => 'absence_removed'
+                ],
+                true
+            );
+
+            // Notifica al terapista
+            if ($therapist) {
+                NotificationHelper::sendToUsers(
+                    [$therapist->user_id],
+                    'Assenza Rimossa - Appuntamento Ripristinato',
+                    "L'assenza del paziente {$patientName} per l'appuntamento del {$appointmentDate} alle {$appointmentTime} è stata rimossa dal gestionale.\nL'appuntamento è stato ripristinato come confermato.\nRimossa da: {$removedBy}",
+                    Notification::TYPE_INFO,
+                    [
+                        'appointment_id' => $appointment->id,
+                        'removed_by' => $removedBy,
+                        'type' => 'absence_removed'
+                    ]
+                );
+            }
+
+            // Notifica al paziente
+            if ($patient) {
+                $patientUsers = \common\models\User::find()
+                    ->joinWith('accountPatients')
+                    ->where(['account_patients.patient_id' => $patient->id])
+                    ->andWhere(['users.status' => \common\models\User::STATUS_ACTIVE])
+                    ->all();
+
+                if (!empty($patientUsers)) {
+                    $patientUserIds = array_map(function($u) { return $u->id; }, $patientUsers);
+
+                    NotificationHelper::sendToUsers(
+                        $patientUserIds,
+                        'Appuntamento Ripristinato',
+                        "L'assenza per l'appuntamento del {$appointmentDate} alle {$appointmentTime} con il terapista {$therapistName} è stata rimossa.\nL'appuntamento è stato ripristinato come confermato.",
+                        Notification::TYPE_INFO,
+                        [
+                            'appointment_id' => $appointment->id,
+                            'type' => 'absence_removed'
+                        ]
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("Errore invio notifiche rimozione assenza: " . $e->getMessage(), __METHOD__);
+        }
     }
 
     /**

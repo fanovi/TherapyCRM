@@ -8,9 +8,9 @@ use yii\widgets\ActiveForm;
 /* @var $profile common\models\UserProfile */
 /* @var $form yii\widgets\ActiveForm */
 
-$this->title = 'Modifica Coordinatore: ' . ($user->profile ? $user->profile->first_name . ' ' . $user->profile->last_name : $user->username);
+$this->title = 'Modifica Coordinatore: ' . ($user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : $user->username);
 $this->params['breadcrumbs'][] = ['label' => 'Coordinatori', 'url' => ['coordinators']];
-$this->params['breadcrumbs'][] = ['label' => ($user->profile ? $user->profile->first_name . ' ' . $user->profile->last_name : $user->username), 'url' => ['view-coordinator', 'id' => $user->id]];
+$this->params['breadcrumbs'][] = ['label' => ($user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : $user->username), 'url' => ['view-coordinator', 'id' => $user->id]];
 $this->params['breadcrumbs'][] = 'Modifica';
 ?>
 
@@ -40,7 +40,7 @@ $this->params['breadcrumbs'][] = 'Modifica';
                     </li>
                     <li>
                         <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= \yii\helpers\Url::to(['/user/view-coordinator', 'id' => $user->id]) ?>">
-                            <?= Html::encode($user->profile ? $user->profile->first_name . ' ' . $user->profile->last_name : $user->username) ?>
+                            <?= Html::encode($user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : $user->username) ?>
                             <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>

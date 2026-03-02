@@ -174,7 +174,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'filterOptions' => ['class' => 'px-2 py-2'],
                             'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Paziente...'],
                             'value' => function ($model) {
-                                return $model->patient ? $model->patient->first_name . ' ' . $model->patient->last_name : '-';
+                                return $model->patient ? $model->patient->last_name . ' ' . $model->patient->first_name : '-';
                             }
                         ],
                         [
@@ -186,7 +186,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Account...'],
                             'value' => function ($model) {
                                 if ($model->account && $model->account->profile) {
-                                    return $model->account->profile->first_name . ' ' . $model->account->profile->last_name;
+                                    return $model->account->profile->last_name . ' ' . $model->account->profile->first_name;
                                 }
                                 return $model->account ? $model->account->email : '-';
                             }

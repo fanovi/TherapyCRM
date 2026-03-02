@@ -11,7 +11,7 @@ use yii\helpers\Url;
 /* @var $availablePermissions array */
 /* @var $permDescriptions array - [permName => description] */
 
-$displayName = $user->profile ? $user->profile->first_name . ' ' . $user->profile->last_name : $user->username;
+$displayName = $user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : $user->username;
 $this->title = 'Permessi: ' . $displayName;
 
 $roleLabels = [

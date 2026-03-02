@@ -7,7 +7,7 @@ use yii\helpers\Html;
 /** @var array $therapists */
 
 $therapistName = $model->therapist && $model->therapist->user && $model->therapist->user->profile 
-    ? $model->therapist->user->profile->first_name . ' ' . $model->therapist->user->profile->last_name 
+    ? $model->therapist->user->profile->last_name . ' ' . $model->therapist->user->profile->first_name
     : 'Terapista';
 
 $this->title = 'Modifica Assenza: ' . $therapistName;

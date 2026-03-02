@@ -239,7 +239,7 @@ class Patient extends ActiveRecord
      */
     public function getFullName()
     {
-        return $this->first_name . ' ' . $this->last_name;
+        return $this->last_name . ' ' . $this->first_name;
     }
 
     /**

@@ -136,6 +136,25 @@ $this->params['breadcrumbs'][] = $this->title;
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $label . '</span>';
                         }
                     ],
+                    [
+                        'label' => 'Azioni',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'format' => 'raw',
+                        'content' => function($model) {
+                            $appointmentDateTime = new \DateTime($model->appointment_datetime);
+                            $now = new \DateTime();
+                            $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
+
+                            if ($now < $oneHourBefore) {
+                                return Html::button('<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>Rimuovi', [
+                                    'class' => 'inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-800',
+                                    'onclick' => 'removePatientAbsence(' . $model->id . ')',
+                                ]);
+                            }
+                            return '<span class="text-xs text-gray-400">Non disponibile</span>';
+                        }
+                    ],
                 ],
             ]); ?>
 
@@ -143,3 +162,30 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 </div>
+
+<?php
+$removeUrl = \yii\helpers\Url::to(['absence/remove-patient-absence']);
+$js = <<<JS
+function removePatientAbsence(id) {
+    if (!confirm('Sei sicuro di voler rimuovere l\\'assenza? L\\'appuntamento verrà ripristinato come confermato.')) {
+        return;
+    }
+    $.ajax({
+        url: '{$removeUrl}',
+        type: 'POST',
+        data: {id: id},
+        success: function(response) {
+            if (response.success) {
+                $.pjax.reload({container: '#patient-absence-grid-pjax'});
+            } else {
+                alert('Errore: ' + (response.error || 'Errore sconosciuto'));
+            }
+        },
+        error: function() {
+            alert('Errore di comunicazione con il server');
+        }
+    });
+}
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
+?>

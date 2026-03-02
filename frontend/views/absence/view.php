@@ -7,7 +7,7 @@ use yii\widgets\DetailView;
 /** @var common\models\Absence $model */
 
 $therapistName = $model->therapist && $model->therapist->user && $model->therapist->user->profile 
-    ? $model->therapist->user->profile->first_name . ' ' . $model->therapist->user->profile->last_name 
+    ? $model->therapist->user->profile->last_name . ' ' . $model->therapist->user->profile->first_name
     : 'Terapista';
 
 $this->title = 'Assenza: ' . $therapistName;

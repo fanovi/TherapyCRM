@@ -41,8 +41,8 @@ export const getUserDisplayName = user => {
     ? ''
     : user.last_name || '';
 
-  const constructedName = `${firstName || first_name} ${
-    lastName || last_name
+  const constructedName = `${lastName || last_name} ${
+    firstName || first_name
   }`.trim();
 
   // Se abbiamo costruito un nome valido, usalo

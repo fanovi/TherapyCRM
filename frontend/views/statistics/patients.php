@@ -382,7 +382,7 @@ function calculatePercentage($part, $total, $decimals = 1) {
                         'label' => 'Nome',
                         'format' => 'raw',
                         'value' => function ($model) {
-                            $fullName = Html::encode($model['first_name'] . ' ' . $model['last_name']);
+                            $fullName = Html::encode($model['last_name'] . ' ' . $model['first_name']);
                             return Html::a($fullName, ['patient/view', 'id' => $model['id']], [
                                 'class' => 'text-blue-600 hover:text-blue-800 font-medium'
                             ]);

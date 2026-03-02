@@ -461,7 +461,7 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-medium text-gray-800 dark:text-white/90">
                                             <?= Html::encode($accountPatient->user->profile
-                                                    ? $accountPatient->user->profile->first_name . ' ' . $accountPatient->user->profile->last_name
+                                                    ? $accountPatient->user->profile->last_name . ' ' . $accountPatient->user->profile->first_name
                                                     : 'Utente Senza Profilo') ?>
                                         </p>
                                         <div class="flex items-center space-x-4 mt-1">
@@ -489,7 +489,7 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                             <?php if (Yii::$app->user->can('update_patient')): ?>
                                 <div class="flex-shrink-0">
                                     <div class="flex gap-2">
-                                        <button onclick="sendCredentialsEmail(<?= $accountPatient->user_id ?>, '<?= Html::encode($accountPatient->user->profile ? $accountPatient->user->profile->first_name . ' ' . $accountPatient->user->profile->last_name : $accountPatient->user->email) ?>')" 
+                                        <button onclick="sendCredentialsEmail(<?= $accountPatient->user_id ?>, '<?= Html::encode($accountPatient->user->profile ? $accountPatient->user->profile->last_name . ' ' . $accountPatient->user->profile->first_name : $accountPatient->user->email) ?>')" 
                                                 class="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20"
                                                 title="Invia Credenziali Esistenti via Email">
                                             <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

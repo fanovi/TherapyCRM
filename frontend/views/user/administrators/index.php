@@ -87,20 +87,6 @@ $this->params['breadcrumbs'][] = $this->title;
                 'rowOptions' => ['class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'],
                 'columns' => [
                     [
-                        'attribute' => 'first_name',
-                        'label' => 'Nome',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => [
-                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
-                            'placeholder' => 'Filtra nome...'
-                        ],
-                        'value' => function($model) {
-                            return $model->profile ? $model->profile->first_name : '';
-                        }
-                    ],
-                    [
                         'attribute' => 'last_name',
                         'label' => 'Cognome',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
@@ -112,6 +98,20 @@ $this->params['breadcrumbs'][] = $this->title;
                         ],
                         'value' => function($model) {
                             return $model->profile ? $model->profile->last_name : '';
+                        }
+                    ],
+                    [
+                        'attribute' => 'first_name',
+                        'label' => 'Nome',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => [
+                            'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white',
+                            'placeholder' => 'Filtra nome...'
+                        ],
+                        'value' => function($model) {
+                            return $model->profile ? $model->profile->first_name : '';
                         }
                     ],
                     [

@@ -39,6 +39,8 @@ import {
   generateMarkedDates,
   markPatientAbsent,
   getAbsenceReasons,
+  removeAbsence,
+  canRemoveAbsence,
 } from '../../api/calendar';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {therapistService} from '../../services/therapistService';
@@ -96,6 +98,14 @@ const TherapistCalendarScreen = () => {
   });
 
   const [isSubmittingAbsence, setIsSubmittingAbsence] = useState(false);
+
+  // Stato per la modale di rimozione assenza
+  const [removeAbsenceDialog, setRemoveAbsenceDialog] = useState({
+    visible: false,
+    appointment: null,
+  });
+  const [removeAbsenceNotes, setRemoveAbsenceNotes] = useState('');
+  const [isSubmittingRemoveAbsence, setIsSubmittingRemoveAbsence] = useState(false);
 
   // Stato per la modale di aggiunta note
   const [noteDialog, setNoteDialog] = useState({
@@ -257,6 +267,69 @@ const TherapistCalendarScreen = () => {
     setIsSelectingPatient(false);
 
     setMenuVisible({});
+  };
+
+  const handleRemoveAbsence = appointment => {
+    setRemoveAbsenceDialog({
+      visible: true,
+      appointment,
+    });
+    setRemoveAbsenceNotes('');
+    setMenuVisible({});
+  };
+
+  const confirmRemoveAbsence = async () => {
+    const {appointment} = removeAbsenceDialog;
+
+    setIsSubmittingRemoveAbsence(true);
+
+    try {
+      const response = await removeAbsence(
+        appointment.id,
+        removeAbsenceNotes.trim(),
+      );
+
+      if (response.success) {
+        Alert.alert(
+          'Assenza Rimossa',
+          `L'appuntamento di ${appointment.patient.name} del ${moment(
+            appointment.datetime,
+          ).format('DD/MM/YYYY')} alle ${
+            appointment.time
+          } è stato ripristinato come confermato.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                loadAppointments();
+                loadMarkedDates();
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          'Errore',
+          response.error || "Errore durante la rimozione dell'assenza",
+        );
+      }
+    } catch (error) {
+      console.error('Errore rimozione assenza:', error);
+
+      if (error.type === 'AUTH_ERROR') {
+        console.log('Errore di autenticazione, logout automatico in corso...');
+      } else if (error.type === 'REMOVE_ABSENCE_ERROR') {
+        Alert.alert('Errore', error.message);
+      } else {
+        Alert.alert(
+          'Errore',
+          "Impossibile rimuovere l'assenza. Riprova più tardi.",
+        );
+      }
+    } finally {
+      setIsSubmittingRemoveAbsence(false);
+      setRemoveAbsenceDialog({visible: false, appointment: null});
+    }
   };
 
   const handleAddNote = appointment => {
@@ -522,7 +595,9 @@ const TherapistCalendarScreen = () => {
       now.isAfter(appointmentStart) &&
       now.isBefore(fifteenMinutesAfterEnd);
 
-    const showMenu = canMarkAbsent || true; // Sempre mostrare per le note
+    const canRemoveAbsenceCheck = canRemoveAbsence(appointment);
+
+    const showMenu = canMarkAbsent || canRemoveAbsenceCheck || true; // Sempre mostrare per le note
 
     // Se è un gruppo, mostra come gruppo
     if (appointment.is_group) {
@@ -602,6 +677,13 @@ const TherapistCalendarScreen = () => {
                         onPress={() => handleMarkAbsent(appointment)}
                         title="Segna Assente"
                         leadingIcon="account-remove"
+                      />
+                    )}
+                    {canRemoveAbsenceCheck && (
+                      <Menu.Item
+                        onPress={() => handleRemoveAbsence(appointment)}
+                        title="Rimuovi Assenza"
+                        leadingIcon="account-check"
                       />
                     )}
                     <Menu.Item
@@ -794,6 +876,13 @@ const TherapistCalendarScreen = () => {
                       onPress={() => handleMarkAbsent(appointment)}
                       title="Segna Assente"
                       leadingIcon="account-remove"
+                    />
+                  )}
+                  {canRemoveAbsenceCheck && (
+                    <Menu.Item
+                      onPress={() => handleRemoveAbsence(appointment)}
+                      title="Rimuovi Assenza"
+                      leadingIcon="account-check"
                     />
                   )}
                   <Menu.Item
@@ -992,6 +1081,66 @@ const TherapistCalendarScreen = () => {
               Annulla
             </Button>
             <Button onPress={confirmAction}>Conferma</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Dialog rimozione assenza */}
+        <Dialog
+          visible={removeAbsenceDialog.visible}
+          onDismiss={() =>
+            setRemoveAbsenceDialog({visible: false, appointment: null})
+          }
+          style={styles.cancellationDialog}>
+          <Dialog.Title>Rimuovi Assenza</Dialog.Title>
+          <Dialog.Content>
+            <Paragraph style={styles.appointmentInfo}>
+              {removeAbsenceDialog.appointment?.patient.name}
+              {'\n'}
+              {removeAbsenceDialog.appointment &&
+                moment(removeAbsenceDialog.appointment.datetime).format(
+                  'DD/MM/YYYY',
+                )}{' '}
+              alle {removeAbsenceDialog.appointment?.time}
+            </Paragraph>
+
+            <Paragraph>
+              L'appuntamento verrà ripristinato come confermato.
+            </Paragraph>
+
+            <Divider style={styles.divider} />
+
+            <Text
+              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+              Note (opzionale)
+            </Text>
+
+            <TextInput
+              label="Aggiungi note se necessario"
+              value={removeAbsenceNotes}
+              onChangeText={setRemoveAbsenceNotes}
+              mode="outlined"
+              style={styles.notesInput}
+              multiline
+              numberOfLines={3}
+              placeholder="Es. Motivo della rimozione dell'assenza..."
+            />
+          </Dialog.Content>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() =>
+                setRemoveAbsenceDialog({visible: false, appointment: null})
+              }
+              disabled={isSubmittingRemoveAbsence}>
+              Annulla
+            </Button>
+            <Button
+              onPress={confirmRemoveAbsence}
+              buttonColor={theme.colors.primary}
+              loading={isSubmittingRemoveAbsence}
+              disabled={isSubmittingRemoveAbsence}
+              mode="contained">
+              {isSubmittingRemoveAbsence ? 'Ripristino...' : 'Conferma'}
+            </Button>
           </Dialog.Actions>
         </Dialog>
 

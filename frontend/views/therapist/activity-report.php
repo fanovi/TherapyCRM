@@ -14,9 +14,9 @@ use yii\widgets\Pjax;
 /** @var yii\data\ActiveDataProvider $appointmentsProvider */
 /** @var yii\data\ActiveDataProvider $absencesProvider */
 /** @var yii\data\ActiveDataProvider $substitutionsProvider */
-$this->title = 'Report Attività - ' . $therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name;
+$this->title = 'Report Attività - ' . $therapist->user->profile->last_name . ' ' . $therapist->user->profile->first_name;
 $this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
-$this->params['breadcrumbs'][] = ['label' => $therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name, 'url' => ['view', 'id' => $therapist->id]];
+$this->params['breadcrumbs'][] = ['label' => $therapist->user->profile->last_name . ' ' . $therapist->user->profile->first_name, 'url' => ['view', 'id' => $therapist->id]];
 $this->params['breadcrumbs'][] = 'Report Attività';
 
 // CSS per date picker
@@ -236,7 +236,7 @@ input[type='date']::-webkit-datetime-edit-fields-wrapper {
                         'contentOptions' => ['class' => 'px-4 py-4'],
                         'value' => function ($model) {
                             $patient = $model->getActualPatient();
-                            return $patient ? ($patient->first_name . ' ' . $patient->last_name) : 'N/A';
+                            return $patient ? ($patient->last_name . ' ' . $patient->first_name) : 'N/A';
                         }
                     ],
                     [
@@ -437,8 +437,8 @@ input[type='date']::-webkit-datetime-edit-fields-wrapper {
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
                         'contentOptions' => ['class' => 'px-4 py-4'],
                         'value' => function ($model) {
-                            return $model->originalTherapist->user->profile->first_name . ' '
-                                . $model->originalTherapist->user->profile->last_name;
+                            return $model->originalTherapist->user->profile->last_name . ' '
+                                . $model->originalTherapist->user->profile->first_name;
                         }
                     ],
                     [
@@ -446,8 +446,8 @@ input[type='date']::-webkit-datetime-edit-fields-wrapper {
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
                         'contentOptions' => ['class' => 'px-4 py-4'],
                         'value' => function ($model) {
-                            return $model->substituteTherapist->user->profile->first_name . ' '
-                                . $model->substituteTherapist->user->profile->last_name;
+                            return $model->substituteTherapist->user->profile->last_name . ' '
+                                . $model->substituteTherapist->user->profile->first_name;
                         }
                     ],
                     [

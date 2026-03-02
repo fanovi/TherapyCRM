@@ -170,7 +170,7 @@ class NotificationHelper
                 }
 
                 $variables = [
-                    'patient_name' => $plan->patient->first_name . ' ' . $plan->patient->last_name,
+                    'patient_name' => $plan->patient->last_name . ' ' . $plan->patient->first_name,
                     'end_date' => Yii::$app->formatter->asDate($plan->end_date),
                 ];
 
@@ -213,7 +213,7 @@ class NotificationHelper
             $sql = "
                 SELECT 
                     p.id as patient_id,
-                    CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+                    CONCAT(p.last_name, ' ', p.first_name) as patient_name,
                     tp.created_by,
                     COUNT(a.id) as total_appointments,
                     COUNT(CASE WHEN a.status IN ('absent_justified', 'absent_not_justified') THEN 1 END) as total_absences,
@@ -339,7 +339,7 @@ class NotificationHelper
 
         // Informazioni sul richiedente
         $requesterName = $currentUser->profile ? 
-                        $currentUser->profile->first_name . ' ' . $currentUser->profile->last_name : 
+                        $currentUser->profile->last_name . ' ' . $currentUser->profile->first_name :
                         $currentUser->email;
         $htmlMessage .= "Richiedente: <b>{$requesterName}</b>";
 
@@ -401,7 +401,7 @@ class NotificationHelper
                 ];
             }
 
-            $fullName = trim($patient->first_name . ' ' . $patient->last_name);
+            $fullName = trim($patient->last_name . ' ' . $patient->first_name);
             $displayName = !empty($fullName) ? "{$fullName} (#{$patientId})" : "Paziente #{$patientId}";
 
             return [

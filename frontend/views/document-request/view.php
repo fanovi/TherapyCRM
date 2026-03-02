@@ -185,7 +185,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 'value' => function ($model) {
                                     if ($model->accountPatient && $model->accountPatient->user && $model->accountPatient->user->profile) {
                                         $profile = $model->accountPatient->user->profile;
-                                        return $profile->first_name . ' ' . $profile->last_name;
+                                        return $profile->last_name . ' ' . $profile->first_name;
                                     }
                                     return 'N/A';
                                 },
@@ -195,7 +195,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 'label' => 'Paziente',
                                 'value' => function ($model) {
                                     if ($model->patient) {
-                                        return $model->patient->first_name . ' ' . $model->patient->last_name;
+                                        return $model->patient->last_name . ' ' . $model->patient->first_name;
                                     }
                                     return 'N/A';
                                 },
@@ -336,7 +336,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                                     <?php if ($history->changedByUser): ?>
                                                         da <?= $history->changedByUser->profile ? 
-                                                               Html::encode($history->changedByUser->profile->first_name . ' ' . $history->changedByUser->profile->last_name) :
+                                                               Html::encode($history->changedByUser->profile->last_name . ' ' . $history->changedByUser->profile->first_name) :
                                                                Html::encode($history->changedByUser->username) ?>
                                                     <?php else: ?>
                                                         Sistema

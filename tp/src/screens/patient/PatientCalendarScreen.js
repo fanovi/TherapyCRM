@@ -35,6 +35,8 @@ import {
   cancelPatientAppointment,
   getCancellationReasons,
   getPatientCalendarSettings,
+  removeAbsence,
+  canRemoveAbsence,
 } from '../../api/calendar';
 
 const PatientCalendarScreen = () => {
@@ -66,6 +68,13 @@ const PatientCalendarScreen = () => {
 
   const [isSubmittingCancellation, setIsSubmittingCancellation] =
     useState(false);
+
+  const [restoreDialog, setRestoreDialog] = useState({
+    visible: false,
+    appointment: null,
+  });
+  const [restoreNotes, setRestoreNotes] = useState('');
+  const [isSubmittingRestore, setIsSubmittingRestore] = useState(false);
 
   // Recupera il patient_id dal currentPatient
   const patientId =
@@ -312,6 +321,66 @@ const PatientCalendarScreen = () => {
     }
   };
 
+  const handleRestoreAppointment = appointment => {
+    setRestoreDialog({
+      visible: true,
+      appointment,
+    });
+    setRestoreNotes('');
+  };
+
+  const confirmRestoreAppointment = async () => {
+    const {appointment} = restoreDialog;
+
+    setIsSubmittingRestore(true);
+
+    try {
+      const response = await removeAbsence(
+        appointment.id,
+        restoreNotes.trim(),
+      );
+
+      if (response.success) {
+        Alert.alert(
+          'Appuntamento Ripristinato',
+          `Il tuo appuntamento del ${moment(appointment.datetime).format(
+            'DD/MM/YYYY',
+          )} alle ${appointment.time} è stato ripristinato con successo.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                loadAppointments();
+                loadMarkedDates();
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          'Errore',
+          response.error || 'Errore durante il ripristino',
+        );
+      }
+    } catch (error) {
+      console.error('Errore ripristino appuntamento:', error);
+
+      if (error.type === 'AUTH_ERROR') {
+        console.log('Errore di autenticazione, logout automatico in corso...');
+      } else if (error.type === 'REMOVE_ABSENCE_ERROR') {
+        Alert.alert('Errore Ripristino', error.message);
+      } else {
+        Alert.alert(
+          'Errore',
+          "Impossibile ripristinare l'appuntamento. Riprova più tardi.",
+        );
+      }
+    } finally {
+      setIsSubmittingRestore(false);
+      setRestoreDialog({visible: false, appointment: null});
+    }
+  };
+
   const renderAppointmentItem = ({item: appointment}) => (
     <Card style={styles.appointmentCard}>
       <Card.Content>
@@ -417,6 +486,17 @@ const PatientCalendarScreen = () => {
                 Disdici
               </Button>
             )}
+          {canRemoveAbsence(appointment) && (
+            <Button
+              mode="contained"
+              style={[styles.actionButton]}
+              buttonColor={theme.colors.primary}
+              icon="restore"
+              onPress={() => handleRestoreAppointment(appointment)}
+              compact>
+              Ripristina
+            </Button>
+          )}
         </View>
       </Card.Content>
     </Card>
@@ -650,6 +730,65 @@ const PatientCalendarScreen = () => {
               {isSubmittingCancellation
                 ? 'Cancellazione...'
                 : 'Conferma Cancellazione'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Dialog ripristino appuntamento */}
+        <Dialog
+          visible={restoreDialog.visible}
+          onDismiss={() =>
+            setRestoreDialog({visible: false, appointment: null})
+          }
+          style={styles.cancellationDialog}>
+          <Dialog.Title>Ripristina Appuntamento</Dialog.Title>
+          <Dialog.Content>
+            <Paragraph style={styles.appointmentInfo}>
+              Stai per ripristinare l'appuntamento del{' '}
+              {restoreDialog.appointment &&
+                moment(restoreDialog.appointment.datetime).format(
+                  'DD/MM/YYYY',
+                )}{' '}
+              alle {restoreDialog.appointment?.time}
+            </Paragraph>
+
+            <Paragraph>
+              L'appuntamento verrà ripristinato come confermato.
+            </Paragraph>
+
+            <Divider style={styles.divider} />
+
+            <Text
+              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+              Note (opzionale)
+            </Text>
+
+            <TextInput
+              label="Aggiungi note se necessario"
+              value={restoreNotes}
+              onChangeText={setRestoreNotes}
+              mode="outlined"
+              style={styles.notesInput}
+              multiline
+              numberOfLines={3}
+              placeholder="Es. Motivo del ripristino..."
+            />
+          </Dialog.Content>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              onPress={() =>
+                setRestoreDialog({visible: false, appointment: null})
+              }
+              disabled={isSubmittingRestore}>
+              Annulla
+            </Button>
+            <Button
+              onPress={confirmRestoreAppointment}
+              buttonColor={theme.colors.primary}
+              loading={isSubmittingRestore}
+              disabled={isSubmittingRestore}
+              mode="contained">
+              {isSubmittingRestore ? 'Ripristino...' : 'Conferma Ripristino'}
             </Button>
           </Dialog.Actions>
         </Dialog>

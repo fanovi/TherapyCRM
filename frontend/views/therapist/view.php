@@ -6,7 +6,7 @@ use yii\widgets\DetailView;
 /** @var yii\web\View $this */
 /** @var common\models\Therapist $model */
 
-$this->title = $model->user->profile->first_name . ' ' . $model->user->profile->last_name;
+$this->title = $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
 $this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>

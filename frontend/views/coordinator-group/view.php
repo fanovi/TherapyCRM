@@ -64,7 +64,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'label' => 'Coordinatore',
                             'value' => function($model) {
                                 if ($model->coordinator && $model->coordinator->profile) {
-                                    return $model->coordinator->profile->first_name . ' ' . $model->coordinator->profile->last_name . ' (' . $model->coordinator->email . ')';
+                                    return $model->coordinator->profile->last_name . ' ' . $model->coordinator->profile->first_name . ' (' . $model->coordinator->email . ')';
                                 }
                                 return $model->coordinator ? $model->coordinator->email : 'N/D';
                             }
@@ -134,7 +134,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     <div class="h-10 w-10 rounded-full" style="background-color: <?= Html::encode($therapist->calendar_color ?: '#6B7280') ?>"></div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                            <?= Html::encode($therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name) ?>
+                                            <?= Html::encode($therapist->user->profile->last_name . ' ' . $therapist->user->profile->first_name) ?>
                                         </p>
                                         <p class="text-sm text-gray-500 dark:text-gray-400">
                                             <?= Html::encode($therapist->specialization->name ?? 'N/D') ?>

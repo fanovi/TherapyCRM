@@ -136,7 +136,7 @@ $allTherapists = Therapist::find()
             <?php foreach ($allTherapists as $therapist): ?>
                 <?php 
                 $profile = $therapist->user->profile;
-                $fullName = $profile ? $profile->first_name . ' ' . $profile->last_name : $therapist->user->email;
+                $fullName = $profile ? $profile->last_name . ' ' . $profile->first_name : $therapist->user->email;
                 $isSelected = isset($selectedTherapists) && in_array($therapist->id, $selectedTherapists);
                 ?>
                 

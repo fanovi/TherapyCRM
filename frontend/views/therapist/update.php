@@ -8,9 +8,9 @@ use yii\helpers\Html;
 /** @var common\models\Therapist $therapist */
 /** @var array $specializations */
 
-$this->title = 'Modifica Terapista: ' . $profile->first_name . ' ' . $profile->last_name;
+$this->title = 'Modifica Terapista: ' . $profile->last_name . ' ' . $profile->first_name;
 $this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['index']];
-$this->params['breadcrumbs'][] = ['label' => $profile->first_name . ' ' . $profile->last_name, 'url' => ['view', 'id' => $therapist->id]];
+$this->params['breadcrumbs'][] = ['label' => $profile->last_name . ' ' . $profile->first_name, 'url' => ['view', 'id' => $therapist->id]];
 $this->params['breadcrumbs'][] = 'Modifica';
 ?>
 

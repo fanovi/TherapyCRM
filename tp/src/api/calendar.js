@@ -562,6 +562,75 @@ export const getAbsenceReasons = () => {
 };
 
 /**
+ * Rimuove l'assenza da un appuntamento, riportandolo a 'confermato'
+ * @param {number} appointmentId - ID dell'appuntamento
+ * @param {string} notes - Note aggiuntive (opzionale)
+ * @returns {Promise<Object>} - Risposta dell'API
+ */
+export const removeAbsence = async (appointmentId, notes = '') => {
+  try {
+    const response = await apiClient.post('/calendar/remove-absence', {
+      appointment_id: appointmentId,
+      notes: notes,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Errore rimozione assenza:', error);
+
+    if (error.type === 'AUTH_ERROR') {
+      throw error;
+    } else if (error.type === 'PERMISSION_ERROR') {
+      throw {
+        type: 'REMOVE_ABSENCE_ERROR',
+        message: 'Non hai i permessi per rimuovere questa assenza',
+        originalError: error,
+      };
+    } else if (error.type === 'NETWORK_ERROR') {
+      throw {
+        type: 'REMOVE_ABSENCE_ERROR',
+        message: 'Errore di connessione durante la rimozione dell\'assenza',
+        originalError: error,
+      };
+    } else if (error.type === 'SERVER_ERROR') {
+      throw {
+        type: 'REMOVE_ABSENCE_ERROR',
+        message: error.message || 'Errore del server durante la rimozione dell\'assenza',
+        originalError: error,
+      };
+    } else {
+      throw {
+        type: 'REMOVE_ABSENCE_ERROR',
+        message: 'Errore imprevisto durante la rimozione dell\'assenza',
+        originalError: error,
+      };
+    }
+  }
+};
+
+/**
+ * Verifica se un appuntamento con assenza può essere ripristinato
+ * @param {Object} appointment - Oggetto appuntamento
+ * @returns {boolean} - True se l'assenza può essere rimossa
+ */
+export const canRemoveAbsence = appointment => {
+  // Solo se lo status è assente (giustificato o non giustificato)
+  if (
+    appointment.status !== 'assente_giustificato' &&
+    appointment.status !== 'assente_non_giustificato'
+  ) {
+    return false;
+  }
+
+  const appointmentDate = new Date(appointment.datetime);
+  const now = new Date();
+  const oneHourBefore = new Date(appointmentDate.getTime() - 60 * 60 * 1000);
+
+  // Deve essere almeno 1 ora prima dell'appuntamento
+  return now < oneHourBefore;
+};
+
+/**
  * Verifica se un appuntamento può essere cancellato
  * @param {Object} appointment - Oggetto appuntamento
  * @returns {boolean} - True se può essere cancellato

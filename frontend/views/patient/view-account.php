@@ -9,7 +9,7 @@ use yii\widgets\DetailView;
 /* @var $model common\models\User */
 /* @var $accountPatients common\models\AccountPatient[] */
 
-$profileName = $model->profile ? $model->profile->first_name . ' ' . $model->profile->last_name : $model->email;
+$profileName = $model->profile ? $model->profile->last_name . ' ' . $model->profile->first_name : $model->email;
 $this->title = 'Account: ' . $profileName;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => 'Account', 'url' => ['accounts']];

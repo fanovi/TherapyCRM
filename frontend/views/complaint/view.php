@@ -138,7 +138,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 'attributes' => [
                     [
                         'label' => 'Nome Completo',
-                        'value' => $model->patient->first_name . ' ' . $model->patient->last_name
+                        'value' => $model->patient->last_name . ' ' . $model->patient->first_name
                     ],
                     [
                         'attribute' => 'fiscal_code',
@@ -189,7 +189,7 @@ $this->params['breadcrumbs'][] = $this->title;
             if ($model->account->profile) {
                 array_unshift($accountData, [
                     'label' => 'Nome Completo',
-                    'value' => $model->account->profile->first_name . ' ' . $model->account->profile->last_name
+                    'value' => $model->account->profile->last_name . ' ' . $model->account->profile->first_name
                 ]);
                 
                 if ($model->account->profile->phone) {

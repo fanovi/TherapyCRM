@@ -259,7 +259,7 @@ class DocumentRequestStatusHistory extends ActiveRecord
                 'changed_by' => $entry->changedByUser ? [
                     'id' => $entry->changedByUser->id,
                     'name' => $entry->changedByUser->profile ? 
-                             $entry->changedByUser->profile->first_name . ' ' . $entry->changedByUser->profile->last_name : 
+                             $entry->changedByUser->profile->last_name . ' ' . $entry->changedByUser->profile->first_name :
                              'N/A'
                 ] : null,
                 'created_at' => (new \DateTime($entry->created_at, new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z')

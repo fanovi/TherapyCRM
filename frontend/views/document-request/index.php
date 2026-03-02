@@ -213,7 +213,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => function ($model) {
                             if ($model->accountPatient && $model->accountPatient->user && $model->accountPatient->user->profile) {
                                 $profile = $model->accountPatient->user->profile;
-                                return $profile->first_name . ' ' . $profile->last_name;
+                                return $profile->last_name . ' ' . $profile->first_name;
                             }
                             return 'N/A';
                         },
@@ -229,7 +229,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
                         'value' => function ($model) {
                             if ($model->patient) {
-                                return $model->patient->first_name . ' ' . $model->patient->last_name;
+                                return $model->patient->last_name . ' ' . $model->patient->first_name;
                             }
                             return 'N/A';
                         },

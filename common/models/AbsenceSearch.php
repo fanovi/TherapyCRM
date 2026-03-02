@@ -88,8 +88,8 @@ class AbsenceSearch extends Absence
                 'or',
                 ['like', 'user_profiles.first_name', $this->therapist_name],
                 ['like', 'user_profiles.last_name', $this->therapist_name],
-                ['like', "CONCAT(user_profiles.first_name, ' ', user_profiles.last_name)", $this->therapist_name],
                 ['like', "CONCAT(user_profiles.last_name, ' ', user_profiles.first_name)", $this->therapist_name],
+                ['like', "CONCAT(user_profiles.first_name, ' ', user_profiles.last_name)", $this->therapist_name],
             ]);
         }
 

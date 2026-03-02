@@ -126,7 +126,7 @@ use yii\helpers\Html;
         <h3>Dati Account</h3>
         <div class="field">
             <span class="label">Nome:</span>
-            <span class="value"><?= Html::encode($user->profile ? $user->profile->first_name . ' ' . $user->profile->last_name : 'N/A') ?></span>
+            <span class="value"><?= Html::encode($user->profile ? $user->profile->last_name . ' ' . $user->profile->first_name : 'N/A') ?></span>
         </div>
         <div class="field">
             <span class="label">Email/Username:</span>

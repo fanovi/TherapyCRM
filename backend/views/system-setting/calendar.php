@@ -87,7 +87,7 @@ $this->title = 'Impostazioni Calendario';
             <div class="flex items-center gap-8">
                 <div>
                     <span class="block text-sm font-medium text-gray-500">Data minima</span>
-                    <span class="text-lg font-semibold text-gray-900"><?= Html::encode($dateLimits['minDate']) ?></span>
+                    <span id="preview-min-date" class="text-lg font-semibold text-gray-900"><?= Html::encode($dateLimits['minDate']) ?></span>
                 </div>
                 <div class="text-gray-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,7 +96,7 @@ $this->title = 'Impostazioni Calendario';
                 </div>
                 <div>
                     <span class="block text-sm font-medium text-gray-500">Data massima</span>
-                    <span class="text-lg font-semibold text-gray-900"><?= Html::encode($dateLimits['maxDate']) ?></span>
+                    <span id="preview-max-date" class="text-lg font-semibold text-gray-900"><?= Html::encode($dateLimits['maxDate']) ?></span>
                 </div>
             </div>
         </div>
@@ -110,3 +110,60 @@ $this->title = 'Impostazioni Calendario';
 
     <?= Html::endForm() ?>
 </div>
+
+<?php
+$js = <<<JS
+(function() {
+    var pastValue = document.querySelector('input[name="patient_past_range_value"]');
+    var pastUnit = document.querySelector('select[name="patient_past_range_unit"]');
+    var futureValue = document.querySelector('input[name="patient_future_range_value"]');
+    var futureUnit = document.querySelector('select[name="patient_future_range_unit"]');
+    var minDateEl = document.getElementById('preview-min-date');
+    var maxDateEl = document.getElementById('preview-max-date');
+
+    function updatePreview() {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        var pVal = parseInt(pastValue.value) || 0;
+        var pUnit = pastUnit.value;
+        var fVal = parseInt(futureValue.value) || 0;
+        var fUnit = futureUnit.value;
+
+        var minDate = new Date(today);
+        if (pVal > 0) {
+            if (pUnit === 'days') {
+                minDate.setDate(minDate.getDate() - pVal);
+            } else {
+                minDate.setMonth(minDate.getMonth() - pVal);
+            }
+        }
+
+        var maxDate = new Date(today);
+        if (fVal > 0) {
+            if (fUnit === 'days') {
+                maxDate.setDate(maxDate.getDate() + fVal);
+            } else {
+                maxDate.setMonth(maxDate.getMonth() + fVal);
+            }
+        }
+
+        minDateEl.textContent = formatDate(minDate);
+        maxDateEl.textContent = formatDate(maxDate);
+    }
+
+    function formatDate(d) {
+        var y = d.getFullYear();
+        var m = ('0' + (d.getMonth() + 1)).slice(-2);
+        var day = ('0' + d.getDate()).slice(-2);
+        return y + '-' + m + '-' + day;
+    }
+
+    pastValue.addEventListener('input', updatePreview);
+    pastUnit.addEventListener('change', updatePreview);
+    futureValue.addEventListener('input', updatePreview);
+    futureUnit.addEventListener('change', updatePreview);
+})();
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
+?>

@@ -88,7 +88,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra coordinatore...'],
                         'value' => function($model) {
                             return $model->coordinator && $model->coordinator->profile ? 
-                                $model->coordinator->profile->first_name . ' ' . $model->coordinator->profile->last_name : 
+                                $model->coordinator->profile->last_name . ' ' . $model->coordinator->profile->first_name :
                                 ($model->coordinator ? $model->coordinator->email : 'N/D');
                         }
                     ],

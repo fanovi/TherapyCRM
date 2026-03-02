@@ -612,7 +612,7 @@ if (typeof Chart !== 'undefined') {
                             </td>
                             <td>
                                 <?php if ($appointment->therapist && $appointment->therapist->user && $appointment->therapist->user->profile): ?>
-                                    <?= Html::encode($appointment->therapist->user->profile->first_name . ' ' . $appointment->therapist->user->profile->last_name) ?>
+                                    <?= Html::encode($appointment->therapist->user->profile->last_name . ' ' . $appointment->therapist->user->profile->first_name) ?>
                                 <?php else: ?>
                                     <span class="text-gray">Terapista non assegnato</span>
                                 <?php endif; ?>

@@ -80,7 +80,7 @@ $relationshipLabels = AccountPatient::getRelationshipLabels();
                             'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cerca nome...'],
                             'value' => function ($model) {
                                 if ($model->profile) {
-                                    return $model->profile->first_name . ' ' . $model->profile->last_name;
+                                    return $model->profile->last_name . ' ' . $model->profile->first_name;
                                 }
                                 return '-';
                             },

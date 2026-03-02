@@ -11,7 +11,7 @@ use yii\widgets\ActiveForm;
 /* @var $relationshipLabels array */
 /* @var $form yii\widgets\ActiveForm */
 
-$this->title = 'Crea Credenziali per ' . $patient->first_name . ' ' . $patient->last_name;
+$this->title = 'Crea Credenziali per ' . $patient->last_name . ' ' . $patient->first_name;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => $patient->fullName, 'url' => ['view', 'id' => $patient->id]];
 $this->params['breadcrumbs'][] = $this->title;
