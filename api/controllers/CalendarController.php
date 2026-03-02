@@ -7,6 +7,7 @@ use common\models\Appointment;
 use common\models\Notification;
 use common\models\Patient;
 use common\models\Therapist;
+use common\models\SystemSetting;
 use common\models\TreatmentType;
 use yii\db\Query;
 use yii\filters\auth\HttpBearerAuth;
@@ -2218,6 +2219,28 @@ class CalendarController extends ActiveController
             return [
                 'success' => false,
                 'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * POST /api/calendar/patient-calendar-settings
+     * Restituisce le date limite (minDate/maxDate) del calendario paziente
+     */
+    public function actionPatientCalendarSettings()
+    {
+        try {
+            $limits = SystemSetting::getPatientCalendarDateLimits();
+
+            return [
+                'success' => true,
+                'data' => $limits,
+            ];
+        } catch (\Exception $e) {
+            Yii::error('Errore recupero impostazioni calendario paziente: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
             ];
         }
     }

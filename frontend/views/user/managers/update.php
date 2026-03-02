@@ -16,4 +16,8 @@ $this->params['breadcrumbs'][] = 'Modifica';
     'user' => $user,
     'profile' => $profile,
     'isUpdate' => true,
+    'allPermissions' => $allPermissions ?? [],
+    'rolePermissions' => $rolePermissions ?? [],
+    'userDirectPermissions' => $userDirectPermissions ?? [],
+    'categories' => $categories ?? [],
 ]) ?>

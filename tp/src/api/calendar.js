@@ -118,6 +118,24 @@ export const getPatientMarkedDates = async (patientId, month) => {
 };
 
 /**
+ * Recupera le impostazioni di range del calendario paziente (minDate/maxDate)
+ * @returns {Promise<Object>} { minDate: 'YYYY-MM-DD', maxDate: 'YYYY-MM-DD' }
+ */
+export const getPatientCalendarSettings = async () => {
+  try {
+    const response = await apiClient.post('/calendar/patient-calendar-settings');
+
+    if (response.data.success) {
+      return response.data.data;
+    }
+    return {minDate: null, maxDate: null};
+  } catch (error) {
+    console.warn('Errore recupero impostazioni calendario:', error);
+    return {minDate: null, maxDate: null};
+  }
+};
+
+/**
  * Utility per mappare gli stati degli appuntamenti ai colori
  * @param {string} status - Stato dell'appuntamento
  * @returns {string}

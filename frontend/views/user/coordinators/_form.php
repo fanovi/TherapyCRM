@@ -232,18 +232,27 @@ $pageTitle = $isUpdate ? 'Modifica Coordinatore' : 'Nuovo Coordinatore';
     </div>
     <?php endif; ?>
 
+    <?php if (Yii::$app->user->can('manage_permissions')): ?>
+        <?= $this->render('/permission/_permissions_grid', [
+            'allPermissions' => $allPermissions ?? [],
+            'rolePermissions' => $rolePermissions ?? [],
+            'userDirectPermissions' => $userDirectPermissions ?? [],
+            'categories' => $categories ?? [],
+        ]) ?>
+    <?php endif; ?>
+
     <!-- Action Buttons -->
     <div class="mt-8 flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
         <div class="text-sm text-gray-500 dark:text-gray-400">
             * Tutti i campi sono obbligatori
         </div>
-        
+
         <div class="flex items-center gap-3">
             <?php if ($isUpdate): ?>
                 <?= Html::a('Annulla', ['view-coordinator', 'id' => $user->id], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
-                
+
                 <?= Html::submitButton('Salva Modifiche', [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
@@ -251,7 +260,7 @@ $pageTitle = $isUpdate ? 'Modifica Coordinatore' : 'Nuovo Coordinatore';
                 <?= Html::a('Annulla', ['coordinators'], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
-                
+
                 <?= Html::submitButton('Crea Coordinatore', [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>

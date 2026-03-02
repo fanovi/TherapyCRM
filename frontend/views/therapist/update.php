@@ -20,4 +20,8 @@ $this->params['breadcrumbs'][] = 'Modifica';
     'therapist' => $therapist,
     'specializations' => $specializations,
     'isUpdate' => true,
+    'allPermissions' => $allPermissions ?? [],
+    'rolePermissions' => $rolePermissions ?? [],
+    'userDirectPermissions' => $userDirectPermissions ?? [],
+    'categories' => $categories ?? [],
 ]) ?> 

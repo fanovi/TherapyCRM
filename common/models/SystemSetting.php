@@ -195,6 +195,62 @@ class SystemSetting extends ActiveRecord
     }
 
     /**
+     * Ottiene il range passato del calendario paziente
+     *
+     * @return array ['value' => int, 'unit' => string]
+     */
+    public static function getPatientCalendarPastRange()
+    {
+        return [
+            'value' => (int) self::getValue('calendar', 'patient_past_range_value', 3),
+            'unit' => (string) self::getValue('calendar', 'patient_past_range_unit', 'months'),
+        ];
+    }
+
+    /**
+     * Ottiene il range futuro del calendario paziente
+     *
+     * @return array ['value' => int, 'unit' => string]
+     */
+    public static function getPatientCalendarFutureRange()
+    {
+        return [
+            'value' => (int) self::getValue('calendar', 'patient_future_range_value', 3),
+            'unit' => (string) self::getValue('calendar', 'patient_future_range_unit', 'months'),
+        ];
+    }
+
+    /**
+     * Calcola le date limite assolute del calendario paziente
+     *
+     * @return array ['minDate' => 'YYYY-MM-DD', 'maxDate' => 'YYYY-MM-DD']
+     */
+    public static function getPatientCalendarDateLimits()
+    {
+        $past = self::getPatientCalendarPastRange();
+        $future = self::getPatientCalendarFutureRange();
+
+        $today = new \DateTime();
+
+        $minDate = clone $today;
+        if ($past['value'] > 0) {
+            $modifier = $past['unit'] === 'days' ? 'days' : 'months';
+            $minDate->modify("-{$past['value']} {$modifier}");
+        }
+
+        $maxDate = clone $today;
+        if ($future['value'] > 0) {
+            $modifier = $future['unit'] === 'days' ? 'days' : 'months';
+            $maxDate->modify("+{$future['value']} {$modifier}");
+        }
+
+        return [
+            'minDate' => $minDate->format('Y-m-d'),
+            'maxDate' => $maxDate->format('Y-m-d'),
+        ];
+    }
+
+    /**
      * Ottiene tutte le impostazioni di una categoria
      *
      * @param string $category

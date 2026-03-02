@@ -19,4 +19,8 @@ $this->params['breadcrumbs'][] = $this->title;
     'therapist' => $therapist,
     'specializations' => $specializations,
     'isUpdate' => false,
+    'allPermissions' => $allPermissions ?? [],
+    'rolePermissions' => $rolePermissions ?? [],
+    'userDirectPermissions' => $userDirectPermissions ?? [],
+    'categories' => $categories ?? [],
 ]) ?>

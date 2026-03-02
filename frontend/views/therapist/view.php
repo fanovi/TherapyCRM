@@ -204,4 +204,12 @@ $this->params['breadcrumbs'][] = $this->title;
             ]) ?>
         </div>
     </div>
-</div> 
+
+    <?php if (Yii::$app->user->can('manage_permissions')): ?>
+        <?= $this->render('/permission/_permissions_summary', [
+            'rolePermissions' => $rolePermissions ?? [],
+            'userDirectPermissions' => $userDirectPermissions ?? [],
+            'categories' => $categories ?? [],
+        ]) ?>
+    <?php endif; ?>
+</div>

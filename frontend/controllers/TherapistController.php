@@ -23,6 +23,9 @@ use yii\web\Controller;
 use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use Yii;
+use common\models\AuthItem;
+use common\models\AuthItemChild;
+use common\models\AuthAssignment;
 
 /**
  * TherapistController implements the CRUD actions for Therapist model.
@@ -119,9 +122,13 @@ class TherapistController extends Controller
         // Decodifica i dati sensibili del profilo utente
         $this->decryptSensitiveData($model->user->profile);
 
-        return $this->render('view', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('therapist', $model->user_id)
+            : [];
+
+        return $this->render('view', array_merge([
             'model' => $model,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -212,6 +219,12 @@ class TherapistController extends Controller
                             $auth->assign($therapistRole, $user->id);
                         }
 
+                        // Save extra permissions
+                        $postedPermissions = Yii::$app->request->post('permissions', []);
+                        if (!empty($postedPermissions)) {
+                            PermissionController::saveExtraPermissions($user->id, 'therapist', $postedPermissions);
+                        }
+
                         // Ora creiamo manualmente i log nell'ordine corretto
                         if ($userLogBehavior) {
                             // Filtra gli attributi dell'utente escludendo quelli sensibili
@@ -297,12 +310,16 @@ class TherapistController extends Controller
             $therapist->user_id = null;
         }
 
-        return $this->render('create', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('therapist')
+            : [];
+
+        return $this->render('create', array_merge([
             'user' => $user,
             'profile' => $profile,
             'therapist' => $therapist,
             'specializations' => $specializations,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -354,6 +371,12 @@ class TherapistController extends Controller
                     throw new \Exception("Errore nell'aggiornare il terapista: " . implode(', ', $therapist->getFirstErrors()));
                 }
 
+                // Sync extra permissions
+                if (Yii::$app->user->can('manage_permissions')) {
+                    $postedPermissions = Yii::$app->request->post('permissions', []);
+                    PermissionController::saveExtraPermissions($user->id, 'therapist', $postedPermissions);
+                }
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Terapista aggiornato con successo.');
                 return $this->redirect(['view', 'id' => $therapist->id]);
@@ -363,12 +386,16 @@ class TherapistController extends Controller
             }
         }
 
-        return $this->render('update', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('therapist', $user->id)
+            : [];
+
+        return $this->render('update', array_merge([
             'user' => $user,
             'profile' => $profile,
             'therapist' => $therapist,
             'specializations' => $specializations,
-        ]);
+        ], $permissionData));
     }
 
     /**

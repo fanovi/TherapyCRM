@@ -34,6 +34,7 @@ import {
   generateMarkedDates,
   cancelPatientAppointment,
   getCancellationReasons,
+  getPatientCalendarSettings,
 } from '../../api/calendar';
 
 const PatientCalendarScreen = () => {
@@ -48,6 +49,10 @@ const PatientCalendarScreen = () => {
   const [markedDates, setMarkedDates] = useState({});
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [calendarLimits, setCalendarLimits] = useState({
+    minDate: null,
+    maxDate: null,
+  });
   const [cancelDialog, setCancelDialog] = useState({
     visible: false,
     appointment: null,
@@ -67,11 +72,20 @@ const PatientCalendarScreen = () => {
     currentPatient?.patient_id || currentPatient?.account_patient_id;
 
   useEffect(() => {
+    loadCalendarSettings();
+  }, []);
+
+  useEffect(() => {
     if (patientId) {
       loadAppointments();
       loadMarkedDates();
     }
   }, [selectedDate, patientId]);
+
+  const loadCalendarSettings = async () => {
+    const limits = await getPatientCalendarSettings();
+    setCalendarLimits(limits);
+  };
 
   const loadAppointments = async () => {
     if (!patientId) return;
@@ -206,7 +220,7 @@ const PatientCalendarScreen = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadAppointments(), loadMarkedDates()]);
+    await Promise.all([loadAppointments(), loadMarkedDates(), loadCalendarSettings()]);
     setRefreshing(false);
   };
 
@@ -490,6 +504,8 @@ const PatientCalendarScreen = () => {
               onDayPress={handleDayPress}
               onMonthChange={handleMonthChange}
               markedDates={markedDates}
+              minDate={calendarLimits.minDate || undefined}
+              maxDate={calendarLimits.maxDate || undefined}
               theme={calendarTheme}
               firstDay={1} // Lunedì come primo giorno
               enableSwipeMonths={true}

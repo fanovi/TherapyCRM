@@ -12,6 +12,9 @@ use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
 use common\models\User;
 use common\models\UserProfile;
+use common\models\AuthItem;
+use common\models\AuthItemChild;
+use common\models\AuthAssignment;
 
 /**
  * UserController handles CRUD operations for different user types
@@ -106,6 +109,12 @@ class UserController extends Controller
                 $adminRole = $auth->getRole('admin');
                 $auth->assign($adminRole, $user->id);
 
+                // Save extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                if (!empty($postedPermissions)) {
+                    PermissionController::saveExtraPermissions($user->id, 'admin', $postedPermissions);
+                }
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Amministratore creato con successo.');
                 return $this->redirect(['administrators']);
@@ -116,10 +125,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('administrators/create', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('admin')
+            : [];
+
+        return $this->render('administrators/create', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -132,15 +145,19 @@ class UserController extends Controller
         }
 
         $user = $this->findUserModel($id);
-        
+
         // Decodifica i dati sensibili per la visualizzazione
         if ($user->profile) {
             $this->decryptSensitiveData($user->profile);
         }
-        
-        return $this->render('administrators/view', [
+
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('admin', $user->id)
+            : [];
+
+        return $this->render('administrators/view', array_merge([
             'model' => $user,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -178,6 +195,10 @@ class UserController extends Controller
                     throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
+                // Sync extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                PermissionController::saveExtraPermissions($user->id, 'admin', $postedPermissions);
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Amministratore aggiornato con successo.');
                 return $this->redirect(['view-administrator', 'id' => $user->id]);
@@ -188,10 +209,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('administrators/update', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('admin', $user->id)
+            : [];
+
+        return $this->render('administrators/update', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -314,6 +339,12 @@ class UserController extends Controller
                 $coordinatorRole = $auth->getRole('coordinator');
                 $auth->assign($coordinatorRole, $user->id);
 
+                // Save extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                if (!empty($postedPermissions)) {
+                    PermissionController::saveExtraPermissions($user->id, 'coordinator', $postedPermissions);
+                }
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Coordinatore creato con successo.');
                 return $this->redirect(['coordinators']);
@@ -324,10 +355,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('coordinators/create', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('coordinator')
+            : [];
+
+        return $this->render('coordinators/create', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -340,13 +375,17 @@ class UserController extends Controller
         }
 
         $user = $this->findUserModel($id);
-        
+
         // Decodifica i dati sensibili del profilo utente
         $this->decryptSensitiveData($user->profile);
-        
-        return $this->render('coordinators/view', [
+
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('coordinator', $user->id)
+            : [];
+
+        return $this->render('coordinators/view', array_merge([
             'model' => $user,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -384,6 +423,10 @@ class UserController extends Controller
                     throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
+                // Sync extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                PermissionController::saveExtraPermissions($user->id, 'coordinator', $postedPermissions);
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Coordinatore aggiornato con successo.');
                 return $this->redirect(['view-coordinator', 'id' => $user->id]);
@@ -394,10 +437,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('coordinators/update', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('coordinator', $user->id)
+            : [];
+
+        return $this->render('coordinators/update', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -522,6 +569,12 @@ class UserController extends Controller
                 $managerRole = $auth->getRole('manager');
                 $auth->assign($managerRole, $user->id);
 
+                // Save extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                if (!empty($postedPermissions)) {
+                    PermissionController::saveExtraPermissions($user->id, 'manager', $postedPermissions);
+                }
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Manager creato con successo.');
                 return $this->redirect(['managers']);
@@ -532,10 +585,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('managers/create', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('manager')
+            : [];
+
+        return $this->render('managers/create', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -548,13 +605,17 @@ class UserController extends Controller
         }
 
         $user = $this->findUserModel($id);
-        
+
         // Decodifica i dati sensibili del profilo utente
         $this->decryptSensitiveData($user->profile);
-        
-        return $this->render('managers/view', [
+
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('manager', $user->id)
+            : [];
+
+        return $this->render('managers/view', array_merge([
             'model' => $user,
-        ]);
+        ], $permissionData));
     }
 
     /**
@@ -592,6 +653,10 @@ class UserController extends Controller
                     throw new \Exception('Errore nell\'aggiornare il profilo.');
                 }
 
+                // Sync extra permissions
+                $postedPermissions = Yii::$app->request->post('permissions', []);
+                PermissionController::saveExtraPermissions($user->id, 'manager', $postedPermissions);
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Manager aggiornato con successo.');
                 return $this->redirect(['view-manager', 'id' => $user->id]);
@@ -602,10 +667,14 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('managers/update', [
+        $permissionData = Yii::$app->user->can('manage_permissions')
+            ? PermissionController::getPermissionData('manager', $user->id)
+            : [];
+
+        return $this->render('managers/update', array_merge([
             'user' => $user,
             'profile' => $profile,
-        ]);
+        ], $permissionData));
     }
 
     /**

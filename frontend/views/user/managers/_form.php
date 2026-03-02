@@ -185,16 +185,6 @@ $pageTitle = $isUpdate ? 'Modifica Manager' : 'Nuovo Manager';
         <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <?= $form->field($user, 'username')->textInput([
-                        'placeholder' => 'Username (opzionale, default: email)'
-                    ])->label('Username') ?>
-                </div>
-
-                <div>
-                    <!-- Spazio vuoto per allineamento griglia -->
-                </div>
-
-                <div>
                     <?= $form->field($user, 'password')->passwordInput([
                         'placeholder' => 'Inserisci password',
                         'minlength' => 6
@@ -242,18 +232,27 @@ $pageTitle = $isUpdate ? 'Modifica Manager' : 'Nuovo Manager';
     </div>
     <?php endif; ?>
 
+    <?php if (Yii::$app->user->can('manage_permissions')): ?>
+        <?= $this->render('/permission/_permissions_grid', [
+            'allPermissions' => $allPermissions ?? [],
+            'rolePermissions' => $rolePermissions ?? [],
+            'userDirectPermissions' => $userDirectPermissions ?? [],
+            'categories' => $categories ?? [],
+        ]) ?>
+    <?php endif; ?>
+
     <!-- Action Buttons -->
     <div class="mt-8 flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
         <div class="text-sm text-gray-500 dark:text-gray-400">
             * Tutti i campi sono obbligatori
         </div>
-        
+
         <div class="flex items-center gap-3">
             <?php if ($isUpdate): ?>
                 <?= Html::a('Annulla', ['view-manager', 'id' => $user->id], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
-                
+
                 <?= Html::submitButton('Salva Modifiche', [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
@@ -261,7 +260,7 @@ $pageTitle = $isUpdate ? 'Modifica Manager' : 'Nuovo Manager';
                 <?= Html::a('Annulla', ['managers'], [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>
-                
+
                 <?= Html::submitButton('Crea Manager', [
                     'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                 ]) ?>

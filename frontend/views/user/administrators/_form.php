@@ -119,12 +119,6 @@ $isUpdate = $isUpdate ?? false;
                 </div>
                 
                 <div>
-                    <?= $form->field($user, 'username')->textInput([
-                        'placeholder' => 'Inserisci username'
-                    ])->label('Username') ?>
-                </div>
-                
-                <div>
                     <?= $form->field($user, 'password')->passwordInput([
                         'placeholder' => 'Inserisci password'
                     ])->label('Password') ?>
@@ -218,15 +212,24 @@ $isUpdate = $isUpdate ?? false;
     </div>
     <?php endif; ?>
 
+    <?php if (Yii::$app->user->can('manage_permissions')): ?>
+        <?= $this->render('/permission/_permissions_grid', [
+            'allPermissions' => $allPermissions ?? [],
+            'rolePermissions' => $rolePermissions ?? [],
+            'userDirectPermissions' => $userDirectPermissions ?? [],
+            'categories' => $categories ?? [],
+        ]) ?>
+    <?php endif; ?>
+
     <!-- Action Buttons -->
     <div class="flex flex-wrap items-center justify-between gap-4 pt-6">
         <div>
-            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla', 
+            <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>Annulla',
                 ['administrators'], [
                 'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
             ]) ?>
         </div>
-        
+
         <div class="flex space-x-3">
             <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' . ($isUpdate ? 'Aggiorna Amministratore' : 'Crea Amministratore'), [
                 'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-950 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',

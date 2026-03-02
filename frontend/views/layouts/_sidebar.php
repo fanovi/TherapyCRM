@@ -26,6 +26,7 @@ $menuMappings = [
     'Complaints' => ['complaint/index', 'complaint/view'],
     'Absences' => ['absence/index', 'absence/patients', 'absence/create', 'absence/view', 'absence/update'],
     'Manuale' => ['site/manuale', 'site/manuale-gestionale', 'site/manuale-app'],
+    'RolePermissions' => ['permission/roles', 'permission/view-role'],
 ];
 
 // Funzione per controllare se un menu è attivo
@@ -1030,15 +1031,15 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <?php endif; ?>
                     <!-- Menu Item Coordinator Groups -->
 
-                    <!-- Menu Item Impostazioni 2FA -->
-                    <?php if (Yii::$app->user->can('create_admin')): ?>
+                    <!-- Menu Item Permessi Ruoli -->
+                    <?php if (Yii::$app->user->can('manage_permissions')): ?>
                     <li>
                         <a
-                            href="<?= \yii\helpers\Url::to(['/system-setting/two-factor']) ?>"
+                            href="<?= \yii\helpers\Url::to(['/permission/roles']) ?>"
                             class="menu-item group"
-                            :class="'<?= ($currentController === 'system-setting') ? 'menu-item-active' : 'menu-item-inactive' ?>'">
+                            :class="'<?= isMenuActive('RolePermissions', $currentRoute, $menuMappings) ? 'menu-item-active' : 'menu-item-inactive' ?>'">
                             <svg
-                                :class="'<?= ($currentController === 'system-setting') ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>'"
+                                :class="'<?= isMenuActive('RolePermissions', $currentRoute, $menuMappings) ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>'"
                                 width="24"
                                 height="24"
                                 viewBox="0 0 24 24"
@@ -1047,19 +1048,19 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                 <path
                                     fill-rule="evenodd"
                                     clip-rule="evenodd"
-                                    d="M12 2C9.23858 2 7 4.23858 7 7V10H6C4.89543 10 4 10.8954 4 12V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V12C20 10.8954 19.1046 10 18 10H17V7C17 4.23858 14.7614 2 12 2ZM15 10V7C15 5.34315 13.6569 4 12 4C10.3431 4 9 5.34315 9 7V10H15ZM12 15C12.5523 15 13 14.5523 13 14C13 13.4477 12.5523 13 12 13C11.4477 13 11 13.4477 11 14C11 14.5523 11.4477 15 12 15ZM12 17C13.1046 17 14 16.1046 14 15V14C14 12.8954 13.1046 12 12 12C10.8954 12 10 12.8954 10 14V15C10 16.1046 10.8954 17 12 17Z"
+                                    d="M12 1.5C9.37 1.5 7.23 3.64 7.23 6.27C7.23 8.9 9.37 11.04 12 11.04C14.63 11.04 16.77 8.9 16.77 6.27C16.77 3.64 14.63 1.5 12 1.5ZM9.23 6.27C9.23 4.74 10.47 3.5 12 3.5C13.53 3.5 14.77 4.74 14.77 6.27C14.77 7.8 13.53 9.04 12 9.04C10.47 9.04 9.23 7.8 9.23 6.27ZM5.5 19.5V20.5H18.5V19.5C18.5 16.74 14.69 14.5 12 14.5C9.31 14.5 5.5 16.74 5.5 19.5ZM3.5 19.5C3.5 15.36 7.86 12.5 12 12.5C16.14 12.5 20.5 15.36 20.5 19.5V21.5C20.5 22.05 20.05 22.5 19.5 22.5H4.5C3.95 22.5 3.5 22.05 3.5 21.5V19.5Z"
                                     fill="" />
                             </svg>
 
                             <span
                                 class="menu-item-text"
                                 :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Impostazioni 2FA
+                                Permessi Ruoli
                             </span>
                         </a>
                     </li>
                     <?php endif; ?>
-                    <!-- Menu Item Impostazioni 2FA End -->
+                    <!-- Menu Item Permessi Ruoli End -->
 
                     <!-- Menu Item Manuale d'Uso (nascosto) -->
                     <!-- Menu Item Manuale d'Uso End -->

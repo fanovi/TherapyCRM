@@ -35,6 +35,7 @@ class SystemSettingController extends Controller
                     'enable-user-2fa' => ['POST'],
                     'disable-user-2fa' => ['POST'],
                     'enable-all-2fa' => ['POST'],
+                    'update-calendar' => ['POST'],
                 ],
             ],
         ];
@@ -115,7 +116,7 @@ class SystemSettingController extends Controller
 
         $name = $user->profile ? $user->profile->getFullName() : $user->email;
         Yii::$app->session->setFlash('success', "2FA abilitato per {$name}.");
-        return $this->redirect(Yii::$app->request->referrer ?: ['two-factor']);
+        return $this->redirect(['two-factor']);
     }
 
     public function actionDisableUser2fa($userId)
@@ -130,7 +131,7 @@ class SystemSettingController extends Controller
 
         $name = $user->profile ? $user->profile->getFullName() : $user->email;
         Yii::$app->session->setFlash('success', "2FA disabilitato per {$name}.");
-        return $this->redirect(Yii::$app->request->referrer ?: ['two-factor']);
+        return $this->redirect(['two-factor']);
     }
 
     public function actionEnableAll2fa()
@@ -157,5 +158,39 @@ class SystemSettingController extends Controller
 
         Yii::$app->session->setFlash('success', "2FA abilitato per {$count} utenti.");
         return $this->redirect(['two-factor']);
+    }
+
+    public function actionCalendar()
+    {
+        $settings = SystemSetting::getByCategory('calendar');
+        $dateLimits = SystemSetting::getPatientCalendarDateLimits();
+
+        return $this->render('calendar', [
+            'settings' => $settings,
+            'dateLimits' => $dateLimits,
+        ]);
+    }
+
+    public function actionUpdateCalendar()
+    {
+        $request = Yii::$app->request;
+
+        $fields = [
+            'patient_past_range_value' => 'integer',
+            'patient_past_range_unit' => 'string',
+            'patient_future_range_value' => 'integer',
+            'patient_future_range_unit' => 'string',
+        ];
+
+        foreach ($fields as $key => $type) {
+            $value = $request->post($key);
+            if ($value !== null) {
+                SystemSetting::setValue('calendar', $key, $value);
+            }
+        }
+
+        SystemSetting::clearCache();
+        Yii::$app->session->setFlash('success', 'Impostazioni calendario aggiornate con successo.');
+        return $this->redirect(['calendar']);
     }
 }
