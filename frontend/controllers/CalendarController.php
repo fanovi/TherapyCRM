@@ -19,7 +19,7 @@ class CalendarController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'], // Solo utenti autenticati
+                        'roles' => ['view_calendar'],
                     ],
                 ],
             ],

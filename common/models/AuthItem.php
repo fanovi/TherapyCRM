@@ -149,6 +149,22 @@ class AuthItem extends ActiveRecord
     }
 
     /**
+     * Trova solo i permessi attivi (esclude quelli orfani tramite permission_metadata).
+     * @return \yii\db\ActiveQuery
+     */
+    public static function findActivePermissions()
+    {
+        $inactive = PermissionMetadata::find()
+            ->select('permission_name')
+            ->where(['is_active' => 0]);
+
+        return static::find()
+            ->where(['type' => self::TYPE_PERMISSION])
+            ->andWhere(['NOT IN', 'name', $inactive])
+            ->orderBy(['name' => SORT_ASC]);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function behaviors()

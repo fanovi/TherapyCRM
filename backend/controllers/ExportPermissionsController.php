@@ -63,7 +63,7 @@ class ExportPermissionsController extends Controller
         $roleNames = array_column($roles, 'name');
 
         $permissions = $db->createCommand(
-            'SELECT name, description FROM auth_item WHERE type = 2 ORDER BY name'
+            'SELECT name, description FROM auth_item WHERE type = 2 AND name NOT IN (SELECT permission_name FROM permission_metadata WHERE is_active = 0) ORDER BY name'
         )->queryAll();
 
         $rolePermMap = [];
@@ -160,9 +160,9 @@ class ExportPermissionsController extends Controller
 
         $roleNames = array_column($roles, 'name');
 
-        // Recupera tutti i permessi (type=2) ordinati per nome
+        // Recupera tutti i permessi attivi (type=2, esclusi orfani)
         $permissions = $db->createCommand(
-            'SELECT name, description FROM auth_item WHERE type = 2 ORDER BY name'
+            'SELECT name, description FROM auth_item WHERE type = 2 AND name NOT IN (SELECT permission_name FROM permission_metadata WHERE is_active = 0) ORDER BY name'
         )->queryAll();
 
         // Mappa ruolo -> set di permessi figli
@@ -235,9 +235,9 @@ class ExportPermissionsController extends Controller
             ->orderBy('id')
             ->all();
 
-        // Tutti i permessi ordinati
+        // Tutti i permessi attivi (esclusi orfani)
         $allPermissions = $db->createCommand(
-            'SELECT name FROM auth_item WHERE type = 2 ORDER BY name'
+            'SELECT name FROM auth_item WHERE type = 2 AND name NOT IN (SELECT permission_name FROM permission_metadata WHERE is_active = 0) ORDER BY name'
         )->queryColumn();
 
         // Tutti i ruoli

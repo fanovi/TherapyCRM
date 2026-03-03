@@ -83,10 +83,7 @@ class PermissionController extends Controller
             throw new NotFoundHttpException('Ruolo non trovato.');
         }
 
-        $permissions = AuthItem::find()
-            ->where(['type' => AuthItem::TYPE_PERMISSION])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+        $permissions = AuthItem::findActivePermissions()->all();
 
         $assignedPermissions = AuthItemChild::find()
             ->where(['parent' => $name])
@@ -324,10 +321,7 @@ class PermissionController extends Controller
      */
     public static function getPermissionData($roleName, $userId = null)
     {
-        $allPermissions = AuthItem::find()
-            ->where(['type' => AuthItem::TYPE_PERMISSION])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+        $allPermissions = AuthItem::findActivePermissions()->all();
 
         $rolePermissions = AuthItemChild::find()
             ->where(['{{%auth_item_child}}.parent' => $roleName])

@@ -377,6 +377,10 @@ class StatisticsController extends BaseController
      */
     public function actionExport($type)
     {
+        if (!Yii::$app->user->can('export_data')) {
+            throw new \yii\web\ForbiddenHttpException('Non hai i permessi per esportare i dati.');
+        }
+
         try {
             switch ($type) {
                 case 'absences':
