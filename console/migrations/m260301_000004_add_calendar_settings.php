@@ -2,7 +2,7 @@
 
 use yii\db\Migration;
 
-class m260227_000001_add_calendar_settings extends Migration
+class m260301_000004_add_calendar_settings extends Migration
 {
     public function safeUp()
     {
