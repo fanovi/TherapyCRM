@@ -50,11 +50,25 @@ export const biometricService = {
       const platform = Platform.OS; // 'ios' o 'android'
 
       // Chiama il server per ottenere il token biometrico
+      const formData = new FormData();
+      formData.append('device_name', deviceName);
+      formData.append('platform', platform);
+
+      console.log('🔐 Biometric register URL:', API_CONFIG.ENDPOINTS.BIOMETRIC_REGISTER);
+      console.log('🔐 Biometric register authToken:', authToken ? authToken.substring(0, 20) + '...' : 'NULL');
+
       const response = await apiClient.post(
         API_CONFIG.ENDPOINTS.BIOMETRIC_REGISTER,
-        {device_name: deviceName, platform},
-        {headers: {Authorization: `Bearer ${authToken}`}},
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
       );
+
+      console.log('🔐 Biometric register response:', JSON.stringify(response.data));
 
       if (!response.data?.success || !response.data?.data?.biometric_token) {
         return {
@@ -106,9 +120,19 @@ export const biometricService = {
       const biometricToken = credentials.password;
 
       // Chiama il server per il login
+      const formData = new FormData();
+      formData.append('biometric_token', biometricToken);
+
+      console.log('🔐 Biometric login URL:', API_CONFIG.ENDPOINTS.BIOMETRIC_LOGIN);
+
       const response = await apiClient.post(
         API_CONFIG.ENDPOINTS.BIOMETRIC_LOGIN,
-        {biometric_token: biometricToken},
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        },
       );
 
       if (!response.data?.success || !response.data?.data) {
@@ -187,8 +211,13 @@ export const biometricService = {
       // Revoca tutti i dispositivi sul server
       await apiClient.post(
         API_CONFIG.ENDPOINTS.BIOMETRIC_REVOKE,
-        {},
-        {headers: {Authorization: `Bearer ${authToken}`}},
+        new FormData(),
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
       );
 
       // Pulizia locale
