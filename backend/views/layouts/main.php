@@ -165,7 +165,7 @@ $menuItems = [
                 <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between items-center">
                         <p class="text-sm text-gray-500">&copy; <?= Html::encode(Yii::$app->name) ?> <?= date('Y') ?></p>
-                        <p class="text-sm text-gray-500"><?= Yii::powered() ?></p>
+                        <p class="text-sm text-gray-500">CGM Backend</p>
                     </div>
                 </div>
             </footer>
