@@ -40,30 +40,11 @@ $this->params['breadcrumbs'][] = $this->title;
             </label>
         </div>
 
-        <!-- Toggle Ricorda dispositivo -->
-        <div class="flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700">
-            <div>
-                <label class="font-medium text-gray-700 dark:text-gray-300">Permetti "Ricorda dispositivo"</label>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Gli utenti potranno scegliere di non inserire il codice 2FA su dispositivi fidati.</p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-                <input type="hidden" name="remember_device_enabled" value="0">
-                <input type="checkbox" name="remember_device_enabled" value="1" class="sr-only peer" <?= !empty($settings['remember_device_enabled']) ? 'checked' : '' ?>>
-                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-blue-600"></div>
-            </label>
-        </div>
+    </div>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Parametri</h3>
-
-        <!-- Giorni validità dispositivo -->
-        <div class="mb-4">
-            <label class="block font-medium text-gray-700 dark:text-gray-300 mb-1">Giorni validità dispositivo fidato</label>
-            <input type="number" name="remember_device_days" value="<?= Html::encode($settings['remember_device_days'] ?? 30) ?>" min="1" max="365"
-                   class="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Numero di giorni prima che un dispositivo fidato debba ripetere la verifica 2FA.</p>
-        </div>
 
         <!-- Scadenza OTP -->
         <div class="mb-4">

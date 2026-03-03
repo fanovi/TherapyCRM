@@ -99,7 +99,6 @@ const authSlice = createSlice({
       state.error = null;
       state.requires2fa = false;
       state.twoFactorMethod = null;
-      state.showRememberDevice = false;
       state.twoFactorTempToken = null;
       state.currentRole =
         action.payload.user.roles?.[action.payload.user.roles.length - 1] ||
@@ -113,7 +112,6 @@ const authSlice = createSlice({
     clear2faState: state => {
       state.requires2fa = false;
       state.twoFactorMethod = null;
-      state.showRememberDevice = false;
       state.twoFactorTempToken = null;
       state.totpConfigured = false;
       state.isLoading = false;

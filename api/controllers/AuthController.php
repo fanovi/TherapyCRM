@@ -261,7 +261,6 @@ class AuthController extends Controller
                         'two_factor_method' => $method,
                         'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
-                        'show_remember_device' => false,
                         'requires_password_change' => 0
                     ]
                 ];
@@ -1169,7 +1168,6 @@ class AuthController extends Controller
                         'two_factor_method' => $method,
                         'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
-                        'show_remember_device' => false,
                         'requires_password_change' => 0
                     ]
                 ];

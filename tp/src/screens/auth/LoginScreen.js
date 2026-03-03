@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Platform,
   StatusBar,
   Image,
+  Alert,
 } from 'react-native';
 import {
   Text,
@@ -19,20 +20,35 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
-import {clearError} from '../../slices/authSlice';
+import {clearError, setBiometricAvailability, setBiometricRegistered} from '../../slices/authSlice';
 import {loginService} from '../../services/loginService';
+import {biometricService} from '../../services/biometricService';
 import {logo} from '../../assets/images';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {isLoading, error, user, requiresPasswordChange, requires2fa} =
+  const {isLoading, error, user, requiresPasswordChange, requires2fa, biometricAvailable, biometricRegistered, biometricBiometryType} =
     useSelector(state => state.auth);
   const theme = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const biometricLabel = biometricService.getBiometricLabel(biometricBiometryType);
+
+  // Controlla disponibilità biometrica (necessario dopo logout che resetta Redux)
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const availability = await biometricService.isBiometricAvailable();
+      dispatch(setBiometricAvailability(availability));
+      const registered = await biometricService.isBiometricRegistered();
+      dispatch(setBiometricRegistered(registered));
+    };
+    checkBiometric();
+  }, [dispatch]);
 
   useEffect(() => {
     // Se l'utente ha effettuato il login ma deve cambiare password
@@ -44,6 +60,26 @@ const LoginScreen = () => {
       navigation.navigate('TwoFactor');
     }
   }, [user, requiresPasswordChange, requires2fa, navigation]);
+
+  const handleBiometricLogin = useCallback(async () => {
+    setBiometricLoading(true);
+    try {
+      const result = await loginService.biometricLogin(dispatch);
+      if (!result.success && result.error !== 'cancelled') {
+        Alert.alert(
+          'Accesso biometrico non riuscito',
+          'Effettua il login con email e password.',
+        );
+        // Token invalido - pulizia
+        await biometricService.clearBiometricData();
+        dispatch(setBiometricRegistered(false));
+      }
+    } catch (err) {
+      Alert.alert('Errore', 'Si è verificato un errore. Riprova.');
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, [dispatch]);
 
   const handleLogin = async () => {
     console.log('🔐 === LOGIN DEBUG START ===');
@@ -157,6 +193,22 @@ const LoginScreen = () => {
                   'Accedi'
                 )}
               </Button>
+
+              {biometricAvailable && biometricRegistered && (
+                <Button
+                  mode="outlined"
+                  onPress={handleBiometricLogin}
+                  style={styles.biometricButton}
+                  contentStyle={styles.buttonContent}
+                  disabled={biometricLoading || isLoading}
+                  icon={biometricLoading ? undefined : 'fingerprint'}>
+                  {biometricLoading ? (
+                    <ActivityIndicator color={theme.colors.primary} size="small" />
+                  ) : (
+                    `Accedi con ${biometricLabel}`
+                  )}
+                </Button>
+              )}
 
               <Button
                 mode="text"
@@ -277,7 +329,11 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  biometricButton: {
+    marginBottom: 12,
     borderRadius: 8,
   },
   forgotButton: {

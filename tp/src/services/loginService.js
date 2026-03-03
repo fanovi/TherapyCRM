@@ -422,7 +422,7 @@ export const loginService = {
         }
         dispatch(resetPatients());
         dispatch(logoutUser());
-        console.log('🧹 Force cleanup completed (deviceToken preserved)');
+        console.log('🧹 Force cleanup completed (biometric preserved)');
       } catch (finalError) {
         // Ultima risorsa: almeno reset Redux
         console.error('❌ Final cleanup error:', finalError);

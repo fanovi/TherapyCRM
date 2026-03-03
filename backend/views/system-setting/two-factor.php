@@ -49,17 +49,7 @@ $this->title = 'Impostazioni 2FA';
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <div class="flex items-center justify-between py-4">
-                <div class="pr-4">
-                    <label class="text-sm font-medium text-gray-900">Permetti "Ricorda dispositivo"</label>
-                    <p class="text-sm text-gray-500 mt-1">Gli utenti potranno saltare il 2FA su dispositivi fidati.</p>
-                </div>
-                <input type="hidden" name="remember_device_enabled" value="0">
-                <label class="toggle-switch">
-                    <input type="checkbox" name="remember_device_enabled" value="1" <?= !empty($settings['remember_device_enabled']) ? 'checked' : '' ?>>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
+        </div>
         </div>
     </div>
 
@@ -68,11 +58,6 @@ $this->title = 'Impostazioni 2FA';
             <h2 class="text-lg font-medium text-gray-900">Parametri</h2>
         </div>
         <div class="px-6 py-4 space-y-5">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Giorni validità dispositivo fidato</label>
-                <input type="number" name="remember_device_days" value="<?= Html::encode($settings['remember_device_days'] ?? 30) ?>" min="1" max="365"
-                       class="mt-1 block w-64 rounded-md border border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">Scadenza OTP email (secondi)</label>
                 <input type="number" name="email_otp_expiry_seconds" value="<?= Html::encode($settings['email_otp_expiry_seconds'] ?? 300) ?>" min="60" max="3600"

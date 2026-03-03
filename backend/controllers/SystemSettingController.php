@@ -83,8 +83,6 @@ class SystemSettingController extends Controller
 
         $fields = [
             'enabled' => 'boolean',
-            'remember_device_enabled' => 'boolean',
-            'remember_device_days' => 'integer',
             'email_otp_expiry_seconds' => 'integer',
             'max_otp_attempts' => 'integer',
         ];
