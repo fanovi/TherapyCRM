@@ -91,6 +91,11 @@ return [
                 'POST auth/2fa/setup' => 'auth/2fa-setup',
                 'POST auth/2fa/confirm-setup' => 'auth/2fa-confirm-setup',
                 'POST auth/2fa/setup-temp' => 'auth/2fa-setup-temp',
+                // Biometric routes
+                'POST auth/biometric/register' => 'auth/biometric-register',
+                'POST auth/biometric/login' => 'auth/biometric-login',
+                'POST auth/biometric/revoke' => 'auth/biometric-revoke',
+                'GET auth/biometric/status' => 'auth/biometric-status',
                 // Calendar routes
                 'POST calendar/patient-appointments' => 'calendar/patient-appointments',
                 'POST calendar/patient-marked-dates' => 'calendar/patient-marked-dates',

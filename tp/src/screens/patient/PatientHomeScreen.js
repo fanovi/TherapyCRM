@@ -20,12 +20,20 @@ import ScreenTemplate from '../../components/ScreenTemplate';
 import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 import {loginService} from '../../services/loginService';
 import {getPatientUpcomingAppointments} from '../../api/calendar';
+import BiometricEnrollmentModal from '../../components/BiometricEnrollmentModal';
+import {biometricService} from '../../services/biometricService';
+import {setBiometricRegistered} from '../../slices/authSlice';
 
 const PatientHomeScreen = () => {
   const dispatch = useDispatch();
-  const {user} = useSelector(state => state.auth);
+  const {user, biometricAvailable, biometricRegistered} = useSelector(
+    state => state.auth,
+  );
   const {currentPatient} = useSelector(state => state.patient);
   const theme = useTheme();
+
+  // Stato biometric enrollment
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
 
   // Stati per gli appuntamenti
   const [appointments, setAppointments] = useState([]);
@@ -85,6 +93,22 @@ const PatientHomeScreen = () => {
       loadUpcomingAppointments(false, patientId);
     }
   }, [patientId]);
+
+  // Check biometric enrollment dopo il caricamento
+  useEffect(() => {
+    const checkBiometricEnrollment = async () => {
+      if (biometricAvailable && !biometricRegistered && !loading) {
+        const declined = await biometricService.hasDeclinedEnrollment();
+        if (!declined) {
+          const timer = setTimeout(() => {
+            setShowBiometricModal(true);
+          }, 1000);
+          return () => clearTimeout(timer);
+        }
+      }
+    };
+    checkBiometricEnrollment();
+  }, [biometricAvailable, biometricRegistered, loading]);
 
   // Funzione per formattare la data
   const formatAppointmentDate = (date, time) => {
@@ -322,6 +346,11 @@ const PatientHomeScreen = () => {
           </Card.Content>
         </Card>
       </View> */}
+      <BiometricEnrollmentModal
+        visible={showBiometricModal}
+        onDismiss={() => setShowBiometricModal(false)}
+        onSuccess={() => dispatch(setBiometricRegistered(true))}
+      />
     </ScreenTemplate>
   );
 };

@@ -5,8 +5,10 @@ import {useSelector, useDispatch} from 'react-redux';
 import {ActivityIndicator, View} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {checkTokenValidity} from '../api/auth';
-import {loginSuccess, logoutUser} from '../slices/authSlice';
+import {loginSuccess, logoutUser, setBiometricAvailability, setBiometricRegistered} from '../slices/authSlice';
 import {setPatientsFromLogin} from '../slices/patientSlice';
+import {biometricService} from '../services/biometricService';
+import {loginService} from '../services/loginService';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import AuthNavigator from './AuthNavigator';
 import PatientNavigator from './PatientNavigator';
@@ -42,6 +44,40 @@ const AppNavigator = () => {
   const checkInitialAuth = async () => {
     try {
       console.log('🚀 === CONTROLLO AUTENTICAZIONE INIZIALE ===');
+
+      // 0. Check biometric availability
+      const bioAvailability = await biometricService.isBiometricAvailable();
+      dispatch(setBiometricAvailability(bioAvailability));
+      const bioRegistered = await biometricService.isBiometricRegistered();
+      dispatch(setBiometricRegistered(bioRegistered));
+
+      console.log('🔐 Biometric check:', {
+        available: bioAvailability.available,
+        type: bioAvailability.biometryType,
+        registered: bioRegistered,
+      });
+
+      // Se biometria disponibile e registrata, tenta login biometrico
+      if (bioAvailability.available && bioRegistered) {
+        console.log('🔐 Attempting biometric login...');
+        const bioResult = await loginService.biometricLogin(dispatch);
+
+        if (bioResult.success) {
+          console.log('✅ Biometric login successful');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('⚠️ Biometric login failed:', bioResult.error);
+
+        // Se l'utente ha cancellato, fallback al check JWT standard
+        // Se il token era invalido, pulizia già fatta dal service
+        if (bioResult.error !== 'cancelled') {
+          // Token invalido - pulizia locale
+          await biometricService.clearBiometricData();
+          dispatch(setBiometricRegistered(false));
+        }
+      }
 
       // 1. Controlla se esiste il token in AsyncStorage
       const token = await AsyncStorage.getItem('authToken');

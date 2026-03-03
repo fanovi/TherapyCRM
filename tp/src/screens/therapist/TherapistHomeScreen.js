@@ -20,11 +20,17 @@ import LinearGradient from 'react-native-linear-gradient';
 import {loginService} from '../../services/loginService';
 import {therapistService} from '../../services/therapistService';
 import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
+import BiometricEnrollmentModal from '../../components/BiometricEnrollmentModal';
+import {biometricService} from '../../services/biometricService';
+import {setBiometricRegistered} from '../../slices/authSlice';
 
 const TherapistHomeScreen = () => {
   const dispatch = useDispatch();
-  const {user} = useSelector(state => state.auth);
+  const {user, biometricAvailable, biometricRegistered} = useSelector(
+    state => state.auth,
+  );
 
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [weeklyHoursData, setWeeklyHoursData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +85,23 @@ const TherapistHomeScreen = () => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Check biometric enrollment dopo il caricamento
+  useEffect(() => {
+    const checkBiometricEnrollment = async () => {
+      if (biometricAvailable && !biometricRegistered && !loading) {
+        const declined = await biometricService.hasDeclinedEnrollment();
+        if (!declined) {
+          // Mostra il modal con un delay di 1 secondo
+          const timer = setTimeout(() => {
+            setShowBiometricModal(true);
+          }, 1000);
+          return () => clearTimeout(timer);
+        }
+      }
+    };
+    checkBiometricEnrollment();
+  }, [biometricAvailable, biometricRegistered, loading]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -304,6 +327,12 @@ const TherapistHomeScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      <BiometricEnrollmentModal
+        visible={showBiometricModal}
+        onDismiss={() => setShowBiometricModal(false)}
+        onSuccess={() => dispatch(setBiometricRegistered(true))}
+      />
     </View>
   );
 };

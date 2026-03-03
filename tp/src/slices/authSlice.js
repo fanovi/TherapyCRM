@@ -17,6 +17,11 @@ const initialState = {
   showRememberDevice: false,
   twoFactorTempToken: null,
   totpConfigured: false,
+  // Biometric state
+  biometricAvailable: false,
+  biometricBiometryType: null,
+  biometricRegistered: false,
+  biometricLoginInProgress: false,
 };
 
 const authSlice = createSlice({
@@ -116,6 +121,34 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
+    // Biometric reducers
+    setBiometricAvailability: (state, action) => {
+      state.biometricAvailable = action.payload.available;
+      state.biometricBiometryType = action.payload.biometryType;
+    },
+    setBiometricRegistered: (state, action) => {
+      state.biometricRegistered = action.payload;
+    },
+    biometricLoginStart: state => {
+      state.biometricLoginInProgress = true;
+      state.error = null;
+    },
+    biometricLoginSuccess: (state, action) => {
+      state.isAuthenticated = true;
+      state.token = action.payload.token;
+      state.user = action.payload.user;
+      state.biometricLoginInProgress = false;
+      state.isLoading = false;
+      state.error = null;
+      state.currentRole =
+        action.payload.user.roles?.[action.payload.user.roles.length - 1] ||
+        action.payload.user.role ||
+        action.payload.user.user_type;
+    },
+    biometricLoginFailure: (state, action) => {
+      state.biometricLoginInProgress = false;
+      state.error = action.payload;
+    },
   },
 });
 
@@ -133,6 +166,11 @@ export const {
   twoFactorSuccess,
   twoFactorFailure,
   clear2faState,
+  setBiometricAvailability,
+  setBiometricRegistered,
+  biometricLoginStart,
+  biometricLoginSuccess,
+  biometricLoginFailure,
 } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -17,6 +17,12 @@ export const API_CONFIG = {
     TWO_FACTOR_SETUP_TEMP: '/auth/2fa/setup-temp',
     TWO_FACTOR_CONFIRM_SETUP: '/auth/2fa/confirm-setup',
 
+    // Biometric
+    BIOMETRIC_REGISTER: '/auth/biometric/register',
+    BIOMETRIC_LOGIN: '/auth/biometric/login',
+    BIOMETRIC_REVOKE: '/auth/biometric/revoke',
+    BIOMETRIC_STATUS: '/auth/biometric/status',
+
     // Notifications
     NOTIFICATIONS: '/notifications',
     NOTIFICATION_DETAIL: id => `/notifications/${id}`,

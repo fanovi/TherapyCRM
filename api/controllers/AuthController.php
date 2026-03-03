@@ -7,6 +7,7 @@ use common\models\AuthToken;
 use common\models\Patient;
 use common\models\Therapist;
 use common\models\TrustedDevice;
+use common\models\BiometricDevice;
 use common\models\User;
 use common\models\UserProfile;
 use common\models\UserTwoFactorAuth;
@@ -1122,6 +1123,9 @@ class AuthController extends Controller
         $updateResult = $this->updateUserPassword($user['id'], $user['user_type'], $newPassword);
 
         if ($updateResult) {
+            // Revoca tutti i dispositivi biometrici (cambio password = revoca biometria)
+            BiometricDevice::revokeAllForUser($user['id']);
+
             // Recupera l'utente aggiornato dal database per costruire i dati corretti
             $userModel = User::findOne($user['id']);
             if (!$userModel) {
@@ -1624,6 +1628,9 @@ class AuthController extends Controller
         $updateResult = $this->updateUserPassword($user['id'], $user['user_type'], $newPassword);
 
         if ($updateResult) {
+            // Revoca tutti i dispositivi biometrici (cambio password = revoca biometria)
+            BiometricDevice::revokeAllForUser($user['id']);
+
             // Invalida il token di reset
             $this->invalidatePasswordResetToken($resetToken);
 
@@ -2280,5 +2287,247 @@ Se non hai richiesto tu questo reset, ignora questa email.
 ---
 Questa email è stata inviata automaticamente. Non rispondere a questo messaggio.
         ";
+    }
+
+    // ==========================================
+    // Biometric Authentication Actions
+    // ==========================================
+
+    /**
+     * Registra un dispositivo biometrico per l'utente autenticato.
+     * POST /auth/biometric/register
+     * Richiede JWT valido (Authorization header).
+     */
+    public function actionBiometricRegister()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        // Verifica che la biometria sia abilitata globalmente
+        if (!SystemSetting::isBiometricEnabled()) {
+            return [
+                'success' => false,
+                'message' => 'Autenticazione biometrica non abilitata',
+                'error_code' => 'BIOMETRIC_DISABLED'
+            ];
+        }
+
+        // Verifica JWT
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso non valido',
+                'error_code' => 'UNAUTHORIZED'
+            ];
+        }
+
+        $deviceName = $request->post('device_name');
+        $platform = $request->post('platform');
+
+        $device = BiometricDevice::register($user['id'], $deviceName, $platform);
+
+        if (!$device) {
+            return [
+                'success' => false,
+                'message' => 'Errore nella registrazione del dispositivo biometrico',
+                'error_code' => 'REGISTRATION_FAILED'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Dispositivo biometrico registrato con successo',
+            'data' => [
+                'biometric_token' => $device->biometric_token,
+                'expires_at' => $device->expires_at,
+            ]
+        ];
+    }
+
+    /**
+     * Login tramite token biometrico.
+     * POST /auth/biometric/login
+     * Non richiede JWT (endpoint pubblico).
+     */
+    public function actionBiometricLogin()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        // Verifica che la biometria sia abilitata globalmente
+        if (!SystemSetting::isBiometricEnabled()) {
+            return [
+                'success' => false,
+                'message' => 'Autenticazione biometrica non abilitata',
+                'error_code' => 'BIOMETRIC_DISABLED'
+            ];
+        }
+
+        $biometricToken = $request->post('biometric_token');
+
+        if (empty($biometricToken)) {
+            return [
+                'success' => false,
+                'message' => 'Token biometrico obbligatorio',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        // Valida il token biometrico
+        $device = BiometricDevice::validateToken($biometricToken);
+
+        if (!$device) {
+            // Incrementa tentativi falliti
+            BiometricDevice::incrementFailedAttempts($biometricToken);
+
+            return [
+                'success' => false,
+                'message' => 'Token biometrico non valido o scaduto',
+                'error_code' => 'INVALID_BIOMETRIC_TOKEN'
+            ];
+        }
+
+        // Trova l'utente associato
+        $userModel = User::findOne($device->user_id);
+        if (!$userModel || $userModel->status != User::STATUS_ACTIVE) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato o non attivo',
+                'error_code' => 'USER_INACTIVE'
+            ];
+        }
+
+        // Costruisci dati utente (stessa logica del login normale)
+        $userData = $this->buildUserData($userModel);
+        if (!$userData) {
+            return [
+                'success' => false,
+                'message' => 'Errore nel recupero dati utente',
+                'error_code' => 'USER_DATA_BUILD_FAILED'
+            ];
+        }
+
+        // Genera JWT
+        $accessToken = $this->generateAccessToken([
+            'user_id' => $userData['id'],
+            'email' => $userData['email']
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Login biometrico riuscito',
+            'data' => [
+                'user' => $userData,
+                'access_token' => $accessToken,
+                'token_type' => 'Bearer',
+                'expires_in' => 3600
+            ]
+        ];
+    }
+
+    /**
+     * Revoca dispositivi biometrici.
+     * POST /auth/biometric/revoke
+     * Richiede JWT. Body opzionale: biometric_token (se omesso revoca tutti).
+     */
+    public function actionBiometricRevoke()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso non valido',
+                'error_code' => 'UNAUTHORIZED'
+            ];
+        }
+
+        $biometricToken = $request->post('biometric_token');
+
+        if (!empty($biometricToken)) {
+            // Revoca singolo dispositivo
+            $revoked = BiometricDevice::revokeDevice($user['id'], $biometricToken);
+            return [
+                'success' => true,
+                'message' => $revoked ? 'Dispositivo revocato' : 'Dispositivo non trovato',
+                'data' => ['revoked' => $revoked]
+            ];
+        } else {
+            // Revoca tutti
+            $count = BiometricDevice::revokeAllForUser($user['id']);
+            return [
+                'success' => true,
+                'message' => "Revocati {$count} dispositivi biometrici",
+                'data' => ['revoked_count' => $count]
+            ];
+        }
+    }
+
+    /**
+     * Stato biometria per l'utente autenticato.
+     * GET /auth/biometric/status
+     * Richiede JWT.
+     */
+    public function actionBiometricStatus()
+    {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Token di accesso non valido',
+                'error_code' => 'UNAUTHORIZED'
+            ];
+        }
+
+        $biometricEnabled = SystemSetting::isBiometricEnabled();
+        $devices = BiometricDevice::getActiveDevices($user['id']);
+
+        $devicesList = array_map(function ($device) {
+            return [
+                'device_name' => $device->device_name,
+                'platform' => $device->platform,
+                'created_at' => $device->created_at,
+                'last_used_at' => $device->last_used_at,
+                'expires_at' => $device->expires_at,
+            ];
+        }, $devices);
+
+        return [
+            'success' => true,
+            'data' => [
+                'biometric_enabled' => $biometricEnabled,
+                'has_registered_devices' => count($devices) > 0,
+                'devices' => $devicesList,
+            ]
+        ];
+    }
+
+    /**
+     * Helper: ottiene l'utente autenticato dal JWT nell'header Authorization.
+     *
+     * @return array|null Dati utente o null se non autenticato
+     */
+    private function getAuthenticatedUser()
+    {
+        $request = Yii::$app->request;
+        $authHeader = $request->getHeaders()->get('Authorization');
+
+        if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            return null;
+        }
+
+        return $this->verifyTokenWithDatabase($matches[1]);
     }
 }

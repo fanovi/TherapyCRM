@@ -251,6 +251,46 @@ class SystemSetting extends ActiveRecord
     }
 
     /**
+     * Verifica se l'autenticazione biometrica è abilitata globalmente
+     *
+     * @return bool
+     */
+    public static function isBiometricEnabled()
+    {
+        return (bool) self::getValue('biometric', 'enabled', true);
+    }
+
+    /**
+     * Ottiene il numero massimo di tentativi falliti per la biometria
+     *
+     * @return int
+     */
+    public static function getBiometricMaxFailedAttempts()
+    {
+        return (int) self::getValue('biometric', 'max_failed_attempts', 3);
+    }
+
+    /**
+     * Ottiene i giorni di validità del token biometrico
+     *
+     * @return int
+     */
+    public static function getBiometricTokenExpiryDays()
+    {
+        return (int) self::getValue('biometric', 'token_expiry_days', 90);
+    }
+
+    /**
+     * Ottiene il numero massimo di dispositivi biometrici per utente
+     *
+     * @return int
+     */
+    public static function getBiometricMaxDevices()
+    {
+        return (int) self::getValue('biometric', 'max_devices_per_user', 3);
+    }
+
+    /**
      * Ottiene tutte le impostazioni di una categoria
      *
      * @param string $category

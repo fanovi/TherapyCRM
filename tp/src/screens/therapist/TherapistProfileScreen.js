@@ -1,5 +1,5 @@
-import React from 'react';
-import {View, StyleSheet, ScrollView} from 'react-native';
+import React, {useState, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Text,
   Button,
@@ -8,19 +8,54 @@ import {
   Avatar,
   Chip,
   Divider,
+  Switch,
 } from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {loginService} from '../../services/loginService';
+import {biometricService} from '../../services/biometricService';
+import {setBiometricRegistered} from '../../slices/authSlice';
 import ScreenTemplate from '../../components/ScreenTemplate';
 
 const TherapistProfileScreen = () => {
   const dispatch = useDispatch();
-  const {user} = useSelector(state => state.auth);
+  const {user, token, biometricAvailable, biometricRegistered, biometricBiometryType} =
+    useSelector(state => state.auth);
   const theme = useTheme();
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const biometricLabel = biometricService.getBiometricLabel(biometricBiometryType);
 
   const handleLogout = async () => {
     await loginService.logout(dispatch);
   };
+
+  const handleBiometricToggle = useCallback(async () => {
+    setBiometricLoading(true);
+    try {
+      if (biometricRegistered) {
+        // Disabilita
+        const result = await biometricService.disableBiometric(token);
+        if (result.success) {
+          dispatch(setBiometricRegistered(false));
+        }
+      } else {
+        // Abilita
+        const result = await biometricService.registerBiometric(
+          token,
+          biometricLabel,
+        );
+        if (result.success) {
+          dispatch(setBiometricRegistered(true));
+        } else {
+          Alert.alert('Errore', result.error || 'Impossibile abilitare la biometria');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Errore', 'Si è verificato un errore');
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, [biometricRegistered, token, dispatch, biometricLabel]);
 
   return (
     <ScreenTemplate
@@ -146,6 +181,42 @@ const TherapistProfileScreen = () => {
           </Card.Content>
         </Card>
 
+        {/* Sicurezza */}
+        {biometricAvailable && (
+          <Card style={styles.securityCard}>
+            <Card.Content>
+              <Text
+                style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+                Sicurezza
+              </Text>
+
+              <View style={styles.biometricRow}>
+                <View style={styles.biometricInfo}>
+                  <Text
+                    style={[
+                      styles.biometricLabel,
+                      {color: theme.colors.onSurface},
+                    ]}>
+                    Accesso con {biometricLabel}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.biometricDescription,
+                      {color: theme.colors.onSurfaceVariant},
+                    ]}>
+                    Accedi rapidamente senza inserire le credenziali
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricRegistered}
+                  onValueChange={handleBiometricToggle}
+                  disabled={biometricLoading}
+                />
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Azioni */}
         <Card style={styles.actionsCard}>
           <Card.Content>
@@ -238,6 +309,29 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 8,
+  },
+  securityCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  biometricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  biometricInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  biometricLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  biometricDescription: {
+    fontSize: 13,
   },
   actionsCard: {
     marginBottom: 16,

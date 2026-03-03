@@ -9,6 +9,9 @@ import {
   twoFactorRequired,
   twoFactorSuccess,
   twoFactorFailure,
+  biometricLoginStart,
+  biometricLoginSuccess,
+  biometricLoginFailure,
 } from '../slices/authSlice';
 import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
@@ -331,6 +334,54 @@ export const loginService = {
     }
   },
 
+  async biometricLogin(dispatch) {
+    dispatch(biometricLoginStart());
+
+    try {
+      console.log('🔐 Starting biometric login...');
+      const {biometricService} = require('./biometricService');
+      const result = await biometricService.biometricLogin();
+
+      if (!result.success) {
+        dispatch(biometricLoginFailure(result.error));
+        return result;
+      }
+
+      console.log('✅ Biometric login successful');
+
+      // Salva token e dati utente in AsyncStorage
+      const authToken = result.token ? String(result.token) : '';
+      const userString = JSON.stringify(result.user);
+
+      await AsyncStorage.multiSet([
+        ['authToken', authToken],
+        ['user', userString],
+      ]);
+
+      dispatch(
+        biometricLoginSuccess({
+          user: result.user,
+          token: result.token,
+        }),
+      );
+
+      // Gestisci i pazienti
+      if (result.user.patients && result.user.patients.length > 0) {
+        console.log(
+          '👥 Setting patients after biometric login:',
+          result.user.patients.length,
+        );
+        dispatch(setPatientsFromLogin(result.user.patients));
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Biometric login failed:', error.message);
+      dispatch(biometricLoginFailure(error.message));
+      return {success: false, error: error.message};
+    }
+  },
+
   async logout(dispatch) {
     try {
       console.log('🚪 Starting logout process...');
@@ -363,13 +414,17 @@ export const loginService = {
         // Non bloccare il logout se l'API fallisce
       }
 
-      // 2. Pulisci AsyncStorage (preserva deviceToken per "ricorda dispositivo")
+      // 2. Pulisci AsyncStorage (preserva deviceToken e biometria per ri-login rapido)
       const savedDeviceToken = await AsyncStorage.getItem('deviceToken');
+      const savedBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
       await AsyncStorage.clear();
       if (savedDeviceToken) {
         await AsyncStorage.setItem('deviceToken', savedDeviceToken);
       }
-      console.log('🧹 AsyncStorage cleared (deviceToken preserved)');
+      if (savedBiometricRegistered) {
+        await AsyncStorage.setItem('biometric_registered', savedBiometricRegistered);
+      }
+      console.log('🧹 AsyncStorage cleared (deviceToken + biometric preserved)');
 
       // 3. Reset pazienti
       dispatch(resetPatients());
@@ -386,9 +441,13 @@ export const loginService = {
       // Fallback: forza la pulizia anche in caso di errore
       try {
         const fallbackDeviceToken = await AsyncStorage.getItem('deviceToken');
+        const fallbackBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
         await AsyncStorage.clear();
         if (fallbackDeviceToken) {
           await AsyncStorage.setItem('deviceToken', fallbackDeviceToken);
+        }
+        if (fallbackBiometricRegistered) {
+          await AsyncStorage.setItem('biometric_registered', fallbackBiometricRegistered);
         }
         dispatch(resetPatients());
         dispatch(logoutUser());

@@ -1,15 +1,18 @@
-import React from 'react';
-import {View, StyleSheet, ScrollView} from 'react-native';
+import React, {useState, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Text,
   Button,
   Card,
   Avatar,
   Divider,
+  Switch,
   useTheme,
 } from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {loginService} from '../../services/loginService';
+import {biometricService} from '../../services/biometricService';
+import {setBiometricRegistered} from '../../slices/authSlice';
 import ScreenTemplate from '../../components/ScreenTemplate';
 import {
   getUserDisplayName,
@@ -18,14 +21,43 @@ import {
 
 const PatientProfileScreen = ({navigation}) => {
   const dispatch = useDispatch();
-  const {user} = useSelector(state => state.auth);
+  const {user, token, biometricAvailable, biometricRegistered, biometricBiometryType} =
+    useSelector(state => state.auth);
   const {patients, currentPatient} = useSelector(state => state.patient);
   const theme = useTheme();
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
+  const biometricLabel = biometricService.getBiometricLabel(biometricBiometryType);
 
   const handleLogout = async () => {
     await loginService.logout(dispatch);
   };
+
+  const handleBiometricToggle = useCallback(async () => {
+    setBiometricLoading(true);
+    try {
+      if (biometricRegistered) {
+        const result = await biometricService.disableBiometric(token);
+        if (result.success) {
+          dispatch(setBiometricRegistered(false));
+        }
+      } else {
+        const result = await biometricService.registerBiometric(
+          token,
+          biometricLabel,
+        );
+        if (result.success) {
+          dispatch(setBiometricRegistered(true));
+        } else {
+          Alert.alert('Errore', result.error || 'Impossibile abilitare la biometria');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Errore', 'Si è verificato un errore');
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, [biometricRegistered, token, dispatch, biometricLabel]);
 
   // Le utility sono ora importate dal modulo utils/userUtils.js
 
@@ -237,6 +269,39 @@ const PatientProfileScreen = ({navigation}) => {
           </Card>
         )}
 
+        {/* Sezione Sicurezza */}
+        {biometricAvailable && (
+          <Card style={styles.sectionCard}>
+            <Card.Content>
+              <View style={styles.sectionHeader}>
+                <Avatar.Icon
+                  size={24}
+                  icon="shield-lock"
+                  style={styles.sectionIcon}
+                />
+                <Text style={styles.sectionTitle}>Sicurezza</Text>
+              </View>
+              <Divider style={styles.divider} />
+
+              <View style={styles.biometricRow}>
+                <View style={styles.biometricInfo}>
+                  <Text style={styles.biometricLabel}>
+                    Accesso con {biometricLabel}
+                  </Text>
+                  <Text style={styles.biometricDescription}>
+                    Accedi rapidamente senza inserire le credenziali
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricRegistered}
+                  onValueChange={handleBiometricToggle}
+                  disabled={biometricLoading}
+                />
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Sezione Azioni */}
         <Card style={styles.sectionCard}>
           <Card.Content>
@@ -415,6 +480,27 @@ const styles = StyleSheet.create({
   },
   patientListRelation: {
     fontSize: 12,
+    color: '#666',
+  },
+  // Biometria
+  biometricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  biometricInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  biometricLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  biometricDescription: {
+    fontSize: 13,
     color: '#666',
   },
   // Azioni

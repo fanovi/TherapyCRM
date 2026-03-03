@@ -38,6 +38,7 @@ const apiCall = async (endpoint, options = {}) => {
       '/auth/forgot-password',
       '/auth/reset-password',
       '/auth/change-first-password',
+      '/auth/biometric/login',
     ];
     const isProtectedEndpoint = !noAutoLogoutEndpoints.some(ep =>
       endpoint.includes(ep),
