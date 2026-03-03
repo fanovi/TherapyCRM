@@ -7,12 +7,12 @@ use yii\db\Migration;
  *
  * Dopo questa migration, app_login rimane SOLO a:
  * - therapist
- * - patient
+ * - patient_family
  *
  * Viene rimosso da:
  * - super_admin
  * - admin
- * - patient_family
+ * - patient
  */
 class m260303_100000_restrict_app_login_permission extends Migration
 {
@@ -29,7 +29,7 @@ class m260303_100000_restrict_app_login_permission extends Migration
             return true;
         }
 
-        $rolesToRemove = ['super_admin', 'admin', 'patient_family'];
+        $rolesToRemove = ['super_admin', 'admin', 'patient'];
 
         foreach ($rolesToRemove as $roleName) {
             $role = $auth->getRole($roleName);
@@ -41,7 +41,7 @@ class m260303_100000_restrict_app_login_permission extends Migration
             }
         }
 
-        echo "\n✅ Permesso 'app_login' ora assegnato solo a: therapist, patient\n";
+        echo "\n✅ Permesso 'app_login' ora assegnato solo a: therapist, patient_family\n";
 
         return true;
     }
@@ -59,7 +59,7 @@ class m260303_100000_restrict_app_login_permission extends Migration
             return true;
         }
 
-        $rolesToRestore = ['super_admin', 'admin', 'patient_family'];
+        $rolesToRestore = ['super_admin', 'admin', 'patient'];
 
         foreach ($rolesToRestore as $roleName) {
             $role = $auth->getRole($roleName);
