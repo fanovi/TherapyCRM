@@ -66,6 +66,8 @@ class ExportPermissionsController extends Controller
             'SELECT name, description FROM auth_item WHERE type = 2 AND name NOT IN (SELECT permission_name FROM permission_metadata WHERE is_active = 0) ORDER BY name'
         )->queryAll();
 
+        $permissionNames = array_column($permissions, 'name');
+
         $rolePermMap = [];
         foreach ($roleNames as $role) {
             $rolePermMap[$role] = [];
@@ -76,7 +78,7 @@ class ExportPermissionsController extends Controller
         )->queryAll();
 
         foreach ($children as $row) {
-            if (isset($rolePermMap[$row['parent']])) {
+            if (isset($rolePermMap[$row['parent']]) && in_array($row['child'], $permissionNames)) {
                 $rolePermMap[$row['parent']][$row['child']] = true;
             }
         }
