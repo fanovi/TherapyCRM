@@ -6,7 +6,6 @@ use common\models\AccountPatient;
 use common\models\AuthToken;
 use common\models\Patient;
 use common\models\Therapist;
-use common\models\TrustedDevice;
 use common\models\BiometricDevice;
 use common\models\User;
 use common\models\UserProfile;
@@ -242,10 +241,9 @@ class AuthController extends Controller
 
             // Check 2FA
             $tfaService = new TwoFactorService();
-            $deviceToken = $request->post('device_token');
             $user = User::findOne($userData['id']);
 
-            if ($user && $tfaService->is2faRequired($user, $deviceToken)) {
+            if ($user && $tfaService->is2faRequired($user)) {
                 $method = $tfaService->getPreferredMethod($user->id);
 
                 // Check if TOTP is already configured
@@ -263,7 +261,7 @@ class AuthController extends Controller
                         'two_factor_method' => $method,
                         'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
-                        'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
+                        'show_remember_device' => false,
                         'requires_password_change' => 0
                     ]
                 ];
@@ -1171,7 +1169,7 @@ class AuthController extends Controller
                         'two_factor_method' => $method,
                         'totp_configured' => $totpConfigured,
                         'temp_token' => $tempToken2fa,
-                        'show_remember_device' => SystemSetting::isRememberDeviceEnabled(),
+                        'show_remember_device' => false,
                         'requires_password_change' => 0
                     ]
                 ];
@@ -1673,8 +1671,6 @@ class AuthController extends Controller
 
         $tempToken = $request->post('temp_token');
         $code = $request->post('code');
-        $rememberDevice = (bool) $request->post('remember_device', false);
-        $deviceName = $request->post('device_name');
 
         if (empty($tempToken) || empty($code)) {
             return [
@@ -1766,14 +1762,6 @@ class AuthController extends Controller
             'expires_in' => 3600,
             'requires_password_change' => 0
         ];
-
-        // Se "ricorda dispositivo" richiesto e abilitato
-        if ($rememberDevice && SystemSetting::isRememberDeviceEnabled()) {
-            $device = TrustedDevice::createTrusted($userId, $deviceName);
-            if ($device) {
-                $responseData['device_token'] = $device->device_token;
-            }
-        }
 
         return [
             'success' => true,

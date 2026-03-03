@@ -5,7 +5,6 @@ namespace common\services;
 use Yii;
 use common\models\User;
 use common\models\UserTwoFactorAuth;
-use common\models\TrustedDevice;
 use common\models\SystemSetting;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -18,10 +17,9 @@ class TwoFactorService
      * Verifica se il 2FA è richiesto per l'utente
      *
      * @param User $user
-     * @param string|null $deviceToken Token del dispositivo per "ricorda dispositivo"
      * @return bool
      */
-    public function is2faRequired($user, $deviceToken = null)
+    public function is2faRequired($user)
     {
         // 1. Se 2FA non è abilitato globalmente, non è richiesto
         if (!SystemSetting::is2faEnabled()) {
@@ -32,13 +30,6 @@ class TwoFactorService
         $tfa = UserTwoFactorAuth::findOne(['user_id' => $user->id]);
         if (!$tfa || !$tfa->is_enabled) {
             return false;
-        }
-
-        // 3. Se "ricorda dispositivo" è abilitato e il device è fidato, non è richiesto
-        if (SystemSetting::isRememberDeviceEnabled() && !empty($deviceToken)) {
-            if (TrustedDevice::isDeviceTrusted($user->id, $deviceToken)) {
-                return false;
-            }
         }
 
         return true;
@@ -211,12 +202,7 @@ class TwoFactorService
         $tfa->email_otp_code = null;
         $tfa->email_otp_expires_at = null;
         $tfa->email_otp_attempts = 0;
-        $result = $tfa->save();
-
-        // Revoca tutti i dispositivi fidati
-        TrustedDevice::revokeAllForUser($userId);
-
-        return $result;
+        return $tfa->save();
     }
 
     /**

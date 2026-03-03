@@ -23,20 +23,7 @@ export const loginService = {
     try {
       console.log('🚀 Starting login process...');
 
-      // Leggi device_token da AsyncStorage per "ricorda dispositivo"
-      let deviceToken = null;
-      try {
-        deviceToken = await AsyncStorage.getItem('deviceToken');
-      } catch (e) {
-        // Ignora errore di lettura device token
-      }
-
-      // Aggiungi device_token alle credenziali se presente
-      const loginCredentials = deviceToken
-        ? {...credentials, device_token: deviceToken}
-        : credentials;
-
-      const response = await authService.login(loginCredentials);
+      const response = await authService.login(credentials);
 
       console.log('✅ Login response received:', {
         hasUser: !!response.user,
@@ -56,7 +43,6 @@ export const loginService = {
           twoFactorRequired({
             user: response.user,
             twoFactorMethod: response.twoFactorMethod,
-            showRememberDevice: response.showRememberDevice,
             tempToken: response.tempToken,
             totpConfigured: response.totpConfigured,
           }),
@@ -268,7 +254,7 @@ export const loginService = {
 
   async verify2fa(
     dispatch,
-    {tempToken, code, method, rememberDevice = false, deviceName = null},
+    {tempToken, code, method},
   ) {
     dispatch(loginStart());
 
@@ -278,8 +264,6 @@ export const loginService = {
         tempToken,
         code,
         method,
-        rememberDevice,
-        deviceName,
       );
 
       console.log('✅ 2FA verification successful');
@@ -292,11 +276,6 @@ export const loginService = {
         ['authToken', authToken],
         ['user', userString],
       ]);
-
-      // Se c'è un device_token (ricorda dispositivo), salvalo
-      if (response.deviceToken) {
-        await AsyncStorage.setItem('deviceToken', response.deviceToken);
-      }
 
       dispatch(
         twoFactorSuccess({
@@ -414,17 +393,13 @@ export const loginService = {
         // Non bloccare il logout se l'API fallisce
       }
 
-      // 2. Pulisci AsyncStorage (preserva deviceToken e biometria per ri-login rapido)
-      const savedDeviceToken = await AsyncStorage.getItem('deviceToken');
+      // 2. Pulisci AsyncStorage (preserva biometria per ri-login rapido)
       const savedBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
       await AsyncStorage.clear();
-      if (savedDeviceToken) {
-        await AsyncStorage.setItem('deviceToken', savedDeviceToken);
-      }
       if (savedBiometricRegistered) {
         await AsyncStorage.setItem('biometric_registered', savedBiometricRegistered);
       }
-      console.log('🧹 AsyncStorage cleared (deviceToken + biometric preserved)');
+      console.log('🧹 AsyncStorage cleared (biometric preserved)');
 
       // 3. Reset pazienti
       dispatch(resetPatients());
@@ -440,12 +415,8 @@ export const loginService = {
 
       // Fallback: forza la pulizia anche in caso di errore
       try {
-        const fallbackDeviceToken = await AsyncStorage.getItem('deviceToken');
         const fallbackBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
         await AsyncStorage.clear();
-        if (fallbackDeviceToken) {
-          await AsyncStorage.setItem('deviceToken', fallbackDeviceToken);
-        }
         if (fallbackBiometricRegistered) {
           await AsyncStorage.setItem('biometric_registered', fallbackBiometricRegistered);
         }

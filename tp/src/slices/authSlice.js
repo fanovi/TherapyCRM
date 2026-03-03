@@ -14,7 +14,6 @@ const initialState = {
   // 2FA state
   requires2fa: false,
   twoFactorMethod: null, // 'totp' | 'email'
-  showRememberDevice: false,
   twoFactorTempToken: null,
   totpConfigured: false,
   // Biometric state
@@ -88,7 +87,6 @@ const authSlice = createSlice({
       state.error = null;
       state.requires2fa = true;
       state.twoFactorMethod = action.payload.twoFactorMethod;
-      state.showRememberDevice = action.payload.showRememberDevice || false;
       state.twoFactorTempToken = action.payload.tempToken;
       state.user = action.payload.user;
       state.totpConfigured = action.payload.totpConfigured || false;

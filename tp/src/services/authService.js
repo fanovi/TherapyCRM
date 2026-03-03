@@ -133,9 +133,6 @@ export const authService = {
       const formData = new FormData();
       formData.append('email', credentials.email);
       formData.append('password', credentials.password);
-      if (credentials.device_token) {
-        formData.append('device_token', credentials.device_token);
-      }
 
       const response = await apiCall(API_CONFIG.ENDPOINTS.LOGIN, {
         method: 'POST',
@@ -152,7 +149,6 @@ export const authService = {
           requires_password_change,
           requires_2fa,
           two_factor_method,
-          show_remember_device,
           temp_token,
           access_token,
           token_type,
@@ -188,7 +184,6 @@ export const authService = {
             user: transformedUser,
             requires2fa: true,
             twoFactorMethod: two_factor_method,
-            showRememberDevice: !!show_remember_device,
             tempToken: temp_token,
             totpConfigured: !!response.data.totp_configured,
             requiresPasswordChange: false,
@@ -242,18 +237,12 @@ export const authService = {
     }
   },
 
-  async verify2fa(tempToken, code, method, rememberDevice = false, deviceName = null) {
+  async verify2fa(tempToken, code, method) {
     try {
       const formData = new FormData();
       formData.append('temp_token', tempToken);
       formData.append('code', code);
       formData.append('method', method);
-      if (rememberDevice) {
-        formData.append('remember_device', '1');
-      }
-      if (deviceName) {
-        formData.append('device_name', deviceName);
-      }
 
       const response = await apiCall(API_CONFIG.ENDPOINTS.TWO_FACTOR_VERIFY, {
         method: 'POST',
@@ -264,7 +253,7 @@ export const authService = {
       });
 
       if (response.success && response.data) {
-        const {user, access_token, token_type, expires_in, device_token} =
+        const {user, access_token, token_type, expires_in} =
           response.data;
 
         let actualToken = null;
@@ -300,7 +289,6 @@ export const authService = {
           token: actualToken,
           tokenType: token_type,
           expiresIn: expires_in,
-          deviceToken: device_token || null,
         };
       }
 

@@ -7,7 +7,6 @@ import {
   Card,
   Snackbar,
   ActivityIndicator,
-  Checkbox,
   useTheme,
 } from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
@@ -24,7 +23,6 @@ const TwoFactorScreen = () => {
     isLoading,
     error,
     twoFactorMethod,
-    showRememberDevice,
     twoFactorTempToken,
     totpConfigured,
     user,
@@ -34,7 +32,6 @@ const TwoFactorScreen = () => {
   // State machine: 'choose' -> 'emailCode' | 'totpSetup' -> 'totpCode'
   const [step, setStep] = useState('choose');
   const [code, setCode] = useState('');
-  const [rememberDevice, setRememberDevice] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -102,13 +99,11 @@ const TwoFactorScreen = () => {
         tempToken: twoFactorTempToken,
         code: code.trim(),
         method: 'email',
-        rememberDevice,
-        deviceName: Platform.OS === 'ios' ? 'iPhone' : 'Android',
       });
     } catch (err) {
       // Error handled by twoFactorFailure reducer
     }
-  }, [code, dispatch, twoFactorTempToken, rememberDevice]);
+  }, [code, dispatch, twoFactorTempToken]);
 
   const handleVerifyTotp = useCallback(async () => {
     if (!code.trim() || code.trim().length !== 6) {
@@ -122,13 +117,11 @@ const TwoFactorScreen = () => {
         tempToken: twoFactorTempToken,
         code: code.trim(),
         method: 'totp',
-        rememberDevice,
-        deviceName: Platform.OS === 'ios' ? 'iPhone' : 'Android',
       });
     } catch (err) {
       // Error handled by twoFactorFailure reducer
     }
-  }, [code, dispatch, twoFactorTempToken, rememberDevice]);
+  }, [code, dispatch, twoFactorTempToken]);
 
   const handleResendCode = useCallback(async () => {
     if (resendCountdown > 0) {
@@ -322,23 +315,6 @@ const TwoFactorScreen = () => {
             autoFocus
             left={<TextInput.Icon icon="shield-key" />}
           />
-
-          {showRememberDevice && (
-            <View style={styles.rememberContainer}>
-              <Checkbox
-                status={rememberDevice ? 'checked' : 'unchecked'}
-                onPress={() => setRememberDevice(!rememberDevice)}
-              />
-              <Text
-                style={[
-                  styles.rememberText,
-                  {color: theme.colors.onSurface},
-                ]}
-                onPress={() => setRememberDevice(!rememberDevice)}>
-                Ricorda questo dispositivo
-              </Text>
-            </View>
-          )}
 
           <Button
             mode="contained"
@@ -549,23 +525,6 @@ const TwoFactorScreen = () => {
             left={<TextInput.Icon icon="shield-key" />}
           />
 
-          {showRememberDevice && (
-            <View style={styles.rememberContainer}>
-              <Checkbox
-                status={rememberDevice ? 'checked' : 'unchecked'}
-                onPress={() => setRememberDevice(!rememberDevice)}
-              />
-              <Text
-                style={[
-                  styles.rememberText,
-                  {color: theme.colors.onSurface},
-                ]}
-                onPress={() => setRememberDevice(!rememberDevice)}>
-                Ricorda questo dispositivo
-              </Text>
-            </View>
-          )}
-
           <Button
             mode="contained"
             onPress={handleVerifyTotp}
@@ -746,14 +705,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 24,
     letterSpacing: 8,
-  },
-  rememberContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  rememberText: {
-    fontSize: 14,
   },
   verifyButton: {
     marginTop: 8,
