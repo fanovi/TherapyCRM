@@ -60,12 +60,6 @@ export const biometricService = {
       const response = await apiClient.post(
         API_CONFIG.ENDPOINTS.BIOMETRIC_REGISTER,
         formData,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        },
       );
 
       console.log('🔐 Biometric register response:', JSON.stringify(response.data));
@@ -206,19 +200,10 @@ export const biometricService = {
    * @param {string} authToken - JWT valido
    * @returns {{ success: boolean, error?: string }}
    */
-  async disableBiometric(authToken) {
+  async disableBiometric() {
     try {
-      // Revoca tutti i dispositivi sul server
-      await apiClient.post(
-        API_CONFIG.ENDPOINTS.BIOMETRIC_REVOKE,
-        new FormData(),
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        },
-      );
+      // Revoca tutti i dispositivi sul server (Authorization gestito dall'interceptor)
+      await apiClient.post(API_CONFIG.ENDPOINTS.BIOMETRIC_REVOKE);
 
       // Pulizia locale
       await this.clearBiometricData();

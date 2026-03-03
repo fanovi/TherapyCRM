@@ -37,10 +37,10 @@ const PatientProfileScreen = ({navigation}) => {
     setBiometricLoading(true);
     try {
       if (biometricRegistered) {
-        const result = await biometricService.disableBiometric(token);
-        if (result.success) {
-          dispatch(setBiometricRegistered(false));
-        }
+        // Disabilita - la pulizia locale avviene sempre
+        await biometricService.disableBiometric();
+        await biometricService.setEnrollmentDeclined();
+        dispatch(setBiometricRegistered(false));
       } else {
         const result = await biometricService.registerBiometric(
           token,

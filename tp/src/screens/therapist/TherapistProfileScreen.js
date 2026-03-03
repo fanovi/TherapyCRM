@@ -33,11 +33,10 @@ const TherapistProfileScreen = () => {
     setBiometricLoading(true);
     try {
       if (biometricRegistered) {
-        // Disabilita
-        const result = await biometricService.disableBiometric(token);
-        if (result.success) {
-          dispatch(setBiometricRegistered(false));
-        }
+        // Disabilita - la pulizia locale avviene sempre
+        await biometricService.disableBiometric();
+        await biometricService.setEnrollmentDeclined();
+        dispatch(setBiometricRegistered(false));
       } else {
         // Abilita
         const result = await biometricService.registerBiometric(
