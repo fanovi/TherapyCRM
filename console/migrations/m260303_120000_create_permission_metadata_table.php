@@ -13,7 +13,7 @@ class m260303_120000_create_permission_metadata_table extends Migration
             'permission_name' => $this->string(64)->notNull(),
             'is_active' => $this->tinyInteger(1)->notNull()->defaultValue(1),
             'notes' => $this->text()->null(),
-        ]);
+        ], 'CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE=InnoDB');
 
         $this->addPrimaryKey('pk_permission_metadata', '{{%permission_metadata}}', 'permission_name');
 
