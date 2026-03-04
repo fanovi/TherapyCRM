@@ -83,25 +83,24 @@ export const loginService = {
         // Login normale - utente completamente autenticato
         console.log('✅ Normal login - user fully authenticated');
 
-        // Ensure all values are strings
         const authToken = response.token ? String(response.token) : '';
+        const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
         const userString = JSON.stringify(response.user);
 
-        console.log('💾 Saving auth data:', {
-          hasAuthToken: !!authToken,
-          authTokenLength: authToken.length,
-          hasUserString: !!userString,
-        });
-
-        await AsyncStorage.multiSet([
+        const storageItems = [
           ['authToken', authToken],
           ['user', userString],
-        ]);
+        ];
+        if (refreshTokenStr) {
+          storageItems.push(['refreshToken', refreshTokenStr]);
+        }
+        await AsyncStorage.multiSet(storageItems);
 
         dispatch(
           loginSuccess({
             user: response.user,
             token: response.token,
+            refreshToken: response.refreshToken,
             requiresPasswordChange: false,
           }),
         );
@@ -137,21 +136,18 @@ export const loginService = {
 
       console.log('✅ Password changed successfully');
 
-      // Ensure all values are strings
       const authToken = response.token ? String(response.token) : '';
+      const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
       const userString = JSON.stringify(response.user);
 
-      console.log('💾 Saving password change auth data:', {
-        hasAuthToken: !!authToken,
-        authTokenLength: authToken.length,
-        hasUserString: !!userString,
-      });
-
-      // Salva il nuovo token e aggiorna i dati utente
-      await AsyncStorage.multiSet([
+      const storageItems = [
         ['authToken', authToken],
         ['user', userString],
-      ]);
+      ];
+      if (refreshTokenStr) {
+        storageItems.push(['refreshToken', refreshTokenStr]);
+      }
+      await AsyncStorage.multiSet(storageItems);
 
       // Rimuovi il temp token
       await AsyncStorage.removeItem('tempToken');
@@ -211,26 +207,24 @@ export const loginService = {
 
       console.log('✅ Password reset completed successfully');
 
-      // Ensure all values are strings
       const authToken = response.token ? String(response.token) : '';
+      const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
       const userString = JSON.stringify(response.user);
 
-      console.log('💾 Saving password reset auth data:', {
-        hasAuthToken: !!authToken,
-        authTokenLength: authToken.length,
-        hasUserString: !!userString,
-      });
-
-      // Salva il nuovo token e aggiorna i dati utente
-      await AsyncStorage.multiSet([
+      const storageItems = [
         ['authToken', authToken],
         ['user', userString],
-      ]);
+      ];
+      if (refreshTokenStr) {
+        storageItems.push(['refreshToken', refreshTokenStr]);
+      }
+      await AsyncStorage.multiSet(storageItems);
 
       dispatch(
         loginSuccess({
           user: response.user,
           token: response.token,
+          refreshToken: response.refreshToken,
           requiresPasswordChange: false,
         }),
       );
@@ -268,19 +262,24 @@ export const loginService = {
 
       console.log('✅ 2FA verification successful');
 
-      // Salva il token di autenticazione
       const authToken = response.token ? String(response.token) : '';
+      const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
       const userString = JSON.stringify(response.user);
 
-      await AsyncStorage.multiSet([
+      const storageItems = [
         ['authToken', authToken],
         ['user', userString],
-      ]);
+      ];
+      if (refreshTokenStr) {
+        storageItems.push(['refreshToken', refreshTokenStr]);
+      }
+      await AsyncStorage.multiSet(storageItems);
 
       dispatch(
         twoFactorSuccess({
           user: response.user,
           token: response.token,
+          refreshToken: response.refreshToken,
         }),
       );
 
@@ -328,19 +327,24 @@ export const loginService = {
 
       console.log('✅ Biometric login successful');
 
-      // Salva token e dati utente in AsyncStorage
       const authToken = result.token ? String(result.token) : '';
+      const refreshTokenStr = result.refreshToken ? String(result.refreshToken) : '';
       const userString = JSON.stringify(result.user);
 
-      await AsyncStorage.multiSet([
+      const storageItems = [
         ['authToken', authToken],
         ['user', userString],
-      ]);
+      ];
+      if (refreshTokenStr) {
+        storageItems.push(['refreshToken', refreshTokenStr]);
+      }
+      await AsyncStorage.multiSet(storageItems);
 
       dispatch(
         biometricLoginSuccess({
           user: result.user,
           token: result.token,
+          refreshToken: result.refreshToken,
         }),
       );
 

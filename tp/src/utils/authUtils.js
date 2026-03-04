@@ -93,10 +93,11 @@ export const checkAndHandleToken = async () => {
 
       if (user) {
         console.log('✅ User data found, restoring session...');
-        // Ripristina la sessione con i dati salvati
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
         store.dispatch(
           loginSuccess({
             token,
+            refreshToken,
             user,
             requiresPasswordChange: false,
           }),

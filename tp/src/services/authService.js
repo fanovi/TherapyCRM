@@ -48,18 +48,39 @@ const apiCall = async (endpoint, options = {}) => {
       (response.status === 401 || response.status === 403) &&
       isProtectedEndpoint
     ) {
-      console.warn('🚨 Token scaduto o non valido - logout automatico');
+      console.warn('🔄 Token scaduto - tentativo di refresh...');
 
-      // Rimuovi token da AsyncStorage
-      await AsyncStorage.removeItem('authToken');
+      // Tenta il refresh prima di fare logout
+      try {
+        const newToken = await authService.refreshToken();
+        console.log('✅ Token rinnovato, ripeto la richiesta...');
 
-      // Dispatch logout se store è disponibile
-      if (store) {
-        const {logoutUser} = await import('../slices/authSlice');
-        store.dispatch(logoutUser());
+        // Ripeti la richiesta con il nuovo token
+        config.headers = {
+          ...config.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        const retryResponse = await fetch(url, config);
+        const retryData = await retryResponse.json();
+
+        if (!retryData.success) {
+          throw new Error(retryData.message || 'Errore del server');
+        }
+        return retryData;
+      } catch (refreshError) {
+        console.warn('🚨 Refresh fallito - logout automatico');
+
+        // Rimuovi token da AsyncStorage
+        await AsyncStorage.multiRemove(['authToken', 'refreshToken']);
+
+        // Dispatch logout se store è disponibile
+        if (store) {
+          const {logoutUser} = await import('../slices/authSlice');
+          store.dispatch(logoutUser());
+        }
+
+        throw new Error('Sessione scaduta. Effettua nuovamente il login.');
       }
-
-      throw new Error('Sessione scaduta. Effettua nuovamente il login.');
     }
 
     const data = await response.json();
@@ -88,7 +109,7 @@ const isTokenExpired = token => {
   }
 };
 
-// Funzione per ottenere un token valido (con controllo automatico)
+// Funzione per ottenere un token valido (con refresh automatico)
 const getValidToken = async () => {
   try {
     const token = await AsyncStorage.getItem('authToken');
@@ -99,14 +120,19 @@ const getValidToken = async () => {
 
     // Verifica se il token è scaduto
     if (isTokenExpired(token)) {
-      console.warn('🚨 Token scaduto - rimozione automatica');
-      await AsyncStorage.removeItem('authToken');
+      console.warn('🔄 Token scaduto - tentativo di refresh...');
 
-      // Usa le nuove funzioni di utilità per logout
-      const {performAutoLogout} = require('../utils/authUtils');
-      await performAutoLogout('Token scaduto in authService');
-
-      throw new Error('Token scaduto');
+      // Tenta il refresh prima di fare logout
+      try {
+        const newToken = await authService.refreshToken();
+        console.log('✅ Token rinnovato con successo');
+        return newToken;
+      } catch (refreshError) {
+        console.warn('🚨 Refresh fallito - logout automatico');
+        const {performAutoLogout} = require('../utils/authUtils');
+        await performAutoLogout('Token scaduto e refresh fallito');
+        throw new Error('Token scaduto');
+      }
     }
 
     return token;
@@ -151,6 +177,7 @@ export const authService = {
           two_factor_method,
           temp_token,
           access_token,
+          refresh_token,
           token_type,
           expires_in,
         } = response.data;
@@ -225,6 +252,7 @@ export const authService = {
           requiresPasswordChange: !!requires_password_change,
           tempToken: temp_token,
           token: actualToken || temp_token,
+          refreshToken: refresh_token || null,
           tokenType: token_type,
           expiresIn: expires_in,
         };
@@ -253,7 +281,7 @@ export const authService = {
       });
 
       if (response.success && response.data) {
-        const {user, access_token, token_type, expires_in} =
+        const {user, access_token, refresh_token, token_type, expires_in} =
           response.data;
 
         let actualToken = null;
@@ -287,6 +315,7 @@ export const authService = {
         return {
           user: transformedUser,
           token: actualToken,
+          refreshToken: refresh_token || null,
           tokenType: token_type,
           expiresIn: expires_in,
         };
@@ -388,28 +417,15 @@ export const authService = {
       });
 
       if (response.success && response.data) {
-        const {user, access_token, token_type, expires_in} = response.data;
+        const {user, access_token, refresh_token, token_type, expires_in} = response.data;
 
-        console.log('🔍 === RESET PASSWORD TOKEN EXTRACTION ===');
-        console.log('🎫 access_token tipo:', typeof access_token);
-
-        // Estrai il token JWT vero dall'oggetto access_token
         let actualToken = null;
         if (typeof access_token === 'object' && access_token !== null) {
           actualToken = access_token.token;
-          console.log(
-            '✅ Token estratto da access_token.token:',
-            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
-          );
         } else if (typeof access_token === 'string') {
           actualToken = access_token;
-          console.log(
-            '✅ Token è già una stringa:',
-            actualToken.substring(0, 30) + '...',
-          );
         }
 
-        // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
           email: user.email,
@@ -424,7 +440,6 @@ export const authService = {
           status: user.status || 'attivo',
           isFirstLogin: false,
           isPasswordResetRequired: false,
-          // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',
             numeroAlbo: user.numero_albo || '',
@@ -434,6 +449,7 @@ export const authService = {
         return {
           user: transformedUser,
           token: actualToken,
+          refreshToken: refresh_token || null,
           tokenType: token_type,
           expiresIn: expires_in,
           requiresPasswordChange: false,
@@ -466,35 +482,15 @@ export const authService = {
       );
 
       if (response.success && response.data) {
-        const {user, access_token, token_type, expires_in} = response.data;
+        const {user, access_token, refresh_token, token_type, expires_in} = response.data;
 
-        console.log('🔍 === CHANGE PASSWORD TOKEN EXTRACTION ===');
-        console.log('🎫 access_token tipo:', typeof access_token);
-
-        // Estrai il token JWT vero dall'oggetto access_token
         let actualToken = null;
         if (typeof access_token === 'object' && access_token !== null) {
           actualToken = access_token.token;
-          console.log(
-            '✅ Token estratto da access_token.token:',
-            actualToken ? actualToken.substring(0, 30) + '...' : 'NULL',
-          );
         } else if (typeof access_token === 'string') {
           actualToken = access_token;
-          console.log(
-            '✅ Token è già una stringa:',
-            actualToken.substring(0, 30) + '...',
-          );
         }
 
-        // Debug del backend response per changePassword
-        console.log('🔍 === CHANGE PASSWORD USER DATA DEBUG ===');
-        console.log('🔍 Backend user object:', user);
-        console.log('🔍 user.nome:', user.nome);
-        console.log('🔍 user.cognome:', user.cognome);
-        console.log('🔍 user.user_type:', user.user_type);
-
-        // Transform API response to match app's expected format
         const transformedUser = {
           id: user.id.toString(),
           email: user.email,
@@ -509,7 +505,6 @@ export const authService = {
           status: user.status || 'attivo',
           isFirstLogin: false,
           isPasswordResetRequired: false,
-          // Add additional fields for therapists
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',
             numeroAlbo: user.numero_albo || '',
@@ -518,7 +513,8 @@ export const authService = {
 
         return {
           user: transformedUser,
-          token: actualToken, // Usa il token estratto
+          token: actualToken,
+          refreshToken: refresh_token || null,
           tokenType: token_type,
           expiresIn: expires_in,
           requiresPasswordChange: false,
@@ -582,10 +578,42 @@ export const authService = {
     // Non fare nulla per evitare conflitti
   },
 
-  // Additional utility methods
-  async refreshToken(token) {
-    // This would be implemented if your API supports token refresh
-    throw new Error('Token refresh non ancora implementato nel server');
+  async refreshToken() {
+    try {
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+      if (!refreshToken) {
+        throw new Error('Nessun refresh token trovato');
+      }
+
+      const formData = new FormData();
+      formData.append('refresh_token', refreshToken);
+
+      const response = await apiCall(API_CONFIG.ENDPOINTS.REFRESH_TOKEN, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.success && response.data) {
+        const {access_token, refresh_token: newRefreshToken} = response.data;
+
+        // Salva i nuovi token
+        await AsyncStorage.multiSet([
+          ['authToken', access_token],
+          ['refreshToken', newRefreshToken],
+        ]);
+
+        return access_token;
+      }
+
+      throw new Error('Risposta refresh non valida');
+    } catch (error) {
+      console.error('Token refresh failed:', error.message);
+      throw error;
+    }
   },
 
   // Method to get user profile details

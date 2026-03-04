@@ -118,8 +118,25 @@ class JwtComponent extends Component
     }
 
     /**
+     * Decodifica un token JWT con verifica della firma e restituisce il payload come array
+     *
+     * @param string $token Il token JWT da decodificare
+     * @return array|null Il payload decodificato come array associativo, o null in caso di errore
+     */
+    public function decodeToken($token)
+    {
+        try {
+            $decoded = JWT::decode($token, new Key($this->_publicKey, $this->algorithm));
+            return (array) $decoded;
+        } catch (\Exception $e) {
+            Yii::warning('JWT decodeToken failed: ' . $e->getMessage(), __METHOD__);
+            return null;
+        }
+    }
+
+    /**
      * Ottiene il timestamp di scadenza di un token
-     * 
+     *
      * @param string $token Il token JWT
      * @return int|false Il timestamp di scadenza o false in caso di errore
      */

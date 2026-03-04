@@ -277,7 +277,7 @@ class AuthController extends Controller
             }
 
             // Login normale - genera token di accesso completo
-            $accessToken = $this->generateAccessToken([
+            $tokens = $this->generateAccessToken([
                 'user_id' => $userData['id'],
                 'email' => $userData['email']
             ]);
@@ -287,9 +287,11 @@ class AuthController extends Controller
                 'message' => 'Login effettuato con successo',
                 'data' => [
                     'user' => $userData,
-                    'access_token' => $accessToken,
+                    'access_token' => $tokens['access_token'],
+                    'refresh_token' => $tokens['refresh_token'],
                     'token_type' => 'Bearer',
-                    'expires_in' => 3600,  // 1 ora
+                    'expires_in' => $tokens['expires_in'],
+                    'refresh_expires_in' => $tokens['refresh_expires_in'],
                     'requires_password_change' => 0
                 ]
             ];
@@ -327,70 +329,73 @@ class AuthController extends Controller
         return ['success' => true, 'valid' => true, 'message' => 'Token valido'];
     }
 
-    // TODO
+    /**
+     * Refresh token - genera nuovi access e refresh token
+     * POST /auth/refresh
+     */
     public function actionRefresh()
     {
-        $rawBody = Yii::$app->request->getRawBody();
-        $data = json_decode($rawBody, true);
+        $request = Yii::$app->request;
 
-        $refreshToken = $data['refreshToken'] ?? null;
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $refreshToken = $request->post('refresh_token');
 
         if (!$refreshToken) {
-            return ['success' => false, 'error' => 'Refresh token mancante.'];
+            return [
+                'success' => false,
+                'message' => 'Refresh token mancante.',
+                'error_code' => 'MISSING_REFRESH_TOKEN'
+            ];
         }
 
         // Trova il token non revocato
         $authToken = AuthToken::findOne(['refresh_token' => $refreshToken, 'is_revoked' => 0]);
 
         if (!$authToken || $authToken->refresh_expires_at < time()) {
-            return ['success' => false, 'error' => 'Invalid refresh token'];
+            return [
+                'success' => false,
+                'message' => 'Refresh token non valido o scaduto',
+                'error_code' => 'INVALID_REFRESH_TOKEN'
+            ];
         }
 
-        $user = User::findOne($authToken->user_id);
+        $user = User::findOne(['id' => $authToken->user_id, 'status' => User::STATUS_ACTIVE]);
 
         if (!$user) {
-            return ['success' => false, 'error' => 'User not found'];
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato o non attivo',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
         }
 
-        // Genera nuovi token
-        $payload = ['user_id' => $user->id, 'username' => $user->username];
-        $newToken = Yii::$app->jwt->generateToken($payload);
-        $newRefreshToken = Yii::$app->jwt->generateRefreshToken($payload);
+        // Revoca il vecchio token
+        $authToken->is_revoked = 1;
+        $authToken->save(false, ['is_revoked']);
 
-        // Aggiorna il token esistente invece di crearne uno nuovo
-        $authToken->token = $newToken;
-        $authToken->refresh_token = $newRefreshToken;
-        $authToken->expires_at = time() + Yii::$app->jwt->tokenDuration;
-        $authToken->refresh_expires_at = time() + Yii::$app->jwt->refreshTokenDuration;
-        $authToken->last_used_at = time();
-        $authToken->save();
+        // Genera nuovi token usando generateAccessToken
+        $tokens = $this->generateAccessToken([
+            'user_id' => $user->id,
+            'email' => $user->email
+        ]);
 
-        // Recupera i ruoli dell'utente
-        $auth = Yii::$app->authManager;
-        $roles = $auth->getRolesByUser($user->id);
-
-        // Estrai solo i nomi dei ruoli
-        $roleNames = [];
-        foreach ($roles as $role) {
-            if ($role->name !== 'general') {
-                $roleNames[] = $role->name;
-            }
-        }
+        // Costruisci dati utente completi (stessa logica del login)
+        $userData = $this->buildUserData($user);
 
         return [
             'success' => true,
-            'token' => $newToken,
-            'refreshToken' => $newRefreshToken,
-            'expires_in' => $authToken->expires_at,
-            'refresh_expires_in' => $authToken->refresh_expires_at,
-            'user' => [
-                'id' => $user->id,
-                'username' => $user->username,
-                'email' => $user->email,
-                'nome' => $user->nome,
-                'cognome' => $user->cognome,
-                'roles' => $roleNames,  // Aggiungi i ruoli qui
-            ],
+            'message' => 'Token rinnovato con successo',
+            'data' => [
+                'user' => $userData,
+                'access_token' => $tokens['access_token'],
+                'refresh_token' => $tokens['refresh_token'],
+                'token_type' => 'Bearer',
+                'expires_in' => $tokens['expires_in'],
+                'refresh_expires_in' => $tokens['refresh_expires_in'],
+            ]
         ];
     }
 
@@ -811,6 +816,9 @@ class AuthController extends Controller
         $token = Yii::$app->jwt->generateToken($payload);
         $refreshToken = Yii::$app->jwt->generateRefreshToken($payload);
 
+        $tokenDuration = Yii::$app->params['jwt']['tokenDuration'];
+        $refreshTokenDuration = Yii::$app->params['jwt']['refreshTokenDuration'];
+
         // Salva il token nel database per poterlo revocare successivamente
         $authToken = new AuthToken();
         $authToken->user_id = $payload['user_id'];
@@ -818,16 +826,20 @@ class AuthController extends Controller
         $authToken->refresh_token = $refreshToken;
         $authToken->is_revoked = 0;
         $authToken->created_at = time();
-        $authToken->expires_at = time() + Yii::$app->jwt->tokenDuration;
-        $authToken->refresh_expires_at = time() + Yii::$app->jwt->refreshTokenDuration;
+        $authToken->expires_at = time() + $tokenDuration;
+        $authToken->refresh_expires_at = time() + $refreshTokenDuration;
         $authToken->last_used_at = time();
 
         if (!$authToken->save()) {
             Yii::error('Failed to save auth token: ' . json_encode($authToken->errors), __METHOD__);
         }
 
-        // Restituisce solo il token string per compatibilità con il codice esistente
-        return $token;
+        return [
+            'access_token' => $token,
+            'refresh_token' => $refreshToken,
+            'expires_in' => $tokenDuration,
+            'refresh_expires_in' => $refreshTokenDuration,
+        ];
     }
 
     /**
@@ -853,13 +865,8 @@ class AuthController extends Controller
                 return null;  // Token scaduto
             }
 
-            // Ora decodifica il JWT per ottenere i dati utente
-            try {
-                $payload = Yii::$app->jwt->decodeToken($token);
-            } catch (\Exception $e) {
-                // Fallback: decodifica manuale del JWT
-                $payload = $this->decodeJWTManually($token);
-            }
+            // Decodifica il JWT con verifica della firma
+            $payload = Yii::$app->jwt->decodeToken($token);
 
             if (!$payload || !isset($payload['exp']) || $payload['exp'] < time()) {
                 Yii::error('Token expired or invalid payload (JWT check)', __METHOD__);
@@ -1035,7 +1042,7 @@ class AuthController extends Controller
      *                 ),
      *                 @OA\Schema(
      *                     @OA\Property(property="success", type="boolean", example=false),
-     *                     @OA\Property(property="message", type="string", example="La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero"),
+     *                     @OA\Property(property="message", type="string", example="La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale"),
      *                     @OA\Property(property="error_code", type="string", example="WEAK_PASSWORD")
      *                 )
      *             }
@@ -1110,7 +1117,7 @@ class AuthController extends Controller
         if (!$this->isValidPassword($newPassword)) {
             return [
                 'success' => false,
-                'message' => 'La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero',
+                'message' => 'La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale',
                 'error_code' => 'WEAK_PASSWORD'
             ];
         }
@@ -1184,7 +1191,7 @@ class AuthController extends Controller
             }
 
             // Genera token di accesso normale dopo il cambio password (no 2FA needed)
-            $accessToken = $this->generateAccessToken([
+            $tokens = $this->generateAccessToken([
                 'user_id' => $userData['id'],
                 'email' => $userData['email']
             ]);
@@ -1194,9 +1201,11 @@ class AuthController extends Controller
                 'message' => 'Password cambiata con successo',
                 'data' => [
                     'user' => $userData,
-                    'access_token' => $accessToken,
+                    'access_token' => $tokens['access_token'],
+                    'refresh_token' => $tokens['refresh_token'],
                     'token_type' => 'Bearer',
-                    'expires_in' => 3600
+                    'expires_in' => $tokens['expires_in'],
+                    'refresh_expires_in' => $tokens['refresh_expires_in'],
                 ]
             ];
         } else {
@@ -1282,21 +1291,16 @@ class AuthController extends Controller
      */
     private function isValidPassword($password)
     {
-        // Almeno 8 caratteri, una maiuscola, una minuscola e un numero
-        if (strlen($password) < 8) {
+        $minLength = Yii::$app->params['user.passwordMinLength'] ?? 8;
+        $maxLength = Yii::$app->params['user.passwordMaxLength'] ?? 20;
+
+        if (strlen($password) < $minLength || strlen($password) > $maxLength) {
             return false;
         }
 
-        if (!preg_match('/[A-Z]/', $password)) {
-            return false;  // Nessuna maiuscola
-        }
-
-        if (!preg_match('/[a-z]/', $password)) {
-            return false;  // Nessuna minuscola
-        }
-
-        if (!preg_match('/[0-9]/', $password)) {
-            return false;  // Nessun numero
+        // Stessa regex del model User: maiuscola, minuscola, numero e carattere speciale
+        if (!preg_match('/^.*(?=.*\d)(?=\S*[\W])(?=.*[a-z])(?=.*[A-Z]).*$/', $password)) {
+            return false;
         }
 
         return true;
@@ -1548,7 +1552,7 @@ class AuthController extends Controller
      *                 ),
      *                 @OA\Schema(
      *                     @OA\Property(property="success", type="boolean", example=false),
-     *                     @OA\Property(property="message", type="string", example="La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero"),
+     *                     @OA\Property(property="message", type="string", example="La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale"),
      *                     @OA\Property(property="error_code", type="string", example="WEAK_PASSWORD")
      *                 )
      *             }
@@ -1614,7 +1618,7 @@ class AuthController extends Controller
         if (!$this->isValidPassword($newPassword)) {
             return [
                 'success' => false,
-                'message' => 'La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola, una minuscola e un numero',
+                'message' => 'La password deve essere compresa tra 8 e 20 caratteri tra cui: un carattere maiuscolo, un carattere minuscolo, un numero ed un carattere speciale',
                 'error_code' => 'WEAK_PASSWORD'
             ];
         }
@@ -1641,7 +1645,7 @@ class AuthController extends Controller
             $this->invalidatePasswordResetToken($resetToken);
 
             // Genera token di accesso normale
-            $accessToken = $this->generateAccessToken([
+            $tokens = $this->generateAccessToken([
                 'user_id' => $user['id'],
                 'email' => $user['email']
             ]);
@@ -1651,9 +1655,11 @@ class AuthController extends Controller
                 'message' => 'Password resettata con successo',
                 'data' => [
                     'user' => $user,
-                    'access_token' => $accessToken,
+                    'access_token' => $tokens['access_token'],
+                    'refresh_token' => $tokens['refresh_token'],
                     'token_type' => 'Bearer',
-                    'expires_in' => 3600
+                    'expires_in' => $tokens['expires_in'],
+                    'refresh_expires_in' => $tokens['refresh_expires_in'],
                 ]
             ];
         } else {
@@ -1758,16 +1764,18 @@ class AuthController extends Controller
         }
 
         // Genera token di accesso completo
-        $accessToken = $this->generateAccessToken([
+        $tokens = $this->generateAccessToken([
             'user_id' => $tokenData['user_id'],
             'email' => $tokenData['email']
         ]);
 
         $responseData = [
             'user' => $userData,
-            'access_token' => $accessToken,
+            'access_token' => $tokens['access_token'],
+            'refresh_token' => $tokens['refresh_token'],
             'token_type' => 'Bearer',
-            'expires_in' => 3600,
+            'expires_in' => $tokens['expires_in'],
+            'refresh_expires_in' => $tokens['refresh_expires_in'],
             'requires_password_change' => 0
         ];
 
@@ -2410,8 +2418,28 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
             ];
         }
 
+        // Check scadenza password 90 giorni
+        if ($userModel->password_changed_at) {
+            $passwordAge = (new \DateTime($userModel->password_changed_at))->diff(new \DateTime());
+            if ($passwordAge->days >= 90) {
+                $userModel->requires_password_change = 1;
+                $userModel->save(false, ['requires_password_change']);
+                $userData['first_login'] = 1;
+
+                return [
+                    'success' => true,
+                    'message' => 'Login effettuato. È necessario cambiare la password.',
+                    'data' => [
+                        'user' => $userData,
+                        'requires_password_change' => 1,
+                        'temp_token' => $this->generateTempToken($userData)
+                    ]
+                ];
+            }
+        }
+
         // Genera JWT
-        $accessToken = $this->generateAccessToken([
+        $tokens = $this->generateAccessToken([
             'user_id' => $userData['id'],
             'email' => $userData['email']
         ]);
@@ -2421,9 +2449,11 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
             'message' => 'Login biometrico riuscito',
             'data' => [
                 'user' => $userData,
-                'access_token' => $accessToken,
+                'access_token' => $tokens['access_token'],
+                'refresh_token' => $tokens['refresh_token'],
                 'token_type' => 'Bearer',
-                'expires_in' => 3600
+                'expires_in' => $tokens['expires_in'],
+                'refresh_expires_in' => $tokens['refresh_expires_in'],
             ]
         ];
     }

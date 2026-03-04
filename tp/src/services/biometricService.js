@@ -138,7 +138,27 @@ export const biometricService = {
         };
       }
 
-      const {user, access_token} = response.data.data;
+      const {user, access_token, refresh_token, requires_password_change, temp_token} = response.data.data;
+
+      // Se password scaduta (90gg), gestisci come primo login
+      if (requires_password_change) {
+        const transformedUser = {
+          id: user.id.toString(),
+          email: user.email,
+          role: user.user_type === 'paziente' ? 'patient' : 'therapist',
+          firstName: user.nome,
+          lastName: user.cognome,
+          fullName: `${user.nome} ${user.cognome}`,
+          isFirstLogin: true,
+          isPasswordResetRequired: true,
+        };
+        return {
+          success: true,
+          requiresPasswordChange: true,
+          tempToken: temp_token,
+          user: transformedUser,
+        };
+      }
 
       // Estrai il token JWT
       let actualToken = null;
@@ -173,6 +193,7 @@ export const biometricService = {
       return {
         success: true,
         token: actualToken,
+        refreshToken: refresh_token || null,
         user: transformedUser,
       };
     } catch (error) {
