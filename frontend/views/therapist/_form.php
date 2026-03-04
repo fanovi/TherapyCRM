@@ -213,7 +213,7 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
                                    value="1"
                                    <?= $therapist->is_internal ? 'checked' : '' ?>
                                    class="rounded border-gray-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50">
-                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Terapista Interno</span>
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Dipendente</span>
                         </label>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Spunta se il terapista fa parte dello staff interno, altrimenti sarà considerato consulente esterno

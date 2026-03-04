@@ -347,7 +347,7 @@ class PatientController extends Controller
         $patient = new Patient(['scenario' => 'create']);
 
         // Get districts for dropdown
-        $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+        $districts = District::getDropdownData();
         $province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 
         if ($patient->load(Yii::$app->request->post())) {
@@ -456,7 +456,7 @@ class PatientController extends Controller
         }
 
         // Get districts for dropdown
-        $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+        $districts = District::getDropdownData();
 
         $province = ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 

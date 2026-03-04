@@ -93,7 +93,7 @@ class Therapist extends ActiveRecord
             'weekly_hours_contract' => 'Ore Settimanali Contratto',
             'calendar_color' => 'Colore Calendario',
             'is_active' => 'Attivo',
-            'is_internal' => 'Terapista Interno',
+            'is_internal' => 'Dipendente',
             'can_supervise' => 'Supervisione',
             'can_parental_training' => 'Parental Training',
             'created_at' => 'Creato il',

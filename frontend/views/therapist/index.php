@@ -180,7 +180,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'format' => 'raw',
                         'content' => function ($model) {
                             $typeClass = $model->is_internal ? 'bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-900' : 'bg-orange-100 text-orange-800 dark:bg-orange-200 dark:text-orange-900';
-                            $typeText = $model->is_internal ? 'Interno' : 'Consulente';
+                            $typeText = $model->is_internal ? 'Dipendente' : 'Consulente';
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $typeClass . '">' . $typeText . '</span>';
                         }
                     ],

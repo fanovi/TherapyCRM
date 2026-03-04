@@ -116,7 +116,7 @@ class TherapeuticPlanController extends BaseController
 
         // Get lists for filter dropdowns
         $regimes = ArrayHelper::map(Regime::find()->orderBy(['nome' => SORT_ASC])->all(), 'id', 'nome');
-        $districts = ArrayHelper::map(District::find()->orderBy(['name' => SORT_ASC])->all(), 'id', 'name');
+        $districts = District::getDropdownData();
 
         return $this->render('index', [
             'searchModel' => $searchModel,
@@ -802,10 +802,7 @@ class TherapeuticPlanController extends BaseController
      */
     protected function getDistrictsList()
     {
-        return ArrayHelper::map(
-            \common\models\District::find()->orderBy(['name' => SORT_ASC])->all(),
-            'id',
-            'name'
+        return \common\models\District::getDropdownData(
         );
     }
 

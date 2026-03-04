@@ -91,10 +91,23 @@ class District extends ActiveRecord
      */
     public static function getDropdownData()
     {
-        return static::find()
-            ->select(['name', 'id'])
-            ->indexBy('id')
-            ->column();
+        return \yii\helpers\ArrayHelper::map(
+            static::find()->orderBy(['name' => SORT_ASC])->all(),
+            'id',
+            'dropdownLabel'
+        );
+    }
+
+    /**
+     * Label per i dropdown: include asl_reference se diverso dal nome
+     * @return string
+     */
+    public function getDropdownLabel()
+    {
+        if ($this->asl_reference && stripos($this->name, $this->asl_reference) === false) {
+            return $this->asl_reference . ' - ' . $this->name;
+        }
+        return $this->name;
     }
 
     public function behaviors()

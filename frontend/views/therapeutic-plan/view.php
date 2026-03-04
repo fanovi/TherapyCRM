@@ -185,7 +185,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'attribute' => 'district_id',
                         'label' => 'Distretto',
                         'value' => function ($model) {
-                            return $model->district ? $model->district->name : 'N/A';
+                            return $model->district ? $model->district->dropdownLabel : 'N/A';
                         }
                     ],
                     [

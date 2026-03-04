@@ -191,8 +191,8 @@ class TherapistSearch extends Therapist
     public static function getInternalList()
     {
         return [
-            1 => 'Terapista Interno',
-            0 => 'Consulente Esterno',
+            1 => 'Dipendente',
+            0 => 'Consulente',
         ];
     }
 }
