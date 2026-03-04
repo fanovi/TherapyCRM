@@ -223,8 +223,18 @@ class AuthController extends Controller
         $userData = $this->findAndValidateUser($email, $password);
 
         if ($userData) {
-            // TODO: Gestire correttamente il first_login invece di metterlo sempre true
-            $requiresPasswordChange = $userData['first_login'];  // Per ora sempre true come richiesto
+            // Check scadenza password 90 giorni per utenti app
+            $user = User::findOne($userData['id']);
+            if ($user && $user->password_changed_at) {
+                $passwordAge = (new \DateTime($user->password_changed_at))->diff(new \DateTime());
+                if ($passwordAge->days >= 90) {
+                    $user->requires_password_change = 1;
+                    $user->save(false, ['requires_password_change']);
+                    $userData['first_login'] = 1;
+                }
+            }
+
+            $requiresPasswordChange = $userData['first_login'];
 
             // Se è primo login, non genera il token completo
             if ($requiresPasswordChange) {
