@@ -138,7 +138,25 @@ export const biometricService = {
         };
       }
 
-      const {user, access_token, refresh_token, requires_password_change, temp_token} = response.data.data;
+      const {user, access_token, refresh_token, requires_password_change, requires_reactivation, temp_token} = response.data.data;
+
+      // Se account inattivo (90gg), richiedi riattivazione
+      if (requires_reactivation) {
+        const transformedUser = {
+          id: user.id.toString(),
+          email: user.email,
+          role: user.user_type === 'paziente' ? 'patient' : 'therapist',
+          firstName: user.nome,
+          lastName: user.cognome,
+          fullName: `${user.nome} ${user.cognome}`,
+        };
+        return {
+          success: true,
+          requiresReactivation: true,
+          tempToken: temp_token,
+          user: transformedUser,
+        };
+      }
 
       // Se password scaduta (90gg), gestisci come primo login
       if (requires_password_change) {

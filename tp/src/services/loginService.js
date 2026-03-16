@@ -9,6 +9,8 @@ import {
   twoFactorRequired,
   twoFactorSuccess,
   twoFactorFailure,
+  accountReactivationRequired,
+  reactivationSuccess,
   biometricLoginStart,
   biometricLoginSuccess,
   biometricLoginFailure,
@@ -32,6 +34,18 @@ export const loginService = {
         hasTempToken: !!response.tempToken,
         hasToken: !!response.token,
       });
+
+      // Check riattivazione account
+      if (response.requiresReactivation) {
+        console.log('🔒 Account reactivation required');
+        dispatch(
+          accountReactivationRequired({
+            user: response.user,
+            tempToken: response.tempToken,
+          }),
+        );
+        return response;
+      }
 
       // Check 2FA richiesto
       if (response.requires2fa) {
@@ -312,6 +326,105 @@ export const loginService = {
     }
   },
 
+  async verifyReactivation(dispatch, {tempToken, code}) {
+    dispatch(loginStart());
+
+    try {
+      console.log('🔓 Starting account reactivation verification...');
+      const response = await authService.verifyReactivation(tempToken, code);
+
+      console.log('✅ Reactivation verification response:', {
+        hasUser: !!response.user,
+        requiresPasswordChange: response.requiresPasswordChange,
+        requires2fa: response.requires2fa,
+        hasToken: !!response.token,
+      });
+
+      // Se dopo riattivazione serve cambio password
+      if (response.requiresPasswordChange) {
+        console.log('🔐 Password change required after reactivation');
+        const tempTokenStr = response.tempToken ? String(response.tempToken) : '';
+        await AsyncStorage.setItem('tempToken', tempTokenStr);
+        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+
+        dispatch(
+          loginSuccess({
+            user: response.user,
+            token: response.tempToken,
+            requiresPasswordChange: true,
+            tempToken: response.tempToken,
+          }),
+        );
+        return response;
+      }
+
+      // Se dopo riattivazione serve 2FA
+      if (response.requires2fa) {
+        console.log('🔐 2FA required after reactivation');
+        dispatch(
+          twoFactorRequired({
+            user: response.user,
+            twoFactorMethod: response.twoFactorMethod,
+            tempToken: response.tempToken,
+            totpConfigured: response.totpConfigured,
+          }),
+        );
+        return response;
+      }
+
+      // Login completo dopo riattivazione
+      console.log('✅ Reactivation complete - full login');
+
+      const authToken = response.token ? String(response.token) : '';
+      const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
+      const userString = JSON.stringify(response.user);
+
+      const storageItems = [
+        ['authToken', authToken],
+        ['user', userString],
+      ];
+      if (refreshTokenStr) {
+        storageItems.push(['refreshToken', refreshTokenStr]);
+      }
+      await AsyncStorage.multiSet(storageItems);
+
+      dispatch(
+        reactivationSuccess({
+          user: response.user,
+          token: response.token,
+          refreshToken: response.refreshToken,
+        }),
+      );
+
+      // Gestisci i pazienti
+      if (response.user.patients && response.user.patients.length > 0) {
+        console.log(
+          '👥 Setting patients after reactivation:',
+          response.user.patients.length,
+        );
+        dispatch(setPatientsFromLogin(response.user.patients));
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Reactivation verification failed:', error.message);
+      dispatch(loginFailure(error.message));
+      throw error;
+    }
+  },
+
+  async resendReactivationOtp(dispatch, tempToken) {
+    try {
+      console.log('📧 Resending reactivation OTP...');
+      const response = await authService.resendReactivationOtp(tempToken);
+      console.log('✅ Reactivation OTP resent successfully');
+      return response;
+    } catch (error) {
+      console.error('❌ Resend reactivation OTP failed:', error.message);
+      throw error;
+    }
+  },
+
   async biometricLogin(dispatch) {
     dispatch(biometricLoginStart());
 
@@ -322,6 +435,18 @@ export const loginService = {
 
       if (!result.success) {
         dispatch(biometricLoginFailure(result.error));
+        return result;
+      }
+
+      // Check se serve riattivazione account
+      if (result.requiresReactivation) {
+        console.log('🔒 Account reactivation required (biometric)');
+        dispatch(
+          accountReactivationRequired({
+            user: result.user,
+            tempToken: result.tempToken,
+          }),
+        );
         return result;
       }
 

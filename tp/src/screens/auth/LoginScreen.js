@@ -28,7 +28,7 @@ import {logo} from '../../assets/images';
 const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {isLoading, error, user, requiresPasswordChange, requires2fa, biometricAvailable, biometricRegistered, biometricBiometryType} =
+  const {isLoading, error, user, requiresPasswordChange, requires2fa, requiresReactivation, biometricAvailable, biometricRegistered, biometricBiometryType} =
     useSelector(state => state.auth);
   const theme = useTheme();
 
@@ -59,7 +59,11 @@ const LoginScreen = () => {
     if (requires2fa) {
       navigation.navigate('TwoFactor');
     }
-  }, [user, requiresPasswordChange, requires2fa, navigation]);
+    // Se riattivazione account è richiesta
+    if (requiresReactivation) {
+      navigation.navigate('AccountReactivation');
+    }
+  }, [user, requiresPasswordChange, requires2fa, requiresReactivation, navigation]);
 
   const handleBiometricLogin = useCallback(async () => {
     setBiometricLoading(true);

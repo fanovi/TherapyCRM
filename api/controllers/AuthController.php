@@ -223,8 +223,28 @@ class AuthController extends Controller
         $userData = $this->findAndValidateUser($email, $password);
 
         if ($userData) {
-            // Check scadenza password 90 giorni per utenti app
+            // Check inattività account (90 giorni)
             $user = User::findOne($userData['id']);
+            if ($user && $user->isAccountInactive()) {
+                // Account inattivo - invia OTP email per riattivazione
+                $tfa = UserTwoFactorAuth::findOrCreate($user->id);
+                $tfaService = new TwoFactorService();
+                $tfaService->sendEmailOtp($user);
+
+                $tempToken = $this->generateReactivationTempToken($userData);
+
+                return [
+                    'success' => true,
+                    'message' => 'Account disattivato per inattività. Codice di verifica inviato via email.',
+                    'data' => [
+                        'user' => $userData,
+                        'requires_reactivation' => true,
+                        'temp_token' => $tempToken,
+                    ]
+                ];
+            }
+
+            // Check scadenza password 90 giorni per utenti app
             if ($user && $user->password_changed_at) {
                 $passwordAge = (new \DateTime($user->password_changed_at))->diff(new \DateTime());
                 if ($passwordAge->days >= 90) {
@@ -276,7 +296,9 @@ class AuthController extends Controller
                 ];
             }
 
-            // Login normale - genera token di accesso completo
+            // Login normale - aggiorna last_login_at e genera token di accesso completo
+            $user->updateLastLogin();
+
             $tokens = $this->generateAccessToken([
                 'user_id' => $userData['id'],
                 'email' => $userData['email']
@@ -375,6 +397,9 @@ class AuthController extends Controller
         // Revoca il vecchio token
         $authToken->is_revoked = 1;
         $authToken->save(false, ['is_revoked']);
+
+        // Aggiorna last_login_at (refresh = utente attivo)
+        $user->updateLastLogin();
 
         // Genera nuovi token usando generateAccessToken
         $tokens = $this->generateAccessToken([
@@ -1190,6 +1215,9 @@ class AuthController extends Controller
                 ];
             }
 
+            // Aggiorna last_login_at (cambio password completato = login)
+            $userModel->updateLastLogin();
+
             // Genera token di accesso normale dopo il cambio password (no 2FA needed)
             $tokens = $this->generateAccessToken([
                 'user_id' => $userData['id'],
@@ -1754,6 +1782,9 @@ class AuthController extends Controller
             ];
         }
 
+        // Aggiorna last_login_at (2FA completata = login completo)
+        $user->updateLastLogin();
+
         $userData = $this->buildUserData($user);
         if (!$userData) {
             return [
@@ -1783,6 +1814,220 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Autenticazione completata con successo',
             'data' => $responseData
+        ];
+    }
+
+    /**
+     * Verifica OTP per riattivazione account inattivo
+     * POST /auth/verify-reactivation
+     */
+    public function actionVerifyReactivation()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+        $code = $request->post('code');
+
+        if (empty($tempToken) || empty($code)) {
+            return [
+                'success' => false,
+                'message' => 'Token e codice sono obbligatori',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        // Verifica token riattivazione
+        $tokenData = $this->verifyReactivationTempToken($tempToken);
+        if (!$tokenData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        $userId = $tokenData['user_id'];
+        $tfaService = new TwoFactorService();
+
+        // Verifica codice OTP email
+        $valid = $tfaService->verifyEmailOtp($userId, $code);
+
+        if (!$valid) {
+            return [
+                'success' => false,
+                'message' => 'Codice di verifica non valido',
+                'error_code' => 'INVALID_OTP_CODE'
+            ];
+        }
+
+        // OTP valido - ricarica utente
+        $user = User::findOne($userId);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        // Aggiorna last_login_at (riattivazione completata)
+        $user->updateLastLogin();
+
+        $userData = $this->buildUserData($user);
+        if (!$userData) {
+            return [
+                'success' => false,
+                'message' => 'Errore nel recupero dati utente',
+                'error_code' => 'USER_DATA_BUILD_FAILED'
+            ];
+        }
+
+        // Check scadenza password 90 giorni
+        if ($user->password_changed_at) {
+            $passwordAge = (new \DateTime($user->password_changed_at))->diff(new \DateTime());
+            if ($passwordAge->days >= 90) {
+                $user->requires_password_change = 1;
+                $user->save(false, ['requires_password_change']);
+                $userData['first_login'] = 1;
+
+                return [
+                    'success' => true,
+                    'message' => 'Account riattivato. È necessario cambiare la password.',
+                    'data' => [
+                        'user' => $userData,
+                        'requires_password_change' => 1,
+                        'temp_token' => $this->generateTempToken($userData)
+                    ]
+                ];
+            }
+        }
+
+        // Check 2FA
+        if ($tfaService->is2faRequired($user)) {
+            $method = $tfaService->getPreferredMethod($user->id);
+
+            $tfa = UserTwoFactorAuth::findOne(['user_id' => $user->id]);
+            $totpConfigured = $tfa && !empty($tfa->totp_secret) && !empty($tfa->totp_confirmed_at);
+
+            $tempToken2fa = $this->generate2faTempToken($userData);
+
+            return [
+                'success' => true,
+                'message' => 'Account riattivato. Verifica a due fattori richiesta.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_2fa' => true,
+                    'two_factor_method' => $method,
+                    'totp_configured' => $totpConfigured,
+                    'temp_token' => $tempToken2fa,
+                    'requires_password_change' => 0
+                ]
+            ];
+        }
+
+        // Nessun altro check necessario - genera JWT
+        $tokens = $this->generateAccessToken([
+            'user_id' => $user->id,
+            'email' => $user->email
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Account riattivato con successo',
+            'data' => [
+                'user' => $userData,
+                'access_token' => $tokens['access_token'],
+                'refresh_token' => $tokens['refresh_token'],
+                'token_type' => 'Bearer',
+                'expires_in' => $tokens['expires_in'],
+                'refresh_expires_in' => $tokens['refresh_expires_in'],
+                'requires_password_change' => 0
+            ]
+        ];
+    }
+
+    /**
+     * Reinvia OTP per riattivazione account
+     * POST /auth/resend-reactivation-otp
+     */
+    public function actionResendReactivationOtp()
+    {
+        $request = Yii::$app->request;
+
+        if (!$request->isPost) {
+            throw new HttpException(405, 'Metodo non consentito. Utilizzare POST.');
+        }
+
+        $tempToken = $request->post('temp_token');
+
+        if (empty($tempToken)) {
+            return [
+                'success' => false,
+                'message' => 'Token obbligatorio',
+                'error_code' => 'MISSING_PARAMETERS'
+            ];
+        }
+
+        // Verifica token riattivazione
+        $tokenData = $this->verifyReactivationTempToken($tempToken);
+        if (!$tokenData) {
+            return [
+                'success' => false,
+                'message' => 'Token non valido o scaduto',
+                'error_code' => 'INVALID_TEMP_TOKEN'
+            ];
+        }
+
+        $userId = $tokenData['user_id'];
+
+        // Rate limit: controlla se l'ultimo OTP è stato inviato meno di 60 secondi fa
+        $tfa = UserTwoFactorAuth::findOne(['user_id' => $userId]);
+        if ($tfa && $tfa->email_otp_expires_at) {
+            // L'OTP scade dopo 10 minuti, quindi se manca meno di 9 minuti alla scadenza,
+            // significa che è stato inviato meno di 60 secondi fa
+            $expiresAt = is_numeric($tfa->email_otp_expires_at)
+                ? (int) $tfa->email_otp_expires_at
+                : strtotime($tfa->email_otp_expires_at);
+            $otpLifetime = 600; // 10 minuti
+            $timeSinceSent = $otpLifetime - ($expiresAt - time());
+            if ($timeSinceSent < 60) {
+                $waitSeconds = 60 - $timeSinceSent;
+                return [
+                    'success' => false,
+                    'message' => "Attendi {$waitSeconds} secondi prima di richiedere un nuovo codice",
+                    'error_code' => 'RATE_LIMITED'
+                ];
+            }
+        }
+
+        // Invia nuovo OTP
+        $user = User::findOne($userId);
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'Utente non trovato',
+                'error_code' => 'USER_NOT_FOUND'
+            ];
+        }
+
+        $tfaService = new TwoFactorService();
+        $result = $tfaService->sendEmailOtp($user);
+
+        if ($result) {
+            return [
+                'success' => true,
+                'message' => 'Nuovo codice di verifica inviato via email'
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Errore nell\'invio del codice',
+            'error_code' => 'OTP_SEND_FAILED'
         ];
     }
 
@@ -2083,6 +2328,73 @@ class AuthController extends Controller
                     $payload['exp'] < time() ||
                     !isset($payload['purpose']) ||
                     $payload['purpose'] !== '2fa_challenge' ||
+                    !isset($payload['user_id']) ||
+                    !isset($payload['email'])) {
+                return null;
+            }
+
+            return [
+                'user_id' => $payload['user_id'],
+                'email' => $payload['email'],
+                'user_type' => $payload['user_type'],
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Genera un token temporaneo per la riattivazione account (firmato con HMAC)
+     */
+    private function generateReactivationTempToken($userData)
+    {
+        $payload = [
+            'user_id' => $userData['id'],
+            'user_type' => $userData['user_type'],
+            'email' => $userData['email'],
+            'purpose' => 'account_reactivation',
+            'exp' => time() + 600  // Scade in 10 minuti
+        ];
+
+        $payloadJson = json_encode($payload);
+        $signature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+
+        return base64_encode($payloadJson . '.' . $signature);
+    }
+
+    /**
+     * Verifica un token temporaneo di riattivazione account (verifica HMAC)
+     */
+    private function verifyReactivationTempToken($token)
+    {
+        try {
+            $decoded = base64_decode($token);
+            if ($decoded === false) {
+                return null;
+            }
+
+            $lastDot = strrpos($decoded, '.');
+            if ($lastDot === false) {
+                return null;
+            }
+
+            $payloadJson = substr($decoded, 0, $lastDot);
+            $signature = substr($decoded, $lastDot + 1);
+
+            // Verifica firma HMAC
+            $expectedSignature = hash_hmac('sha256', $payloadJson, Yii::$app->params['encryptionKey']);
+            if (!hash_equals($expectedSignature, $signature)) {
+                Yii::error('Reactivation temp token signature mismatch', __METHOD__);
+                return null;
+            }
+
+            $payload = json_decode($payloadJson, true);
+
+            if (!$payload ||
+                    !isset($payload['exp']) ||
+                    $payload['exp'] < time() ||
+                    !isset($payload['purpose']) ||
+                    $payload['purpose'] !== 'account_reactivation' ||
                     !isset($payload['user_id']) ||
                     !isset($payload['email'])) {
                 return null;
@@ -2418,6 +2730,26 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
             ];
         }
 
+        // Check inattività account (90 giorni)
+        if ($userModel->isAccountInactive()) {
+            // Account inattivo - invia OTP email per riattivazione
+            $tfa = UserTwoFactorAuth::findOrCreate($userModel->id);
+            $tfaService = new TwoFactorService();
+            $tfaService->sendEmailOtp($userModel);
+
+            $tempToken = $this->generateReactivationTempToken($userData);
+
+            return [
+                'success' => true,
+                'message' => 'Account disattivato per inattività. Codice di verifica inviato via email.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_reactivation' => true,
+                    'temp_token' => $tempToken,
+                ]
+            ];
+        }
+
         // Check scadenza password 90 giorni
         if ($userModel->password_changed_at) {
             $passwordAge = (new \DateTime($userModel->password_changed_at))->diff(new \DateTime());
@@ -2437,6 +2769,9 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
                 ];
             }
         }
+
+        // Aggiorna last_login_at
+        $userModel->updateLastLogin();
 
         // Genera JWT
         $tokens = $this->generateAccessToken([

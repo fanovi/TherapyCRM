@@ -16,6 +16,9 @@ const initialState = {
   twoFactorMethod: null, // 'totp' | 'email'
   twoFactorTempToken: null,
   totpConfigured: false,
+  // Reactivation state
+  requiresReactivation: false,
+  reactivationTempToken: null,
   // Biometric state
   biometricAvailable: false,
   biometricBiometryType: null,
@@ -119,6 +122,34 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
+    // Reactivation reducers
+    accountReactivationRequired: (state, action) => {
+      state.isLoading = false;
+      state.error = null;
+      state.requiresReactivation = true;
+      state.reactivationTempToken = action.payload.tempToken;
+      state.user = action.payload.user;
+    },
+    reactivationSuccess: (state, action) => {
+      state.isAuthenticated = true;
+      state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken || null;
+      state.user = action.payload.user;
+      state.isLoading = false;
+      state.error = null;
+      state.requiresReactivation = false;
+      state.reactivationTempToken = null;
+      state.currentRole =
+        action.payload.user.roles?.[action.payload.user.roles.length - 1] ||
+        action.payload.user.role ||
+        action.payload.user.user_type;
+    },
+    clearReactivationState: state => {
+      state.requiresReactivation = false;
+      state.reactivationTempToken = null;
+      state.isLoading = false;
+      state.error = null;
+    },
     // Biometric reducers
     setBiometricAvailability: (state, action) => {
       state.biometricAvailable = action.payload.available;
@@ -165,6 +196,9 @@ export const {
   twoFactorSuccess,
   twoFactorFailure,
   clear2faState,
+  accountReactivationRequired,
+  reactivationSuccess,
+  clearReactivationState,
   setBiometricAvailability,
   setBiometricRegistered,
   biometricLoginStart,

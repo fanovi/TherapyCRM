@@ -39,6 +39,8 @@ const apiCall = async (endpoint, options = {}) => {
       '/auth/reset-password',
       '/auth/change-first-password',
       '/auth/biometric/login',
+      '/auth/verify-reactivation',
+      '/auth/resend-reactivation-otp',
     ];
     const isProtectedEndpoint = !noAutoLogoutEndpoints.some(ep =>
       endpoint.includes(ep),
@@ -174,6 +176,7 @@ export const authService = {
           user,
           requires_password_change,
           requires_2fa,
+          requires_reactivation,
           two_factor_method,
           temp_token,
           access_token,
@@ -203,6 +206,16 @@ export const authService = {
             numeroAlbo: user.numero_albo || '',
           }),
         };
+
+        // Check if account reactivation is required
+        if (requires_reactivation) {
+          console.log('🔒 Account reactivation required');
+          return {
+            user: transformedUser,
+            requiresReactivation: true,
+            tempToken: temp_token,
+          };
+        }
 
         // Check if 2FA is required
         if (requires_2fa) {
@@ -347,6 +360,123 @@ export const authService = {
       return response;
     } catch (error) {
       console.error('Resend OTP error:', error);
+      throw error;
+    }
+  },
+
+  async verifyReactivation(tempToken, code) {
+    try {
+      const formData = new FormData();
+      formData.append('temp_token', tempToken);
+      formData.append('code', code);
+
+      const response = await apiCall(
+        API_CONFIG.ENDPOINTS.VERIFY_REACTIVATION,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      if (response.success && response.data) {
+        const {
+          user,
+          requires_password_change,
+          requires_2fa,
+          two_factor_method,
+          temp_token: newTempToken,
+          access_token,
+          refresh_token,
+          token_type,
+          expires_in,
+        } = response.data;
+
+        let actualToken = null;
+        if (typeof access_token === 'object' && access_token !== null) {
+          actualToken = access_token.token;
+        } else if (typeof access_token === 'string') {
+          actualToken = access_token;
+        }
+
+        const transformedUser = {
+          id: user.id.toString(),
+          email: user.email,
+          role: user.user_type === 'paziente' ? 'patient' : 'therapist',
+          firstName: user.nome,
+          lastName: user.cognome,
+          fullName: `${user.nome} ${user.cognome}`,
+          codiceFiscale: user.codice_fiscale || '',
+          telefono: user.telefono || '',
+          dataNascita: user.data_nascita || '',
+          indirizzo: user.indirizzo || '',
+          status: user.status || 'attivo',
+          isFirstLogin: false,
+          isPasswordResetRequired: false,
+          patients: user.patients || [],
+          ...(user.user_type === 'terapista' && {
+            specializzazione: user.specializzazione || '',
+            numeroAlbo: user.numero_albo || '',
+          }),
+        };
+
+        // Check if password change is required after reactivation
+        if (requires_password_change) {
+          return {
+            user: transformedUser,
+            requiresPasswordChange: true,
+            tempToken: newTempToken,
+          };
+        }
+
+        // Check if 2FA is required after reactivation
+        if (requires_2fa) {
+          return {
+            user: transformedUser,
+            requires2fa: true,
+            twoFactorMethod: two_factor_method,
+            tempToken: newTempToken,
+            totpConfigured: !!response.data.totp_configured,
+          };
+        }
+
+        return {
+          user: transformedUser,
+          token: actualToken,
+          refreshToken: refresh_token || null,
+          tokenType: token_type,
+          expiresIn: expires_in,
+        };
+      }
+
+      throw new Error('Risposta del server non valida');
+    } catch (error) {
+      console.error('Verify reactivation error:', error);
+      throw error;
+    }
+  },
+
+  async resendReactivationOtp(tempToken) {
+    try {
+      const formData = new FormData();
+      formData.append('temp_token', tempToken);
+
+      const response = await apiCall(
+        API_CONFIG.ENDPOINTS.RESEND_REACTIVATION_OTP,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      return response;
+    } catch (error) {
+      console.error('Resend reactivation OTP error:', error);
       throw error;
     }
   },

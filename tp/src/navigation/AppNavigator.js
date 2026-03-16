@@ -22,7 +22,7 @@ const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const {isAuthenticated, user, requiresPasswordChange, requires2fa} =
+  const {isAuthenticated, user, requiresPasswordChange, requires2fa, requiresReactivation} =
     useSelector(state => state.auth);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,8 +62,14 @@ const AppNavigator = () => {
         console.log('🔐 Attempting biometric login...');
         const bioResult = await loginService.biometricLogin(dispatch);
 
-        if (bioResult.success) {
+        if (bioResult.success && !bioResult.requiresReactivation) {
           console.log('✅ Biometric login successful');
+          setIsLoading(false);
+          return;
+        }
+
+        if (bioResult.requiresReactivation) {
+          console.log('🔒 Biometric login - account reactivation required');
           setIsLoading(false);
           return;
         }
@@ -213,7 +219,7 @@ const AppNavigator = () => {
     <SafeAreaWrapper>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{headerShown: false}}>
-          {!isAuthenticated || requiresPasswordChange || requires2fa ? (
+          {!isAuthenticated || requiresPasswordChange || requires2fa || requiresReactivation ? (
             <Stack.Screen name="Auth" component={AuthNavigator} />
           ) : user?.user_type === 'paziente' || user?.role === 'patient' ? (
             <Stack.Screen name="Patient" component={PatientNavigator} />

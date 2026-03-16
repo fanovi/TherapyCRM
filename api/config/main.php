@@ -91,6 +91,9 @@ return [
                 'POST auth/2fa/setup' => 'auth/2fa-setup',
                 'POST auth/2fa/confirm-setup' => 'auth/2fa-confirm-setup',
                 'POST auth/2fa/setup-temp' => 'auth/2fa-setup-temp',
+                // Reactivation routes
+                'POST auth/verify-reactivation' => 'auth/verify-reactivation',
+                'POST auth/resend-reactivation-otp' => 'auth/resend-reactivation-otp',
                 // Biometric routes
                 'POST auth/biometric/register' => 'auth/biometric-register',
                 'POST auth/biometric/login' => 'auth/biometric-login',

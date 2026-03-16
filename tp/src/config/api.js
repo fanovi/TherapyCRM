@@ -17,6 +17,10 @@ export const API_CONFIG = {
     TWO_FACTOR_SETUP_TEMP: '/auth/2fa/setup-temp',
     TWO_FACTOR_CONFIRM_SETUP: '/auth/2fa/confirm-setup',
 
+    // Reactivation
+    VERIFY_REACTIVATION: '/auth/verify-reactivation',
+    RESEND_REACTIVATION_OTP: '/auth/resend-reactivation-otp',
+
     // Biometric
     BIOMETRIC_REGISTER: '/auth/biometric/register',
     BIOMETRIC_LOGIN: '/auth/biometric/login',

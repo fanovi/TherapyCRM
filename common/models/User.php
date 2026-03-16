@@ -349,6 +349,30 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
     /**
+     * Controlla se l'account è inattivo (last_login_at null o >= 90 giorni)
+     * @return bool
+     */
+    public function isAccountInactive()
+    {
+        if (empty($this->last_login_at)) {
+            return true;
+        }
+
+        $lastLogin = new \DateTime($this->last_login_at);
+        $diff = $lastLogin->diff(new \DateTime());
+        return $diff->days >= 90;
+    }
+
+    /**
+     * Aggiorna last_login_at al momento corrente
+     */
+    public function updateLastLogin()
+    {
+        $this->last_login_at = date('Y-m-d H:i:s');
+        $this->save(false, ['last_login_at']);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function beforeSave($insert)
