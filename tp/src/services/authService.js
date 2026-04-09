@@ -85,9 +85,21 @@ const apiCall = async (endpoint, options = {}) => {
       }
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log('🔍 API DEBUG - Raw response status:', response.status);
+    console.log('🔍 API DEBUG - Raw response body:', responseText.substring(0, 500));
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('🔍 API DEBUG - JSON parse error:', parseError.message);
+      console.error('🔍 API DEBUG - Response was:', responseText.substring(0, 200));
+      throw new Error('Risposta del server non valida (non JSON)');
+    }
 
     if (!data.success) {
+      console.error('🔍 API DEBUG - Server returned error:', data.message, 'error_code:', data.error_code);
       throw new Error(data.message || 'Errore del server');
     }
 
@@ -162,6 +174,9 @@ export const authService = {
       formData.append('email', credentials.email);
       formData.append('password', credentials.password);
 
+      console.log('🔍 LOGIN DEBUG - Calling API:', API_CONFIG.ENDPOINTS.LOGIN);
+      console.log('🔍 LOGIN DEBUG - Email:', credentials.email);
+
       const response = await apiCall(API_CONFIG.ENDPOINTS.LOGIN, {
         method: 'POST',
         body: formData,
@@ -170,6 +185,8 @@ export const authService = {
           // Don't set Content-Type for FormData, let the browser set it
         },
       });
+
+      console.log('🔍 LOGIN DEBUG - Raw response:', JSON.stringify(response, null, 2));
 
       if (response.success && response.data) {
         const {

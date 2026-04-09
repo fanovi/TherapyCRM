@@ -245,12 +245,18 @@ class AuthController extends Controller
             }
 
             // Check scadenza password 90 giorni per utenti app
-            if ($user && $user->password_changed_at) {
-                $passwordAge = (new \DateTime($user->password_changed_at))->diff(new \DateTime());
-                if ($passwordAge->days >= 90) {
-                    $user->requires_password_change = 1;
-                    $user->save(false, ['requires_password_change']);
-                    $userData['first_login'] = 1;
+            // Se password_changed_at è NULL (mai cambiata), usa created_at come riferimento
+            if ($user) {
+                $referenceDate = $user->password_changed_at
+                    ? $user->password_changed_at
+                    : date('Y-m-d H:i:s', $user->created_at);
+                if ($referenceDate) {
+                    $passwordAge = (new \DateTime($referenceDate))->diff(new \DateTime());
+                    if ($passwordAge->days >= 90) {
+                        $user->requires_password_change = 1;
+                        $user->save(false, ['requires_password_change']);
+                        $userData['first_login'] = 1;
+                    }
                 }
             }
 
@@ -586,29 +592,45 @@ class AuthController extends Controller
             ->one();
 
         if (!$user) {
-            Yii::info("User not found for email: $email", __METHOD__);
+            Yii::error("LOGIN DEBUG - User not found for email: $email", __METHOD__);
             return null;
         }
+
+        Yii::error("LOGIN DEBUG - User found: id={$user->id}, email={$user->email}, status={$user->status}", __METHOD__);
 
         // Valida la password usando il metodo standard di Yii2
         if (!$user->validatePassword($password)) {
-            Yii::info("Invalid password for email: $email", __METHOD__);
+            Yii::error("LOGIN DEBUG - Invalid password for email: $email", __METHOD__);
             return null;
         }
 
+        Yii::error("LOGIN DEBUG - Password validated OK for email: $email", __METHOD__);
+
         // Verifica il permesso app_login tramite RBAC
         if (!$this->hasAppLoginPermission($user)) {
-            Yii::error("User {$user->id} (email: $email) does not have app_login permission", __METHOD__);
+            Yii::error("LOGIN DEBUG - User {$user->id} (email: $email) does NOT have app_login permission", __METHOD__);
+            // Check ruoli assegnati
+            $authManager = Yii::$app->authManager;
+            $roles = $authManager ? $authManager->getRolesByUser($user->id) : [];
+            $roleNames = array_keys($roles);
+            Yii::error("LOGIN DEBUG - User roles: " . implode(', ', $roleNames), __METHOD__);
             return null;
         }
+
+        Yii::error("LOGIN DEBUG - app_login permission OK for user: {$user->id}", __METHOD__);
 
         // Determina il tipo di utente (terapista o account paziente)
         $userData = $this->buildUserData($user);
 
         if (!$userData) {
-            Yii::error("User found but not associated with Therapist or AccountPatient: {$user->id}", __METHOD__);
+            Yii::error("LOGIN DEBUG - User found but not associated with Therapist or AccountPatient: {$user->id}", __METHOD__);
+            // Check se esiste record terapista
+            $therapist = \common\models\Therapist::findOne(['user_id' => $user->id]);
+            Yii::error("LOGIN DEBUG - Therapist record exists: " . ($therapist ? "YES (id={$therapist->id})" : "NO"), __METHOD__);
             return null;
         }
+
+        Yii::error("LOGIN DEBUG - buildUserData OK, user_type=" . ($userData['user_type'] ?? 'unknown'), __METHOD__);
 
         return $userData;
     }
@@ -1887,8 +1909,12 @@ class AuthController extends Controller
         }
 
         // Check scadenza password 90 giorni
-        if ($user->password_changed_at) {
-            $passwordAge = (new \DateTime($user->password_changed_at))->diff(new \DateTime());
+        // Se password_changed_at è NULL (mai cambiata), usa created_at come riferimento
+        $referenceDate = $user->password_changed_at
+                    ? $user->password_changed_at
+                    : date('Y-m-d H:i:s', $user->created_at);
+        if ($referenceDate) {
+            $passwordAge = (new \DateTime($referenceDate))->diff(new \DateTime());
             if ($passwordAge->days >= 90) {
                 $user->requires_password_change = 1;
                 $user->save(false, ['requires_password_change']);
@@ -2751,8 +2777,12 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
         }
 
         // Check scadenza password 90 giorni
-        if ($userModel->password_changed_at) {
-            $passwordAge = (new \DateTime($userModel->password_changed_at))->diff(new \DateTime());
+        // Se password_changed_at è NULL (mai cambiata), usa created_at come riferimento
+        $referenceDate = $userModel->password_changed_at
+                    ? $userModel->password_changed_at
+                    : date('Y-m-d H:i:s', $userModel->created_at);
+        if ($referenceDate) {
+            $passwordAge = (new \DateTime($referenceDate))->diff(new \DateTime());
             if ($passwordAge->days >= 90) {
                 $userModel->requires_password_change = 1;
                 $userModel->save(false, ['requires_password_change']);
