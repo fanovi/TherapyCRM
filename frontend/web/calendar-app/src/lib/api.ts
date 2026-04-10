@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "http://app.gruppovitolo.local/therapeutic-plan-manager";
+  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager";
 
   // Cache per i settings
   private settingsCache: { id: number; nome: string }[] | null = null;
