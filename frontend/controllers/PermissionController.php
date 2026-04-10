@@ -62,10 +62,15 @@ class PermissionController extends Controller
 
         $rolesData = [];
         foreach ($roles as $role) {
+            $inactivePermissions = \common\models\PermissionMetadata::find()
+                ->select('permission_name')
+                ->where(['is_active' => 0]);
+
             $permissionCount = AuthItemChild::find()
                 ->where(['parent' => $role->name])
                 ->joinWith('childItem')
                 ->andWhere(['{{%auth_item}}.type' => AuthItem::TYPE_PERMISSION])
+                ->andWhere(['NOT IN', '{{%auth_item}}.name', $inactivePermissions])
                 ->count();
 
             $rolesData[] = [

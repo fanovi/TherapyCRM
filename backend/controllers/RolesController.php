@@ -50,10 +50,15 @@ class RolesController extends Controller
 
         $rolesData = [];
         foreach ($roles as $role) {
+            $inactivePermissions = \common\models\PermissionMetadata::find()
+                ->select('permission_name')
+                ->where(['is_active' => 0]);
+
             $permissionCount = AuthItemChild::find()
                 ->where(['parent' => $role->name])
                 ->joinWith('childItem')
                 ->andWhere(['{{%auth_item}}.type' => AuthItem::TYPE_PERMISSION])
+                ->andWhere(['NOT IN', '{{%auth_item}}.name', $inactivePermissions])
                 ->count();
 
             $rolesData[] = [
@@ -77,10 +82,7 @@ class RolesController extends Controller
             throw new NotFoundHttpException('Ruolo non trovato.');
         }
 
-        $permissions = AuthItem::find()
-            ->where(['type' => AuthItem::TYPE_PERMISSION])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+        $permissions = AuthItem::findActivePermissions()->all();
 
         $assignedPermissions = AuthItemChild::find()
             ->where(['parent' => $name])
