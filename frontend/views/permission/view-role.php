@@ -3,6 +3,51 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
+$this->registerCss('
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    cursor: pointer;
+}
+.toggle-switch.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+.toggle-slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #d1d5db;
+    border-radius: 20px;
+    transition: background-color 0.2s ease;
+}
+.toggle-slider:before {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle-input:checked + .toggle-slider {
+    background-color: #3b82f6;
+}
+.toggle-input:checked + .toggle-slider:before {
+    transform: translateX(16px);
+}
+');
+
 /** @var yii\web\View $this */
 /** @var common\models\AuthItem $role */
 /** @var array $groupedPermissions */
@@ -100,6 +145,20 @@ $this->title = 'Ruolo: ' . $roleLabel;
         </div>
     </div>
 
+    <!-- Search Bar -->
+    <div class="mb-6">
+        <div style="position:relative;">
+            <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#9ca3af;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" id="permission-search"
+                   placeholder="Cerca per nome permesso o area (es. Calendario, Assenze...)"
+                   style="width:100%;padding:10px 16px 10px 40px;font-size:14px;border:1px solid #e5e7eb;border-radius:8px;background:white;outline:none;color:#374151;box-sizing:border-box;"
+                   onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 2px rgba(59,130,246,0.15)'"
+                   onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
+        </div>
+    </div>
+
     <!-- Permissions by Category -->
     <?php
     $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications', 'view_statistics'];
@@ -107,11 +166,11 @@ $this->title = 'Ruolo: ' . $roleLabel;
     ?>
     <?php foreach ($groupedPermissions as $category => $permissions): ?>
         <?php $dotColor = $categoryColors[$colorIndex % count($categoryColors)]; $colorIndex++; ?>
-        <div class="mb-6">
+        <div class="mb-6 permission-category">
             <!-- Category Header -->
             <div class="flex items-center gap-3 mb-3 px-1">
                 <span class="flex-shrink-0 w-3 h-3 rounded-full <?= $dotColor ?>"></span>
-                <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider"><?= Html::encode($category) ?></h4>
+                <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider category-title"><?= Html::encode($category) ?></h4>
             </div>
 
             <!-- Permissions Grid -->
@@ -127,7 +186,7 @@ $this->title = 'Ruolo: ' . $roleLabel;
                         // - If user can't assign to role, disable un-assigned toggles (can only turn OFF, not ON)
                         $isDisabled = $isSystem;
                         ?>
-                        <div class="flex items-center justify-between px-5 py-3.5 <?= ($i >= 2) ? 'border-t border-gray-100 dark:border-gray-800' : '' ?> <?= $isSystem ? 'opacity-60' : '' ?>">
+                        <div class="permission-row flex items-center justify-between px-5 py-3.5 <?= ($i >= 2) ? 'border-t border-gray-100 dark:border-gray-800' : '' ?> <?= $isSystem ? 'opacity-60' : '' ?>">
                             <div class="flex items-center gap-3 min-w-0 flex-1">
                                 <span class="flex-shrink-0 w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center">
                                     <svg class="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
@@ -135,23 +194,24 @@ $this->title = 'Ruolo: ' . $roleLabel;
                                     </svg>
                                 </span>
                                 <div class="min-w-0">
-                                    <span class="block text-sm font-medium text-gray-800 dark:text-white/90 truncate">
+                                    <span class="perm-name block text-sm font-medium text-gray-800 dark:text-white/90 truncate">
                                         <?= Html::encode($description) ?>
                                         <?php if ($isSystem): ?>
                                             <span class="text-xs text-amber-600 font-normal">(sistema)</span>
                                         <?php endif; ?>
                                     </span>
+                                    <code class="perm-code text-xs text-gray-400"><?= Html::encode($permission->name) ?></code>
                                 </div>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                            <label class="toggle-switch flex-shrink-0 ml-3 <?= $isDisabled ? 'disabled' : '' ?>">
                                 <input type="checkbox"
-                                       class="sr-only peer <?= $isSystem ? '' : 'permission-toggle' ?>"
+                                       class="toggle-input <?= $isSystem ? '' : 'permission-toggle' ?>"
                                        data-role="<?= Html::encode($role->name) ?>"
                                        data-permission="<?= Html::encode($permission->name) ?>"
                                        data-description="<?= Html::encode($description) ?>"
                                        <?= $isAssigned ? 'checked' : '' ?>
                                        <?= $isDisabled ? 'disabled' : '' ?>>
-                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                                <span class="toggle-slider"></span>
                             </label>
                         </div>
                     <?php endforeach; ?>
@@ -162,10 +222,10 @@ $this->title = 'Ruolo: ' . $roleLabel;
 </div>
 
 <!-- Modal ri-assegnazione -->
-<div id="reassign-modal" class="fixed inset-0 z-[9999] overflow-y-auto hidden">
-    <div class="flex items-center justify-center min-h-screen px-4">
-        <div id="reassign-overlay" class="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full z-10">
+<div id="reassign-modal" class="hidden" style="position:fixed;inset:0;z-index:99999;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;">
+        <div id="reassign-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;"></div>
+        <div style="position:relative;background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:480px;width:100%;z-index:100000;">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Ri-assegna permesso</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -341,6 +401,34 @@ $('#modal-remove-assign').on('click', function() {
         _removingCheckbox = null;
         var c = parseInt($('#assigned-count').text());
         $('#assigned-count').text(c - 1);
+    });
+});
+// Search filter
+$('#permission-search').on('input', function() {
+    var query = $(this).val().toLowerCase().trim();
+
+    $('.permission-category').each(function() {
+        var categoryName = $(this).find('.category-title').text().toLowerCase();
+        var categoryMatch = categoryName.indexOf(query) !== -1;
+        var visibleCount = 0;
+
+        $(this).find('.permission-row').each(function() {
+            var permName = $(this).find('.perm-name').text().toLowerCase();
+            var permCode = $(this).find('.perm-code').text().toLowerCase();
+
+            if (!query || categoryMatch || permName.indexOf(query) !== -1 || permCode.indexOf(query) !== -1) {
+                $(this).show();
+                visibleCount++;
+            } else {
+                $(this).hide();
+            }
+        });
+
+        if (visibleCount === 0 && !categoryMatch) {
+            $(this).hide();
+        } else {
+            $(this).show();
+        }
     });
 });
 JS;
