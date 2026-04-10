@@ -23,6 +23,14 @@ class PermissionController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
+                        'actions' => ['roles', 'view-role', 'toggle-role-permission'],
+                        'allow' => true,
+                        'roles' => ['@'],
+                        'matchCallback' => function ($rule, $action) {
+                            return Yii::$app->user->can('assign_role_permissions');
+                        }
+                    ],
+                    [
                         'allow' => true,
                         'roles' => ['@'],
                         'matchCallback' => function ($rule, $action) {
@@ -48,6 +56,7 @@ class PermissionController extends Controller
     {
         $roles = AuthItem::find()
             ->where(['type' => AuthItem::TYPE_ROLE])
+            ->andWhere(['!=', 'name', 'super_admin'])
             ->orderBy(['name' => SORT_ASC])
             ->all();
 
@@ -83,6 +92,10 @@ class PermissionController extends Controller
             throw new NotFoundHttpException('Ruolo non trovato.');
         }
 
+        if ($role->name === 'super_admin') {
+            throw new ForbiddenHttpException('Non è possibile visualizzare i permessi di Super Admin.');
+        }
+
         $permissions = AuthItem::findActivePermissions()->all();
 
         $assignedPermissions = AuthItemChild::find()
@@ -98,10 +111,13 @@ class PermissionController extends Controller
         }
         ksort($groupedPermissions);
 
+        $canAssignToRole = true; // Only users with assign_role_permissions can access this page
+
         return $this->render('view-role', [
             'role' => $role,
             'groupedPermissions' => $groupedPermissions,
             'assignedPermissions' => $assignedPermissions,
+            'canAssignToRole' => $canAssignToRole,
         ]);
     }
 
@@ -125,6 +141,15 @@ class PermissionController extends Controller
 
         if (!$role || !$permission) {
             return ['status' => 'error', 'message' => 'Ruolo o permesso non trovato.'];
+        }
+
+        if ($role->name === 'super_admin') {
+            return ['status' => 'error', 'message' => 'Non è possibile modificare i permessi di Super Admin.'];
+        }
+
+        $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications', 'view_statistics'];
+        if (in_array($permissionName, $systemPermissions)) {
+            return ['status' => 'error', 'message' => 'I permessi di accesso sistema non possono essere modificati da questa interfaccia.'];
         }
 
         if ($assign) {
