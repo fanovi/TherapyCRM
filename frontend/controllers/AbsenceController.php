@@ -18,6 +18,9 @@ use yii\web\Response;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
+use common\models\CoordinatorGroup;
+use common\models\GroupTherapist;
+use yii\web\ForbiddenHttpException;
 
 /**
  * AbsenceController implements the CRUD actions for Absence model.
@@ -34,7 +37,7 @@ class AbsenceController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view'],
+                        'actions' => ['index', 'view', 'daily'],
                         'allow' => true,
                         'roles' => ['view_absence'],
                     ],
@@ -67,11 +70,116 @@ class AbsenceController extends Controller
     public function actionIndex()
     {
         $searchModel = new AbsenceSearch();
+        $therapistsList = null;
+
+        // Coordinators can only see absences of therapists in their group
+        $isCoordinator = Yii::$app->user->can('coordinator')
+            && !Yii::$app->user->can('manager')
+            && !Yii::$app->user->can('admin');
+
+        if ($isCoordinator) {
+            $coordinatorGroup = CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => Yii::$app->user->id])
+                ->one();
+
+            if ($coordinatorGroup) {
+                $therapistIds = GroupTherapist::find()
+                    ->select('therapist_id')
+                    ->where(['group_id' => $coordinatorGroup->id])
+                    ->andWhere(['assigned_to' => null])
+                    ->column();
+            } else {
+                $therapistIds = [];
+            }
+
+            $searchModel->therapistIds = $therapistIds;
+
+            // Build filtered therapist list for dropdown
+            $therapistsList = ArrayHelper::map(
+                \common\models\Therapist::find()
+                    ->joinWith('user.profile')
+                    ->where(['therapists.id' => $therapistIds])
+                    ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                    ->all(),
+                'id',
+                function($model) {
+                    return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
+                }
+            );
+        }
+
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'therapistsList' => $therapistsList,
+        ]);
+    }
+
+    /**
+     * Daily presence/absence overview.
+     * @param string|null $date Date in Y-m-d format, defaults to today
+     * @return mixed
+     */
+    public function actionDaily($date = null)
+    {
+        $date = $date ?: date('Y-m-d');
+        $groupName = null;
+
+        // Determine if current user is coordinator only
+        $isCoordinator = Yii::$app->user->can('coordinator')
+            && !Yii::$app->user->can('manager')
+            && !Yii::$app->user->can('admin');
+
+        if ($isCoordinator) {
+            // Coordinator: get only their group's therapists
+            $coordinatorGroup = CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => Yii::$app->user->id])
+                ->one();
+
+            if ($coordinatorGroup) {
+                $groupName = $coordinatorGroup->name;
+                $therapistIds = GroupTherapist::find()
+                    ->select('therapist_id')
+                    ->where(['group_id' => $coordinatorGroup->id])
+                    ->andWhere(['assigned_to' => null])
+                    ->column();
+            } else {
+                $therapistIds = [];
+            }
+
+            $therapists = Therapist::find()
+                ->joinWith(['user.profile', 'specialization'])
+                ->where(['therapists.id' => $therapistIds])
+                ->andWhere(['therapists.is_active' => 1])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                ->all();
+        } else {
+            // Manager/admin: get all active therapists
+            $therapists = Therapist::find()
+                ->joinWith(['user.profile', 'specialization'])
+                ->where(['therapists.is_active' => 1])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                ->all();
+        }
+
+        // Get therapist IDs for absence query
+        $therapistIds = ArrayHelper::getColumn($therapists, 'id');
+
+        // Query approved absences for the given date
+        $absences = Absence::find()
+            ->onDate($date)
+            ->approved()
+            ->andWhere(['therapist_id' => $therapistIds])
+            ->indexBy('therapist_id')
+            ->all();
+
+        return $this->render('daily', [
+            'therapists' => $therapists,
+            'absences' => $absences,
+            'date' => $date,
+            'groupName' => $groupName,
         ]);
     }
 
@@ -98,8 +206,35 @@ class AbsenceController extends Controller
      */
     public function actionView($id)
     {
+        $model = $this->findModel($id);
+
+        // Coordinators can only view absences of therapists in their group
+        $isCoordinator = Yii::$app->user->can('coordinator')
+            && !Yii::$app->user->can('manager')
+            && !Yii::$app->user->can('admin');
+
+        if ($isCoordinator) {
+            $coordinatorGroup = CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => Yii::$app->user->id])
+                ->one();
+
+            if ($coordinatorGroup) {
+                $therapistIds = GroupTherapist::find()
+                    ->select('therapist_id')
+                    ->where(['group_id' => $coordinatorGroup->id])
+                    ->andWhere(['assigned_to' => null])
+                    ->column();
+            } else {
+                $therapistIds = [];
+            }
+
+            if (!in_array($model->therapist_id, $therapistIds)) {
+                throw new ForbiddenHttpException('Non hai i permessi per visualizzare questa assenza.');
+            }
+        }
+
         return $this->render('view', [
-            'model' => $this->findModel($id),
+            'model' => $model,
         ]);
     }
 

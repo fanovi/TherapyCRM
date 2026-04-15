@@ -540,14 +540,19 @@ class RbacController extends Controller
                     'view_therapist'
                 ],
                 'coordinator' => [
-                    'manage_appointments',
-                    'manage_patients',
-                    'manage_plans',
-                    'manage_therapists',
-                    'update_therapist',
+                    'platform_login',
+                    'view_therapist',
+                    'view_patient',
+                    'view_calendar',
                     'view_documents',
+                    'download_documents',
                     'view_reports',
-                    'view_therapist'
+                    'view_appointment',
+                    'view_messages',
+                    'view_own_data',
+                    'update_own_data',
+                    'view_own_group_therapists',
+                    'view_notifications',
                 ],
                 'manager' => [
                     'create_therapist',

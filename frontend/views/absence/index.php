@@ -7,6 +7,7 @@ use yii\widgets\Pjax;
 /** @var yii\web\View $this */
 /** @var common\models\AbsenceSearch $searchModel */
 /** @var yii\data\ActiveDataProvider $dataProvider */
+/** @var array|null $therapistsList */
 
 $this->title = 'Assenze Terapisti';
 $this->params['breadcrumbs'][] = $this->title;
@@ -78,7 +79,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
                         'filter' => \yii\helpers\Html::activeDropDownList($searchModel, 'therapist_id',
-                            \common\models\AbsenceSearch::getTherapistsList(),
+                            isset($therapistsList) ? $therapistsList : \common\models\AbsenceSearch::getTherapistsList(),
                             [
                                 'prompt' => 'Tutti',
                                 'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'

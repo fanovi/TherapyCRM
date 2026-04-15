@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { TherapistSelector } from "@/components/TherapistSelector";
 import { PatientSelector } from "@/components/PatientSelector";
 import { SpecializationTreatmentSelector } from "@/components/SpecializationTreatmentSelector";
@@ -29,6 +29,8 @@ import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const params = useParams();
+  const [searchParams] = useSearchParams();
+  const forceReadOnly = searchParams.get('readOnly') === '1';
   const { messages, showSuccess, showError, showInfo, closeToast } = useToast();
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(
     null
@@ -968,8 +970,8 @@ const Index = () => {
   };
 
   const handleSlotClick = (date: Date, time: string) => {
-    // Nella vista terapista, non è possibile creare appuntamenti - solo visualizzazione
-    if (isTherapistView) {
+    // Nella vista terapista o in modalità read-only, non è possibile creare appuntamenti
+    if (isTherapistView || forceReadOnly) {
       showInfo(
         "Modalità Visualizzazione",
         "In questa vista puoi solo consultare gli appuntamenti esistenti. La creazione di nuovi appuntamenti non è disponibile."
@@ -1455,8 +1457,8 @@ const Index = () => {
               ) : null}
             </div>
 
-            {/* Private Mode Toggle - Solo per vista paziente */}
-            {!isTherapistView && patient && (
+            {/* Private Mode Toggle - Solo per vista paziente e non read-only */}
+            {!isTherapistView && !forceReadOnly && patient && (
               <div className="flex flex-col items-end space-y-2">
                 <div className="flex items-center space-x-3">
                   <Label
@@ -1611,8 +1613,8 @@ const Index = () => {
           onSlotClick={handleSlotClick}
           onAppointmentClick={handleAppointmentClick}
           onAppointmentMove={
-            isTherapistView ? undefined : handleAppointmentMove
-          } // Disabilita spostamento in vista terapista
+            isTherapistView || forceReadOnly ? undefined : handleAppointmentMove
+          } // Disabilita spostamento in vista terapista o modalità read-only
           viewType={viewType}
           onViewTypeChange={setViewType}
           hidePatientCalendar={isTherapistView} // Nasconde sempre il calendario paziente in vista terapista
@@ -1623,7 +1625,7 @@ const Index = () => {
           isPrivateMode={false} // Sempre false in vista terapista
           selectedDate={currentCalendarDate}
           isABARegime={isABARegime} // Aggiungi questa prop
-          readOnly={isTherapistView} // Disabilita tutte le modifiche in vista terapista
+          readOnly={isTherapistView || forceReadOnly} // Disabilita tutte le modifiche in vista terapista o per ruoli read-only (es. coordinator)
           therapistAbsences={therapistAbsences} // Passa le assenze del terapista
           weeklyHoursRefreshTrigger={weeklyHoursRefreshTrigger}
         />

@@ -13,12 +13,21 @@ $this->params['breadcrumbs'][] = $this->title;
 // Modalità iframe per sviluppo
 $useIframe = true;  // Cambia a false per usare la versione integrata
 
+// Determina se il calendario deve essere in sola lettura (es. coordinator)
+$calendarReadOnly = !Yii::$app->user->can('update_appointment');
+
 // Costruisci l'URL dell'iframe con i parametri come rotta React
 $iframeSrc = Yii::$app->params['iframeSrc'];
 if ($idTherapist) {
     $iframeSrc .= 'therapist/' . $idTherapist;
 } elseif ($idPatient) {
     $iframeSrc .= $idPatient;
+}
+
+// Aggiungi il parametro readOnly all'URL dell'iframe se necessario
+if ($calendarReadOnly) {
+    $separator = (strpos($iframeSrc, '?') !== false) ? '&' : '?';
+    $iframeSrc .= $separator . 'readOnly=1';
 }
 
 // Costruisci i parametri GET per la modalità integrata (se useIframe = false)
@@ -83,7 +92,7 @@ $queryString = !empty($queryParams) ? '?' . http_build_query($queryParams) : '';
             <?php else : ?>
                 <!-- Modalità integrata per produzione -->
                 <div class="calendar-app-wrapper">
-                    <div id="root" data-query-params="<?= Html::encode($queryString) ?>"></div>
+                    <div id="root" data-query-params="<?= Html::encode($queryString) ?>" data-read-only="<?= $calendarReadOnly ? '1' : '0' ?>"></div>
                 </div>
             <?php endif; ?>
         </div>

@@ -14,6 +14,7 @@ class AbsenceSearch extends Absence
 {
     public $therapist_name;
     public $date_range;
+    public $therapistIds;
 
     /**
      * {@inheritdoc}
@@ -60,6 +61,11 @@ class AbsenceSearch extends Absence
             'asc' => ['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC],
             'desc' => ['user_profiles.last_name' => SORT_DESC, 'user_profiles.first_name' => SORT_DESC],
         ];
+
+        // Filter by coordinator's group therapist IDs if set
+        if (!empty($this->therapistIds)) {
+            $query->andWhere(['absences.therapist_id' => $this->therapistIds]);
+        }
 
         $this->load($params);
 
