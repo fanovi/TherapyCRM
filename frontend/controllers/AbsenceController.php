@@ -190,11 +190,38 @@ class AbsenceController extends Controller
     public function actionPatients()
     {
         $searchModel = new PatientAbsenceSearch();
+
+        // Coordinator: filter to only patients of their group's therapists
+        $isCoordinator = Yii::$app->user->can('coordinator')
+            && !Yii::$app->user->can('manager')
+            && !Yii::$app->user->can('admin');
+
+        $therapistsList = null;
+
+        if ($isCoordinator) {
+            $coordinatorGroup = CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => Yii::$app->user->id])
+                ->one();
+
+            if ($coordinatorGroup) {
+                $therapistIds = GroupTherapist::find()
+                    ->select('therapist_id')
+                    ->where(['group_id' => $coordinatorGroup->id])
+                    ->andWhere(['assigned_to' => null])
+                    ->column();
+                $searchModel->therapistIds = !empty($therapistIds) ? $therapistIds : [0];
+                $therapistsList = PatientAbsenceSearch::getTherapistsListFiltered($therapistIds);
+            } else {
+                $searchModel->therapistIds = [0];
+            }
+        }
+
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         return $this->render('patients', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'therapistsList' => $therapistsList,
         ]);
     }
 

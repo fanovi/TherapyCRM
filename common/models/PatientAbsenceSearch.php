@@ -16,6 +16,7 @@ class PatientAbsenceSearch extends Appointment
     public $therapist_name;
     public $date_from;
     public $date_to;
+    public $therapistIds;
 
     /**
      * {@inheritdoc}
@@ -66,6 +67,11 @@ class PatientAbsenceSearch extends Appointment
             ],
         ]);
 
+        // Coordinator group filter - applied before load to prevent bypass
+        if (!empty($this->therapistIds)) {
+            $query->andWhere(['a.therapist_id' => $this->therapistIds]);
+        }
+
         $this->load($params);
 
         if (!$this->validate()) {
@@ -107,6 +113,29 @@ class PatientAbsenceSearch extends Appointment
             Therapist::find()
                 ->joinWith('user.profile')
                 ->where(['therapists.is_active' => 1])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                ->all(),
+            'id',
+            function ($model) {
+                return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
+            }
+        );
+    }
+
+    /**
+     * Get filtered list of therapists for dropdown (coordinator group).
+     * @param array $therapistIds
+     * @return array
+     */
+    public static function getTherapistsListFiltered($therapistIds)
+    {
+        if (empty($therapistIds)) {
+            return [];
+        }
+        return ArrayHelper::map(
+            Therapist::find()
+                ->joinWith('user.profile')
+                ->where(['therapists.id' => $therapistIds])
                 ->orderBy('user_profiles.last_name, user_profiles.first_name')
                 ->all(),
             'id',
