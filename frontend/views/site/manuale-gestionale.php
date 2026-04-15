@@ -744,6 +744,71 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
             </div>
         </div>
 
+        <!-- 15. GESTIONE PERMESSI -->
+        <div x-ref="permessi" class="section-card cursor-pointer" @click="openSection = openSection === 'permessi' ? '' : 'permessi'">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">15. Gestione Permessi</h3>
+                <svg class="w-5 h-5 text-gray-400 transition-transform" :class="openSection === 'permessi' && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+        </div>
+        <div x-show="openSection === 'permessi'" x-collapse class="mb-4">
+            <div class="section-card !mt-0 !rounded-t-none border-t-0 space-y-4">
+
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm">15.1 Permessi dei Ruoli</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Dal menu <strong>"Permessi Ruoli"</strong> e possibile vedere e modificare quali permessi ha ogni ruolo del sistema (Amministratore, Manager, Coordinatore, ecc.).</p>
+
+                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="flex items-start gap-2">
+                        <span class="step-num mt-0.5">1</span>
+                        <span>Cliccare sulla voce di menu <strong>"Permessi Ruoli"</strong></span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="step-num mt-0.5">2</span>
+                        <span>Scegliere il ruolo da visualizzare dalla lista</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="step-num mt-0.5">3</span>
+                        <span>Vengono mostrati tutti i permessi divisi per area (Accesso Sistema, Calendario, Assenze, ecc.)</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="step-num mt-0.5">4</span>
+                        <span>Gli interruttori blu permettono di attivare o disattivare un permesso per quel ruolo</span>
+                    </div>
+                </div>
+
+                <!-- Placeholder img-23 -->
+                <div class="my-4">
+                    <img src="<?= $imgBase ?>/img-23.jpg" alt="Permessi dei ruoli" class="manual-img"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="manual-img-placeholder" style="display:none;">
+                        <svg class="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span class="font-medium">img/manuale/gestionale/img-23.jpg</span>
+                        <span class="text-xs mt-1 opacity-60">Schermata permessi dei ruoli con interruttori</span>
+                    </div>
+                </div>
+
+                <p class="text-sm text-gray-600 dark:text-gray-400">I permessi di sistema (ad esempio l'accesso alla piattaforma) non sono modificabili. E disponibile una barra di ricerca per trovare rapidamente un permesso specifico.</p>
+
+                <div class="warn-box"><strong>Attenzione:</strong> la rimozione di un permesso dal ruolo lo toglie a tutti gli utenti con quel ruolo.</div>
+                <div class="info-box">Quando si rimuove un permesso, il sistema chiede se si vuole mantenerlo per alcuni utenti specifici.</div>
+
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">15.2 Permessi Individuali</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">E possibile assegnare permessi aggiuntivi a singoli utenti. Nella scheda di ogni utente, dalla pagina di modifica, si possono aggiungere permessi extra rispetto a quelli gia previsti dal suo ruolo.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">I permessi del ruolo sono sempre attivi di base; quelli aggiunti individualmente sono in aggiunta e permettono di personalizzare l'accesso per casi specifici.</p>
+
+                <!-- Placeholder img-24 -->
+                <div class="my-4">
+                    <img src="<?= $imgBase ?>/img-24.jpg" alt="Permessi individuali utente" class="manual-img"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="manual-img-placeholder" style="display:none;">
+                        <svg class="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span class="font-medium">img/manuale/gestionale/img-24.jpg</span>
+                        <span class="text-xs mt-1 opacity-60">Permessi individuali nella scheda utente</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- APPENDICE A - RUOLI E PERMESSI -->
         <div x-ref="ruoli" class="section-card cursor-pointer" @click="openSection = openSection === 'ruoli' ? '' : 'ruoli'">
             <div class="flex items-center justify-between">
@@ -767,10 +832,13 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Calendario</td><td class="px-2 py-1.5 text-center">Tutto</td><td class="px-2 py-1.5 text-center">Tutto</td><td class="px-2 py-1.5 text-center">Proprio gruppo</td><td class="px-2 py-1.5 text-center">Proprio</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Richieste Documenti</td><td class="px-2 py-1.5 text-center">Fino a Stampato</td><td class="px-2 py-1.5 text-center">Consegnato</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
                             <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Statistiche</td><td class="px-2 py-1.5 text-center text-green-500">Tutte</td><td class="px-2 py-1.5 text-center text-green-500">Tutte</td><td class="px-2 py-1.5 text-center text-yellow-500">Limitate</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
-                            <tr><td class="px-2 py-1.5">Esportare Dati</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
+                            <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Esportare Dati</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
+                            <tr class="border-b dark:border-gray-700"><td class="px-2 py-1.5">Gestire permessi ruoli</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
+                            <tr><td class="px-2 py-1.5">Gestire permessi utenti</td><td class="px-2 py-1.5 text-center text-green-500">&#10003;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td><td class="px-2 py-1.5 text-center text-red-500">&#10007;</td></tr>
                         </tbody>
                     </table>
                 </div>
+                <div class="info-box">La gestione dei permessi sui ruoli e riservata al Super Amministratore dal pannello di controllo.</div>
             </div>
         </div>
 
@@ -845,7 +913,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
 
         <!-- Footer -->
         <div class="text-center text-xs text-gray-400 dark:text-gray-500 mt-8 mb-4">
-            <p>Manuale del Gestionale - Centro Medico San Luca - v1.0</p>
+            <p>Manuale del Gestionale - Centro Medico San Luca - v1.1</p>
         </div>
 
     </div>
