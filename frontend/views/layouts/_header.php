@@ -142,11 +142,11 @@ use yii\helpers\Url;
                 <p>Nessun risultato trovato</p>
               </div>
               <div id="search-pagination" class="border-t border-gray-200 dark:border-gray-800 p-3 flex justify-between items-center hidden">
-                <button id="search-prev" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
+                <button type="button" id="search-prev" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
                   ← Precedente
                 </button>
                 <span id="search-info" class="text-xs text-gray-500"></span>
-                <button id="search-next" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
+                <button type="button" id="search-next" class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400 disabled:cursor-not-allowed">
                   Successivo →
                 </button>
               </div>
