@@ -564,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Funzione per eseguire la ricerca
     function performSearch(query, page = 1) {
-        if (query.length < 2) {
+        if (query.length < 3) {
             hideResults();
             return;
         }
