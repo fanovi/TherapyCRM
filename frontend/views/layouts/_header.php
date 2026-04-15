@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
     let totalPages = 1;
     let searchTimeout = null;
-    let currentRequest = null;
+    let currentAbortController = null;
     let suggestionsLoaded = false;
 
     // Funzione per nascondere i risultati
@@ -570,9 +570,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Cancella la richiesta precedente se esiste
-        if (currentRequest) {
-            currentRequest.abort();
+        if (currentAbortController) {
+            currentAbortController.abort();
         }
+
+        currentAbortController = new AbortController();
 
         showLoading();
         showResults();
@@ -580,13 +582,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Crea l'URL per la ricerca
         const apiUrl = `<?= \yii\helpers\Url::to(['/search/user']) ?>?q=${encodeURIComponent(query)}&page=${page}&limit=10`;
 
-        currentRequest = fetch(apiUrl, {
+        fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            signal: currentAbortController.signal
         })
         .then(response => {
             if (!response.ok) {
