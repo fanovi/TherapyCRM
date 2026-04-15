@@ -305,7 +305,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                         </div>
                         <!-- Dropdown Menu End -->
                     </li>
-                    <?php if (Yii::$app->user->can('create_absence')): ?>
+                    <?php if (Yii::$app->user->can('create_absence') || Yii::$app->user->can('view_absence')): ?>
 <li>
     <a
         href="#"
@@ -383,6 +383,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                 </a>
             </li>
             <?php endif; ?>
+            <?php if (Yii::$app->user->can('create_absence')): ?>
             <li>
                 <a
                     href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
@@ -390,6 +391,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     Nuova Assenza Terapista
                 </a>
             </li>
+            <?php endif; ?>
         </ul>
     </div>
     <!-- Dropdown Menu End -->
