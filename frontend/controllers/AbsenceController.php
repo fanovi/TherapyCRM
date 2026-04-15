@@ -67,45 +67,73 @@ class AbsenceController extends Controller
      * Lists all Absence models.
      * @return mixed
      */
+
+    /**
+     * Check if the current user is a coordinator (not manager/admin).
+     * @return bool
+     */
+    private function isCoordinatorOnly()
+    {
+        return Yii::$app->user->can('coordinator')
+            && !Yii::$app->user->can('manager')
+            && !Yii::$app->user->can('admin');
+    }
+
+    /**
+     * Get therapist IDs in the current coordinator's group.
+     * Returns [0] if no group found (shows empty results).
+     * @return array
+     */
+    private function getCoordinatorTherapistIds()
+    {
+        $coordinatorGroup = CoordinatorGroup::find()
+            ->where(['coordinator_user_id' => Yii::$app->user->id])
+            ->one();
+
+        if ($coordinatorGroup) {
+            $ids = GroupTherapist::find()
+                ->select('therapist_id')
+                ->where(['group_id' => $coordinatorGroup->id])
+                ->andWhere(['assigned_to' => null])
+                ->column();
+            return !empty($ids) ? $ids : [0];
+        }
+        return [0];
+    }
+
+    /**
+     * Get filtered therapist dropdown list for coordinator.
+     * @param array $therapistIds
+     * @return array
+     */
+    private function getFilteredTherapistsList($therapistIds)
+    {
+        if (empty($therapistIds) || $therapistIds === [0]) {
+            return [];
+        }
+        return ArrayHelper::map(
+            Therapist::find()
+                ->joinWith('user.profile')
+                ->where(['therapists.id' => $therapistIds])
+                ->andWhere(['therapists.is_active' => 1])
+                ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                ->all(),
+            'id',
+            function ($model) {
+                return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
+            }
+        );
+    }
+
     public function actionIndex()
     {
         $searchModel = new AbsenceSearch();
         $therapistsList = null;
 
-        // Coordinators can only see absences of therapists in their group
-        $isCoordinator = Yii::$app->user->can('coordinator')
-            && !Yii::$app->user->can('manager')
-            && !Yii::$app->user->can('admin');
-
-        if ($isCoordinator) {
-            $coordinatorGroup = CoordinatorGroup::find()
-                ->where(['coordinator_user_id' => Yii::$app->user->id])
-                ->one();
-
-            if ($coordinatorGroup) {
-                $therapistIds = GroupTherapist::find()
-                    ->select('therapist_id')
-                    ->where(['group_id' => $coordinatorGroup->id])
-                    ->andWhere(['assigned_to' => null])
-                    ->column();
-            } else {
-                $therapistIds = [];
-            }
-
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
             $searchModel->therapistIds = $therapistIds;
-
-            // Build filtered therapist list for dropdown
-            $therapistsList = ArrayHelper::map(
-                \common\models\Therapist::find()
-                    ->joinWith('user.profile')
-                    ->where(['therapists.id' => $therapistIds])
-                    ->orderBy('user_profiles.last_name, user_profiles.first_name')
-                    ->all(),
-                'id',
-                function($model) {
-                    return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
-                }
-            );
+            $therapistsList = $this->getFilteredTherapistsList($therapistIds);
         }
 
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
@@ -191,29 +219,12 @@ class AbsenceController extends Controller
     {
         $searchModel = new PatientAbsenceSearch();
 
-        // Coordinator: filter to only patients of their group's therapists
-        $isCoordinator = Yii::$app->user->can('coordinator')
-            && !Yii::$app->user->can('manager')
-            && !Yii::$app->user->can('admin');
-
         $therapistsList = null;
 
-        if ($isCoordinator) {
-            $coordinatorGroup = CoordinatorGroup::find()
-                ->where(['coordinator_user_id' => Yii::$app->user->id])
-                ->one();
-
-            if ($coordinatorGroup) {
-                $therapistIds = GroupTherapist::find()
-                    ->select('therapist_id')
-                    ->where(['group_id' => $coordinatorGroup->id])
-                    ->andWhere(['assigned_to' => null])
-                    ->column();
-                $searchModel->therapistIds = !empty($therapistIds) ? $therapistIds : [0];
-                $therapistsList = PatientAbsenceSearch::getTherapistsListFiltered($therapistIds);
-            } else {
-                $searchModel->therapistIds = [0];
-            }
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
+            $searchModel->therapistIds = $therapistIds;
+            $therapistsList = $this->getFilteredTherapistsList($therapistIds);
         }
 
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
@@ -236,25 +247,8 @@ class AbsenceController extends Controller
         $model = $this->findModel($id);
 
         // Coordinators can only view absences of therapists in their group
-        $isCoordinator = Yii::$app->user->can('coordinator')
-            && !Yii::$app->user->can('manager')
-            && !Yii::$app->user->can('admin');
-
-        if ($isCoordinator) {
-            $coordinatorGroup = CoordinatorGroup::find()
-                ->where(['coordinator_user_id' => Yii::$app->user->id])
-                ->one();
-
-            if ($coordinatorGroup) {
-                $therapistIds = GroupTherapist::find()
-                    ->select('therapist_id')
-                    ->where(['group_id' => $coordinatorGroup->id])
-                    ->andWhere(['assigned_to' => null])
-                    ->column();
-            } else {
-                $therapistIds = [];
-            }
-
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
             if (!in_array($model->therapist_id, $therapistIds)) {
                 throw new ForbiddenHttpException('Non hai i permessi per visualizzare questa assenza.');
             }
@@ -278,34 +272,45 @@ class AbsenceController extends Controller
         $model->approved_by = Yii::$app->user->id;
         $model->approved_at = date('Y-m-d H:i:s');
 
+        // Get coordinator's therapist IDs for validation
+        $coordinatorTherapistIds = null;
+        if ($this->isCoordinatorOnly()) {
+            $coordinatorTherapistIds = $this->getCoordinatorTherapistIds();
+        }
+
         if ($model->load(Yii::$app->request->post())) {
+            // Coordinator can only create absences for their group's therapists
+            if ($coordinatorTherapistIds !== null && !in_array($model->therapist_id, $coordinatorTherapistIds)) {
+                throw new ForbiddenHttpException('Non puoi creare assenze per terapisti fuori dal tuo gruppo.');
+            }
+
             $transaction = Yii::$app->db->beginTransaction();
             $model->reason = $this->getReasonLabel($model->type);
-            
+
             try {
                 if ($model->save()) {
                     // Check if we need to update appointments
                     $updateAppointments = Yii::$app->request->post('update_appointments', false);
-                    
+
                     if ($updateAppointments) {
                         $appointments = $this->getAppointmentsInRange(
                             $model->therapist_id,
                             $model->start_date,
                             $model->end_date
                         );
-                        
+
                         foreach ($appointments as $appointment) {
                             $appointment->status = Appointment::STATUS_THERAPIST_ABSENT;
                             $appointment->save(false);
                         }
-                        
-                        Yii::$app->session->setFlash('info', 
+
+                        Yii::$app->session->setFlash('info',
                             'Assenza creata con successo. ' . count($appointments) . ' appuntamenti sono stati aggiornati.'
                         );
                     } else {
                         Yii::$app->session->setFlash('success', 'Assenza creata con successo.');
                     }
-                    
+
                     $transaction->commit();
                     return $this->redirect(['view', 'id' => $model->id]);
                 }
@@ -315,17 +320,22 @@ class AbsenceController extends Controller
             }
         }
 
-        $therapists = ArrayHelper::map(
-            Therapist::find()
-                ->joinWith('user.profile')
-                ->where(['therapists.is_active' => 1])
-                ->orderBy('user_profiles.last_name, user_profiles.first_name')
-                ->all(),
-            'id',
-            function($model) {
-                return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
-            }
-        );
+        // Filter therapist dropdown for coordinators
+        if ($coordinatorTherapistIds !== null) {
+            $therapists = $this->getFilteredTherapistsList($coordinatorTherapistIds);
+        } else {
+            $therapists = ArrayHelper::map(
+                Therapist::find()
+                    ->joinWith('user.profile')
+                    ->where(['therapists.is_active' => 1])
+                    ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                    ->all(),
+                'id',
+                function($model) {
+                    return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
+                }
+            );
+        }
 
         return $this->render('create', [
             'model' => $model,
@@ -358,27 +368,47 @@ class AbsenceController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) ) {
+        // Coordinator can only update absences of their group's therapists
+        if ($this->isCoordinatorOnly()) {
+            $coordinatorTherapistIds = $this->getCoordinatorTherapistIds();
+            if (!in_array($model->therapist_id, $coordinatorTherapistIds)) {
+                throw new ForbiddenHttpException('Non hai i permessi per modificare questa assenza.');
+            }
+        }
+
+        if ($model->load(Yii::$app->request->post())) {
+            // Prevent coordinator from reassigning to therapist outside group
+            if ($this->isCoordinatorOnly()) {
+                $coordinatorTherapistIds = $this->getCoordinatorTherapistIds();
+                if (!in_array($model->therapist_id, $coordinatorTherapistIds)) {
+                    throw new ForbiddenHttpException('Non puoi assegnare assenze a terapisti fuori dal tuo gruppo.');
+                }
+            }
+
             $model->reason = $this->getReasonLabel($model->type);
             if ($model->save()) {
                 Yii::$app->session->setFlash('success', 'Assenza aggiornata con successo.');
                 return $this->redirect(['view', 'id' => $model->id]);
-            } 
-            Yii::$app->session->setFlash('error', 'Errore durante l\'aggiornamento dell\'assenza: ' . $model->errors);   
-            
+            }
+            Yii::$app->session->setFlash('error', 'Errore durante l\'aggiornamento dell\'assenza: ' . $model->errors);
         }
 
-        $therapists = ArrayHelper::map(
-            Therapist::find()
-                ->joinWith('user.profile')
-                ->where(['therapists.is_active' => 1])
-                ->orderBy('user_profiles.last_name, user_profiles.first_name')
-                ->all(),
-            'id',
-            function($model) {
-                return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
-            }
-        );
+        // Filter therapist dropdown for coordinators
+        if ($this->isCoordinatorOnly()) {
+            $therapists = $this->getFilteredTherapistsList($this->getCoordinatorTherapistIds());
+        } else {
+            $therapists = ArrayHelper::map(
+                Therapist::find()
+                    ->joinWith('user.profile')
+                    ->where(['therapists.is_active' => 1])
+                    ->orderBy('user_profiles.last_name, user_profiles.first_name')
+                    ->all(),
+                'id',
+                function($model) {
+                    return $model->user->profile->last_name . ' ' . $model->user->profile->first_name;
+                }
+            );
+        }
 
         return $this->render('update', [
             'model' => $model,
@@ -395,7 +425,17 @@ class AbsenceController extends Controller
      */
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        $model = $this->findModel($id);
+
+        // Coordinator can only delete absences of their group's therapists
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
+            if (!in_array($model->therapist_id, $therapistIds)) {
+                throw new ForbiddenHttpException('Non hai i permessi per eliminare questa assenza.');
+            }
+        }
+
+        $model->delete();
         Yii::$app->session->setFlash('success', 'Assenza eliminata con successo.');
 
         return $this->redirect(['index']);
@@ -475,6 +515,14 @@ class AbsenceController extends Controller
         // Verifica che lo status sia assente
         if (!in_array($appointment->status, [Appointment::STATUS_ABSENT_JUSTIFIED, Appointment::STATUS_ABSENT_NOT_JUSTIFIED])) {
             return ['success' => false, 'error' => 'L\'appuntamento non ha stato assente'];
+        }
+
+        // Coordinator can only remove absences for their group's therapists
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
+            if (!in_array($appointment->therapist_id, $therapistIds)) {
+                return ['success' => false, 'error' => 'Non hai i permessi per questa operazione.'];
+            }
         }
 
         // Vincolo 1 ora prima dell'inizio
