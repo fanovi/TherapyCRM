@@ -17,6 +17,7 @@ import {
 } from '../slices/authSlice';
 import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
+import {persistor} from '../store';
 
 export const loginService = {
   async login(dispatch, credentials) {
@@ -522,7 +523,18 @@ export const loginService = {
         // Non bloccare il logout se l'API fallisce
       }
 
-      // 2. Pulisci AsyncStorage (preserva biometria per ri-login rapido)
+      // 2. Reset Redux PRIMA di pulire storage (evita race condition con persist)
+      dispatch(resetPatients());
+      console.log('👥 Patients data reset');
+
+      dispatch(logoutUser());
+      console.log('🔄 Auth state reset');
+
+      // 3. Purge Redux Persist per eliminare dati persistiti
+      await persistor.purge();
+      console.log('🗑️ Redux Persist purged');
+
+      // 4. Pulisci AsyncStorage (preserva biometria per ri-login rapido)
       const savedBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
       await AsyncStorage.clear();
       if (savedBiometricRegistered) {
@@ -530,27 +542,20 @@ export const loginService = {
       }
       console.log('🧹 AsyncStorage cleared (biometric preserved)');
 
-      // 3. Reset pazienti
-      dispatch(resetPatients());
-      console.log('👥 Patients data reset');
-
-      // 4. Reset stato auth
-      dispatch(logoutUser());
-      console.log('🔄 Auth state reset');
-
       console.log('✅ Logout completed successfully');
     } catch (error) {
       console.error('❌ Logout error:', error);
 
       // Fallback: forza la pulizia anche in caso di errore
       try {
+        dispatch(resetPatients());
+        dispatch(logoutUser());
+        await persistor.purge();
         const fallbackBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
         await AsyncStorage.clear();
         if (fallbackBiometricRegistered) {
           await AsyncStorage.setItem('biometric_registered', fallbackBiometricRegistered);
         }
-        dispatch(resetPatients());
-        dispatch(logoutUser());
         console.log('🧹 Force cleanup completed (biometric preserved)');
       } catch (finalError) {
         // Ultima risorsa: almeno reset Redux

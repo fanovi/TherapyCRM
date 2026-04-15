@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://app-cgm.badil.it/api',
+  BASE_URL: 'https://app.sanlucacentromedico.it/api',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',

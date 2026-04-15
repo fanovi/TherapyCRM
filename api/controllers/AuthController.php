@@ -229,7 +229,16 @@ class AuthController extends Controller
                 // Account inattivo - invia OTP email per riattivazione
                 $tfa = UserTwoFactorAuth::findOrCreate($user->id);
                 $tfaService = new TwoFactorService();
-                $tfaService->sendEmailOtp($user);
+                $emailSent = $tfaService->sendEmailOtp($user);
+
+                if (!$emailSent) {
+                    Yii::error("Failed to send reactivation OTP email to user {$user->id} ({$user->email})", __METHOD__);
+                    return [
+                        'success' => false,
+                        'message' => 'Errore nell\'invio del codice di verifica. Riprova più tardi.',
+                        'error_code' => 'OTP_SEND_FAILED'
+                    ];
+                }
 
                 $tempToken = $this->generateReactivationTempToken($userData);
 
