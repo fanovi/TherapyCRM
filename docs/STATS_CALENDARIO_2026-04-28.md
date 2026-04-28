@@ -5,9 +5,10 @@ questa sessione, dove vivono i fix, cosa serve per il deploy.
 
 ## TL;DR
 
-40 commit nuovi su `stats_calendario` (HEAD: `7ea74cd`). Quattro grandi
+53 commit nuovi su `stats_calendario` (HEAD: `ff8b8ce`). Cinque grandi
 filoni: RBAC/permessi, flusso account paziente, calendario coordinator
-con CORS cross-site, redesign view minori. Due migration DB.
+con CORS cross-site, redesign view minori, miglioramenti UX flussi
+esistenti. Due migration DB.
 
 ## Migrazioni da applicare in pre-prod
 
@@ -175,6 +176,40 @@ Tutta la zona `/calendar/...` (Yii) + iframe React `calendar-cgm.badil.it`:
 - `common/models/AccountPatient.php` (helper getNotifiableUserIdsForPatient)
 - `console/migrations/m260428_194122_normalize_self_account_role_to_patient_family.php`
 - `console/migrations/m260428_200209_set_parental_authority_for_self_accounts.php`
+
+## Mattina: UX flussi credenziali e permessi
+
+Lavorato presto sul flusso `create-credentials` e sulla griglia permessi:
+
+- **`create-credentials.php`**:
+  - Form chiede prima la relazione poi adatta i campi (riordino UX)
+  - Suggerimento password random robusta
+  - Bug submit silenziosamente bloccato in modalita 'self' fixato
+  - Caso codice fiscale duplicato: dialog SweetAlert2 con dati account
+    esistente e azioni rapide (vai alla scheda / collega paziente)
+  - Account gia' collegati: lista in cima alla pagina con bottoni
+    Modifica e Rigenera credenziali per ognuno
+  - Bug parsing PHP: virgolette in commento JS rompevano il render
+- **`accounts.php`** modale Nuovo Account: prima rifatta con stili
+  inline per fixare layout robusto (poi sostituita da Swal nel
+  pomeriggio).
+- **Account paziente**:
+  - Quando crei un nuovo account (es. genitore) il terapista del
+    paziente e' visibile in chiaro
+  - Generatore password robusta integrato
+- **Creazione paziente** (`actionCreate`): dopo il salvataggio
+  redirect alla scheda paziente invece di tornare alla lista.
+- **Reset password modale**: la sezione "Token Mobile" e' nascosta
+  per gli utenti che non possono loggarsi in app (admin/manager/
+  coordinator).
+- **Pagina Permessi Ruolo** (`/permission/view-role`):
+  - Aggiunti search bar e filtri rapidi (Tutti / Selezionati /
+    Non selezionati) per orientarsi tra i 100+ permessi
+  - Search bar resa visibile con stili inline (purge Tailwind
+    nascondeva l'icona)
+- **Coordinator**: nuovo permesso `view_own_group_patients` (e
+  base per il flusso "I Miei Pazienti del gruppo" usato dalla
+  vista `/patient/my-group`).
 
 ## Punti aperti / TODO futuri
 
