@@ -72,7 +72,7 @@ $(document).ready(function () {
   }
 
   function openModal() {
-    // Trova e apri la modale TailAdmin
+    // Trova e apri la modale
     const modal = document.getElementById("notificationModal");
     const modalData = Alpine.$data(modal.querySelector("[x-data]"));
 
