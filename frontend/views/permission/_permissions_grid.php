@@ -39,12 +39,12 @@ foreach ($categories as $perms) {
     </div>
 
     <!-- Toolbar: search + filtri rapidi -->
-    <div class="px-5 sm:px-6 pb-3 border-b border-gray-100 dark:border-gray-800">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div style="padding: 0 1.5rem 1rem 1.5rem; border-bottom: 1px solid #f3f4f6;" class="dark:!border-gray-800">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;" class="lg:!flex-row lg:!items-center lg:!justify-between">
             <!-- Searchbar -->
-            <div class="relative flex-1 lg:max-w-md">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div style="position: relative; flex: 1 1 auto; min-width: 0;" class="lg:!max-w-md">
+                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; line-height: 0;">
+                    <svg style="width: 16px; height: 16px; color: #9ca3af; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </span>
@@ -52,36 +52,30 @@ foreach ($categories as $perms) {
                        id="permissions-grid-search"
                        autocomplete="off"
                        placeholder="Cerca per nome, codice o categoria (es. paziente, view_, calendar...)"
-                       class="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-10 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-gray-500">
+                       style="width: 100%; padding: 10px 40px 10px 40px; font-size: 14px; line-height: 1.4; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; color: #374151; outline: none; box-sizing: border-box;"
+                       onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 2px rgba(59,130,246,0.15)'"
+                       onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
                 <button type="button"
                         id="permissions-grid-search-clear"
-                        class="hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0;"
                         title="Pulisci ricerca">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg style="width: 16px; height: 16px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
                 <!-- Filtri rapidi -->
-                <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden permissions-grid-filter-group" role="group">
-                    <button type="button" class="permissions-grid-filter-btn px-3 py-1.5 text-xs font-medium" data-filter="all">
-                        Tutti
-                    </button>
-                    <button type="button" class="permissions-grid-filter-btn px-3 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-700" data-filter="role">
-                        Ruolo
-                    </button>
-                    <button type="button" class="permissions-grid-filter-btn px-3 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-700" data-filter="extra">
-                        Extra
-                    </button>
-                    <button type="button" class="permissions-grid-filter-btn px-3 py-1.5 text-xs font-medium border-l border-gray-200 dark:border-gray-700" data-filter="available">
-                        Disponibili
-                    </button>
+                <div style="display: inline-flex; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;" role="group">
+                    <button type="button" class="permissions-grid-filter-btn" data-filter="all">Tutti</button>
+                    <button type="button" class="permissions-grid-filter-btn" data-filter="role" style="border-left: 1px solid #e5e7eb;">Ruolo</button>
+                    <button type="button" class="permissions-grid-filter-btn" data-filter="extra" style="border-left: 1px solid #e5e7eb;">Extra</button>
+                    <button type="button" class="permissions-grid-filter-btn" data-filter="available" style="border-left: 1px solid #e5e7eb;">Disponibili</button>
                 </div>
 
-                <span class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    <span id="permissions-grid-visible-count"><?= (int) $totalPermissions ?></span>
+                <span style="font-size: 12px; color: #6b7280; white-space: nowrap;">
+                    <span id="permissions-grid-visible-count" style="font-weight: 600; color: #111827;"><?= (int) $totalPermissions ?></span>
                     /
                     <span id="permissions-grid-total-count"><?= (int) $totalPermissions ?></span>
                     permessi
@@ -90,7 +84,7 @@ foreach ($categories as $perms) {
         </div>
 
         <!-- Stato vuoto (visibile solo quando non ci sono match) -->
-        <div id="permissions-grid-empty" class="hidden mt-3 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+        <div id="permissions-grid-empty" style="display: none; margin-top: 12px; padding: 16px; border: 1px dashed #e5e7eb; border-radius: 8px; background: #f9fafb; color: #6b7280; font-size: 14px; text-align: center;">
             Nessun permesso corrisponde ai criteri di ricerca.
         </div>
     </div>
@@ -158,6 +152,12 @@ $css = <<<CSS
 .permissions-grid-filter-btn {
     background: transparent;
     color: #6b7280;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 0;
+    cursor: pointer;
     transition: background-color .15s, color .15s;
 }
 .permissions-grid-filter-btn:hover {
@@ -248,18 +248,10 @@ $js = <<<JS
 
         if (visibleCountEl) visibleCountEl.textContent = visible;
         if (emptyState) {
-            if (visible === 0) {
-                emptyState.classList.remove('hidden');
-            } else {
-                emptyState.classList.add('hidden');
-            }
+            emptyState.style.display = (visible === 0) ? 'block' : 'none';
         }
         if (clearBtn) {
-            if (q) {
-                clearBtn.classList.remove('hidden');
-            } else {
-                clearBtn.classList.add('hidden');
-            }
+            clearBtn.style.display = q ? 'block' : 'none';
         }
     }
 
