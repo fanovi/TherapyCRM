@@ -58,6 +58,7 @@ class PatientController extends Controller
                     'link-patient' => ['POST'],
                     'unlink-patient' => ['POST'],
                     'search-patients' => ['GET'],
+                    'search-patients-for-account' => ['GET'],
                     'update-account' => ['POST'],
                 ],
             ],
@@ -137,11 +138,65 @@ class PatientController extends Controller
 
         $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
 
+        // Mappa paziente_id => [{id, name}] dei terapisti del gruppo che hanno
+        // appuntamenti (non cancellati) con il paziente. Serve a mostrare in
+        // griglia per quale terapista vedo quel paziente.
+        $patientTherapistsMap = [];
+        if (!empty($therapistIds)) {
+            $rows = (new \yii\db\Query())
+                ->select([
+                    'patient_id' => new \yii\db\Expression('COALESCE(a.patient_id, tp.patient_id)'),
+                    'therapist_id' => 'a.therapist_id',
+                    'first_name' => 'up.first_name',
+                    'last_name' => 'up.last_name',
+                ])
+                ->distinct()
+                ->from(['a' => '{{%appointments}}'])
+                ->leftJoin(['pt' => '{{%plan_therapies}}'], 'pt.id = a.plan_therapy_id')
+                ->leftJoin(['tp' => '{{%therapeutic_plans}}'], 'tp.id = pt.therapeutic_plan_id')
+                ->leftJoin(['up' => '{{%user_profiles}}'], 'up.user_id = a.therapist_id')
+                ->where(['a.therapist_id' => $therapistIds])
+                ->andWhere(['!=', 'a.status', \common\models\Appointment::STATUS_CANCELLED])
+                ->andWhere(['or',
+                    ['IS NOT', 'a.patient_id', null],
+                    ['IS NOT', 'tp.patient_id', null],
+                ])
+                ->all();
+
+            foreach ($rows as $row) {
+                $pid = (int) $row['patient_id'];
+                $tid = (int) $row['therapist_id'];
+                if ($pid <= 0 || $tid <= 0) {
+                    continue;
+                }
+                if (!isset($patientTherapistsMap[$pid])) {
+                    $patientTherapistsMap[$pid] = [];
+                }
+                // Evita duplicati per paziente.
+                if (isset($patientTherapistsMap[$pid][$tid])) {
+                    continue;
+                }
+                $name = trim(($row['last_name'] ?? '') . ' ' . ($row['first_name'] ?? ''));
+                if ($name === '') {
+                    $name = 'Terapista #' . $tid;
+                }
+                $patientTherapistsMap[$pid][$tid] = [
+                    'id' => $tid,
+                    'name' => $name,
+                ];
+            }
+            // Riordina in liste indicizzate.
+            foreach ($patientTherapistsMap as $pid => $list) {
+                $patientTherapistsMap[$pid] = array_values($list);
+            }
+        }
+
         return $this->render('my-group', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
             'coordinatorGroup' => $coordinatorGroup,
             'therapistCount' => count($therapistIds),
+            'patientTherapistsMap' => $patientTherapistsMap,
         ]);
     }
 
@@ -327,6 +382,98 @@ class PatientController extends Controller
             Yii::error('Error updating account: ' . $e->getMessage(), __METHOD__);
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * AJAX: cerca pazienti per la creazione di un nuovo account paziente.
+     *
+     * Usato dalla modale "Nuovo Account" in `/patient/accounts`.
+     * Rispetta i permessi:
+     * - utenti con `create_patient` (admin/manager): vedono tutti i pazienti;
+     * - utenti con `view_own_group_patients` (coordinator): vedono solo i
+     *   pazienti dei terapisti del proprio gruppo;
+     * - altri ruoli: nessun risultato.
+     *
+     * @return array JSON
+     */
+    public function actionSearchPatientsForAccount()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $user = Yii::$app->user;
+        $hasGlobalAccess = $user->can('create_patient');
+        $hasGroupAccess = $user->can('view_own_group_patients');
+
+        if (!$hasGlobalAccess && !$hasGroupAccess) {
+            return ['results' => []];
+        }
+
+        $term = trim((string) Yii::$app->request->get('term', ''));
+        if (mb_strlen($term) < 2) {
+            return ['results' => []];
+        }
+
+        $query = Patient::find()
+            ->where(['or',
+                ['like', 'first_name', $term],
+                ['like', 'last_name', $term],
+                ['like', 'fiscal_code', $term],
+                ['like', "CONCAT(last_name, ' ', first_name)", $term],
+                ['like', "CONCAT(first_name, ' ', last_name)", $term],
+            ])
+            ->orderBy('last_name, first_name')
+            ->limit(15);
+
+        // Coordinator senza permessi globali: limitiamo ai pazienti del gruppo
+        if (!$hasGlobalAccess && $hasGroupAccess) {
+            $coordinatorGroup = \common\models\CoordinatorGroup::find()
+                ->where(['coordinator_user_id' => $user->id])
+                ->one();
+
+            if (!$coordinatorGroup) {
+                return ['results' => []];
+            }
+
+            $therapistIds = \common\models\GroupTherapist::find()
+                ->select('therapist_id')
+                ->where(['group_id' => $coordinatorGroup->id])
+                ->andWhere(['assigned_to' => null])
+                ->column();
+
+            $allowedPatientIds = !empty($therapistIds)
+                ? \frontend\models\PatientSearch::patientIdsForTherapists($therapistIds)
+                : [];
+
+            if (empty($allowedPatientIds)) {
+                return ['results' => []];
+            }
+
+            $query->andWhere(['id' => $allowedPatientIds]);
+        }
+
+        $patients = $query->all();
+
+        $results = [];
+        foreach ($patients as $patient) {
+            $accountsCount = AccountPatient::find()
+                ->where(['patient_id' => $patient->id])
+                ->count();
+
+            $results[] = [
+                'id' => (int) $patient->id,
+                'first_name' => $patient->first_name,
+                'last_name' => $patient->last_name,
+                'full_name' => $patient->last_name . ' ' . $patient->first_name,
+                'fiscal_code' => $patient->fiscal_code,
+                'birth_date' => $patient->birth_date
+                    ? Yii::$app->formatter->asDate($patient->birth_date, 'php:d/m/Y')
+                    : null,
+                'accounts_count' => (int) $accountsCount,
+                'create_url' => \yii\helpers\Url::to(['create-credentials', 'id' => $patient->id]),
+            ];
+        }
+
+        return ['results' => $results];
     }
 
     /**
@@ -578,26 +725,17 @@ class PatientController extends Controller
         $profile = new UserProfile();
         $accountPatient = new AccountPatient();
 
-        // Pre-fill profile with patient data (default: relazione "io stesso").
-        // Anche per altre relazioni questi dati restano come suggerimento e
-        // sono comunque editabili nel form.
-        $profile->first_name = $patient->first_name;
-        $profile->last_name = $patient->last_name;
-        $profile->fiscal_code = $patient->fiscal_code;
-        if (!empty($patient->phone_number)) {
-            $profile->phone = $patient->phone_number;
-        }
-        if (!empty($patient->residence_address)) {
-            $profile->address = trim($patient->residence_address . ' '
-                . ($patient->residence_postal_code ?? '') . ' '
-                . ($patient->residence_city ?? '')
-                . ($patient->residence_province_code ? ' (' . $patient->residence_province_code . ')' : ''));
-        }
+        // I campi del profilo NON vengono pre-popolati con i dati del paziente
+        // al primo render (GET). Per la modalita' "io stesso" la view mostra
+        // un riquadro riassuntivo con i dati del paziente; in caso di
+        // genitore/tutore/altro l'utente compila i propri dati.
+        // I dati del paziente vengono comunque forzati lato server in POST
+        // quando relationship_type === 'self' (vedi piu' sotto).
 
         // Suggerisci una password generata in automatico (modificabile dall'utente).
         // Viene impostata solo al primo render (GET), in POST i valori arrivano dal form.
         if (!Yii::$app->request->isPost) {
-            $suggestedPassword = $this->generateRandomPassword(10);
+            $suggestedPassword = $this->generateRandomPassword(12);
             $user->password = $suggestedPassword;
             $user->password_repeat = $suggestedPassword;
         }
@@ -620,6 +758,12 @@ class PatientController extends Controller
                 $profile->fiscal_code = $patient->fiscal_code;
                 if (!empty($patient->phone_number)) {
                     $profile->phone = $patient->phone_number;
+                }
+                if (!empty($patient->residence_address)) {
+                    $profile->address = trim($patient->residence_address . ' '
+                        . ($patient->residence_postal_code ?? '') . ' '
+                        . ($patient->residence_city ?? '')
+                        . ($patient->residence_province_code ? ' (' . $patient->residence_province_code . ')' : ''));
                 }
             }
             Yii::info('Models loaded successfully - User: ' . print_r($user->attributes, true));
@@ -860,14 +1004,63 @@ class PatientController extends Controller
     /**
      * Generates a random password
      */
+    /**
+     * Genera una password casuale che rispetta le regole di validazione di User:
+     *  - lunghezza tra 8 e 20 caratteri (clamp del parametro $length);
+     *  - almeno una lettera maiuscola, una minuscola, un numero e un carattere
+     *    speciale (compatibile con il pattern di regola in `User::rules`).
+     *
+     * Vengono esclusi caratteri ambigui (0/O/o/1/l/I) per ridurre errori di
+     * trascrizione manuale della password.
+     *
+     * @param int $length Lunghezza desiderata (clampata in [8, 20]).
+     * @return string
+     */
     private function generateRandomPassword($length = 12)
     {
-        $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-        $password = '';
-        for ($i = 0; $i < $length; $i++) {
-            $password .= $characters[rand(0, strlen($characters) - 1)];
+        $length = max(8, min(20, (int) $length));
+
+        $upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $lower   = 'abcdefghijkmnopqrstuvwxyz';
+        $digits  = '23456789';
+        $special = '!@#$%^&*-_+=?';
+
+        try {
+            $pickRandom = function (string $chars) {
+                return $chars[random_int(0, strlen($chars) - 1)];
+            };
+        } catch (\Throwable $e) {
+            $pickRandom = function (string $chars) {
+                return $chars[mt_rand(0, strlen($chars) - 1)];
+            };
         }
-        return $password;
+
+        // Garantiamo almeno un carattere per ogni categoria richiesta.
+        $chars = [
+            $pickRandom($upper),
+            $pickRandom($lower),
+            $pickRandom($digits),
+            $pickRandom($special),
+        ];
+
+        $all = $upper . $lower . $digits . $special;
+        for ($i = count($chars); $i < $length; $i++) {
+            $chars[] = $pickRandom($all);
+        }
+
+        // Mescolamento sicuro per non avere posizioni prevedibili.
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            try {
+                $j = random_int(0, $i);
+            } catch (\Throwable $e) {
+                $j = mt_rand(0, $i);
+            }
+            $tmp = $chars[$i];
+            $chars[$i] = $chars[$j];
+            $chars[$j] = $tmp;
+        }
+
+        return implode('', $chars);
     }
 
     /**

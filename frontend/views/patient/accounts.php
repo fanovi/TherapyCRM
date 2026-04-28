@@ -3,6 +3,7 @@
 use common\models\AccountPatient;
 use yii\grid\GridView;
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
@@ -14,6 +15,8 @@ $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
 $relationshipLabels = AccountPatient::getRelationshipLabels();
+$canCreateAccount = Yii::$app->user->can('create_patient') || Yii::$app->user->can('view_own_group_patients');
+$searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
 ?>
 
 <div class="mx-auto max-w-7xl p-4 md:p-6">
@@ -21,6 +24,17 @@ $relationshipLabels = AccountPatient::getRelationshipLabels();
     <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
+            <?php if ($canCreateAccount): ?>
+            <button
+                type="button"
+                onclick="window.openNewAccountModal && window.openNewAccountModal()"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Nuovo Account
+            </button>
+            <?php endif; ?>
         </div>
     </div>
     <!-- Breadcrumb End -->
@@ -193,3 +207,278 @@ $relationshipLabels = AccountPatient::getRelationshipLabels();
     </div>
     <!-- Content End -->
 </div>
+
+<?php if ($canCreateAccount): ?>
+<!-- Modale "Nuovo Account": ricerca paziente -->
+<div
+    id="new-account-modal"
+    class="fixed inset-0 z-[1000] hidden items-center justify-center"
+    aria-modal="true"
+    role="dialog"
+    aria-labelledby="new-account-modal-title">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onclick="window.closeNewAccountModal && window.closeNewAccountModal()"></div>
+
+    <div class="relative z-10 w-full max-w-2xl mx-4 rounded-2xl bg-white shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </span>
+                <div>
+                    <h3 id="new-account-modal-title" class="text-base font-semibold text-gray-900 dark:text-white">Nuovo Account</h3>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Seleziona il paziente per cui creare le credenziali.</p>
+                </div>
+            </div>
+            <button type="button"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
+                    title="Chiudi">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="px-6 py-5">
+            <div style="position: relative;">
+                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; line-height: 0;">
+                    <svg style="width: 18px; height: 18px; color: #9ca3af; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"></path>
+                    </svg>
+                </span>
+                <input type="text"
+                       id="new-account-search-input"
+                       autocomplete="off"
+                       placeholder="Cerca per nome, cognome o codice fiscale (almeno 2 caratteri)..."
+                       style="width: 100%; padding: 12px 44px 12px 44px; font-size: 14px; line-height: 1.4; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; color: #111827; outline: none; box-sizing: border-box;"
+                       onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.15)'"
+                       onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
+                <button type="button"
+                        id="new-account-search-clear"
+                        style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0;"
+                        title="Pulisci ricerca">
+                    <svg style="width: 16px; height: 16px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <p id="new-account-search-hint" class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Digita almeno 2 caratteri per iniziare la ricerca.
+            </p>
+
+            <div id="new-account-search-results" class="mt-3 max-h-80 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-800 hidden"></div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+            <button type="button"
+                    class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onclick="window.closeNewAccountModal && window.closeNewAccountModal()">
+                Annulla
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canCreateAccount): ?>
+<?php
+$jsSearchUrl = json_encode($searchPatientsUrl);
+$this->registerJs(<<<JS
+(function () {
+    var modal = document.getElementById('new-account-modal');
+    var input = document.getElementById('new-account-search-input');
+    var clearBtn = document.getElementById('new-account-search-clear');
+    var resultsEl = document.getElementById('new-account-search-results');
+    var hintEl = document.getElementById('new-account-search-hint');
+    if (!modal || !input || !resultsEl) { return; }
+
+    var searchUrl = {$jsSearchUrl};
+    var debounceTimer = null;
+    var lastTerm = '';
+    var currentRequest = null;
+
+    function clearChildren(el) {
+        while (el.firstChild) { el.removeChild(el.firstChild); }
+    }
+
+    function setHint(text) {
+        if (!hintEl) { return; }
+        hintEl.textContent = text || '';
+        hintEl.style.display = text ? '' : 'none';
+    }
+
+    function showMessage(text, isError) {
+        clearChildren(resultsEl);
+        var div = document.createElement('div');
+        div.className = 'px-4 py-6 text-center text-sm ' + (isError ? 'text-red-600' : 'text-gray-500 dark:text-gray-400');
+        div.textContent = text;
+        resultsEl.appendChild(div);
+        resultsEl.classList.remove('hidden');
+    }
+
+    function buildResultRow(p) {
+        var li = document.createElement('li');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full flex items-start justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60';
+        btn.setAttribute('data-create-url', p.create_url || '');
+
+        var leftCol = document.createElement('div');
+        leftCol.className = 'min-w-0';
+
+        var nameRow = document.createElement('div');
+        nameRow.className = 'flex items-center text-sm font-medium text-gray-900 dark:text-white';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'truncate';
+        nameSpan.textContent = p.full_name || '';
+        nameRow.appendChild(nameSpan);
+
+        if (p.accounts_count && p.accounts_count > 0) {
+            var badge = document.createElement('span');
+            badge.className = 'ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+            badge.title = 'Account già esistenti';
+            badge.textContent = p.accounts_count + ' account';
+            nameRow.appendChild(badge);
+        }
+
+        leftCol.appendChild(nameRow);
+
+        var subParts = [];
+        if (p.fiscal_code) { subParts.push('CF: ' + p.fiscal_code); }
+        if (p.birth_date) { subParts.push('Nato il ' + p.birth_date); }
+        if (subParts.length) {
+            var sub = document.createElement('div');
+            sub.className = 'mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate';
+            sub.textContent = subParts.join(' · ');
+            leftCol.appendChild(sub);
+        }
+
+        var rightCol = document.createElement('span');
+        rightCol.className = 'shrink-0 inline-flex items-center text-brand-600 dark:text-brand-400 text-xs font-medium';
+        var rightText = document.createTextNode('Crea credenziali');
+        rightCol.appendChild(rightText);
+        var arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        arrow.setAttribute('class', 'ml-1 w-4 h-4');
+        arrow.setAttribute('fill', 'none');
+        arrow.setAttribute('stroke', 'currentColor');
+        arrow.setAttribute('viewBox', '0 0 24 24');
+        var arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        arrowPath.setAttribute('stroke-linecap', 'round');
+        arrowPath.setAttribute('stroke-linejoin', 'round');
+        arrowPath.setAttribute('stroke-width', '2');
+        arrowPath.setAttribute('d', 'M9 5l7 7-7 7');
+        arrow.appendChild(arrowPath);
+        rightCol.appendChild(arrow);
+
+        btn.appendChild(leftCol);
+        btn.appendChild(rightCol);
+
+        btn.addEventListener('click', function () {
+            var url = btn.getAttribute('data-create-url');
+            if (url) {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                window.location.href = url;
+            }
+        });
+
+        li.appendChild(btn);
+        return li;
+    }
+
+    function showResults(items) {
+        clearChildren(resultsEl);
+        resultsEl.classList.remove('hidden');
+        if (!items || items.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400';
+            empty.textContent = 'Nessun paziente trovato per questa ricerca.';
+            resultsEl.appendChild(empty);
+            return;
+        }
+        var ul = document.createElement('ul');
+        ul.className = 'divide-y divide-gray-100 dark:divide-gray-800';
+        items.forEach(function (p) { ul.appendChild(buildResultRow(p)); });
+        resultsEl.appendChild(ul);
+    }
+
+    function performSearch(term) {
+        if (currentRequest && typeof currentRequest.abort === 'function') {
+            try { currentRequest.abort(); } catch (e) {}
+        }
+        showMessage('Ricerca in corso...', false);
+        currentRequest = jQuery.ajax({
+            url: searchUrl,
+            type: 'GET',
+            dataType: 'json',
+            data: { term: term },
+            success: function (resp) {
+                if (term !== lastTerm) { return; }
+                showResults(resp && resp.results ? resp.results : []);
+            },
+            error: function (xhr, status) {
+                if (status === 'abort') { return; }
+                showMessage('Errore durante la ricerca. Riprova.', true);
+            }
+        });
+    }
+
+    function onInput() {
+        var term = (input.value || '').trim();
+        clearBtn.style.display = term.length ? 'block' : 'none';
+        lastTerm = term;
+        if (debounceTimer) { clearTimeout(debounceTimer); }
+        if (term.length < 2) {
+            resultsEl.classList.add('hidden');
+            clearChildren(resultsEl);
+            setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
+            return;
+        }
+        setHint('');
+        debounceTimer = setTimeout(function () { performSearch(term); }, 250);
+    }
+
+    input.addEventListener('input', onInput);
+    clearBtn.addEventListener('click', function () {
+        input.value = '';
+        onInput();
+        input.focus();
+    });
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        input.value = '';
+        clearBtn.style.display = 'none';
+        resultsEl.classList.add('hidden');
+        clearChildren(resultsEl);
+        setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
+        setTimeout(function () { input.focus(); }, 30);
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+        if (currentRequest && typeof currentRequest.abort === 'function') {
+            try { currentRequest.abort(); } catch (e) {}
+        }
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    window.openNewAccountModal = openModal;
+    window.closeNewAccountModal = closeModal;
+})();
+JS);
+?>
+<?php endif; ?>

@@ -302,7 +302,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'template' => '{label}<div class="relative">{input}<button type="button" tabindex="-1" @click="showPassword = !showPassword" class="absolute top-1/2 right-3 z-10 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" :title="showPassword ? \'Nascondi password\' : \'Mostra password\'"><svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><svg x-show="showPassword" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg></button></div>{error}',
                     ])->passwordInput([
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none pl-4 pr-11 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Password (minimo 6 caratteri)',
+                        'placeholder' => '8-20 caratteri con maiuscola, minuscola, numero e speciale',
                         'id' => 'credentials-password',
                         'autocomplete' => 'new-password',
                         ':type' => "showPassword ? 'text' : 'password'",
@@ -476,18 +476,40 @@ $(document).ready(function() {
         });
     }
 
-    // Rigenera password casuale lato client e la imposta nei due input
+    // Rigenera password casuale rispettando le regole di validazione:
+    // 8-20 caratteri, almeno una maiuscola, una minuscola, un numero e un
+    // carattere speciale. Esclude caratteri ambigui (0/O/o/1/l/I).
     function generateRandomPassword(length) {
-        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-        var pwd = '';
-        for (var i = 0; i < length; i++) {
-            pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+        var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        var lower = 'abcdefghijkmnopqrstuvwxyz';
+        var digits = '23456789';
+        var special = '!@#\$%^&*-_+=?';
+        var len = Math.max(8, Math.min(20, length || 12));
+
+        function rand(max) {
+            if (window.crypto && window.crypto.getRandomValues) {
+                var arr = new Uint32Array(1);
+                window.crypto.getRandomValues(arr);
+                return arr[0] % max;
+            }
+            return Math.floor(Math.random() * max);
         }
-        return pwd;
+        function pick(charset) { return charset.charAt(rand(charset.length)); }
+
+        var chars = [pick(upper), pick(lower), pick(digits), pick(special)];
+        var all = upper + lower + digits + special;
+        for (var i = chars.length; i < len; i++) {
+            chars.push(pick(all));
+        }
+        for (var j = chars.length - 1; j > 0; j--) {
+            var k = rand(j + 1);
+            var tmp = chars[j]; chars[j] = chars[k]; chars[k] = tmp;
+        }
+        return chars.join('');
     }
 
     $('#regenerate-password-btn').on('click', function () {
-        var newPwd = generateRandomPassword(10);
+        var newPwd = generateRandomPassword(12);
         var \$pwd = $('#credentials-password');
         var \$pwdRepeat = $('#credentials-password-repeat');
         \$pwd.val(newPwd).trigger('change');

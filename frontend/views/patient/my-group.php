@@ -12,11 +12,15 @@ use yii\widgets\Pjax;
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var common\models\CoordinatorGroup $coordinatorGroup */
 /** @var int $therapistCount */
+/** @var array $patientTherapistsMap mappa patient_id => [['id','name'], ...] */
 
 $this->title = 'I Miei Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
 
 $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+$patientTherapistsMap = isset($patientTherapistsMap) && is_array($patientTherapistsMap)
+    ? $patientTherapistsMap
+    : [];
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
@@ -131,6 +135,38 @@ $districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
                             $age = $model->age ? " ({$model->age} anni)" : '';
                             return $birthDate . $age;
                         }
+                    ],
+                    [
+                        'label' => 'Terapista del gruppo',
+                        'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
+                        'contentOptions' => ['class' => 'px-6 py-4 align-top'],
+                        'filter' => false,
+                        'format' => 'raw',
+                        'value' => function ($model) use ($patientTherapistsMap) {
+                            $list = $patientTherapistsMap[$model->id] ?? [];
+                            if (empty($list)) {
+                                return '<span class="text-gray-400 italic text-xs">-</span>';
+                            }
+                            $canViewTherapist = Yii::$app->user->can('view_therapist');
+                            $items = [];
+                            foreach ($list as $t) {
+                                $name = Html::encode($t['name']);
+                                $badge = '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">'
+                                    . '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'
+                                    . $name
+                                    . '</span>';
+                                if ($canViewTherapist) {
+                                    $items[] = Html::a($badge, ['/therapist/view', 'id' => $t['id']], [
+                                        'data-pjax' => '0',
+                                        'title' => 'Apri scheda terapista',
+                                        'class' => 'hover:opacity-80',
+                                    ]);
+                                } else {
+                                    $items[] = $badge;
+                                }
+                            }
+                            return '<div class="flex flex-wrap gap-1.5">' . implode('', $items) . '</div>';
+                        },
                     ],
                     [
                         'attribute' => 'district_id',
