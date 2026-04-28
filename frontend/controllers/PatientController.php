@@ -101,6 +101,51 @@ class PatientController extends Controller
     }
 
     /**
+     * Lists patients assigned to the therapists of the coordinator's group.
+     *
+     * Specchio di `TherapistController::actionMyGroup` ma sui pazienti:
+     * mostra ai coordinatori i pazienti gestiti dai terapisti del proprio
+     * gruppo di coordinamento (un paziente "appartiene" a un terapista se
+     * ha almeno un appuntamento non cancellato con lui, da piano o privato).
+     */
+    public function actionMyGroup()
+    {
+        if (!Yii::$app->user->can('view_own_group_patients')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti del gruppo.');
+        }
+
+        $coordinatorUserId = Yii::$app->user->id;
+        $coordinatorGroup = \common\models\CoordinatorGroup::find()
+            ->where(['coordinator_user_id' => $coordinatorUserId])
+            ->one();
+
+        if (!$coordinatorGroup) {
+            return $this->render('no-group', [
+                'message' => 'Non sei assegnato a nessun gruppo di terapisti.'
+            ]);
+        }
+
+        $therapistIds = \common\models\GroupTherapist::find()
+            ->select('therapist_id')
+            ->where(['group_id' => $coordinatorGroup->id])
+            ->andWhere(['assigned_to' => null])
+            ->column();
+
+        $searchModel = new PatientSearch();
+        // Forza il filtro server-side: anche se vuoto, fail-closed (zero risultati).
+        $searchModel->therapist_ids = !empty($therapistIds) ? $therapistIds : [0];
+
+        $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
+
+        return $this->render('my-group', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'coordinatorGroup' => $coordinatorGroup,
+            'therapistCount' => count($therapistIds),
+        ]);
+    }
+
+    /**
      * Links a patient to an account via AJAX
      */
     public function actionLinkPatient()

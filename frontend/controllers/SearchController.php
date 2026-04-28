@@ -379,17 +379,26 @@ class SearchController extends Controller
     private function searchPatients($query, $limit)
     {
         $results = [];
-        
-        $patients = Patient::find()
+
+        $allowedPatientIds = $this->getCoordinatorPatientIdsRestriction();
+        if ($allowedPatientIds === []) {
+            return $results;
+        }
+
+        $patientsQuery = Patient::find()
             ->where(['or',
                 ['like', 'first_name', $query],
                 ['like', 'last_name', $query],
                 ['like', "CONCAT(first_name, ' ', last_name)", $query],
                 ['like', "CONCAT(last_name, ' ', first_name)", $query],
                 ['like', 'fiscal_code', $query]
-            ])
-            ->limit($limit)
-            ->all();
+            ]);
+
+        if ($allowedPatientIds !== null) {
+            $patientsQuery->andWhere(['id' => $allowedPatientIds]);
+        }
+
+        $patients = $patientsQuery->limit($limit)->all();
 
         foreach ($patients as $patient) {
             $results[] = [
@@ -415,17 +424,26 @@ class SearchController extends Controller
     private function searchPatientAccounts($query, $limit)
     {
         $results = [];
-        
-        $accounts = AccountPatient::find()
+
+        $allowedPatientIds = $this->getCoordinatorPatientIdsRestriction();
+        if ($allowedPatientIds === []) {
+            return $results;
+        }
+
+        $accountsQuery = AccountPatient::find()
             ->joinWith(['user.profile', 'patient'])
             ->where(['or',
                 ['like', 'user_profiles.first_name', $query],
                 ['like', 'user_profiles.last_name', $query],
                 ['like', "CONCAT(user_profiles.first_name, ' ', user_profiles.last_name)", $query],
                 ['like', "CONCAT(user_profiles.last_name, ' ', user_profiles.first_name)", $query]
-            ])
-            ->limit($limit)
-            ->all();
+            ]);
+
+        if ($allowedPatientIds !== null) {
+            $accountsQuery->andWhere(['account_patients.patient_id' => $allowedPatientIds]);
+        }
+
+        $accounts = $accountsQuery->limit($limit)->all();
 
         foreach ($accounts as $account) {
             $profile = $account->user->profile;
@@ -633,6 +651,54 @@ class SearchController extends Controller
     }
 
     /**
+     * Ritorna la restrizione di patient_id per l'utente corrente (coordinator).
+     *
+     * - null  => nessuna restrizione (admin/manager/altri)
+     * - []    => coordinator senza gruppo o senza pazienti collegati: nessun risultato
+     * - int[] => lista di patient_id consentiti (pazienti dei terapisti del gruppo)
+     *
+     * Un coordinator senza permessi globali (`create_patient`) ma con
+     * `view_own_group_patients` puo' vedere solo i pazienti dei propri terapisti.
+     *
+     * @return int[]|null
+     */
+    private function getCoordinatorPatientIdsRestriction()
+    {
+        $user = Yii::$app->user;
+
+        // Se ha permessi globali (admin/manager) niente restrizioni
+        if ($user->can('create_patient')) {
+            return null;
+        }
+
+        if (!$user->can('view_own_group_patients')) {
+            return null;
+        }
+
+        $coordinatorGroup = \common\models\CoordinatorGroup::find()
+            ->where(['coordinator_user_id' => $user->id])
+            ->one();
+
+        if (!$coordinatorGroup) {
+            return [];
+        }
+
+        $therapistIds = \common\models\GroupTherapist::find()
+            ->select('therapist_id')
+            ->where(['group_id' => $coordinatorGroup->id])
+            ->andWhere(['assigned_to' => null])
+            ->column();
+
+        if (empty($therapistIds)) {
+            return [];
+        }
+
+        $patientIds = \frontend\models\PatientSearch::patientIdsForTherapists($therapistIds);
+
+        return !empty($patientIds) ? $patientIds : [];
+    }
+
+    /**
  * Suggerimenti rapidi per la ricerca (ultimi pazienti visitati o più recenti)
  * 
  * @return array
@@ -741,10 +807,20 @@ public function actionQuickSuggestions()
         }
         // Per admin, manager e coordinator, mostra gli ultimi pazienti inseriti
         else {
-            $patients = Patient::find()
-                ->orderBy('created_at DESC')
-                ->limit($limit)
-                ->all();
+            $allowedPatientIds = $this->getCoordinatorPatientIdsRestriction();
+            if ($allowedPatientIds === []) {
+                return [
+                    'success' => true,
+                    'data' => [],
+                ];
+            }
+
+            $patientsQuery = Patient::find()->orderBy('created_at DESC');
+            if ($allowedPatientIds !== null) {
+                $patientsQuery->andWhere(['id' => $allowedPatientIds]);
+            }
+
+            $patients = $patientsQuery->limit($limit)->all();
                 
             foreach ($patients as $patient) {
                 $results[] = [

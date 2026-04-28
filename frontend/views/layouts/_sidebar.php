@@ -20,7 +20,8 @@ $menuMappings = [
     'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
     'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
     'MyTherapists' => ['therapist/my-group'],
-    'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account'],
+    'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account', 'patient/my-group'],
+    'MyPatients' => ['patient/my-group'],
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
     'Complaints' => ['complaint/index', 'complaint/view'],
@@ -222,6 +223,35 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                             </ul>
                         </div>
                         <!-- Dropdown Menu End -->
+                    </li>
+                    <?php elseif (Yii::$app->user->can('view_own_group_patients')): ?>
+                    <!-- Menu Item My Patients (for coordinators only) -->
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/patient/my-group']) ?>"
+                            @click="selected = (selected === 'MyPatients' ? '':'MyPatients')"
+                            class="menu-item group"
+                            :class="(selected === 'MyPatients') || <?= isMenuActive('MyPatients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'MyPatients') || <?= isMenuActive('MyPatients', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M12 3.5C8.96243 3.5 6.5 5.96243 6.5 9C6.5 12.0376 8.96243 14.5 12 14.5C15.0376 14.5 17.5 12.0376 17.5 9C17.5 5.96243 15.0376 3.5 12 3.5ZM5 9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9C19 12.866 15.866 16 12 16C8.13401 16 5 12.866 5 9ZM12 18.5C7.30558 18.5 3.5 20.3431 3.5 22.5C3.5 23.3284 4.17157 24 5 24H19C19.8284 24 20.5 23.3284 20.5 22.5C20.5 20.3431 16.6944 18.5 12 18.5ZM2 22.5C2 19.1863 6.47715 17 12 17C17.5228 17 22 19.1863 22 22.5C22 24.1569 20.6569 25.5 19 25.5H5C3.34315 25.5 2 24.1569 2 22.5Z"
+                                    fill="" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                I Miei Pazienti
+                            </span>
+                        </a>
                     </li>
                     <?php endif; ?>
                     <!-- Menu Item Patients -->

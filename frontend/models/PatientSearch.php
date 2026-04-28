@@ -13,6 +13,18 @@ use common\models\Patient;
 class PatientSearch extends Patient
 {
     /**
+     * Filtra i pazienti agli "appartenenti" a uno o piu' terapisti.
+     * Un paziente appartiene a un terapista se ha almeno un appuntamento
+     * (da piano terapeutico oppure privato) con quel terapista.
+     *
+     * Non e' un attributo persistito: viene impostato dal controller
+     * (es. PatientController::actionMyGroup per il coordinatore).
+     *
+     * @var int[]|null
+     */
+    public $therapist_ids;
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
@@ -25,6 +37,7 @@ class PatientSearch extends Patient
                 'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
                 'phone_number'
             ], 'safe'],
+            [['therapist_ids'], 'safe'],
         ];
     }
 
@@ -78,6 +91,18 @@ class PatientSearch extends Patient
             return $dataProvider;
         }
 
+        // Restrizione "pazienti dei miei terapisti" (coordinator).
+        // therapist_ids non e' filtrabile dall'utente via querystring: e'
+        // popolata solo da actionMyGroup. Se vuota -> nessun risultato (fail-closed).
+        if ($this->therapist_ids !== null) {
+            $allowedPatientIds = self::patientIdsForTherapists($this->therapist_ids);
+            if (empty($allowedPatientIds)) {
+                $query->andWhere('0=1');
+            } else {
+                $query->andWhere(['id' => $allowedPatientIds]);
+            }
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
@@ -101,5 +126,45 @@ class PatientSearch extends Patient
             ->andFilterWhere(['like', 'phone_number', $this->phone_number]);
 
         return $dataProvider;
+    }
+
+    /**
+     * Restituisce gli id dei pazienti "assegnati" agli `$therapistIds` indicati,
+     * cioe' che hanno almeno un appuntamento non cancellato (da piano terapeutico
+     * o privato) con uno di quei terapisti.
+     *
+     * Replica il pattern gia' usato in `api/controllers/CalendarController::actionTherapistPatients`
+     * (LEFT JOIN su plan_therapies + therapeutic_plans, OR su patient_id) per
+     * mantenere coerente la nozione di "paziente del terapista" in tutta l'app.
+     *
+     * Utilizzata da:
+     *  - PatientController::actionMyGroup (coordinatore -> "I Miei Pazienti")
+     *  - SearchController::searchPatients (limitazione searchbar globale)
+     *
+     * @param int[] $therapistIds
+     * @return int[]
+     */
+    public static function patientIdsForTherapists(array $therapistIds)
+    {
+        $therapistIds = array_values(array_filter(array_map('intval', $therapistIds)));
+        if (empty($therapistIds)) {
+            return [];
+        }
+
+        $rows = (new \yii\db\Query())
+            ->select(new \yii\db\Expression('COALESCE(a.patient_id, tp.patient_id) AS patient_id'))
+            ->distinct()
+            ->from(['a' => '{{%appointments}}'])
+            ->leftJoin(['pt' => '{{%plan_therapies}}'], 'pt.id = a.plan_therapy_id')
+            ->leftJoin(['tp' => '{{%therapeutic_plans}}'], 'tp.id = pt.therapeutic_plan_id')
+            ->where(['a.therapist_id' => $therapistIds])
+            ->andWhere(['!=', 'a.status', \common\models\Appointment::STATUS_CANCELLED])
+            ->andWhere(['or',
+                ['IS NOT', 'a.patient_id', null],
+                ['IS NOT', 'tp.patient_id', null],
+            ])
+            ->column();
+
+        return array_values(array_unique(array_filter(array_map('intval', $rows))));
     }
 } 
