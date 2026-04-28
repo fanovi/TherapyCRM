@@ -456,6 +456,119 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+function handleDuplicateFiscalCode(response) {
+    if (typeof Swal === 'undefined') {
+        showNotification(response.message || 'Esiste gia un account con questo codice fiscale.', 'warning');
+        return;
+    }
+    var existing = response.existing_account || {};
+    var patient = response.patient || {};
+    var escapeHtml = function (s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+
+    var html = '<div style=\"text-align:left;font-size:14px;color:#374151;\">'
+        + '<div style=\"padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;margin-bottom:12px;\">'
+        + '<div style=\"margin-bottom:4px;\"><strong>Email:</strong> ' + escapeHtml(existing.email) + '</div>'
+        + '<div style=\"margin-bottom:4px;\"><strong>Intestatario:</strong> ' + escapeHtml(existing.full_name || '-') + '</div>'
+        + '<div><strong>Codice fiscale:</strong> ' + escapeHtml(existing.fiscal_code || '-') + '</div>'
+        + '</div>';
+
+    if (existing.already_linked) {
+        html += '<p style=\"margin:0 0 4px 0;padding:10px 12px;font-size:13px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;\">'
+            + 'Il paziente <strong>' + escapeHtml(patient.name || '-') + '</strong> risulta gia collegato a questo account.'
+            + '</p>'
+            + '</div>';
+    } else {
+        html += '<p style=\"margin:0;\">Vuoi collegare il paziente <strong>' + escapeHtml(patient.name || '-') + '</strong> a questo account esistente?</p>'
+            + '</div>';
+    }
+
+    var swalOpts = {
+        icon: 'warning',
+        title: 'Account gia esistente',
+        html: html,
+        focusConfirm: false,
+        showCloseButton: true,
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+        customClass: { popup: 'swal2-app-popup' }
+    };
+
+    if (existing.already_linked) {
+        swalOpts.confirmButtonText = 'Vai all\\'account';
+        swalOpts.cancelButtonText = 'Chiudi';
+    } else {
+        swalOpts.confirmButtonText = 'Si, collega questo paziente';
+        swalOpts.cancelButtonText = 'Annulla';
+        swalOpts.showDenyButton = true;
+        swalOpts.denyButtonText = 'Vai all\\'account';
+        swalOpts.denyButtonColor = '#374151';
+    }
+
+    Swal.fire(swalOpts).then(function (result) {
+        if (result.isConfirmed) {
+            if (existing.already_linked) {
+                window.location.href = existing.view_url;
+                return;
+            }
+            // Collega questo paziente all'account esistente
+            var relationship = (document.getElementById('accountpatient-relationship_type') || {}).value || 'other';
+            var hasParentalAuthEl = document.querySelector('input[name=\"AccountPatient[has_parental_authority]\"]:checked');
+            var hasParentalAuthority = hasParentalAuthEl ? (hasParentalAuthEl.value || '0') : '0';
+
+            Swal.fire({
+                title: 'Collegamento in corso...',
+                didOpen: function () { Swal.showLoading(); },
+                allowOutsideClick: false, allowEscapeKey: false, allowEnterKey: false,
+                showConfirmButton: false
+            });
+
+            \$.ajax({
+                url: '" . \yii\helpers\Url::to(['patient/link-patient']) . "',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    _csrf: \$('meta[name=csrf-token]').attr('content'),
+                    user_id: existing.user_id,
+                    patient_id: patient.id,
+                    relationship_type: relationship,
+                    has_parental_authority: hasParentalAuthority
+                }
+            }).done(function (resp) {
+                if (resp && resp.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Paziente collegato',
+                        text: resp.message || 'Paziente collegato all\\'account esistente.',
+                        confirmButtonColor: '#2563eb'
+                    }).then(function () { window.location.href = existing.view_url; });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Errore',
+                        text: (resp && (resp.error || resp.message)) || 'Impossibile collegare il paziente.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                }
+            }).fail(function () {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore di rete',
+                    text: 'Impossibile contattare il server. Riprova.',
+                    confirmButtonColor: '#2563eb'
+                });
+            });
+        } else if (result.isDenied) {
+            window.location.href = existing.view_url;
+        }
+    });
+}
+
 $(document).ready(function() {
     $('#credentials-form').on('beforeSubmit', function(e) {
         e.preventDefault();
@@ -488,6 +601,10 @@ $(document).ready(function() {
                             window.location.href = response.redirectUrl;
                         }
                     }, 1000);
+                } else if (response.code === 'duplicate_fiscal_code' && response.existing_account) {
+                    \$submitBtn.prop('disabled', false);
+                    \$submitBtn.html('<svg class=\"mr-2 h-4 w-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 13l4 4L19 7\"></path></svg>Crea Credenziali');
+                    handleDuplicateFiscalCode(response);
                 } else {
                     showNotification('Errore: ' + (response.error || response.message || 'Errore sconosciuto'), 'error');
                     \$submitBtn.prop('disabled', false);

@@ -18,6 +18,8 @@ class AppAsset extends AssetBundle
     ];
 
     public $js = [
+        // SweetAlert2: modali moderne riusabili (caricato via CDN, no purging Tailwind).
+        'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js',
         'js/bundle.js',
     ];
 

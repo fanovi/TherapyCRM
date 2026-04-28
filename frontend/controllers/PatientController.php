@@ -770,6 +770,56 @@ class PatientController extends Controller
             Yii::info('Profile: ' . print_r($profile->attributes, true));
             Yii::info('AccountPatient: ' . print_r($accountPatient->attributes, true));
 
+            // Pre-check: codice fiscale gia' presente in user_profiles.
+            // Se la persona che dovrebbe accedere (lo stesso paziente in
+            // modalita' "io stesso", oppure il genitore/tutore in modalita'
+            // diversa) ha gia' un account, non blocchiamo soltanto: torniamo
+            // un payload dedicato cosi' la view puo' proporre di collegare il
+            // paziente all'account esistente.
+            if (!empty($profile->fiscal_code)) {
+                $existingProfile = UserProfile::find()
+                    ->where(['fiscal_code' => $profile->fiscal_code])
+                    ->one();
+                if ($existingProfile) {
+                    $existingUser = User::findOne($existingProfile->user_id);
+                    if ($existingUser) {
+                        // Verifica se questo paziente e' gia' collegato.
+                        $alreadyLinked = AccountPatient::find()
+                            ->where([
+                                'user_id' => $existingUser->id,
+                                'patient_id' => $patient->id,
+                            ])->exists();
+
+                        $payload = [
+                            'success' => false,
+                            'code' => 'duplicate_fiscal_code',
+                            'message' => 'Esiste gia\' un account con questo codice fiscale.',
+                            'existing_account' => [
+                                'user_id' => (int) $existingUser->id,
+                                'email' => $existingUser->email,
+                                'full_name' => trim(($existingProfile->last_name ?? '') . ' ' . ($existingProfile->first_name ?? '')),
+                                'fiscal_code' => $existingProfile->fiscal_code,
+                                'already_linked' => (bool) $alreadyLinked,
+                                'view_url' => \yii\helpers\Url::to(['view-account', 'id' => $existingUser->id]),
+                            ],
+                            'patient' => [
+                                'id' => (int) $patient->id,
+                                'name' => $patient->last_name . ' ' . $patient->first_name,
+                            ],
+                        ];
+
+                        if (Yii::$app->request->isAjax) {
+                            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                            return $payload;
+                        }
+
+                        Yii::$app->session->setFlash('error', $payload['message']
+                            . ' L\'account ' . $existingUser->email . ' lo possiede gia\'.');
+                        return $this->redirect(['create-credentials', 'id' => $patient->id]);
+                    }
+                }
+            }
+
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 // Save password before hashing for PDF generation
