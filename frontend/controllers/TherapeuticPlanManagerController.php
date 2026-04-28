@@ -867,9 +867,15 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $treatmentTypes = TreatmentType::find()
-                ->orderBy(['name' => SORT_ASC])
-                ->all();
+            $query = TreatmentType::find()
+                ->orderBy(['name' => SORT_ASC]);
+
+            $allowedTypeIds = $this->getCoordinatorTreatmentTypeFilter();
+            if ($allowedTypeIds !== null) {
+                $query->andWhere(['id' => $allowedTypeIds]);
+            }
+
+            $treatmentTypes = $query->all();
 
             $result = [];
             foreach ($treatmentTypes as $type) {
@@ -945,8 +951,10 @@ class TherapeuticPlanManagerController extends Controller
 
             $this->validateTherapeuticPlan($plan);
 
-            // Recupera i trattamenti con eager loading
-            $planTherapies = PlanTherapy::find()
+            // Recupera i trattamenti con eager loading. Filtra per coordinator
+            // se applicabile: il dropdown specializzazione mostra solo quelle
+            // coperte da terapisti del gruppo.
+            $planTherapyQuery = PlanTherapy::find()
                 ->select(['id', 'treatment_type_id'])
                 ->with(['treatmentType' => function ($query) {
                     $query
@@ -955,8 +963,14 @@ class TherapeuticPlanManagerController extends Controller
                             $q->select(['treatment_type_id', 'specialization_id']);
                         }]);
                 }])
-                ->where(['therapeutic_plan_id' => $planId])
-                ->all();
+                ->where(['therapeutic_plan_id' => $planId]);
+
+            $allowedTypeIds = $this->getCoordinatorTreatmentTypeFilter();
+            if ($allowedTypeIds !== null) {
+                $planTherapyQuery->andWhere(['treatment_type_id' => $allowedTypeIds]);
+            }
+
+            $planTherapies = $planTherapyQuery->all();
 
             $result = [];
             foreach ($planTherapies as $therapy) {
@@ -1085,6 +1099,34 @@ class TherapeuticPlanManagerController extends Controller
             ->select('therapist_id')
             ->where(['group_id' => $group->id])
             ->andWhere(['assigned_to' => null])
+            ->column();
+
+        return !empty($ids) ? array_map('intval', $ids) : [0];
+    }
+
+    /**
+     * Treatment type ID coperti dai terapisti del gruppo del coordinator.
+     * Null se non si applica filtro (manager/admin).
+     *
+     * @return int[]|null
+     */
+    private function getCoordinatorTreatmentTypeFilter()
+    {
+        $therapistIds = $this->getCoordinatorTherapistFilter();
+        if ($therapistIds === null) {
+            return null;
+        }
+        if ($therapistIds === [0]) {
+            return [0];
+        }
+
+        $ids = (new \yii\db\Query())
+            ->select('st.treatment_type_id')
+            ->distinct()
+            ->from(['st' => '{{%specialization_treatments}}'])
+            ->innerJoin(['t' => '{{%therapists}}'], 't.specialization_id = st.specialization_id')
+            ->where(['t.id' => $therapistIds])
+            ->andWhere(['t.is_active' => 1])
             ->column();
 
         return !empty($ids) ? array_map('intval', $ids) : [0];
