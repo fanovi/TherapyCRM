@@ -521,8 +521,6 @@ $(document).ready(function() {
         var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
         var lower = 'abcdefghijkmnopqrstuvwxyz';
         var digits = '23456789';
-        // Nota: NON includere "_" perche' nel pattern di validazione e' un
-        // word-char (\\W) e fallirebbe il check del carattere speciale.
         var special = '!@#\$%^&*-+=?';
         var len = Math.max(8, Math.min(20, length || 12));
 
