@@ -353,6 +353,19 @@ class PermissionController extends Controller
     {
         $allPermissions = AuthItem::findActivePermissions()->all();
 
+        // Permessi specifici dell'app mobile: visibili solo per i ruoli che
+        // accedono via app (therapist, patient, patient_family). Per gli
+        // altri ruoli (admin, manager, coordinator, ...) il flag non ha
+        // senso e va nascosto dall'editor permessi.
+        $mobileOnlyPermissions = ['app_login'];
+        $mobileRoles = ['therapist', 'patient', 'patient_family'];
+        if (!in_array($roleName, $mobileRoles, true)) {
+            $allPermissions = array_values(array_filter(
+                $allPermissions,
+                static fn ($p) => !in_array($p->name, $mobileOnlyPermissions, true)
+            ));
+        }
+
         $rolePermissions = AuthItemChild::find()
             ->where(['{{%auth_item_child}}.parent' => $roleName])
             ->joinWith('childItem')
