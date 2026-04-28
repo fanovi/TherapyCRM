@@ -517,22 +517,40 @@ class SiteController extends BaseController
         $userId = Yii::$app->user->id;
         $auth = Yii::$app->authManager;
 
-        // Ruoli direttamente assegnati all'utente.
+        // Lista permessi disattivati da PermissionMetadata: vanno esclusi
+        // dal conteggio e dalla visualizzazione (coerente con
+        // /permission/roles che filtra i 'permessi reali e attivi').
+        $inactivePermissionNames = \common\models\PermissionMetadata::find()
+            ->select('permission_name')
+            ->where(['is_active' => 0])
+            ->column();
+        $inactiveSet = array_flip($inactivePermissionNames);
+
+        $filterActive = static function (array $perms) use ($inactiveSet): array {
+            return array_filter(
+                $perms,
+                static fn ($name) => !isset($inactiveSet[$name]),
+                ARRAY_FILTER_USE_KEY
+            );
+        };
+
         $roles = $auth->getRolesByUser($userId);
         ksort($roles);
 
-        // Per ogni ruolo, i permessi (ricorsivamente, esclusi i ruoli figli).
         $rolePermissions = [];
         foreach ($roles as $roleName => $role) {
             $perms = $auth->getPermissionsByRole($roleName);
+            $perms = $filterActive($perms);
             ksort($perms);
             $rolePermissions[$roleName] = $perms;
         }
 
-        // Permessi assegnati direttamente all'utente (non tramite ruolo).
         $allAssignments = $auth->getAssignments($userId);
         $directPermissions = [];
         foreach ($allAssignments as $itemName => $assignment) {
+            if (isset($inactiveSet[$itemName])) {
+                continue;
+            }
             $item = $auth->getPermission($itemName);
             if ($item !== null) {
                 $directPermissions[$itemName] = $item;
