@@ -719,18 +719,30 @@ class SearchController extends Controller
      */
     private function getCoordinatorTherapistIdsRestriction()
     {
-        $user = Yii::$app->user;
-
-        if ($user->can('create_therapist') || $user->can('manage_therapists')) {
+        $userId = Yii::$app->user->id;
+        if (!$userId) {
             return null;
         }
 
-        if (!$user->can('view_own_group_therapists')) {
+        // Check via auth_assignment: piu affidabile dei can() su permission
+        // (es. coordinator ha 'manage_therapists' nei suoi permessi base).
+        $assignedRoles = (new \yii\db\Query())
+            ->select('item_name')
+            ->from('{{%auth_assignment}}')
+            ->where(['user_id' => $userId])
+            ->column();
+
+        $hasCoord = in_array('coordinator', $assignedRoles, true);
+        $hasMan = in_array('manager', $assignedRoles, true);
+        $hasAdmin = in_array('admin', $assignedRoles, true)
+            || in_array('super_admin', $assignedRoles, true);
+
+        if (!$hasCoord || $hasMan || $hasAdmin) {
             return null;
         }
 
         $coordinatorGroup = \common\models\CoordinatorGroup::find()
-            ->where(['coordinator_user_id' => $user->id])
+            ->where(['coordinator_user_id' => $userId])
             ->one();
 
         if (!$coordinatorGroup) {
