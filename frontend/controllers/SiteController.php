@@ -370,19 +370,12 @@ class SiteController extends BaseController
             return $this->redirect(['site/login']);
         }
 
-        // Determina il ruolo dell'utente
+        // Mostra la sezione "Token per app mobile" solo agli utenti che possono
+        // effettivamente loggarsi nell'app (permesso RBAC `app_login`).
+        // In questo modo super_admin/admin/manager/coordinator (utenti del solo
+        // gestionale web) non vedono un token che non potrebbero usare.
         $auth = Yii::$app->authManager;
-        $userRoles = $auth->getRolesByUser($user->id);
-        $userRoleNames = array_keys($userRoles);
-
-        // Determina se l'utente è admin/manager (non deve vedere il token per app mobile)
-        $isAdminOrManager = false;
-        foreach ($userRoleNames as $roleName) {
-            if (in_array($roleName, ['admin', 'manager'])) {
-                $isAdminOrManager = true;
-                break;
-            }
-        }
+        $canUseMobileApp = $auth ? $auth->checkAccess($user->id, 'app_login') : false;
 
         // Crea il form di reset password
         $model = new ResetPasswordForm($token);
@@ -392,7 +385,7 @@ class SiteController extends BaseController
                 'model' => $model,
                 'token' => $token,
                 'success' => true,
-                'isAdminOrManager' => $isAdminOrManager
+                'canUseMobileApp' => $canUseMobileApp,
             ]);
         }
 
@@ -400,7 +393,7 @@ class SiteController extends BaseController
             'model' => $model,
             'token' => $token,
             'success' => false,
-            'isAdminOrManager' => $isAdminOrManager
+            'canUseMobileApp' => $canUseMobileApp,
         ]);
     }
 

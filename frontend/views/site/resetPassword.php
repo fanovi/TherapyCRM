@@ -73,7 +73,11 @@ $this->title = 'Reset Password';
                                 Password aggiornata con successo!
                             </h3>
                             <p class="mt-2 text-sm text-green-700 dark:text-green-300">
-                                La tua password è stata aggiornata. Ora puoi accedere all'app mobile con le nuove credenziali.
+                                <?php if (!empty($canUseMobileApp)): ?>
+                                    La tua password è stata aggiornata. Ora puoi accedere all'app mobile con le nuove credenziali.
+                                <?php else: ?>
+                                    La tua password è stata aggiornata. Torna al login per accedere con le nuove credenziali.
+                                <?php endif; ?>
                             </p>
                            
                         </div>
@@ -201,7 +205,7 @@ $this->title = 'Reset Password';
             <?php ActiveForm::end(); ?>
             <?php endif; ?>
 
-            <?php if (!$isAdminOrManager): ?>
+            <?php if (!empty($canUseMobileApp)): ?>
             <div class="mt-6">
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
