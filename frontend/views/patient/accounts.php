@@ -210,74 +210,83 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
 
 <?php if ($canCreateAccount): ?>
 <!-- Modale "Nuovo Account": ricerca paziente -->
-<div
-    id="new-account-modal"
-    class="fixed inset-0 z-[1000] hidden items-center justify-center"
-    aria-modal="true"
-    role="dialog"
-    aria-labelledby="new-account-modal-title">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onclick="window.closeNewAccountModal && window.closeNewAccountModal()"></div>
+<div id="new-account-modal"
+     aria-modal="true"
+     role="dialog"
+     aria-labelledby="new-account-modal-title"
+     style="display: none; position: fixed; inset: 0; z-index: 9999;">
+    <!-- Backdrop -->
+    <div onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
+         style="position: absolute; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px);"></div>
 
-    <div class="relative z-10 w-full max-w-2xl mx-4 rounded-2xl bg-white shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-3">
-                <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
-                </span>
-                <div>
-                    <h3 id="new-account-modal-title" class="text-base font-semibold text-gray-900 dark:text-white">Nuovo Account</h3>
-                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Seleziona il paziente per cui creare le credenziali.</p>
+    <!-- Dialog wrapper (centrato) -->
+    <div style="position: relative; z-index: 10; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px;">
+        <div style="position: relative; width: 100%; max-width: 640px; background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden;">
+            <!-- Header -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #f3f4f6;">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background: #eff6ff; color: #2563eb; flex-shrink: 0;">
+                        <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </span>
+                    <div style="min-width: 0;">
+                        <h3 id="new-account-modal-title" style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">Nuovo Account</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Seleziona il paziente per cui creare le credenziali.</p>
+                    </div>
                 </div>
-            </div>
-            <button type="button"
-                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
-                    title="Chiudi">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-
-        <div class="px-6 py-5">
-            <div style="position: relative;">
-                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; line-height: 0;">
-                    <svg style="width: 18px; height: 18px; color: #9ca3af; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"></path>
-                    </svg>
-                </span>
-                <input type="text"
-                       id="new-account-search-input"
-                       autocomplete="off"
-                       placeholder="Cerca per nome, cognome o codice fiscale (almeno 2 caratteri)..."
-                       style="width: 100%; padding: 12px 44px 12px 44px; font-size: 14px; line-height: 1.4; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; color: #111827; outline: none; box-sizing: border-box;"
-                       onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.15)'"
-                       onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
                 <button type="button"
-                        id="new-account-search-clear"
-                        style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0;"
-                        title="Pulisci ricerca">
-                    <svg style="width: 16px; height: 16px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
+                        title="Chiudi"
+                        style="background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0; flex-shrink: 0;">
+                    <svg style="width: 20px; height: 20px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
             </div>
 
-            <p id="new-account-search-hint" class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                Digita almeno 2 caratteri per iniziare la ricerca.
-            </p>
+            <!-- Body -->
+            <div style="padding: 20px 24px;">
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; line-height: 0;">
+                        <svg style="width: 18px; height: 18px; color: #9ca3af; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"></path>
+                        </svg>
+                    </span>
+                    <input type="text"
+                           id="new-account-search-input"
+                           autocomplete="off"
+                           placeholder="Cerca per nome, cognome o codice fiscale (almeno 2 caratteri)..."
+                           style="width: 100%; padding: 12px 44px 12px 44px; font-size: 14px; line-height: 1.4; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; color: #111827; outline: none; box-sizing: border-box;"
+                           onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.15)'"
+                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
+                    <button type="button"
+                            id="new-account-search-clear"
+                            title="Pulisci ricerca"
+                            style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0;">
+                        <svg style="width: 16px; height: 16px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
 
-            <div id="new-account-search-results" class="mt-3 max-h-80 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-800 hidden"></div>
-        </div>
+                <p id="new-account-search-hint"
+                   style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280;">
+                    Digita almeno 2 caratteri per iniziare la ricerca.
+                </p>
 
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800">
-            <button type="button"
-                    class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                    onclick="window.closeNewAccountModal && window.closeNewAccountModal()">
-                Annulla
-            </button>
+                <div id="new-account-search-results"
+                     style="display: none; margin-top: 12px; max-height: 320px; overflow-y: auto; border: 1px solid #f3f4f6; border-radius: 12px; background: #ffffff;"></div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #f3f4f6; background: #fafafa;">
+                <button type="button"
+                        onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
+                        style="padding: 8px 16px; font-size: 14px; font-weight: 500; color: #374151; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer;">
+                    Annulla
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -313,33 +322,40 @@ $this->registerJs(<<<JS
     function showMessage(text, isError) {
         clearChildren(resultsEl);
         var div = document.createElement('div');
-        div.className = 'px-4 py-6 text-center text-sm ' + (isError ? 'text-red-600' : 'text-gray-500 dark:text-gray-400');
+        div.style.padding = '24px 16px';
+        div.style.textAlign = 'center';
+        div.style.fontSize = '14px';
+        div.style.color = isError ? '#dc2626' : '#6b7280';
         div.textContent = text;
         resultsEl.appendChild(div);
-        resultsEl.classList.remove('hidden');
+        resultsEl.style.display = 'block';
     }
 
     function buildResultRow(p) {
         var li = document.createElement('li');
+        li.style.borderBottom = '1px solid #f3f4f6';
+
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'w-full flex items-start justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60';
+        btn.style.cssText = 'width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 16px;text-align:left;background:transparent;border:0;cursor:pointer;';
+        btn.addEventListener('mouseover', function () { btn.style.background = '#f9fafb'; });
+        btn.addEventListener('mouseout', function () { btn.style.background = 'transparent'; });
         btn.setAttribute('data-create-url', p.create_url || '');
 
         var leftCol = document.createElement('div');
-        leftCol.className = 'min-w-0';
+        leftCol.style.cssText = 'min-width:0;flex:1 1 auto;';
 
         var nameRow = document.createElement('div');
-        nameRow.className = 'flex items-center text-sm font-medium text-gray-900 dark:text-white';
+        nameRow.style.cssText = 'display:flex;align-items:center;font-size:14px;font-weight:500;color:#111827;';
 
         var nameSpan = document.createElement('span');
-        nameSpan.className = 'truncate';
+        nameSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
         nameSpan.textContent = p.full_name || '';
         nameRow.appendChild(nameSpan);
 
         if (p.accounts_count && p.accounts_count > 0) {
             var badge = document.createElement('span');
-            badge.className = 'ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+            badge.style.cssText = 'margin-left:8px;display:inline-flex;align-items:center;padding:2px 8px;font-size:11px;font-weight:500;border-radius:9999px;background:#fef3c7;color:#92400e;';
             badge.title = 'Account già esistenti';
             badge.textContent = p.accounts_count + ' account';
             nameRow.appendChild(badge);
@@ -352,20 +368,20 @@ $this->registerJs(<<<JS
         if (p.birth_date) { subParts.push('Nato il ' + p.birth_date); }
         if (subParts.length) {
             var sub = document.createElement('div');
-            sub.className = 'mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate';
+            sub.style.cssText = 'margin-top:2px;font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
             sub.textContent = subParts.join(' · ');
             leftCol.appendChild(sub);
         }
 
         var rightCol = document.createElement('span');
-        rightCol.className = 'shrink-0 inline-flex items-center text-brand-600 dark:text-brand-400 text-xs font-medium';
+        rightCol.style.cssText = 'flex-shrink:0;display:inline-flex;align-items:center;color:#2563eb;font-size:12px;font-weight:500;';
         var rightText = document.createTextNode('Crea credenziali');
         rightCol.appendChild(rightText);
         var arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        arrow.setAttribute('class', 'ml-1 w-4 h-4');
         arrow.setAttribute('fill', 'none');
         arrow.setAttribute('stroke', 'currentColor');
         arrow.setAttribute('viewBox', '0 0 24 24');
+        arrow.style.cssText = 'width:16px;height:16px;margin-left:4px;';
         var arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         arrowPath.setAttribute('stroke-linecap', 'round');
         arrowPath.setAttribute('stroke-linejoin', 'round');
@@ -392,16 +408,16 @@ $this->registerJs(<<<JS
 
     function showResults(items) {
         clearChildren(resultsEl);
-        resultsEl.classList.remove('hidden');
+        resultsEl.style.display = 'block';
         if (!items || items.length === 0) {
             var empty = document.createElement('div');
-            empty.className = 'px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400';
+            empty.style.cssText = 'padding:24px 16px;text-align:center;font-size:14px;color:#6b7280;';
             empty.textContent = 'Nessun paziente trovato per questa ricerca.';
             resultsEl.appendChild(empty);
             return;
         }
         var ul = document.createElement('ul');
-        ul.className = 'divide-y divide-gray-100 dark:divide-gray-800';
+        ul.style.cssText = 'list-style:none;margin:0;padding:0;';
         items.forEach(function (p) { ul.appendChild(buildResultRow(p)); });
         resultsEl.appendChild(ul);
     }
@@ -433,7 +449,7 @@ $this->registerJs(<<<JS
         lastTerm = term;
         if (debounceTimer) { clearTimeout(debounceTimer); }
         if (term.length < 2) {
-            resultsEl.classList.add('hidden');
+            resultsEl.style.display = 'none';
             clearChildren(resultsEl);
             setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
             return;
@@ -450,20 +466,18 @@ $this->registerJs(<<<JS
     });
 
     function openModal() {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
         input.value = '';
         clearBtn.style.display = 'none';
-        resultsEl.classList.add('hidden');
+        resultsEl.style.display = 'none';
         clearChildren(resultsEl);
         setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
         setTimeout(function () { input.focus(); }, 30);
     }
 
     function closeModal() {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        modal.style.display = 'none';
         document.body.style.overflow = '';
         if (currentRequest && typeof currentRequest.abort === 'function') {
             try { currentRequest.abort(); } catch (e) {}
@@ -471,7 +485,7 @@ $this->registerJs(<<<JS
     }
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        if (e.key === 'Escape' && modal.style.display !== 'none') {
             closeModal();
         }
     });
