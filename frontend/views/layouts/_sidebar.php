@@ -324,7 +324,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                         Nuovo Terapista
                                     </a>
                                 </li>
-                                <?php if (Yii::$app->user->can('view_own_group_therapists')): ?>
+                                <?php if (Yii::$app->user->can('view_own_group_therapists') && Yii::$app->user->can('coordinator')): ?>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/therapist/my-group']) ?>"
