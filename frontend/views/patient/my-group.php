@@ -112,31 +112,6 @@ $patientTherapistsMap = isset($patientTherapistsMap) && is_array($patientTherapi
                         'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Nome...'],
                     ],
                     [
-                        'attribute' => 'fiscal_code',
-                        'label' => 'Codice Fiscale',
-                        'headerOptions' => ['class' => 'px-6 py-3 min-w-[160px]'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap font-mono text-xs'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Codice fiscale...'],
-                        'value' => function ($model) {
-                            return $model->fiscal_code ?: '-';
-                        }
-                    ],
-                    [
-                        'label' => 'Data di Nascita (Età)',
-                        'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
-                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
-                        'filter' => false,
-                        'value' => function ($model) {
-                            if (!$model->birth_date) {
-                                return '-';
-                            }
-                            $birthDate = Yii::$app->formatter->asDate($model->birth_date, 'php:d/m/Y');
-                            $age = $model->age ? " ({$model->age} anni)" : '';
-                            return $birthDate . $age;
-                        }
-                    ],
-                    [
                         'label' => 'Terapista del gruppo',
                         'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
                         'contentOptions' => ['class' => 'px-6 py-4 align-top'],
@@ -167,6 +142,31 @@ $patientTherapistsMap = isset($patientTherapistsMap) && is_array($patientTherapi
                             }
                             return '<div class="flex flex-wrap gap-1.5">' . implode('', $items) . '</div>';
                         },
+                    ],
+                    [
+                        'attribute' => 'fiscal_code',
+                        'label' => 'Codice Fiscale',
+                        'headerOptions' => ['class' => 'px-6 py-3 min-w-[160px]'],
+                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap font-mono text-xs'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Codice fiscale...'],
+                        'value' => function ($model) {
+                            return $model->fiscal_code ?: '-';
+                        }
+                    ],
+                    [
+                        'label' => 'Data di Nascita (Età)',
+                        'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
+                        'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                        'filter' => false,
+                        'value' => function ($model) {
+                            if (!$model->birth_date) {
+                                return '-';
+                            }
+                            $birthDate = Yii::$app->formatter->asDate($model->birth_date, 'php:d/m/Y');
+                            $age = $model->age ? " ({$model->age} anni)" : '';
+                            return $birthDate . $age;
+                        }
                     ],
                     [
                         'attribute' => 'district_id',
