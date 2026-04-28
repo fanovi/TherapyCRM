@@ -16,8 +16,10 @@ $menuMappings = [
     'Notifications' => ['notification/index', 'notification/view'],
     'Administrators' => ['user/administrators', 'user/create-administrator', 'user/view-administrator', 'user/update-administrator'],
     'Managers' => ['user/managers', 'user/create-manager', 'user/view-manager', 'user/update-manager'],
-    'Coordinators' => ['user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator'],
-    'CoordinatorGroups' => ['coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update'],
+    'Coordinators' => [
+        'user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator',
+        'coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update',
+    ],
     'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
     'MyTherapists' => ['therapist/my-group'],
     'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account', 'patient/my-group'],
@@ -841,7 +843,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <!-- Menu Item Administrators -->
 
                     <!-- Menu Item Coordinators -->
-                    <?php if (Yii::$app->user->can('create_coordinator')): ?>
+                    <?php if (Yii::$app->user->can('create_coordinator') || Yii::$app->user->can('view_coordinator_group')): ?>
                     <li>
                         <a
                             href="#"
@@ -892,6 +894,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                             <ul
                                 :class="sidebarToggle ? 'lg:hidden' : 'flex'"
                                 class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <?php if (Yii::$app->user->can('create_coordinator')): ?>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/user/coordinators']) ?>"
@@ -906,6 +909,25 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                         Nuovo Coordinatore
                                     </a>
                                 </li>
+                                <?php endif; ?>
+                                <?php if (Yii::$app->user->can('view_coordinator_group')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/coordinator-group/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Gruppi
+                                    </a>
+                                </li>
+                                <?php if (Yii::$app->user->can('create_coordinator_group')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/coordinator-group/create']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuovo Gruppo
+                                    </a>
+                                </li>
+                                <?php endif; ?>
+                                <?php endif; ?>
                             </ul>
                         </div>
                         <!-- Dropdown Menu End -->
@@ -996,84 +1018,6 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <?php endif; ?>
                     <!-- Menu Item Managers -->
 
-                    <!-- Menu Item Coordinator Groups -->
-                    <?php if (Yii::$app->user->can('view_coordinator_group')): ?>
-                    <li>
-                        <a
-                            href="#"
-                            @click.prevent="selected = (selected === 'CoordinatorGroups' ? '':'CoordinatorGroups')"
-                            class="menu-item group"
-                            :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
-                            <svg
-                                :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    fill-rule="evenodd"
-                                    clip-rule="evenodd"
-                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    fill="currentColor" />
-                            </svg>
-
-                            <span
-                                class="menu-item-text"
-                                :class="sidebarToggle ? 'lg:hidden' : ''">
-                                Gruppi Coordinatori
-                            </span>
-
-                            <svg
-                                class="menu-item-arrow"
-                                :class="[(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path
-                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
-                                    stroke=""
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                        </a>
-
-                        <!-- Dropdown Menu Start -->
-                        <div
-                            class="overflow-hidden transform translate"
-                            :class="(selected === 'CoordinatorGroups') || <?= isMenuActive('CoordinatorGroups', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
-                            <ul
-                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
-                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/coordinator-group/index']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Visualizza Gruppi
-                                    </a>
-                                </li>
-                                <?php if (Yii::$app->user->can('create_coordinator_group')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/coordinator-group/create']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['coordinator-group/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuovo Gruppo
-                                    </a>
-                                </li>
-                                <?php endif; ?>
-                            </ul>
-                        </div>
-                        <!-- Dropdown Menu End -->
-                    </li>
-                    <?php endif; ?>
-                    <!-- Menu Item Coordinator Groups -->
 
                     <!-- Menu Item Permessi Ruoli -->
                     <?php if (Yii::$app->user->can('manage_permissions')): ?>
