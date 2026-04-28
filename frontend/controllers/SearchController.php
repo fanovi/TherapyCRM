@@ -340,8 +340,14 @@ class SearchController extends Controller
     private function searchTherapists($query, $limit)
     {
         $results = [];
-        
-        $therapists = Therapist::find()
+
+        // Coordinator senza permessi globali vede solo i terapisti del proprio gruppo.
+        $allowedTherapistIds = $this->getCoordinatorTherapistIdsRestriction();
+        if ($allowedTherapistIds === []) {
+            return $results;
+        }
+
+        $therapistsQuery = Therapist::find()
             ->joinWith(['user.profile', 'specialization'])
             ->where(['therapists.is_active' => true])
             ->andWhere(['or',
@@ -349,9 +355,13 @@ class SearchController extends Controller
                 ['like', 'user_profiles.last_name', $query],
                 ['like', "CONCAT(user_profiles.first_name, ' ', user_profiles.last_name)", $query],
                 ['like', "CONCAT(user_profiles.last_name, ' ', user_profiles.first_name)", $query]
-            ])
-            ->limit($limit)
-            ->all();
+            ]);
+
+        if ($allowedTherapistIds !== null) {
+            $therapistsQuery->andWhere(['therapists.id' => $allowedTherapistIds]);
+        }
+
+        $therapists = $therapistsQuery->limit($limit)->all();
 
         foreach ($therapists as $therapist) {
             $profile = $therapist->user->profile;
@@ -696,6 +706,44 @@ class SearchController extends Controller
         $patientIds = \frontend\models\PatientSearch::patientIdsForTherapists($therapistIds);
 
         return !empty($patientIds) ? $patientIds : [];
+    }
+
+    /**
+     * Lista degli id terapisti consentiti in base ai permessi dell'utente:
+     *
+     * - null  => nessuna restrizione (admin/manager con view_therapist globale)
+     * - []    => coordinator senza gruppo o senza terapisti collegati
+     * - int[] => lista di therapist_id consentiti (terapisti del gruppo coord)
+     *
+     * @return int[]|null
+     */
+    private function getCoordinatorTherapistIdsRestriction()
+    {
+        $user = Yii::$app->user;
+
+        if ($user->can('create_therapist') || $user->can('manage_therapists')) {
+            return null;
+        }
+
+        if (!$user->can('view_own_group_therapists')) {
+            return null;
+        }
+
+        $coordinatorGroup = \common\models\CoordinatorGroup::find()
+            ->where(['coordinator_user_id' => $user->id])
+            ->one();
+
+        if (!$coordinatorGroup) {
+            return [];
+        }
+
+        $therapistIds = \common\models\GroupTherapist::find()
+            ->select('therapist_id')
+            ->where(['group_id' => $coordinatorGroup->id])
+            ->andWhere(['assigned_to' => null])
+            ->column();
+
+        return !empty($therapistIds) ? array_map('intval', $therapistIds) : [];
     }
 
     /**
