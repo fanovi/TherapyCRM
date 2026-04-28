@@ -59,7 +59,7 @@ class PatientController extends Controller
                     'unlink-patient' => ['POST'],
                     'search-patients' => ['GET'],
                     'search-patients-for-account' => ['GET'],
-                    'update-account' => ['POST'],
+                    'edit-account' => ['GET', 'POST'],
                 ],
             ],
         ];
@@ -314,74 +314,82 @@ class PatientController extends Controller
     /**
      * Updates account data via AJAX
      */
-    public function actionUpdateAccount()
+    /**
+     * Vista dedicata per modificare i dati di un account paziente (utente
+     * con ruolo `patient_family`). Sostituisce la vecchia modale dentro
+     * `view-account.php`. GET: render form. POST: salva e redirect.
+     */
+    public function actionEditAccount($id)
     {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
         if (!Yii::$app->user->can('create_patient')) {
-            return ['success' => false, 'error' => 'Non hai i permessi.'];
+            throw new ForbiddenHttpException('Non hai i permessi per modificare gli account.');
         }
 
-        $userId = Yii::$app->request->post('user_id');
-        if (!$userId) {
-            return ['success' => false, 'error' => 'ID utente mancante.'];
-        }
-
-        // Find user with patient_family role
         $user = User::find()
             ->joinWith(['authAssignments'])
-            ->where(['users.id' => $userId, 'auth_assignment.item_name' => 'patient_family'])
+            ->where(['users.id' => $id, 'auth_assignment.item_name' => 'patient_family'])
             ->one();
 
         if (!$user) {
-            return ['success' => false, 'error' => 'Account non trovato.'];
+            throw new NotFoundHttpException('Account non trovato.');
         }
 
-        $transaction = Yii::$app->db->beginTransaction();
-        try {
-            // Update email if changed
-            $newEmail = Yii::$app->request->post('email');
-            if ($newEmail && $newEmail !== $user->email) {
-                // Check if email already exists
-                $existingUser = User::find()->where(['email' => $newEmail])->andWhere(['!=', 'id', $userId])->one();
-                if ($existingUser) {
-                    return ['success' => false, 'error' => 'Questa email è già utilizzata da un altro account.'];
-                }
-                $user->email = $newEmail;
-                $user->username = $newEmail;
-                if (!$user->save()) {
-                    throw new \Exception('Errore nel salvare l\'email: ' . implode(', ', $user->getFirstErrors()));
-                }
-            }
-
-            // Update profile
-            $profile = $user->profile;
-            if (!$profile) {
-                $profile = new UserProfile();
-                $profile->user_id = $user->id;
-            }
-
-            $profile->first_name = Yii::$app->request->post('first_name', $profile->first_name);
-            $profile->last_name = Yii::$app->request->post('last_name', $profile->last_name);
-            $profile->fiscal_code = Yii::$app->request->post('fiscal_code', $profile->fiscal_code);
-            $profile->phone = Yii::$app->request->post('phone', $profile->phone);
-            $profile->address = Yii::$app->request->post('address', $profile->address);
-
-            // Encrypt sensitive data before saving
-            $this->encryptSensitiveData($profile);
-
-            if (!$profile->save()) {
-                throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
-            }
-
-            $transaction->commit();
-            return ['success' => true, 'message' => 'Account aggiornato con successo.'];
-
-        } catch (\Exception $e) {
-            $transaction->rollBack();
-            Yii::error('Error updating account: ' . $e->getMessage(), __METHOD__);
-            return ['success' => false, 'error' => $e->getMessage()];
+        $profile = $user->profile;
+        if (!$profile) {
+            $profile = new UserProfile();
+            $profile->user_id = $user->id;
+        } else {
+            $this->decryptSensitiveData($profile);
         }
+
+        if (Yii::$app->request->isPost) {
+            $post = Yii::$app->request->post();
+            $newEmail = trim((string) ($post['email'] ?? ''));
+
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if ($newEmail !== '' && $newEmail !== $user->email) {
+                    $existingUser = User::find()
+                        ->where(['email' => $newEmail])
+                        ->andWhere(['!=', 'id', $user->id])
+                        ->one();
+                    if ($existingUser) {
+                        Yii::$app->session->setFlash('error', 'Questa email e\' gia\' utilizzata da un altro account.');
+                        return $this->redirect(['edit-account', 'id' => $user->id]);
+                    }
+                    $user->email = $newEmail;
+                    $user->username = $newEmail;
+                    if (!$user->save()) {
+                        throw new \Exception('Errore nel salvare l\'email: ' . implode(', ', $user->getFirstErrors()));
+                    }
+                }
+
+                $profile->first_name = $post['first_name'] ?? $profile->first_name;
+                $profile->last_name = $post['last_name'] ?? $profile->last_name;
+                $profile->fiscal_code = strtoupper(trim((string) ($post['fiscal_code'] ?? $profile->fiscal_code)));
+                $profile->phone = $post['phone'] ?? $profile->phone;
+                $profile->address = $post['address'] ?? $profile->address;
+
+                $this->encryptSensitiveData($profile);
+
+                if (!$profile->save()) {
+                    throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
+                }
+
+                $transaction->commit();
+                Yii::$app->session->setFlash('success', 'Account aggiornato con successo.');
+                return $this->redirect(['view-account', 'id' => $user->id]);
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                Yii::error('Error updating account: ' . $e->getMessage(), __METHOD__);
+                Yii::$app->session->setFlash('error', $e->getMessage());
+            }
+        }
+
+        return $this->render('update-account', [
+            'user' => $user,
+            'profile' => $profile,
+        ]);
     }
 
     /**

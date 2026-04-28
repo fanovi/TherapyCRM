@@ -170,28 +170,28 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
                         [
                             'class' => 'yii\grid\ActionColumn',
                             'header' => 'Azioni',
-                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px] text-center'],
-                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
-                            'template' => '<div class="flex items-center justify-center gap-1">{view} {update} {regenerate}</div>',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[140px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right'],
+                            'template' => '<div class="flex items-center justify-end space-x-2">{view} {update} {regenerate}</div>',
                             'buttons' => [
                                 'view' => function ($url, $model) {
                                     return Html::a(
                                         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>',
                                         ['view-account', 'id' => $model->id],
                                         [
-                                            'class' => 'inline-flex items-center justify-center w-8 h-8 text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors',
                                             'title' => 'Visualizza dettaglio account',
+                                            'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                             'data-pjax' => '0',
                                         ]
                                     );
                                 },
                                 'update' => function ($url, $model) {
                                     return Html::a(
-                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-                                        ['view-account', 'id' => $model->id],
+                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
+                                        ['edit-account', 'id' => $model->id],
                                         [
-                                            'class' => 'inline-flex items-center justify-center w-8 h-8 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors',
                                             'title' => 'Modifica dati account',
+                                            'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
                                             'data-pjax' => '0',
                                         ]
                                     );
@@ -201,10 +201,10 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
                                         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
                                         [
                                             'type' => 'button',
-                                            'class' => 'regenerate-credentials-btn inline-flex items-center justify-center w-8 h-8 text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition-colors',
+                                            'title' => 'Rigenera le credenziali e scarica il PDF',
+                                            'class' => 'regenerate-credentials-btn text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20',
                                             'data-user-id' => $model->id,
                                             'data-user-email' => $model->email,
-                                            'title' => 'Rigenera le credenziali e scarica il PDF',
                                         ]
                                     );
                                 },
