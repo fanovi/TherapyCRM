@@ -55,3 +55,8 @@
 33. Errore "Setting::name" sul report attivita terapista
 34. Pagina /patient/my-group mostra il vero nome del terapista (era "Terapista #16")
 35. Bug ricerca account paziente: nome tabella corretto
+
+## Barra di ricerca globale
+
+36. Coordinatori vedono solo i pazienti dei terapisti del proprio gruppo nella search bar
+37. Coordinatori vedono solo i terapisti del proprio gruppo (prima vedevano tutti)
