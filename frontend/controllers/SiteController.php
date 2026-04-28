@@ -507,4 +507,43 @@ class SiteController extends BaseController
     {
         return $this->render('manuale-app');
     }
+
+    /**
+     * Pagina "I miei permessi": mostra ruoli e permessi dell'utente
+     * loggato in sola lettura. Accessibile a chiunque sia autenticato.
+     */
+    public function actionMyPermissions()
+    {
+        $userId = Yii::$app->user->id;
+        $auth = Yii::$app->authManager;
+
+        // Ruoli direttamente assegnati all'utente.
+        $roles = $auth->getRolesByUser($userId);
+        ksort($roles);
+
+        // Per ogni ruolo, i permessi (ricorsivamente, esclusi i ruoli figli).
+        $rolePermissions = [];
+        foreach ($roles as $roleName => $role) {
+            $perms = $auth->getPermissionsByRole($roleName);
+            ksort($perms);
+            $rolePermissions[$roleName] = $perms;
+        }
+
+        // Permessi assegnati direttamente all'utente (non tramite ruolo).
+        $allAssignments = $auth->getAssignments($userId);
+        $directPermissions = [];
+        foreach ($allAssignments as $itemName => $assignment) {
+            $item = $auth->getPermission($itemName);
+            if ($item !== null) {
+                $directPermissions[$itemName] = $item;
+            }
+        }
+        ksort($directPermissions);
+
+        return $this->render('my-permissions', [
+            'roles' => $roles,
+            'rolePermissions' => $rolePermissions,
+            'directPermissions' => $directPermissions,
+        ]);
+    }
 }

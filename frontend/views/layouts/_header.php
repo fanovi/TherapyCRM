@@ -372,6 +372,20 @@ use yii\helpers\Url;
             Modifica Password
           </a>
 
+          <!-- I miei permessi -->
+          <a
+            href="<?= yii\helpers\Url::to(['/site/my-permissions']) ?>"
+            class="group text-theme-sm mt-1 flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 w-full">
+            <svg
+              class="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"
+              width="24" height="24" viewBox="0 0 24 24" fill="none"
+              xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd"
+                d="M12 2L4 5v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V5l-8-3zm0 2.18L18 6.5v4.5c0 4-2.7 7.84-6 9.16C8.7 18.84 6 15 6 11V6.5l6-2.32zM11 8h2v3h3v2h-3v3h-2v-3H8v-2h3V8z" />
+            </svg>
+            I miei permessi
+          </a>
+
          
           <?= yii\helpers\Html::beginForm(['/site/logout'], 'post', ['class' => 'w-full']) ?>
             <button
