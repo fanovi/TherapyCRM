@@ -2130,8 +2130,15 @@ class TherapeuticPlanManagerController extends Controller
         if ($data['therapistId'] != $appointment->therapist_id) {
             Yii::info("Terapista cambiato da {$appointment->therapist_id} a {$data['therapistId']}, calcolo nuovo plan_therapy_id", __METHOD__);
 
-            // Ottieni il paziente dall'appuntamento esistente
-            $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
+            // Ottieni il paziente dall'appuntamento esistente con fallback sul
+            // campo diretto se la relazione planTherapy o therapeuticPlan
+            // dovesse essere nulla (es. dati legacy / piano cancellato).
+            $patientId = $appointment->planTherapy && $appointment->planTherapy->therapeuticPlan
+                ? $appointment->planTherapy->therapeuticPlan->patient_id
+                : $appointment->patient_id;
+            if (!$patientId) {
+                throw new BadRequestHttpException('Impossibile determinare il paziente associato all\'appuntamento.');
+            }
 
             // Determina il nuovo plan_therapy_id usando il metodo esistente
             $planTherapyResult = $this->getPlanTherapyForPatientAndTherapist($patientId, $data['therapistId']);
@@ -2171,11 +2178,20 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
-            // Controllo conflitti slot temporale paziente
-            $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
-            $therapeuticPlan = $appointment->planTherapy->therapeuticPlan;
+            // Controllo conflitti slot temporale paziente.
+            // Fallback su campo diretto se la relazione planTherapy non e'
+            // disponibile (es. piano cancellato o dati legacy).
+            $therapeuticPlan = $appointment->planTherapy
+                ? $appointment->planTherapy->therapeuticPlan
+                : null;
+            $patientId = $therapeuticPlan
+                ? $therapeuticPlan->patient_id
+                : $appointment->patient_id;
+            if (!$patientId) {
+                throw new BadRequestHttpException('Impossibile determinare il paziente associato all\'appuntamento.');
+            }
 
-            if ($this->isABARegime($therapeuticPlan)) {
+            if ($therapeuticPlan && $this->isABARegime($therapeuticPlan)) {
                 // Per piani ABA: usa checkABAConflicts che permette coesistenza terapia/supervisione
                 $abaConflict = $this->checkABAConflicts(
                     $patientId,
@@ -2214,7 +2230,10 @@ class TherapeuticPlanManagerController extends Controller
 
         // Verifica conflitti tipologia trattamento se cambia la data O il plan_therapy_id
         // Per piani ABA questo check è già gestito da checkABAConflicts sopra
-        $isABA = $this->isABARegime($appointment->planTherapy->therapeuticPlan);
+        $appointmentPlan = $appointment->planTherapy
+            ? $appointment->planTherapy->therapeuticPlan
+            : null;
+        $isABA = $appointmentPlan ? $this->isABARegime($appointmentPlan) : false;
         if (
             !$isABA &&
             ($is_regular_appointment_category) &&
@@ -3885,10 +3904,20 @@ class TherapeuticPlanManagerController extends Controller
         $endDateTime = clone $startDateTime;
         $endDateTime->modify("+{$conflict->duration_minutes} minutes");
 
+        // Recupera il paziente in modo difensivo: l'appuntamento confliggente
+        // puo' essere privato (no planTherapy/therapeuticPlan) oppure avere
+        // dati mancanti.
+        $patientName = 'Paziente non disponibile';
+        if ($conflict->planTherapy && $conflict->planTherapy->therapeuticPlan && $conflict->planTherapy->therapeuticPlan->patient) {
+            $patientName = $conflict->planTherapy->therapeuticPlan->patient->getFullName();
+        } elseif ($conflict->patient) {
+            $patientName = $conflict->patient->getFullName();
+        }
+
         $conflictInfo = [
             'existingAppointmentId' => $conflict->id,
             'existingAppointmentInfo' => [
-                'patientName' => $conflict->planTherapy->therapeuticPlan->patient->getFullName(),
+                'patientName' => $patientName,
                 'startTime' => $startDateTime->format('H:i'),
                 'endTime' => $endDateTime->format('H:i')
             ]
@@ -3970,24 +3999,42 @@ class TherapeuticPlanManagerController extends Controller
         $endDateTime = clone $startDateTime;
         $endDateTime->modify("+{$conflict->duration_minutes} minutes");
 
-        $treatmentType = $conflict->planTherapy->treatmentType;
-        $patient = $conflict->planTherapy->therapeuticPlan->patient;
-        $therapist = $conflict->therapist;
-        $therapistInfo = $therapist ? $therapist->user->profile->getFullName() : 'Terapista non specificato';
+        // Difensivo: l'appuntamento confliggente puo' essere privato o avere
+        // relazioni mancanti (piano cancellato, dati legacy).
+        $treatmentType = null;
+        $patient = null;
+        if ($conflict->planTherapy) {
+            $treatmentType = $conflict->planTherapy->treatmentType;
+            if ($conflict->planTherapy->therapeuticPlan) {
+                $patient = $conflict->planTherapy->therapeuticPlan->patient;
+            }
+        }
+        if (!$treatmentType) {
+            $treatmentType = $conflict->treatmentType;
+        }
+        if (!$patient) {
+            $patient = $conflict->patient;
+        }
 
-        $conflictInfo = [
+        $treatmentName = $treatmentType ? $treatmentType->name : 'tipo non specificato';
+        $patientName = $patient ? $patient->getFullName() : 'Paziente non disponibile';
+
+        $therapist = $conflict->therapist;
+        $therapistInfo = $therapist && $therapist->user && $therapist->user->profile
+            ? $therapist->user->profile->getFullName()
+            : 'Terapista non specificato';
+
+        return [
             'type' => 'patient_time_slot_conflict',
             'existingAppointmentId' => $conflict->id,
-            'patientName' => $patient->getFullName(),
-            'treatmentType' => $treatmentType->name,
+            'patientName' => $patientName,
+            'treatmentType' => $treatmentName,
             'existingAppointmentDate' => $startDateTime->format('Y-m-d'),
             'existingAppointmentTime' => $startDateTime->format('H:i'),
             'existingAppointmentEndTime' => $endDateTime->format('H:i'),
             'existingTherapistName' => $therapistInfo,
-            'message' => "Il paziente {$patient->getFullName()} ha già un appuntamento di {$treatmentType->name} in data {$startDateTime->format('d/m/Y')} dalle ore {$startDateTime->format('H:i')} alle ore {$endDateTime->format('H:i')} con {$therapistInfo}"
+            'message' => "Il paziente {$patientName} ha gia' un appuntamento di {$treatmentName} in data {$startDateTime->format('d/m/Y')} dalle ore {$startDateTime->format('H:i')} alle ore {$endDateTime->format('H:i')} con {$therapistInfo}"
         ];
-
-        return $conflictInfo;
     }
 
     /**
