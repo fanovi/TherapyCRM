@@ -878,14 +878,12 @@ class PatientController extends Controller
                     throw new \Exception('Errore nel collegare utente e paziente: ' . implode(', ', $accountPatient->getFirstErrors()));
                 }
 
-                // Assegna il ruolo coerente con la relazione:
-                // - self  -> ruolo `patient`        (l'utente E' il paziente)
-                // - altro -> ruolo `patient_family` (genitore/tutore/altro familiare)
+                // Tutti gli account collegati a un paziente (self o familiari)
+                // ricevono il ruolo `patient_family`, l'unico (con `therapist`)
+                // ad avere `app_login` dopo la migration m260303. La distinzione
+                // self/familiare resta in `account_patients.relationship_type`.
                 $auth = Yii::$app->authManager;
-                $roleName = ($accountPatient->relationship_type === AccountPatient::RELATIONSHIP_SELF)
-                    ? 'patient'
-                    : 'patient_family';
-                $patientRole = $auth->getRole($roleName);
+                $patientRole = $auth->getRole('patient_family');
                 if ($patientRole) {
                     $auth->assign($patientRole, $user->id);
                 }

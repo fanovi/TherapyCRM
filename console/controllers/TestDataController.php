@@ -739,13 +739,13 @@ class TestDataController extends Controller
 
             // Assegna il ruolo di paziente
             $auth = Yii::$app->authManager;
-            $patientRole = $auth->getRole('patient');
+            $patientRole = $auth->getRole('patient_family');
             if ($patientRole) {
                 $auth->assign($patientRole, $user->id);
             }
 
             $transaction->commit();
-            
+
             $this->stdout("✅ Paziente e utente collegato creati con successo!\n");
             $this->stdout("   PAZIENTE:\n");
             $this->stdout("     Nome: {$patient->first_name} {$patient->last_name}\n");
@@ -1066,13 +1066,13 @@ class TestDataController extends Controller
 
             // Assegna il ruolo di paziente
             $auth = Yii::$app->authManager;
-            $patientRole = $auth->getRole('patient');
+            $patientRole = $auth->getRole('patient_family');
             if ($patientRole) {
                 $auth->assign($patientRole, $user->id);
             }
 
             $transaction->commit();
-            
+
             $this->stdout("✅ Utente genitore con 2 pazienti creato con successo!\n");
             $this->stdout("   ACCOUNT GENITORE:\n");
             $this->stdout("     Email: $email\n");
@@ -1206,13 +1206,13 @@ class TestDataController extends Controller
 
             // Assegna il ruolo di paziente
             $auth = Yii::$app->authManager;
-            $patientRole = $auth->getRole('patient');
+            $patientRole = $auth->getRole('patient_family');
             if ($patientRole) {
                 $auth->assign($patientRole, $user->id);
             }
 
             $transaction->commit();
-            
+
             $this->stdout("✅ Famiglia numerosa (3 pazienti) creata con successo!\n");
             $this->stdout("   ACCOUNT GENITORE:\n");
             $this->stdout("     Email: $email\n");
