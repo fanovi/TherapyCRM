@@ -13,8 +13,9 @@ $this->params['breadcrumbs'][] = $this->title;
 // Modalità iframe per sviluppo
 $useIframe = true;  // Cambia a false per usare la versione integrata
 
-// Determina se il calendario deve essere in sola lettura (es. coordinator)
-$calendarReadOnly = !Yii::$app->user->can('update_appointment');
+// Read-only se l'utente puo' visualizzare ma non gestire il calendario
+// (tipico per il coordinator: ha view_calendar ma non manage_calendar).
+$calendarReadOnly = !Yii::$app->user->can('manage_calendar');
 
 // Costruisci l'URL dell'iframe con i parametri come rotta React
 $iframeSrc = Yii::$app->params['iframeSrc'];
