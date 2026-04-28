@@ -293,7 +293,7 @@ input[type='date']::-webkit-datetime-edit-fields-wrapper {
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4'],
                         'value' => function ($model) {
-                            return $model->setting ? $model->setting->name : 'N/A';
+                            return $model->setting ? $model->setting->nome : 'N/A';
                         }
                     ],
                 ],

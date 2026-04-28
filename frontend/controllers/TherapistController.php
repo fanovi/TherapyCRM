@@ -894,7 +894,7 @@ class TherapistController extends Controller
             $sheet1->setCellValue('D' . $row, $appointment->duration_minutes);
             $sheet1->setCellValue('E' . $row, $appointment->getStatusLabel());
             $sheet1->setCellValue('F' . $row, $appointment->getAppointmentSourceLabel());
-            $sheet1->setCellValue('G' . $row, $appointment->setting ? $appointment->setting->name : 'N/A');
+            $sheet1->setCellValue('G' . $row, $appointment->setting ? $appointment->setting->nome : 'N/A');
             $sheet1->setCellValue('H' . $row, $appointment->notes ?: '');
             $row++;
         }
