@@ -345,6 +345,12 @@ class PatientController extends Controller
             $this->decryptSensitiveData($profile);
         }
 
+        // Pazienti collegati a questo account (relazione + autorita parentale).
+        $accountPatients = AccountPatient::find()
+            ->where(['user_id' => $user->id])
+            ->with(['patient'])
+            ->all();
+
         if (Yii::$app->request->isPost) {
             $post = Yii::$app->request->post();
             $newEmail = trim((string) ($post['email'] ?? ''));
@@ -379,6 +385,36 @@ class PatientController extends Controller
                     throw new \Exception('Errore nel salvare il profilo: ' . implode(', ', $profile->getFirstErrors()));
                 }
 
+                // Aggiorna relazione e autorita parentale per ciascun account_patient.
+                $apData = $post['AccountPatient'] ?? [];
+                $allowedRelations = array_keys(AccountPatient::getRelationshipLabels());
+                foreach ($accountPatients as $ap) {
+                    if (!isset($apData[$ap->id])) {
+                        continue;
+                    }
+                    $row = $apData[$ap->id];
+                    $newRelation = (string) ($row['relationship_type'] ?? $ap->relationship_type);
+
+                    // Self e' invariante: non si puo' togliere o cambiare. La logica
+                    // di promozione/demozione self avviene altrove.
+                    if ($ap->relationship_type !== AccountPatient::RELATIONSHIP_SELF
+                        && $newRelation !== AccountPatient::RELATIONSHIP_SELF
+                        && in_array($newRelation, $allowedRelations, true)) {
+                        $ap->relationship_type = $newRelation;
+                    }
+
+                    // Per i self l'autorita parentale resta sempre forzata a 1.
+                    if ($ap->relationship_type === AccountPatient::RELATIONSHIP_SELF) {
+                        $ap->has_parental_authority = 1;
+                    } else {
+                        $ap->has_parental_authority = !empty($row['has_parental_authority']) ? 1 : 0;
+                    }
+
+                    if (!$ap->save()) {
+                        throw new \Exception('Errore aggiornamento collegamento paziente: ' . implode(', ', $ap->getFirstErrors()));
+                    }
+                }
+
                 $transaction->commit();
                 Yii::$app->session->setFlash('success', 'Account aggiornato con successo.');
                 return $this->redirect(['view-account', 'id' => $user->id]);
@@ -392,6 +428,7 @@ class PatientController extends Controller
         return $this->render('update-account', [
             'user' => $user,
             'profile' => $profile,
+            'accountPatients' => $accountPatients,
         ]);
     }
 
