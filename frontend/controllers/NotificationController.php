@@ -89,6 +89,8 @@ class NotificationController extends BaseController
 
         $totalCount = $baseQuery->count();
         $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
+        $sentCount = (clone $baseQuery)->andWhere(['not', ['sent_at' => null]])->count();
+        $unsentCount = (clone $baseQuery)->andWhere(['sent_at' => null])->count();
 
         // Statistiche per tipo
         $typeStats = [];
@@ -103,6 +105,8 @@ class NotificationController extends BaseController
             'dataProvider' => $dataProvider,
             'totalCount' => $totalCount,
             'unreadCount' => $unreadCount,
+            'sentCount' => $sentCount,
+            'unsentCount' => $unsentCount,
             'typeStats' => $typeStats,
             'currentType' => $type ?: 'all',
             'currentStatus' => $status ?: 'all',
