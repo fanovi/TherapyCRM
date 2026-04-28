@@ -58,8 +58,8 @@ class AccountSearch extends User
                     'email',
                     'created_at',
                     'profile_name' => [
-                        'asc' => ['user_profile.last_name' => SORT_ASC, 'user_profile.first_name' => SORT_ASC],
-                        'desc' => ['user_profile.last_name' => SORT_DESC, 'user_profile.first_name' => SORT_DESC],
+                        'asc' => ['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC],
+                        'desc' => ['user_profiles.last_name' => SORT_DESC, 'user_profiles.first_name' => SORT_DESC],
                     ],
                 ],
             ],
@@ -82,8 +82,8 @@ class AccountSearch extends User
         // Filter by profile name
         if (!empty($this->profile_name)) {
             $query->andFilterWhere(['or',
-                ['like', 'user_profile.first_name', $this->profile_name],
-                ['like', 'user_profile.last_name', $this->profile_name],
+                ['like', 'user_profiles.first_name', $this->profile_name],
+                ['like', 'user_profiles.last_name', $this->profile_name],
             ]);
         }
 
