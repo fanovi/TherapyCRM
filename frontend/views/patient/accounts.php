@@ -232,126 +232,17 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
 </div>
 
 <?php if ($canCreateAccount): ?>
-<!-- Modale "Nuovo Account": ricerca paziente -->
-<div id="new-account-modal"
-     aria-modal="true"
-     role="dialog"
-     aria-labelledby="new-account-modal-title"
-     style="display: none; position: fixed; inset: 0; z-index: 9999;">
-    <!-- Backdrop -->
-    <div onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
-         style="position: absolute; inset: 0; background-color: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px);"></div>
-
-    <!-- Dialog wrapper (centrato) -->
-    <div style="position: relative; z-index: 10; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px;">
-        <div style="position: relative; width: 100%; max-width: 640px; background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden;">
-            <!-- Header -->
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #f3f4f6;">
-                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9999px; background: #eff6ff; color: #2563eb; flex-shrink: 0;">
-                        <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </span>
-                    <div style="min-width: 0;">
-                        <h3 id="new-account-modal-title" style="margin: 0; font-size: 16px; font-weight: 600; color: #111827;">Nuovo Account</h3>
-                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Seleziona il paziente per cui creare le credenziali.</p>
-                    </div>
-                </div>
-                <button type="button"
-                        onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
-                        title="Chiudi"
-                        style="background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0; flex-shrink: 0;">
-                    <svg style="width: 20px; height: 20px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Body -->
-            <div style="padding: 20px 24px;">
-                <div style="position: relative;">
-                    <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; line-height: 0;">
-                        <svg style="width: 18px; height: 18px; color: #9ca3af; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z"></path>
-                        </svg>
-                    </span>
-                    <input type="text"
-                           id="new-account-search-input"
-                           autocomplete="off"
-                           placeholder="Cerca per nome, cognome o codice fiscale (almeno 2 caratteri)..."
-                           style="width: 100%; padding: 12px 44px 12px 44px; font-size: 14px; line-height: 1.4; border: 1px solid #e5e7eb; border-radius: 10px; background: #ffffff; color: #111827; outline: none; box-sizing: border-box;"
-                           onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.15)'"
-                           onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
-                    <button type="button"
-                            id="new-account-search-clear"
-                            title="Pulisci ricerca"
-                            style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: 0; padding: 6px; cursor: pointer; color: #9ca3af; line-height: 0;">
-                        <svg style="width: 16px; height: 16px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <p id="new-account-search-hint"
-                   style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280;">
-                    Digita almeno 2 caratteri per iniziare la ricerca.
-                </p>
-
-                <div id="new-account-search-results"
-                     style="display: none; margin-top: 12px; max-height: 320px; overflow-y: auto; border: 1px solid #f3f4f6; border-radius: 12px; background: #ffffff;"></div>
-            </div>
-
-            <!-- Footer -->
-            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #f3f4f6; background: #fafafa;">
-                <button type="button"
-                        onclick="window.closeNewAccountModal && window.closeNewAccountModal()"
-                        style="padding: 8px 16px; font-size: 14px; font-weight: 500; color: #374151; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer;">
-                    Annulla
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
-
-<?php if ($canCreateAccount): ?>
 <?php
+// Modale "Nuovo Account" su SweetAlert2: ricerca paziente con debounce
+// e click su risultato per andare alla creazione credenziali.
 $jsSearchUrl = json_encode($searchPatientsUrl);
 $this->registerJs(<<<JS
 (function () {
-    var modal = document.getElementById('new-account-modal');
-    var input = document.getElementById('new-account-search-input');
-    var clearBtn = document.getElementById('new-account-search-clear');
-    var resultsEl = document.getElementById('new-account-search-results');
-    var hintEl = document.getElementById('new-account-search-hint');
-    if (!modal || !input || !resultsEl) { return; }
-
     var searchUrl = {$jsSearchUrl};
-    var debounceTimer = null;
-    var lastTerm = '';
     var currentRequest = null;
 
     function clearChildren(el) {
         while (el.firstChild) { el.removeChild(el.firstChild); }
-    }
-
-    function setHint(text) {
-        if (!hintEl) { return; }
-        hintEl.textContent = text || '';
-        hintEl.style.display = text ? '' : 'none';
-    }
-
-    function showMessage(text, isError) {
-        clearChildren(resultsEl);
-        var div = document.createElement('div');
-        div.style.padding = '24px 16px';
-        div.style.textAlign = 'center';
-        div.style.fontSize = '14px';
-        div.style.color = isError ? '#dc2626' : '#6b7280';
-        div.textContent = text;
-        resultsEl.appendChild(div);
-        resultsEl.style.display = 'block';
     }
 
     function buildResultRow(p) {
@@ -379,7 +270,7 @@ $this->registerJs(<<<JS
         if (p.accounts_count && p.accounts_count > 0) {
             var badge = document.createElement('span');
             badge.style.cssText = 'margin-left:8px;display:inline-flex;align-items:center;padding:2px 8px;font-size:11px;font-weight:500;border-radius:9999px;background:#fef3c7;color:#92400e;';
-            badge.title = 'Account già esistenti';
+            badge.title = 'Account gia esistenti';
             badge.textContent = p.accounts_count + ' account';
             nameRow.appendChild(badge);
         }
@@ -392,14 +283,13 @@ $this->registerJs(<<<JS
         if (subParts.length) {
             var sub = document.createElement('div');
             sub.style.cssText = 'margin-top:2px;font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-            sub.textContent = subParts.join(' · ');
+            sub.textContent = subParts.join(' . ');
             leftCol.appendChild(sub);
         }
 
         var rightCol = document.createElement('span');
-        rightCol.style.cssText = 'flex-shrink:0;display:inline-flex;align-items:center;color:#2563eb;font-size:12px;font-weight:500;';
-        var rightText = document.createTextNode('Crea credenziali');
-        rightCol.appendChild(rightText);
+        rightCol.style.cssText = 'flex-shrink:0;display:inline-flex;align-items:center;color:#2563eb;font-size:12px;font-weight:500;white-space:nowrap;';
+        rightCol.appendChild(document.createTextNode('Crea credenziali'));
         var arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         arrow.setAttribute('fill', 'none');
         arrow.setAttribute('stroke', 'currentColor');
@@ -429,92 +319,113 @@ $this->registerJs(<<<JS
         return li;
     }
 
-    function showResults(items) {
-        clearChildren(resultsEl);
-        resultsEl.style.display = 'block';
-        if (!items || items.length === 0) {
-            var empty = document.createElement('div');
-            empty.style.cssText = 'padding:24px 16px;text-align:center;font-size:14px;color:#6b7280;';
-            empty.textContent = 'Nessun paziente trovato per questa ricerca.';
-            resultsEl.appendChild(empty);
-            return;
-        }
-        var ul = document.createElement('ul');
-        ul.style.cssText = 'list-style:none;margin:0;padding:0;';
-        items.forEach(function (p) { ul.appendChild(buildResultRow(p)); });
-        resultsEl.appendChild(ul);
-    }
-
-    function performSearch(term) {
+    function abortPending() {
         if (currentRequest && typeof currentRequest.abort === 'function') {
             try { currentRequest.abort(); } catch (e) {}
         }
-        showMessage('Ricerca in corso...', false);
-        currentRequest = jQuery.ajax({
-            url: searchUrl,
-            type: 'GET',
-            dataType: 'json',
-            data: { term: term },
-            success: function (resp) {
-                if (term !== lastTerm) { return; }
-                showResults(resp && resp.results ? resp.results : []);
-            },
-            error: function (xhr, status) {
-                if (status === 'abort') { return; }
-                showMessage('Errore durante la ricerca. Riprova.', true);
-            }
-        });
     }
 
-    function onInput() {
-        var term = (input.value || '').trim();
-        clearBtn.style.display = term.length ? 'block' : 'none';
-        lastTerm = term;
-        if (debounceTimer) { clearTimeout(debounceTimer); }
-        if (term.length < 2) {
-            resultsEl.style.display = 'none';
-            clearChildren(resultsEl);
-            setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
-            return;
+    function wireUp(popup) {
+        var input = popup.querySelector('#new-account-search-input');
+        var hintEl = popup.querySelector('#new-account-search-hint');
+        var resultsEl = popup.querySelector('#new-account-search-results');
+        if (!input || !resultsEl) { return; }
+
+        var debounceTimer = null;
+        var lastTerm = '';
+
+        function setHint(text) {
+            if (!hintEl) { return; }
+            hintEl.textContent = text || '';
+            hintEl.style.display = text ? '' : 'none';
         }
-        setHint('');
-        debounceTimer = setTimeout(function () { performSearch(term); }, 250);
-    }
 
-    input.addEventListener('input', onInput);
-    clearBtn.addEventListener('click', function () {
-        input.value = '';
-        onInput();
-        input.focus();
-    });
+        function showMessage(text, isError) {
+            clearChildren(resultsEl);
+            var div = document.createElement('div');
+            div.style.cssText = 'padding:24px 16px;text-align:center;font-size:14px;color:' + (isError ? '#dc2626' : '#6b7280') + ';';
+            div.textContent = text;
+            resultsEl.appendChild(div);
+            resultsEl.style.display = 'block';
+        }
 
-    function openModal() {
-        modal.style.display = 'block';
-        document.body.style.overflow = 'hidden';
-        input.value = '';
-        clearBtn.style.display = 'none';
-        resultsEl.style.display = 'none';
-        clearChildren(resultsEl);
-        setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
+        function showResults(items) {
+            clearChildren(resultsEl);
+            resultsEl.style.display = 'block';
+            if (!items || items.length === 0) {
+                var empty = document.createElement('div');
+                empty.style.cssText = 'padding:24px 16px;text-align:center;font-size:14px;color:#6b7280;';
+                empty.textContent = 'Nessun paziente trovato per questa ricerca.';
+                resultsEl.appendChild(empty);
+                return;
+            }
+            var ul = document.createElement('ul');
+            ul.style.cssText = 'list-style:none;margin:0;padding:0;';
+            items.forEach(function (p) { ul.appendChild(buildResultRow(p)); });
+            resultsEl.appendChild(ul);
+        }
+
+        function performSearch(term) {
+            abortPending();
+            showMessage('Ricerca in corso...', false);
+            currentRequest = jQuery.ajax({
+                url: searchUrl,
+                type: 'GET',
+                dataType: 'json',
+                data: { term: term },
+                success: function (resp) {
+                    if (term !== lastTerm) { return; }
+                    showResults(resp && resp.results ? resp.results : []);
+                },
+                error: function (xhr, status) {
+                    if (status === 'abort') { return; }
+                    showMessage('Errore durante la ricerca. Riprova.', true);
+                }
+            });
+        }
+
+        input.addEventListener('input', function () {
+            var term = (input.value || '').trim();
+            lastTerm = term;
+            if (debounceTimer) { clearTimeout(debounceTimer); }
+            if (term.length < 2) {
+                resultsEl.style.display = 'none';
+                clearChildren(resultsEl);
+                setHint('Digita almeno 2 caratteri per iniziare la ricerca.');
+                return;
+            }
+            setHint('');
+            debounceTimer = setTimeout(function () { performSearch(term); }, 250);
+        });
+
         setTimeout(function () { input.focus(); }, 30);
     }
 
-    function closeModal() {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-        if (currentRequest && typeof currentRequest.abort === 'function') {
-            try { currentRequest.abort(); } catch (e) {}
-        }
-    }
+    window.openNewAccountModal = function () {
+        if (typeof Swal === 'undefined') { return; }
+        var html = ''
+            + '<p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;text-align:left;">Seleziona il paziente per cui creare le credenziali.</p>'
+            + '<input type="text" id="new-account-search-input" autocomplete="off" '
+            + 'placeholder="Cerca per nome, cognome o codice fiscale (almeno 2 caratteri)..." '
+            + 'style="width:100%;padding:10px 14px;font-size:14px;line-height:1.4;border:1px solid #e5e7eb;border-radius:10px;background:#ffffff;color:#111827;outline:none;box-sizing:border-box;">'
+            + '<p id="new-account-search-hint" style="margin:8px 0 0 0;font-size:12px;color:#6b7280;text-align:left;">Digita almeno 2 caratteri per iniziare la ricerca.</p>'
+            + '<div id="new-account-search-results" style="display:none;margin-top:12px;max-height:320px;overflow-y:auto;border:1px solid #f3f4f6;border-radius:12px;background:#ffffff;text-align:left;"></div>';
 
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.style.display !== 'none') {
-            closeModal();
-        }
-    });
-
-    window.openNewAccountModal = openModal;
-    window.closeNewAccountModal = closeModal;
+        Swal.fire({
+            title: 'Nuovo Account',
+            html: html,
+            width: 640,
+            showConfirmButton: false,
+            showCancelButton: true,
+            cancelButtonText: 'Annulla',
+            cancelButtonColor: '#6b7280',
+            showCloseButton: true,
+            focusCancel: false,
+            allowEnterKey: false,
+            didOpen: function (popup) { wireUp(popup); },
+            willClose: function () { abortPending(); }
+        });
+    };
 })();
 JS);
 ?>
