@@ -6,6 +6,8 @@ use common\components\PlanHelper;
 use common\models\Absence;
 use common\models\Appointment;
 use common\models\AppointmentPattern;
+use common\models\CoordinatorGroup;
+use common\models\GroupTherapist;
 use common\models\Patient;
 use common\models\PlanTherapy;
 use common\models\PrivateCycle;
@@ -1050,18 +1052,62 @@ class TherapeuticPlanManagerController extends Controller
      *
      * @return array
      */
+    /**
+     * Se l'utente loggato e' coordinator (e NON manager/admin), restituisce
+     * la lista degli ID terapisti del suo gruppo. Altrimenti null = nessun
+     * filtro (manager/admin vedono tutti i terapisti).
+     *
+     * Coerente con CalendarController::isCoordinatorOnly e
+     * PatientController::getCoordinatorTherapistIds.
+     *
+     * @return int[]|null
+     */
+    private function getCoordinatorTherapistFilter()
+    {
+        $user = Yii::$app->user;
+        $isCoordinatorOnly = $user->can('coordinator')
+            && !$user->can('manager')
+            && !$user->can('admin');
+
+        if (!$isCoordinatorOnly) {
+            return null;
+        }
+
+        $group = CoordinatorGroup::find()
+            ->where(['coordinator_user_id' => $user->id])
+            ->one();
+
+        if (!$group) {
+            return [0]; // fail-closed: nessun terapista visibile
+        }
+
+        $ids = GroupTherapist::find()
+            ->select('therapist_id')
+            ->where(['group_id' => $group->id])
+            ->andWhere(['assigned_to' => null])
+            ->column();
+
+        return !empty($ids) ? array_map('intval', $ids) : [0];
+    }
+
     public function actionGetTherapists()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $therapists = Therapist::find()
+            $query = Therapist::find()
                 ->where(['is_active' => 1])
                 ->with(['user.profile', 'specialization'])
                 ->innerJoin('users u', 'u.id = therapists.user_id')
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
-                ->orderBy(['up.last_name' => SORT_ASC])
-                ->all();
+                ->orderBy(['up.last_name' => SORT_ASC]);
+
+            $allowedIds = $this->getCoordinatorTherapistFilter();
+            if ($allowedIds !== null) {
+                $query->andWhere(['therapists.id' => $allowedIds]);
+            }
+
+            $therapists = $query->all();
 
             $result = [];
             foreach ($therapists as $therapist) {
@@ -1192,6 +1238,11 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            $allowedIds = $this->getCoordinatorTherapistFilter();
+            if ($allowedIds !== null) {
+                $therapists->andWhere(['t.id' => $allowedIds]);
+            }
+
             $therapists = $therapists->orderBy(['up.last_name' => SORT_ASC])->all();
 
             $result = [];
@@ -1263,6 +1314,11 @@ class TherapeuticPlanManagerController extends Controller
                 $query->andWhere(['t.can_supervise' => 1]);
             } elseif ($treatmentType && $treatmentType->code === 'PT') {
                 $query->andWhere(['t.can_parental_training' => 1]);
+            }
+
+            $allowedIds = $this->getCoordinatorTherapistFilter();
+            if ($allowedIds !== null) {
+                $query->andWhere(['t.id' => $allowedIds]);
             }
 
             $therapists = $query->all();
