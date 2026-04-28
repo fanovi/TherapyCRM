@@ -52,23 +52,66 @@ $filterChip = function (string $label, array $url, bool $active): string {
         </nav>
     </div>
 
-    <!-- Riepilogo contatori -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Totale</p>
-            <p class="text-2xl font-semibold text-gray-900 dark:text-white"><?= (int) $totalCount ?></p>
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <!-- Totale -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Totale</span>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $totalCount ?></p>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-orange-200 bg-orange-50/30 p-4 dark:border-orange-800 dark:bg-orange-900/10">
-            <p class="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">Non lette</p>
-            <p class="text-2xl font-semibold text-orange-900 dark:text-orange-100"><?= (int) $unreadCount ?></p>
+
+        <!-- Non lette -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/15">
+                    <svg class="w-4 h-4 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Non lette</span>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $unreadCount ?></p>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-blue-200 bg-blue-50/30 p-4 dark:border-blue-800 dark:bg-blue-900/10">
-            <p class="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Inviate</p>
-            <p class="text-2xl font-semibold text-blue-900 dark:text-blue-100"><?= (int) $sentCount ?></p>
+
+        <!-- Inviate -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/15">
+                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Inviate</span>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $sentCount ?></p>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Non inviate</p>
-            <p class="text-2xl font-semibold text-gray-900 dark:text-white"><?= (int) $unsentCount ?></p>
+
+        <!-- Non inviate -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Non inviate</span>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $unsentCount ?></p>
+                </div>
+            </div>
         </div>
     </div>
 
