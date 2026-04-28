@@ -230,7 +230,10 @@ class PatientController extends Controller
         $accountPatient->user_id = $userId;
         $accountPatient->patient_id = $patientId;
         $accountPatient->relationship_type = $relationshipType;
-        $accountPatient->has_parental_authority = $hasParentalAuthority;
+        // L'autorita' parentale e' implicita per self (paziente == account).
+        $accountPatient->has_parental_authority = $relationshipType === AccountPatient::RELATIONSHIP_SELF
+            ? 1
+            : (int) $hasParentalAuthority;
 
         if ($accountPatient->save()) {
             $patient = Patient::findOne($patientId);
@@ -882,6 +885,10 @@ class PatientController extends Controller
                 // Create account-patient relationship
                 $accountPatient->user_id = $user->id;
                 $accountPatient->patient_id = $patient->id;
+                // Per i self l'autorita' parentale e' implicita.
+                if ($accountPatient->relationship_type === AccountPatient::RELATIONSHIP_SELF) {
+                    $accountPatient->has_parental_authority = 1;
+                }
                 if (!$accountPatient->save()) {
                     throw new \Exception('Errore nel collegare utente e paziente: ' . implode(', ', $accountPatient->getFirstErrors()));
                 }

@@ -637,17 +637,11 @@ class AbsenceController extends Controller
                 );
             }
 
-            // Notifica al paziente
+            // Notifica al paziente: solo self + familiari con autorita' parentale.
             if ($patient) {
-                $patientUsers = \common\models\User::find()
-                    ->joinWith('accountPatients')
-                    ->where(['account_patients.patient_id' => $patient->id])
-                    ->andWhere(['users.status' => \common\models\User::STATUS_ACTIVE])
-                    ->all();
+                $patientUserIds = \common\models\AccountPatient::getNotifiableUserIdsForPatient($patient->id);
 
-                if (!empty($patientUsers)) {
-                    $patientUserIds = array_map(function($u) { return $u->id; }, $patientUsers);
-
+                if (!empty($patientUserIds)) {
                     NotificationHelper::sendToUsers(
                         $patientUserIds,
                         'Appuntamento Ripristinato',

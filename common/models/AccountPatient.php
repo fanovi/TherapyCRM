@@ -178,4 +178,30 @@ class AccountPatient extends ActiveRecord
             ->orderBy('patients.last_name, patients.first_name')
             ->all();
     }
+
+    /**
+     * User ID degli account che devono ricevere notifiche/comunicazioni
+     * relative ad un paziente: il paziente stesso (self) e i familiari
+     * con autorita' parentale. Filtra per utenti attivi.
+     *
+     * @param int $patientId
+     * @return int[]
+     */
+    public static function getNotifiableUserIdsForPatient(int $patientId): array
+    {
+        $rows = (new \yii\db\Query())
+            ->select('ap.user_id')
+            ->distinct()
+            ->from(['ap' => '{{%account_patients}}'])
+            ->innerJoin(['u' => '{{%users}}'], 'u.id = ap.user_id')
+            ->where(['ap.patient_id' => $patientId])
+            ->andWhere(['u.status' => User::STATUS_ACTIVE])
+            ->andWhere(['or',
+                ['ap.relationship_type' => self::RELATIONSHIP_SELF],
+                ['ap.has_parental_authority' => 1],
+            ])
+            ->column();
+
+        return array_map('intval', $rows);
+    }
 } 
