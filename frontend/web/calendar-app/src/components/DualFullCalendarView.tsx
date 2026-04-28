@@ -27,6 +27,7 @@ interface DualFullCalendarViewProps {
   viewType: CalendarViewType;
   onViewTypeChange: (viewType: CalendarViewType) => void;
   hidePatientCalendar?: boolean;
+  hideTherapistCalendar?: boolean;
   mode: "patient" | "therapist";
   currentPatientId?: number;
   onDateChange?: (date: Date) => void;
@@ -49,6 +50,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
   viewType,
   onViewTypeChange,
   hidePatientCalendar = false,
+  hideTherapistCalendar = false,
   mode,
   currentPatientId,
   onDateChange,
@@ -397,6 +399,47 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
     (event) =>
       currentPatientId && event.extendedProps?.patient_id === currentPatientId
   );
+
+  // Se hideTherapistCalendar è true e c'è un paziente selezionato,
+  // mostra solo il calendario paziente a larghezza piena (read-only).
+  if (hideTherapistCalendar && currentPatientId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <CalendarViewSelector
+            viewType={viewType}
+            onViewTypeChange={onViewTypeChange}
+          />
+        </div>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-green-500" />
+            Calendario Paziente
+            {currentPatientName && (
+              <span className="text-lg font-medium text-gray-600">
+                - {currentPatientName}
+              </span>
+            )}
+          </h2>
+          <FullCalendarContainer
+            patientId={currentPatientId.toString()}
+            selectedDate={selectedDate}
+            onDateSelect={handleDateSelect}
+            readOnly={true}
+            currentView={currentFullCalendarView}
+            onViewChange={handleViewChange}
+            onNavigate={handleUnifiedNavigate}
+            onVisibleRangeChange={handlePatientVisibleRangeChange}
+            externalEvents={patientEvents}
+            onRef={(ref) => {
+              patientCalendarRef.current = ref;
+            }}
+          />
+        </Card>
+      </div>
+    );
+  }
 
   // Se hidePatientCalendar è true, mostra solo il calendario del terapista a larghezza piena
   if (hidePatientCalendar && selectedTherapist) {

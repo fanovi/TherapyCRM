@@ -1499,8 +1499,8 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Mostra il selettore terapista solo se non siamo in modalità terapista */}
-        {!isTherapistView && (
+        {/* Mostra il selettore terapista solo se non siamo in modalità terapista o paziente read-only */}
+        {!isTherapistView && !forceReadOnly && (
           <div className="mb-8">
             <TherapistSelector
               selectedSpecialization={selectedSpecialization}
@@ -1515,8 +1515,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* Vista terapista: solo visualizzazione, nessun selettore */}
-        {isTherapistView && (
+        {/* Vista read-only (terapista o paziente senza manage_calendar) */}
+        {(isTherapistView || (forceReadOnly && !!params.id_patient)) && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center gap-2">
               <div className="text-blue-600">👁️</div>
@@ -1526,7 +1526,7 @@ const Index = () => {
                 </p>
                 <p className="text-sm text-blue-700">
                   In questa vista puoi visualizzare e consultare gli
-                  appuntamenti del terapista. Clicca su un appuntamento per
+                  appuntamenti{isTherapistView ? ' del terapista' : ' del paziente'}. Clicca su un appuntamento per
                   vederne i dettagli.
                 </p>
               </div>
@@ -1618,6 +1618,7 @@ const Index = () => {
           viewType={viewType}
           onViewTypeChange={setViewType}
           hidePatientCalendar={isTherapistView} // Nasconde sempre il calendario paziente in vista terapista
+          hideTherapistCalendar={!isTherapistView && !!params.id_patient && forceReadOnly} // Vista paziente read-only: solo calendario paziente
           mode={isTherapistView ? "therapist" : "patient"}
           currentPatientId={isTherapistView ? undefined : patient?.id} // Nessun paziente corrente in vista terapista
           onDateChange={handleDateChange}
