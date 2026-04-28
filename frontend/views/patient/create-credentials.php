@@ -62,7 +62,44 @@ $this->params['breadcrumbs'][] = $this->title;
         'relationship' => $relationshipType,
         'showPassword' => false,
         'showPasswordRepeat' => false,
+        'patientFirstName' => (string) $patient->first_name,
+        'patientLastName' => (string) $patient->last_name,
+        'patientFiscalCode' => (string) ($patient->fiscal_code ?? ''),
+        'patientPhone' => (string) ($patient->phone_number ?? ''),
     ]);
+
+    // Quando la relazione diventa "self" riempiamo i campi profilo (nascosti)
+    // con i dati del paziente: senza questi valori la validazione client-side
+    // dei campi obbligatori first_name/last_name fallirebbe silenziosamente,
+    // impedendo il submit. Quando si torna su una relazione diversa, i campi
+    // vengono svuotati cosi' l'utente puo' compilarli per genitore/tutore.
+    $alpineInit = "\$watch('relationship', function (val, oldVal) {
+        var first = document.getElementById('userprofile-first_name');
+        var last = document.getElementById('userprofile-last_name');
+        var fiscal = document.getElementById('userprofile-fiscal_code');
+        var phone = document.getElementById('userprofile-phone');
+        if (val === 'self') {
+            if (first) first.value = patientFirstName;
+            if (last) last.value = patientLastName;
+            if (fiscal) fiscal.value = patientFiscalCode;
+            if (phone && patientPhone) phone.value = patientPhone;
+        } else if (oldVal === 'self') {
+            if (first) first.value = '';
+            if (last) last.value = '';
+            if (fiscal) fiscal.value = '';
+            if (phone) phone.value = '';
+        }
+    });
+    if (relationship === 'self') {
+        var first = document.getElementById('userprofile-first_name');
+        var last = document.getElementById('userprofile-last_name');
+        var fiscal = document.getElementById('userprofile-fiscal_code');
+        var phone = document.getElementById('userprofile-phone');
+        if (first) first.value = patientFirstName;
+        if (last) last.value = patientLastName;
+        if (fiscal) fiscal.value = patientFiscalCode;
+        if (phone && patientPhone) phone.value = patientPhone;
+    }";
     ?>
 
     <?php $form = ActiveForm::begin([
@@ -74,6 +111,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'options' => [
             'class' => 'space-y-6',
             'x-data' => $alpineState,
+            'x-init' => $alpineInit,
         ],
         'fieldConfig' => [
             'errorOptions' => ['class' => 'text-red-500 text-sm mt-1 help-block-error'],
@@ -483,7 +521,9 @@ $(document).ready(function() {
         var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
         var lower = 'abcdefghijkmnopqrstuvwxyz';
         var digits = '23456789';
-        var special = '!@#\$%^&*-_+=?';
+        // Nota: NON includere "_" perche' nel pattern di validazione e' un
+        // word-char (\\W) e fallirebbe il check del carattere speciale.
+        var special = '!@#\$%^&*-+=?';
         var len = Math.max(8, Math.min(20, length || 12));
 
         function rand(max) {

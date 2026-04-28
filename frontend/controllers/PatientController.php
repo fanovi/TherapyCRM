@@ -1023,7 +1023,9 @@ class PatientController extends Controller
         $upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
         $lower   = 'abcdefghijkmnopqrstuvwxyz';
         $digits  = '23456789';
-        $special = '!@#$%^&*-_+=?';
+        // Nota: NON includere "_" perche' nel pattern di validazione (\W) e'
+        // considerato word-char e fallirebbe il check del carattere speciale.
+        $special = '!@#$%^&*-+=?';
 
         try {
             $pickRandom = function (string $chars) {
