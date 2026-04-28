@@ -226,7 +226,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                         </div>
                         <!-- Dropdown Menu End -->
                     </li>
-                    <?php elseif (Yii::$app->user->can('view_own_group_patients')): ?>
+                    <?php elseif (Yii::$app->user->can('view_own_group_patients') && Yii::$app->user->can('coordinator')): ?>
                     <!-- Menu Item My Patients (for coordinators only) -->
                     <li>
                         <a
@@ -337,7 +337,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                         </div>
                         <!-- Dropdown Menu End -->
                     </li>
-                    <?php elseif (Yii::$app->user->can('view_own_group_therapists')): ?>
+                    <?php elseif (Yii::$app->user->can('view_own_group_therapists') && Yii::$app->user->can('coordinator')): ?>
                     <!-- Menu Item My Therapists (for coordinators only) -->
                     <li>
                         <a
