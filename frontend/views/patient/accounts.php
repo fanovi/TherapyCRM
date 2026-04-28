@@ -170,9 +170,9 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
                         [
                             'class' => 'yii\grid\ActionColumn',
                             'header' => 'Azioni',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[100px] text-center'],
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[260px] text-center'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-center'],
-                            'template' => '{view}',
+                            'template' => '<div class="flex items-center justify-center gap-2">{view} {update} {regenerate}</div>',
                             'buttons' => [
                                 'view' => function ($url, $model) {
                                     return Html::a(
@@ -182,6 +182,29 @@ $searchPatientsUrl = Url::to(['patient/search-patients-for-account']);
                                             'class' => 'inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors',
                                             'title' => 'Visualizza dettaglio account',
                                             'data-pjax' => '0',
+                                        ]
+                                    );
+                                },
+                                'update' => function ($url, $model) {
+                                    return Html::a(
+                                        '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifica',
+                                        ['view-account', 'id' => $model->id],
+                                        [
+                                            'class' => 'inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors',
+                                            'title' => 'Modifica dati account',
+                                            'data-pjax' => '0',
+                                        ]
+                                    );
+                                },
+                                'regenerate' => function ($url, $model) {
+                                    return Html::button(
+                                        '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Rigenera',
+                                        [
+                                            'type' => 'button',
+                                            'class' => 'regenerate-credentials-btn inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition-colors',
+                                            'data-user-id' => $model->id,
+                                            'data-user-email' => $model->email,
+                                            'title' => 'Rigenera le credenziali e scarica il PDF',
                                         ]
                                     );
                                 },
@@ -496,3 +519,122 @@ $this->registerJs(<<<JS
 JS);
 ?>
 <?php endif; ?>
+
+<?php
+// Handler "Rigenera credenziali" sui bottoni della grid. Conferma con
+// SweetAlert2 (gia caricato globalmente via AppAsset), poi POST a
+// /patient/reset-password e apertura del PDF in una nuova tab.
+$resetUrl = \yii\helpers\Url::to(['patient/reset-password']);
+$pdfUrl = \yii\helpers\Url::to(['patient/download-credentials-pdf']);
+$jsResetUrl = json_encode($resetUrl);
+$jsPdfUrl = json_encode($pdfUrl);
+$this->registerJs(<<<JS
+(function () {
+    var resetUrl = $jsResetUrl;
+    var pdfUrl = $jsPdfUrl;
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function setBtnLoading(btn, loading) {
+        btn.disabled = !!loading;
+        btn.style.opacity = loading ? '0.6' : '1';
+        btn.style.cursor = loading ? 'wait' : '';
+    }
+
+    function doReset(btn, userId, email) {
+        setBtnLoading(btn, true);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Rigenerazione in corso...',
+                didOpen: function () { Swal.showLoading(); },
+                allowOutsideClick: false, allowEscapeKey: false, allowEnterKey: false,
+                showConfirmButton: false
+            });
+        }
+        jQuery.ajax({
+            url: resetUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                _csrf: jQuery('meta[name=csrf-token]').attr('content'),
+                userId: userId
+            }
+        }).done(function (resp) {
+            var ok = resp && (resp.status === 'success' || resp.success === true);
+            if (ok) {
+                window.open(pdfUrl, '_blank');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Credenziali rigenerate',
+                        text: 'Il PDF e stato aperto in una nuova scheda. Le sessioni attive sono state revocate.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                }
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore',
+                    text: (resp && (resp.error || resp.message)) || 'Impossibile rigenerare le credenziali.',
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        }).fail(function (xhr) {
+            if (typeof Swal !== 'undefined') {
+                var msg = (xhr && xhr.status === 403)
+                    ? 'Non hai i permessi per rigenerare le credenziali.'
+                    : 'Impossibile contattare il server. Riprova.';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore',
+                    text: msg,
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        }).always(function () {
+            setBtnLoading(btn, false);
+        });
+    }
+
+    // Delegation: la grid puo' essere ridisegnata da Pjax dopo filtri/sort,
+    // quindi un singolo listener su document copre anche i bottoni rigenerati.
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest && ev.target.closest('.regenerate-credentials-btn');
+        if (!btn) { return; }
+        ev.preventDefault();
+
+        var userId = btn.getAttribute('data-user-id');
+        var email = btn.getAttribute('data-user-email') || '';
+        if (!userId) { return; }
+
+        if (typeof Swal === 'undefined') {
+            if (!window.confirm('Rigenerare le credenziali per ' + email + '?')) { return; }
+            doReset(btn, userId, email);
+            return;
+        }
+
+        Swal.fire({
+            icon: 'warning',
+            title: 'Rigenerare le credenziali?',
+            html: 'Verra generata una nuova password per <strong>' + escapeHtml(email)
+                + '</strong> e prodotto un nuovo PDF da consegnare al paziente.<br><br>'
+                + 'Tutte le sessioni attive verranno revocate.',
+            showCancelButton: true,
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Si, rigenera e scarica PDF',
+            cancelButtonText: 'Annulla',
+            reverseButtons: true
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                doReset(btn, userId, email);
+            }
+        });
+    });
+})();
+JS);
+?>
