@@ -707,31 +707,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      {/* Toolbar personalizzata */}
-      <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={currentView === "timeGridWeek" ? "default" : "outline"}
-            size="sm"
-            onClick={() => changeView("timeGridWeek")}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            Settimana
-          </Button>
-          <Button
-            variant={currentView === "timeGridDay" ? "default" : "outline"}
-            size="sm"
-            onClick={() => changeView("timeGridDay")}
-          >
-            <Clock className="h-4 w-4 mr-1" />
-            Giorno
-          </Button>
-        </div>
-
-        <Button variant="outline" size="sm" onClick={goToToday}>
-          Oggi
-        </Button>
-      </div>
+      {/* Toolbar custom rimossa: i bottoni view sono nel CalendarViewSelector
+          (top-right di DualFullCalendarView), il bottone Oggi e' nel
+          headerToolbar di FullCalendar. */}
 
       {/* FullCalendar */}
       <div className="fullcalendar-container">
@@ -819,7 +797,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           initialView={currentView}
           height="auto"
           headerToolbar={{
-            left: "prev,next",
+            left: "prev,next today",
             center: "title",
             right: "",
           }}
