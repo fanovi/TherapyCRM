@@ -154,7 +154,8 @@ class PatientController extends Controller
                 ->from(['a' => '{{%appointments}}'])
                 ->leftJoin(['pt' => '{{%plan_therapies}}'], 'pt.id = a.plan_therapy_id')
                 ->leftJoin(['tp' => '{{%therapeutic_plans}}'], 'tp.id = pt.therapeutic_plan_id')
-                ->leftJoin(['up' => '{{%user_profiles}}'], 'up.user_id = a.therapist_id')
+                ->leftJoin(['t' => '{{%therapists}}'], 't.id = a.therapist_id')
+                ->leftJoin(['up' => '{{%user_profiles}}'], 'up.user_id = t.user_id')
                 ->where(['a.therapist_id' => $therapistIds])
                 ->andWhere(['!=', 'a.status', \common\models\Appointment::STATUS_CANCELLED])
                 ->andWhere(['or',
