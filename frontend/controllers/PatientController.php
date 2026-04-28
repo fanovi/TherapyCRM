@@ -753,6 +753,26 @@ class PatientController extends Controller
             // evitare disallineamenti, anche se eventualmente la view ha
             // inviato valori diversi (es. campi readonly bypassati).
             if ($accountPatient->relationship_type === AccountPatient::RELATIONSHIP_SELF) {
+                // Esiste gia' un account "Io stesso" per questo paziente?
+                $existingSelf = AccountPatient::find()
+                    ->where([
+                        'patient_id' => $patient->id,
+                        'relationship_type' => AccountPatient::RELATIONSHIP_SELF,
+                    ])->one();
+                if ($existingSelf) {
+                    $message = 'Esiste gia\' un account "Io stesso" per questo paziente.';
+                    if (Yii::$app->request->isAjax) {
+                        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                        return [
+                            'success' => false,
+                            'code' => 'self_already_exists',
+                            'message' => $message,
+                        ];
+                    }
+                    Yii::$app->session->setFlash('error', $message);
+                    return $this->redirect(['create-credentials', 'id' => $patient->id]);
+                }
+
                 $profile->first_name = $patient->first_name;
                 $profile->last_name = $patient->last_name;
                 $profile->fiscal_code = $patient->fiscal_code;
@@ -913,12 +933,29 @@ class PatientController extends Controller
             }
         }
 
+        // Account gia' collegati al paziente: per ognuno mostriamo nella view
+        // email, intestatario, relazione e azioni rapide (Modifica, Rigenera).
+        $existingAccounts = AccountPatient::find()
+            ->joinWith(['user', 'user.profile'])
+            ->where(['patient_id' => $patient->id])
+            ->all();
+
+        $hasSelfAccount = false;
+        foreach ($existingAccounts as $ap) {
+            if ($ap->relationship_type === AccountPatient::RELATIONSHIP_SELF) {
+                $hasSelfAccount = true;
+                break;
+            }
+        }
+
         return $this->render('create-credentials', [
             'patient' => $patient,
             'user' => $user,
             'profile' => $profile,
             'accountPatient' => $accountPatient,
             'relationshipLabels' => AccountPatient::getRelationshipLabels(),
+            'existingAccounts' => $existingAccounts,
+            'hasSelfAccount' => $hasSelfAccount,
         ]);
     }
 

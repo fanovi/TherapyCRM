@@ -1,6 +1,8 @@
 <?php
 
+use common\models\AccountPatient;
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\widgets\ActiveForm;
 
 /* @var $this yii\web\View */
@@ -9,7 +11,12 @@ use yii\widgets\ActiveForm;
 /* @var $profile common\models\UserProfile */
 /* @var $accountPatient common\models\AccountPatient */
 /* @var $relationshipLabels array */
+/* @var $existingAccounts common\models\AccountPatient[] */
+/* @var $hasSelfAccount bool */
 /* @var $form yii\widgets\ActiveForm */
+
+$existingAccounts = isset($existingAccounts) ? $existingAccounts : [];
+$hasSelfAccount = isset($hasSelfAccount) ? (bool) $hasSelfAccount : false;
 
 $this->title = 'Crea Credenziali per ' . $patient->last_name . ' ' . $patient->first_name;
 $this->params['breadcrumbs'][] = ['label' => 'Pazienti', 'url' => ['index']];
@@ -165,6 +172,102 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 
+    <?php if (!empty($existingAccounts)): ?>
+    <!-- Account gia' collegati -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5 flex items-start justify-between gap-3">
+            <div>
+                <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                    Account gia' collegati a questo paziente
+                </h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Per ogni account puoi modificarne i dati o rigenerare le credenziali (sara' generato un nuovo PDF).
+                </p>
+            </div>
+            <span class="inline-flex items-center justify-center text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                <?= count($existingAccounts) ?> <?= count($existingAccounts) === 1 ? 'account' : 'account' ?>
+            </span>
+        </div>
+
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+            <?php foreach ($existingAccounts as $ap):
+                $apUser = $ap->user;
+                $apProfile = $apUser ? $apUser->profile : null;
+                $relLabel = $ap->getRelationshipLabel();
+                $isSelf = $ap->relationship_type === AccountPatient::RELATIONSHIP_SELF;
+                $badgeClass = $isSelf
+                    ? 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800';
+                $fullName = $apProfile
+                    ? trim(($apProfile->last_name ?? '') . ' ' . ($apProfile->first_name ?? ''))
+                    : '';
+                ?>
+                <li class="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0 flex-1 flex items-start gap-3">
+                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </span>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    <?= Html::encode($apUser ? $apUser->email : '-') ?>
+                                </span>
+                                <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full border <?= $badgeClass ?>">
+                                    <?= Html::encode($relLabel) ?>
+                                </span>
+                                <?php if ($ap->has_parental_authority): ?>
+                                    <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+                                        Autorita' genitoriale
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <?= Html::encode($fullName !== '' ? $fullName : 'Profilo non disponibile') ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+                        <?php if ($apUser): ?>
+                            <?= Html::a(
+                                '<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifica',
+                                ['view-account', 'id' => $apUser->id],
+                                [
+                                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700',
+                                    'data-pjax' => '0',
+                                    'title' => 'Vai alla scheda account',
+                                ]
+                            ) ?>
+                            <button type="button"
+                                    class="regenerate-credentials-btn inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
+                                    data-user-id="<?= (int) $apUser->id ?>"
+                                    data-user-email="<?= Html::encode($apUser->email) ?>"
+                                    title="Rigenera le credenziali e scarica il PDF">
+                                <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Rigenera credenziali
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+            </ul>
+
+            <?php if ($hasSelfAccount): ?>
+                <div class="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-100 dark:bg-blue-900/20 dark:border-blue-800">
+                    <p class="text-xs text-blue-700 dark:text-blue-300">
+                        <strong>Nota:</strong> esiste gia' un account "Io stesso" per questo paziente, quindi non e' selezionabile qui sotto. Puoi aggiungere account per genitori, tutori o altri familiari.
+                    </p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Relazione con il Paziente -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
@@ -181,7 +284,15 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div class="sm:col-span-2">
-                    <?= $form->field($accountPatient, 'relationship_type')->dropDownList($relationshipLabels, [
+                    <?php
+                    // Se il paziente ha gia' un account "Io stesso" lo togliamo
+                    // dalle opzioni (ne puo' esistere uno solo).
+                    $availableRelationshipLabels = $relationshipLabels;
+                    if ($hasSelfAccount && isset($availableRelationshipLabels[AccountPatient::RELATIONSHIP_SELF])) {
+                        unset($availableRelationshipLabels[AccountPatient::RELATIONSHIP_SELF]);
+                    }
+                    ?>
+                    <?= $form->field($accountPatient, 'relationship_type')->dropDownList($availableRelationshipLabels, [
                         'prompt' => 'Seleziona tipo di relazione...',
                         'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
                         'x-model' => 'relationship',
@@ -684,6 +795,122 @@ $(document).ready(function() {
     });
 });
 ");
+
+// Bind dei bottoni "Rigenera credenziali" sugli account gia' collegati.
+// Usa SweetAlert2 per la conferma, poi POST a /patient/reset-password e
+// apre il PDF in una nuova tab. Il bottone viene disabilitato durante la
+// chiamata e riabilitato a fine richiesta (senza modificare l'innerHTML).
+$resetUrl = \yii\helpers\Url::to(['patient/reset-password']);
+$pdfUrl = \yii\helpers\Url::to(['patient/download-credentials-pdf']);
+$jsResetUrl = json_encode($resetUrl);
+$jsPdfUrl = json_encode($pdfUrl);
+$this->registerJs(<<<JS
+(function () {
+    var resetUrl = $jsResetUrl;
+    var pdfUrl = $jsPdfUrl;
+    var buttons = document.querySelectorAll('.regenerate-credentials-btn');
+    if (!buttons.length) { return; }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function setBtnLoading(btn, loading) {
+        btn.disabled = !!loading;
+        btn.style.opacity = loading ? '0.6' : '1';
+        btn.style.cursor = loading ? 'wait' : '';
+    }
+
+    function doReset(btn, userId, email) {
+        setBtnLoading(btn, true);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Rigenerazione in corso...',
+                didOpen: function () { Swal.showLoading(); },
+                allowOutsideClick: false, allowEscapeKey: false, allowEnterKey: false,
+                showConfirmButton: false
+            });
+        }
+        jQuery.ajax({
+            url: resetUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                _csrf: jQuery('meta[name=csrf-token]').attr('content'),
+                userId: userId
+            }
+        }).done(function (resp) {
+            var ok = resp && (resp.status === 'success' || resp.success === true);
+            if (ok) {
+                window.open(pdfUrl, '_blank');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Credenziali rigenerate',
+                        text: 'Il PDF e stato aperto in una nuova scheda. Le sessioni attive sono state revocate.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                }
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore',
+                    text: (resp && (resp.error || resp.message)) || 'Impossibile rigenerare le credenziali.',
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        }).fail(function (xhr) {
+            if (typeof Swal !== 'undefined') {
+                var msg = (xhr && xhr.status === 403)
+                    ? 'Non hai i permessi per rigenerare le credenziali.'
+                    : 'Impossibile contattare il server. Riprova.';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore',
+                    text: msg,
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        }).always(function () {
+            setBtnLoading(btn, false);
+        });
+    }
+
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var userId = btn.getAttribute('data-user-id');
+            var email = btn.getAttribute('data-user-email') || '';
+            if (!userId) { return; }
+
+            if (typeof Swal === 'undefined') {
+                if (!window.confirm('Rigenerare le credenziali per ' + email + '?')) { return; }
+                doReset(btn, userId, email);
+                return;
+            }
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Rigenerare le credenziali?',
+                html: 'Verra generata una nuova password per <strong>' + escapeHtml(email)
+                    + '</strong> e prodotto un nuovo PDF da consegnare al paziente.<br><br>'
+                    + 'Tutte le sessioni attive verranno revocate.',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Si, rigenera e scarica PDF',
+                cancelButtonText: 'Annulla',
+                reverseButtons: true
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    doReset(btn, userId, email);
+                }
+            });
+        });
+    });
+})();
+JS);
 
 $this->registerCss('[x-cloak] { display: none !important; }');
 ?>
