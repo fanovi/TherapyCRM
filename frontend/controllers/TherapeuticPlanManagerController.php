@@ -1079,20 +1079,36 @@ class TherapeuticPlanManagerController extends Controller
     private function getCoordinatorTherapistFilter()
     {
         $user = Yii::$app->user;
-        $isCoordinatorOnly = $user->can('coordinator')
-            && !$user->can('manager')
-            && !$user->can('admin');
+        $userId = $user->id;
+
+        // Check ruoli direttamente da auth_assignment (piu' affidabile di can()).
+        $assignedRoles = $userId ? (new \yii\db\Query())
+            ->select('item_name')
+            ->from('{{%auth_assignment}}')
+            ->where(['user_id' => $userId])
+            ->column() : [];
+
+        $hasCoord = in_array('coordinator', $assignedRoles, true);
+        $hasMan = in_array('manager', $assignedRoles, true);
+        $hasAdmin = in_array('admin', $assignedRoles, true)
+            || in_array('super_admin', $assignedRoles, true);
+
+        $isCoordinatorOnly = $hasCoord && !$hasMan && !$hasAdmin;
+
+        Yii::error("FILTER DEBUG userId=$userId roles=" . implode(',', $assignedRoles)
+            . " isCoordOnly=" . ($isCoordinatorOnly ? '1' : '0'), __METHOD__);
 
         if (!$isCoordinatorOnly) {
             return null;
         }
 
         $group = CoordinatorGroup::find()
-            ->where(['coordinator_user_id' => $user->id])
+            ->where(['coordinator_user_id' => $userId])
             ->one();
 
         if (!$group) {
-            return [0]; // fail-closed: nessun terapista visibile
+            Yii::error("FILTER DEBUG no group for user $userId", __METHOD__);
+            return [0];
         }
 
         $ids = GroupTherapist::find()
@@ -1100,6 +1116,8 @@ class TherapeuticPlanManagerController extends Controller
             ->where(['group_id' => $group->id])
             ->andWhere(['assigned_to' => null])
             ->column();
+
+        Yii::error("FILTER DEBUG group=" . $group->id . " therapistIds=" . implode(',', $ids), __METHOD__);
 
         return !empty($ids) ? array_map('intval', $ids) : [0];
     }
