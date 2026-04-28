@@ -578,10 +578,29 @@ class PatientController extends Controller
         $profile = new UserProfile();
         $accountPatient = new AccountPatient();
 
-        // Pre-fill profile with patient data
+        // Pre-fill profile with patient data (default: relazione "io stesso").
+        // Anche per altre relazioni questi dati restano come suggerimento e
+        // sono comunque editabili nel form.
         $profile->first_name = $patient->first_name;
         $profile->last_name = $patient->last_name;
         $profile->fiscal_code = $patient->fiscal_code;
+        if (!empty($patient->phone_number)) {
+            $profile->phone = $patient->phone_number;
+        }
+        if (!empty($patient->residence_address)) {
+            $profile->address = trim($patient->residence_address . ' '
+                . ($patient->residence_postal_code ?? '') . ' '
+                . ($patient->residence_city ?? '')
+                . ($patient->residence_province_code ? ' (' . $patient->residence_province_code . ')' : ''));
+        }
+
+        // Suggerisci una password generata in automatico (modificabile dall'utente).
+        // Viene impostata solo al primo render (GET), in POST i valori arrivano dal form.
+        if (!Yii::$app->request->isPost) {
+            $suggestedPassword = $this->generateRandomPassword(10);
+            $user->password = $suggestedPassword;
+            $user->password_repeat = $suggestedPassword;
+        }
 
         $postData = Yii::$app->request->post();
         Yii::info('POST data received: ' . print_r($postData, true));
@@ -591,6 +610,18 @@ class PatientController extends Controller
             $profile->load($postData) &&
             $accountPatient->load($postData)
         ) {
+            // Se la relazione e' "io stesso" (il paziente e' anche l'account
+            // utente), forziamo i dati anagrafici a quelli del paziente per
+            // evitare disallineamenti, anche se eventualmente la view ha
+            // inviato valori diversi (es. campi readonly bypassati).
+            if ($accountPatient->relationship_type === AccountPatient::RELATIONSHIP_SELF) {
+                $profile->first_name = $patient->first_name;
+                $profile->last_name = $patient->last_name;
+                $profile->fiscal_code = $patient->fiscal_code;
+                if (!empty($patient->phone_number)) {
+                    $profile->phone = $patient->phone_number;
+                }
+            }
             Yii::info('Models loaded successfully - User: ' . print_r($user->attributes, true));
             Yii::info('Profile: ' . print_r($profile->attributes, true));
             Yii::info('AccountPatient: ' . print_r($accountPatient->attributes, true));
@@ -633,9 +664,14 @@ class PatientController extends Controller
                     throw new \Exception('Errore nel collegare utente e paziente: ' . implode(', ', $accountPatient->getFirstErrors()));
                 }
 
-                // Assign patient_family role
+                // Assegna il ruolo coerente con la relazione:
+                // - self  -> ruolo `patient`        (l'utente E' il paziente)
+                // - altro -> ruolo `patient_family` (genitore/tutore/altro familiare)
                 $auth = Yii::$app->authManager;
-                $patientRole = $auth->getRole('patient_family');
+                $roleName = ($accountPatient->relationship_type === AccountPatient::RELATIONSHIP_SELF)
+                    ? 'patient'
+                    : 'patient_family';
+                $patientRole = $auth->getRole($roleName);
                 if ($patientRole) {
                     $auth->assign($patientRole, $user->id);
                 }

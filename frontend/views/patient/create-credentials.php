@@ -56,13 +56,25 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
     <!-- Breadcrumb End -->
 
+    <?php
+    $relationshipType = (string) ($accountPatient->relationship_type ?? '');
+    $alpineState = json_encode([
+        'relationship' => $relationshipType,
+        'showPassword' => false,
+        'showPasswordRepeat' => false,
+    ]);
+    ?>
+
     <?php $form = ActiveForm::begin([
         'id' => 'credentials-form',
         'enableClientValidation' => true,
         'validateOnSubmit' => true,
         'validateOnChange' => true,
         'validateOnBlur' => true,
-        'options' => ['class' => 'space-y-6'],
+        'options' => [
+            'class' => 'space-y-6',
+            'x-data' => $alpineState,
+        ],
         'fieldConfig' => [
             'errorOptions' => ['class' => 'text-red-500 text-sm mt-1 help-block-error'],
         ],
@@ -115,118 +127,16 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
     </div>
 
-    <!-- Credenziali di Accesso -->
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Credenziali di Accesso
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Inserisci email e password per l'accesso all'app mobile.
-            </p>
-        </div>
-
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-1">
-                <div class="sm:col-span-2">
-                    <?= $form->field($user, 'email')->input('email', [
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'inserisci.email@esempio.com'
-                    ])->label('Email di Accesso', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-1">
-                    <?= $form->field($user, 'password')->passwordInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Password (minimo 6 caratteri)'
-                    ])->label('Password', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-1">
-                    <?= $form->field($user, 'password_repeat')->passwordInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Ripeti la password'
-                    ])->label('Conferma Password', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Informazioni Profilo -->
-    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Informazioni Profilo
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Dati della persona che utilizzerà l'account.
-            </p>
-        </div>
-
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div class="sm:col-span-1">
-                    <?= $form->field($profile, 'first_name')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Inserisci nome'
-                    ])->label('Nome', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-1">
-                    <?= $form->field($profile, 'last_name')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Inserisci cognome'
-                    ])->label('Cognome', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-1">
-                    <?= $form->field($profile, 'fiscal_code')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'RSSMRA80E45F205T'
-                    ])->label('Codice Fiscale', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-1">
-                    <?= $form->field($profile, 'phone')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => '+39 123 456 7890'
-                    ])->label('Telefono', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-
-                <div class="sm:col-span-2">
-                    <?= $form->field($profile, 'address')->textInput([
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
-                        'placeholder' => 'Via Roma 1, 00100 Roma (RM)'
-                    ])->label('Indirizzo', [
-                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
-                    ]) ?>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Relazione con il Paziente -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                Relazione con il Paziente
+                Chi accede all'app?
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Specifica il tipo di relazione e i permessi.
+                Specifica chi sara' la persona collegata a questo account.
+                Se e' il paziente stesso, i dati anagrafici verranno presi
+                automaticamente dalla sua scheda.
             </p>
         </div>
 
@@ -235,13 +145,14 @@ $this->params['breadcrumbs'][] = $this->title;
                 <div class="sm:col-span-2">
                     <?= $form->field($accountPatient, 'relationship_type')->dropDownList($relationshipLabels, [
                         'prompt' => 'Seleziona tipo di relazione...',
-                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30'
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'x-model' => 'relationship',
                     ])->label('Tipo di Relazione', [
                         'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
                     ]) ?>
                 </div>
 
-                <div class="sm:col-span-2">
+                <div class="sm:col-span-2" x-show="relationship && relationship !== 'self'" x-cloak>
                     <?= $form->field($accountPatient, 'has_parental_authority', [
                         'template' => '<div class="flex items-center">{input}{label}</div>{error}{hint}',
                         'labelOptions' => [
@@ -254,7 +165,177 @@ $this->params['breadcrumbs'][] = $this->title;
                         'value' => '1'
                     ])->label(false) ?>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Seleziona se questa persona ha l'autorità genitoriale sul paziente.
+                        Seleziona se questa persona ha l'autorita' genitoriale sul paziente.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informazioni Profilo (solo se familiare/tutore/altro) -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
+         x-show="relationship && relationship !== 'self'"
+         x-cloak>
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Dati di chi accede
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Nome, cognome e contatti della persona che utilizzera' l'account
+                (genitore, tutore o altro familiare).
+            </p>
+        </div>
+
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'first_name')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Inserisci nome',
+                    ])->label('Nome', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'last_name')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Inserisci cognome',
+                    ])->label('Cognome', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'fiscal_code')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'RSSMRA80E45F205T',
+                    ])->label('Codice Fiscale', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <?= $form->field($profile, 'phone')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => '+39 123 456 7890',
+                    ])->label('Telefono', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <?= $form->field($profile, 'address')->textInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Via Roma 1, 00100 Roma (RM)',
+                    ])->label('Indirizzo', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riassunto dati paziente in modalita' "io stesso" -->
+    <div class="rounded-2xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800"
+         x-show="relationship === 'self'"
+         x-cloak>
+        <div class="px-5 py-4 sm:px-6 sm:py-5 flex items-start gap-3">
+            <svg class="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    L'account verra' creato a nome del paziente
+                </p>
+                <p class="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                    Nome, cognome, codice fiscale e telefono vengono presi dalla scheda del paziente, non c'e' bisogno di inserirli di nuovo. Saranno modificabili dalla scheda paziente.
+                </p>
+                <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                    <div class="flex gap-2">
+                        <dt class="text-blue-700 dark:text-blue-300">Nome:</dt>
+                        <dd class="font-medium text-blue-900 dark:text-blue-100"><?= Html::encode($patient->first_name) ?></dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-blue-700 dark:text-blue-300">Cognome:</dt>
+                        <dd class="font-medium text-blue-900 dark:text-blue-100"><?= Html::encode($patient->last_name) ?></dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-blue-700 dark:text-blue-300">Codice Fiscale:</dt>
+                        <dd class="font-medium text-blue-900 dark:text-blue-100"><?= Html::encode($patient->fiscal_code ?: '-') ?></dd>
+                    </div>
+                    <div class="flex gap-2">
+                        <dt class="text-blue-700 dark:text-blue-300">Telefono:</dt>
+                        <dd class="font-medium text-blue-900 dark:text-blue-100"><?= Html::encode($patient->phone_number ?: '-') ?></dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credenziali di Accesso -->
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
+         x-show="relationship"
+         x-cloak>
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Credenziali di Accesso
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Email e password per l'accesso all'app mobile. La password e' stata generata automaticamente: puoi modificarla o rigenerarla con il bottone.
+            </p>
+        </div>
+
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 pb-5 sm:px-6 sm:pb-6">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <?= $form->field($user, 'email')->input('email', [
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'inserisci.email@esempio.com'
+                    ])->label('Email di Accesso', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <?= $form->field($user, 'password', [
+                        'template' => '{label}<div class="relative">{input}<button type="button" tabindex="-1" @click="showPassword = !showPassword" class="absolute top-1/2 right-3 z-10 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" :title="showPassword ? \'Nascondi password\' : \'Mostra password\'"><svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><svg x-show="showPassword" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg></button></div>{error}',
+                    ])->passwordInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none pl-4 pr-11 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Password (minimo 6 caratteri)',
+                        'id' => 'credentials-password',
+                        'autocomplete' => 'new-password',
+                        ':type' => "showPassword ? 'text' : 'password'",
+                    ])->label('Password', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-1">
+                    <?= $form->field($user, 'password_repeat', [
+                        'template' => '{label}<div class="relative">{input}<button type="button" tabindex="-1" @click="showPasswordRepeat = !showPasswordRepeat" class="absolute top-1/2 right-3 z-10 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" :title="showPasswordRepeat ? \'Nascondi password\' : \'Mostra password\'"><svg x-show="!showPasswordRepeat" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><svg x-show="showPasswordRepeat" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg></button></div>{error}',
+                    ])->passwordInput([
+                        'class' => 'shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none pl-4 pr-11 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30',
+                        'placeholder' => 'Ripeti la password',
+                        'id' => 'credentials-password-repeat',
+                        'autocomplete' => 'new-password',
+                        ':type' => "showPasswordRepeat ? 'text' : 'password'",
+                    ])->label('Conferma Password', [
+                        'class' => 'block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1.5'
+                    ]) ?>
+                </div>
+
+                <div class="sm:col-span-2 flex items-center justify-between gap-3 pt-1">
+                    <button type="button"
+                            id="regenerate-password-btn"
+                            class="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-800 dark:hover:bg-brand-900/50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Rigenera password casuale
+                    </button>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 italic">
+                        Verra' inviata via email e mostrata nel PDF.
                     </p>
                 </div>
             </div>
@@ -275,9 +356,10 @@ $this->params['breadcrumbs'][] = $this->title;
 
         <div class="flex space-x-3">
             <?= Html::submitButton('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Crea Credenziali', [
-                'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'class' => 'inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
                 'id' => 'submit-button',
-                'style' => 'background-color: #2563eb !important; color: white !important;'
+                'style' => 'background-color: #2563eb !important; color: white !important;',
+                ':disabled' => '!relationship',
             ]) ?>
         </div>
     </div>
@@ -393,6 +475,38 @@ $(document).ready(function() {
             this.value = currentValue.toUpperCase();
         });
     }
+
+    // Rigenera password casuale lato client e la imposta nei due input
+    function generateRandomPassword(length) {
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        var pwd = '';
+        for (var i = 0; i < length; i++) {
+            pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return pwd;
+    }
+
+    $('#regenerate-password-btn').on('click', function () {
+        var newPwd = generateRandomPassword(10);
+        var \$pwd = $('#credentials-password');
+        var \$pwdRepeat = $('#credentials-password-repeat');
+        \$pwd.val(newPwd).trigger('change');
+        \$pwdRepeat.val(newPwd).trigger('change');
+        // Rendi visibili temporaneamente le password rigenerate (5s)
+        var root = document.querySelector('#credentials-form');
+        if (root && root._x_dataStack) {
+            var data = root._x_dataStack[0];
+            data.showPassword = true;
+            data.showPasswordRepeat = true;
+            setTimeout(function () {
+                data.showPassword = false;
+                data.showPasswordRepeat = false;
+            }, 5000);
+        }
+        showNotification('Password rigenerata. Verra' + String.fromCharCode(39) + ' mostrata per 5 secondi.', 'info');
+    });
 });
 ");
+
+$this->registerCss('[x-cloak] { display: none !important; }');
 ?>
