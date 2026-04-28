@@ -43,6 +43,7 @@ class TherapeuticPlanManagerAPI {
 
     const config: RequestInit = {
       ...options,
+      credentials: 'include',
       headers: {
         ...defaultHeaders,
         ...options.headers,
@@ -599,6 +600,7 @@ class TherapeuticPlanManagerAPI {
       `${this.baseURL}/get-plan-therapy-for-therapist`,
       {
         method: "POST",
+        credentials: 'include',
         headers: {
           "Content-Type": "application/json",
         },

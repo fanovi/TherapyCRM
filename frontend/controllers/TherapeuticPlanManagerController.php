@@ -52,9 +52,19 @@ class TherapeuticPlanManagerController extends Controller
             'corsFilter' => [
                 'class' => Cors::className(),
                 'cors' => [
-                    'Origin' => ['*'],
+                    // Origin specifici (no wildcard) richiesto per inviare credentials.
+                    // Lista include calendar-cgm.badil.it (iframe React in produzione)
+                    // e localhost dev.
+                    'Origin' => [
+                        'https://calendar-cgm.badil.it',
+                        'https://app-cgm.badil.it',
+                        'http://localhost',
+                        'http://localhost:8080',
+                        'http://localhost:5173',
+                    ],
                     'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
-                    'Access-Control-Expose-Headers' => ['Content-Disposition'],  // Espone l'intestazione per il download
+                    'Access-Control-Allow-Credentials' => true,
+                    'Access-Control-Expose-Headers' => ['Content-Disposition'],
                     'Access-Control-Request-Headers' => ['*'],
                 ]
             ],

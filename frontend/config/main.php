@@ -25,12 +25,25 @@ return [
         'user' => [
             'identityClass' => 'common\models\User',
             'enableAutoLogin' => true,
-            'identityCookie' => ['name' => '_identity-frontend', 'httpOnly' => true],
+            // SameSite=None + Secure: il calendario React e' servito da un
+            // sottodominio diverso (calendar-cgm.badil.it) e fa richieste
+            // cross-site verso questo backend. Senza queste flag il browser
+            // non invia il cookie d'identita'.
+            'identityCookie' => [
+                'name' => '_identity-frontend',
+                'httpOnly' => true,
+                'secure' => true,
+                'sameSite' => 'none',
+            ],
             'loginUrl' => ['site/login'],
         ],
         'session' => [
-            // this is the name of the session cookie used for login on the frontend
             'name' => 'advanced-frontend',
+            'cookieParams' => [
+                'httponly' => true,
+                'secure' => true,
+                'samesite' => 'None',
+            ],
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,
