@@ -540,7 +540,7 @@ class TherapistController extends Controller
      */
     public function actionMyGroup()
     {
-        if (!Yii::$app->user->can('view_own_group_therapists')) {
+        if (!Yii::$app->user->can('view_own_group_therapists') || !Yii::$app->user->can('coordinator')) {
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i terapisti del gruppo.');
         }
 
