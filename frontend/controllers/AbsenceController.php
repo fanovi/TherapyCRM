@@ -223,8 +223,13 @@ class AbsenceController extends Controller
             ];
         }
 
+        // Filter via GridView filterModel
+        $filterModel = new \frontend\models\DailyAbsenceFilter();
+        $filterModel->load(Yii::$app->request->queryParams);
+        $filteredRows = $filterModel->validate() ? $filterModel->apply($rows) : $rows;
+
         $dataProvider = new \yii\data\ArrayDataProvider([
-            'allModels' => $rows,
+            'allModels' => $filteredRows,
             'key' => 'id',
             'pagination' => ['pageSize' => 30],
             'sort' => [
@@ -235,6 +240,7 @@ class AbsenceController extends Controller
 
         return $this->render('daily', [
             'dataProvider' => $dataProvider,
+            'filterModel' => $filterModel,
             'totalCount' => count($rows),
             'absentCount' => count($absences),
             'presentCount' => count($rows) - count($absences),

@@ -7,6 +7,7 @@ use yii\widgets\Pjax;
 
 /** @var yii\web\View $this */
 /** @var yii\data\ArrayDataProvider $dataProvider */
+/** @var \frontend\models\DailyAbsenceFilter $filterModel */
 /** @var int $totalCount */
 /** @var int $absentCount */
 /** @var int $presentCount */
@@ -156,9 +157,11 @@ $isToday = $date === date('Y-m-d');
             <?php else: ?>
                 <?= GridView::widget([
                     'dataProvider' => $dataProvider,
+                    'filterModel' => $filterModel,
                     'options' => ['class' => 'min-w-full'],
                     'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
                     'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0'],
+                    'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                     'rowOptions' => function ($row) {
                         $base = 'border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600';
                         $bg = $row['status'] === 'absent'
@@ -172,19 +175,13 @@ $isToday = $date === date('Y-m-d');
                             'label' => 'Terapista',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[240px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cerca terapista...'],
                             'format' => 'raw',
                             'value' => function ($row) {
-                                $initials = mb_strtoupper(
-                                    mb_substr($row['first_name'], 0, 1) . mb_substr($row['last_name'], 0, 1)
-                                );
-                                $color = Html::encode($row['calendar_color']);
-                                $name = Html::encode($row['last_name'] . ' ' . $row['first_name']);
-                                return '<div class="flex items-center gap-3">'
-                                    . '<div class="flex-shrink-0 flex items-center justify-center h-9 w-9 rounded-full text-white text-xs font-bold" style="background-color: ' . $color . ';">'
-                                    . Html::encode($initials)
-                                    . '</div>'
-                                    . '<span class="font-medium text-gray-900 dark:text-white">' . $name . '</span>'
-                                    . '</div>';
+                                return '<span class="font-medium text-gray-900 dark:text-white">'
+                                    . Html::encode($row['last_name'] . ' ' . $row['first_name'])
+                                    . '</span>';
                             },
                         ],
                         [
@@ -192,12 +189,22 @@ $isToday = $date === date('Y-m-d');
                             'label' => 'Specializzazione',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra...'],
                         ],
                         [
                             'attribute' => 'status',
                             'label' => 'Stato',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filter' => Html::activeDropDownList($filterModel, 'status',
+                                ['present' => 'Presente', 'absent' => 'Assente'],
+                                [
+                                    'prompt' => 'Tutti',
+                                    'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                                ]
+                            ),
                             'format' => 'raw',
                             'value' => function ($row) {
                                 if ($row['status'] === 'absent') {
@@ -209,9 +216,12 @@ $isToday = $date === date('Y-m-d');
                             },
                         ],
                         [
+                            'attribute' => 'absence_type',
                             'label' => 'Tipo Assenza',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[160px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra tipo...'],
                             'format' => 'raw',
                             'value' => function ($row) {
                                 if ($row['status'] !== 'absent') {
@@ -226,6 +236,8 @@ $isToday = $date === date('Y-m-d');
                             'label' => 'Periodo Assenza',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-xs text-gray-600 dark:text-gray-300'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filter' => false,
                             'format' => 'raw',
                             'value' => function ($row) {
                                 if ($row['status'] !== 'absent' || !$row['absence_start']) {
@@ -240,6 +252,8 @@ $isToday = $date === date('Y-m-d');
                             'label' => 'Azioni',
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filter' => false,
                             'format' => 'raw',
                             'value' => function ($row) {
                                 if ($row['status'] !== 'absent' || !$row['absence_id']) {
