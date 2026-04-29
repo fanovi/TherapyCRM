@@ -15,7 +15,7 @@ use yii\widgets\Pjax;
 /** @var string|null $groupName */
 
 $this->title = 'Riepilogo Giornaliero Terapisti';
-$this->params['breadcrumbs'][] = ['label' => 'Assenze', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['/therapist/index']];
 $this->params['breadcrumbs'][] = $this->title;
 
 $detailUrl = \yii\helpers\Url::to(['absence/daily-detail']);

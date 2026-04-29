@@ -20,14 +20,14 @@ $menuMappings = [
         'user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator',
         'coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update',
     ],
-    'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group'],
+    'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group', 'absence/daily'],
     'MyTherapists' => ['therapist/my-group'],
     'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account', 'patient/my-group'],
     'MyPatients' => ['patient/my-group'],
     'TherapeuticPlans' => ['therapeutic-plan/index', 'therapeutic-plan/create', 'therapeutic-plan/view', 'therapeutic-plan/update'],
     'DocumentRequests' => ['document-request/index', 'document-request/view', 'document-request/update'],
     'Complaints' => ['complaint/index', 'complaint/view'],
-    'Absences' => ['absence/index', 'absence/patients', 'absence/create', 'absence/view', 'absence/update', 'absence/daily'],
+    'Absences' => ['absence/index', 'absence/patients', 'absence/create', 'absence/view', 'absence/update'],
     'Manuale' => ['site/manuale', 'site/manuale-gestionale', 'site/manuale-app'],
     'RolePermissions' => ['permission/roles', 'permission/view-role'],
 ];
@@ -333,6 +333,15 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     </a>
                                 </li>
                                 <?php endif; ?>
+                                <?php if (Yii::$app->user->can('view_absence')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/absence/daily']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/daily'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Riepilogo Giornaliero
+                                    </a>
+                                </li>
+                                <?php endif; ?>
                             </ul>
                         </div>
                         <!-- Dropdown Menu End -->
@@ -366,6 +375,23 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                             </span>
                         </a>
                     </li>
+                    <?php if (Yii::$app->user->can('view_absence')): ?>
+                    <!-- Menu Item Daily Recap (for coordinators only) -->
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/absence/daily']) ?>"
+                            class="menu-item group <?= isSubmenuActive(['absence/daily'], $currentRoute) ? 'menu-item-active' : 'menu-item-inactive' ?>">
+                            <svg
+                                class="<?= isSubmenuActive(['absence/daily'], $currentRoute) ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>"
+                                width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Riepilogo Giornaliero
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <?php endif; ?>
                     <!-- Menu Item Therapists -->
 
@@ -436,15 +462,6 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                         href="<?= \yii\helpers\Url::to(['/absence/patients']) ?>"
                                         class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Assenze Pazienti
-                                    </a>
-                                </li>
-                                <?php endif; ?>
-                                <?php if (Yii::$app->user->can('view_absence')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/absence/daily']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/daily'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Riepilogo Giornaliero Terapisti
                                     </a>
                                 </li>
                                 <?php endif; ?>
