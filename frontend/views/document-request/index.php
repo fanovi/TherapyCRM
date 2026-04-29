@@ -313,43 +313,9 @@ $this->params['breadcrumbs'][] = $this->title;
                                 $user = Yii::$app->user;
                                 $canChangeFreely = $user->can('change_document_request_status');
                                 $canMarkDelivered = $user->can('mark_document_request_delivered');
+                                $hasAnyPerm = $canChangeFreely || $canMarkDelivered;
 
-                                $availableStatuses = [];
-                                $title = 'Cambia stato';
-
-                                if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                                    // Solo chi puo' marcare/revertire puo' tornare indietro.
-                                    if ($canMarkDelivered) {
-                                        $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
-                                            ->where(['document_request_id' => $model->id])
-                                            ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
-                                            ->orderBy(['created_at' => SORT_DESC])
-                                            ->one();
-                                        $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id
-                                            ? $previousStatusHistory->from_status_id
-                                            : RequestStatus::STATUS_STAMPATO;
-                                        $previousLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
-                                        $availableStatuses[$previousStatus] = 'Torna a: ' . $previousLabel;
-                                        $title = 'Torna a: ' . $previousLabel;
-                                    }
-                                } else {
-                                    if ($canChangeFreely) {
-                                        if ($model->status != RequestStatus::STATUS_INVIATA) {
-                                            $availableStatuses[RequestStatus::STATUS_INVIATA] = 'Inviata';
-                                        }
-                                        if ($model->status != RequestStatus::STATUS_PRESA_IN_CARICO) {
-                                            $availableStatuses[RequestStatus::STATUS_PRESA_IN_CARICO] = 'Presa in carico';
-                                        }
-                                        if ($model->status != RequestStatus::STATUS_STAMPATO) {
-                                            $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
-                                        }
-                                    }
-                                    if ($canMarkDelivered) {
-                                        $availableStatuses[RequestStatus::STATUS_CONSEGNATO] = 'Consegnato';
-                                    }
-                                }
-
-                                if (empty($availableStatuses)) {
+                                if (!$hasAnyPerm) {
                                     return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
@@ -357,14 +323,59 @@ $this->params['breadcrumbs'][] = $this->title;
                                     </span>';
                                 }
 
+                                $isDelivered = $model->status == RequestStatus::STATUS_CONSEGNATO;
+
+                                $previousStatus = null;
+                                if ($isDelivered) {
+                                    $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
+                                        ->where(['document_request_id' => $model->id])
+                                        ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
+                                        ->orderBy(['created_at' => SORT_DESC])
+                                        ->one();
+                                    $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id
+                                        ? $previousStatusHistory->from_status_id
+                                        : RequestStatus::STATUS_STAMPATO;
+                                }
+
+                                // Lista completa stati: chi e' selezionabile vs solo visibile in grigio.
+                                $statusList = [
+                                    RequestStatus::STATUS_INVIATA => 'Inviata',
+                                    RequestStatus::STATUS_PRESA_IN_CARICO => 'Presa in carico',
+                                    RequestStatus::STATUS_STAMPATO => 'Stampato',
+                                    RequestStatus::STATUS_CONSEGNATO => 'Consegnato',
+                                ];
+                                $allStatuses = [];
+                                foreach ($statusList as $stId => $stLabel) {
+                                    $isCurrent = $model->status == $stId;
+                                    if ($isDelivered) {
+                                        // In stato Consegnato: solo lo stato precedente e' selezionabile.
+                                        $enabled = !$isCurrent && $canMarkDelivered && $stId == $previousStatus;
+                                    } else {
+                                        if ($isCurrent) {
+                                            $enabled = false;
+                                        } elseif ($stId == RequestStatus::STATUS_CONSEGNATO) {
+                                            $enabled = $canMarkDelivered;
+                                        } else {
+                                            $enabled = $canChangeFreely;
+                                        }
+                                    }
+
+                                    $allStatuses[] = [
+                                        'id' => (string) $stId,
+                                        'label' => $stId == $previousStatus && $isDelivered ? 'Torna a: ' . $stLabel : $stLabel,
+                                        'enabled' => $enabled,
+                                        'current' => $isCurrent,
+                                    ];
+                                }
+
                                 return Html::button(
                                     '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                     </svg>',
                                     [
-                                        'title' => $title,
+                                        'title' => 'Cambia stato',
                                         'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors',
-                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
+                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($allStatuses) . ')',
                                     ]
                                 );
                             },
@@ -673,7 +684,7 @@ window.openStatusUpdateModal = function (requestId, statuses) {
         console.error('SweetAlert2 non caricato.');
         return;
     }
-    if (!statuses || Object.keys(statuses).length === 0) {
+    if (!statuses || statuses.length === 0) {
         Swal.fire({
             icon: 'info',
             title: 'Nessuna azione disponibile',
@@ -683,23 +694,44 @@ window.openStatusUpdateModal = function (requestId, statuses) {
         return;
     }
 
-    var radios = '';
-    var first = null;
-    Object.entries(statuses).forEach(function (entry) {
-        var id = entry[0];
-        var label = entry[1];
-        if (first === null) { first = id; }
-        radios += '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;margin-bottom:6px;">'
-            + '<input type="radio" name="swal-status" value="' + id + '" style="margin:0;">'
-            + '<span style="font-size:14px;color:#111827;">' + label + '</span>'
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    var anyEnabled = false;
+    var radios = statuses.map(function (s) {
+        var label = escapeHtml(s.label);
+        var idStr = escapeHtml(String(s.id));
+        var bg, border, color, cursor;
+        if (s.current) {
+            bg = '#eff6ff'; border = '#bfdbfe'; color = '#1d4ed8'; cursor = 'not-allowed';
+        } else if (s.enabled) {
+            bg = '#ffffff'; border = '#e5e7eb'; color = '#111827'; cursor = 'pointer';
+            anyEnabled = true;
+        } else {
+            bg = '#f9fafb'; border = '#f3f4f6'; color = '#9ca3af'; cursor = 'not-allowed';
+        }
+        var disabledAttr = s.enabled ? '' : 'disabled';
+        var note = '';
+        if (s.current) { note = ' <span style="font-size:11px;color:#1d4ed8;font-style:italic;">(stato attuale)</span>'; }
+        else if (!s.enabled) { note = ' <span style="font-size:11px;color:#9ca3af;font-style:italic;">(non disponibile)</span>'; }
+
+        return '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid ' + border
+            + ';border-radius:8px;cursor:' + cursor + ';margin-bottom:6px;background:' + bg
+            + ';color:' + color + ';">'
+            + '<input type="radio" name="swal-status" value="' + idStr + '" ' + disabledAttr + ' style="margin:0;">'
+            + '<span style="font-size:14px;">' + label + note + '</span>'
             + '</label>';
-    });
+    }).join('');
 
     Swal.fire({
         title: 'Aggiorna stato richiesta',
         html: '<div style="text-align:left;">'
             + '<p style="font-size:13px;color:#6b7280;margin:0 0 12px 0;">Seleziona il nuovo stato. L\\'operazione viene registrata nella cronologia.</p>'
             + radios
+            + (!anyEnabled ? '<p style="font-size:12px;color:#dc2626;margin-top:8px;">Nessuno stato selezionabile con i permessi attuali.</p>' : '')
             + '</div>',
         showCancelButton: true,
         confirmButtonText: 'Conferma',
@@ -708,9 +740,10 @@ window.openStatusUpdateModal = function (requestId, statuses) {
         cancelButtonColor: '#6b7280',
         reverseButtons: true,
         focusConfirm: false,
+        showConfirmButton: anyEnabled,
         didOpen: function () {
-            var firstRadio = Swal.getHtmlContainer().querySelector('input[name="swal-status"]');
-            if (firstRadio) { firstRadio.checked = true; }
+            var firstEnabled = Swal.getHtmlContainer().querySelector('input[name="swal-status"]:not([disabled])');
+            if (firstEnabled) { firstEnabled.checked = true; }
         },
         preConfirm: function () {
             var checked = Swal.getHtmlContainer().querySelector('input[name="swal-status"]:checked');
