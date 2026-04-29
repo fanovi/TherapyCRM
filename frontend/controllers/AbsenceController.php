@@ -37,7 +37,7 @@ class AbsenceController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view', 'daily'],
+                        'actions' => ['index', 'view', 'daily', 'daily-detail'],
                         'allow' => true,
                         'roles' => ['view_absence'],
                     ],
@@ -247,6 +247,57 @@ class AbsenceController extends Controller
             'date' => $date,
             'groupName' => $groupName,
         ]);
+    }
+
+    /**
+     * AJAX: ritorna i dettagli di un'assenza in JSON per la modale del Riepilogo Giornaliero.
+     * Filtro coordinator: solo assenze dei terapisti del proprio gruppo.
+     * @param int $id
+     * @return array
+     */
+    public function actionDailyDetail($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = Absence::findOne($id);
+        if (!$model) {
+            Yii::$app->response->statusCode = 404;
+            return ['success' => false, 'error' => 'Assenza non trovata.'];
+        }
+
+        if ($this->isCoordinatorOnly()) {
+            $therapistIds = $this->getCoordinatorTherapistIds();
+            if (!in_array($model->therapist_id, $therapistIds)) {
+                Yii::$app->response->statusCode = 403;
+                return ['success' => false, 'error' => 'Non autorizzato.'];
+            }
+        }
+
+        $therapistName = '-';
+        if ($model->therapist && $model->therapist->user && $model->therapist->user->profile) {
+            $p = $model->therapist->user->profile;
+            $therapistName = trim($p->last_name . ' ' . $p->first_name);
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'id' => $model->id,
+                'therapist' => $therapistName,
+                'start_date' => Yii::$app->formatter->asDate($model->start_date, 'php:d/m/Y'),
+                'end_date' => Yii::$app->formatter->asDate($model->end_date, 'php:d/m/Y'),
+                'duration_days' => $model->getDurationDays(),
+                'type' => $model->getTypeLabel(),
+                'reason' => $model->reason ?: '-',
+                'notes' => $model->notes ?: '-',
+                'status' => $model->getStatusLabel(),
+                'is_approved' => $model->isApproved(),
+                'can_update' => Yii::$app->user->can('update_absence') || Yii::$app->user->can('create_absence'),
+                'can_delete' => Yii::$app->user->can('delete_absence'),
+                'update_url' => \yii\helpers\Url::to(['update', 'id' => $model->id]),
+                'delete_url' => \yii\helpers\Url::to(['delete', 'id' => $model->id]),
+            ],
+        ];
     }
 
     /**

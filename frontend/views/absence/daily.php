@@ -18,6 +18,10 @@ $this->title = 'Riepilogo Giornaliero Terapisti';
 $this->params['breadcrumbs'][] = ['label' => 'Assenze', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
+$detailUrl = \yii\helpers\Url::to(['absence/daily-detail']);
+$csrfParam = Yii::$app->request->csrfParam;
+$csrfToken = Yii::$app->request->csrfToken;
+
 $formattedDate = Yii::$app->formatter->asDate($date, 'long');
 $isToday = $date === date('Y-m-d');
 ?>
@@ -249,12 +253,13 @@ $isToday = $date === date('Y-m-d');
                                 if (!Yii::$app->user->can('view_absence')) {
                                     return '<span class="text-xs text-gray-400">&mdash;</span>';
                                 }
-                                return Html::a(
+                                return Html::button(
                                     '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>',
-                                    ['view', 'id' => $row['absence_id']],
                                     [
-                                        'title' => 'Visualizza assenza',
+                                        'type' => 'button',
+                                        'title' => 'Visualizza dettagli',
                                         'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                        'onclick' => 'openAbsenceModal(' . (int)$row['absence_id'] . ')',
                                     ]
                                 );
                             },
@@ -267,3 +272,107 @@ $isToday = $date === date('Y-m-d');
         </div>
     </div>
 </div>
+
+<?php
+$js = <<<JS
+window.openAbsenceModal = function(id) {
+    Swal.fire({
+        title: 'Caricamento...',
+        didOpen: () => Swal.showLoading(),
+        showConfirmButton: false,
+        allowOutsideClick: false,
+    });
+
+    fetch('{$detailUrl}?id=' + encodeURIComponent(id), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        credentials: 'same-origin',
+    })
+    .then(r => r.json().then(json => ({ status: r.status, json })))
+    .then(({ status, json }) => {
+        if (!json.success) {
+            Swal.fire({ icon: 'error', title: 'Errore', text: json.error || 'Errore caricamento dettagli' });
+            return;
+        }
+        const d = json.data;
+        const statusBadge = d.is_approved
+            ? '<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">' + d.status + '</span>'
+            : '<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">' + d.status + '</span>';
+
+        const html = ''
+            + '<div class="text-left text-sm space-y-3">'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Terapista</dt><dd class="col-span-2 font-medium">' + escapeHtml(d.therapist) + '</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Periodo</dt><dd class="col-span-2">' + escapeHtml(d.start_date) + ' &rarr; ' + escapeHtml(d.end_date) + '</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Durata</dt><dd class="col-span-2">' + escapeHtml(d.duration_days) + ' giorni</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Tipo</dt><dd class="col-span-2">' + escapeHtml(d.type) + '</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Motivo</dt><dd class="col-span-2">' + escapeHtml(d.reason) + '</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Note</dt><dd class="col-span-2 whitespace-pre-line">' + escapeHtml(d.notes) + '</dd></div>'
+            +   '<div class="grid grid-cols-3 gap-2 items-baseline"><dt class="text-gray-500 col-span-1">Stato</dt><dd class="col-span-2">' + statusBadge + '</dd></div>'
+            + '</div>';
+
+        Swal.fire({
+            title: 'Dettagli Assenza',
+            html: html,
+            width: 600,
+            showCancelButton: true,
+            cancelButtonText: 'Chiudi',
+            cancelButtonColor: '#6b7280',
+            showConfirmButton: !!d.can_update,
+            confirmButtonText: 'Modifica',
+            confirmButtonColor: '#3b82f6',
+            showDenyButton: !!d.can_delete,
+            denyButtonText: 'Elimina',
+            denyButtonColor: '#dc2626',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed && d.update_url) {
+                window.location.href = d.update_url;
+            } else if (result.isDenied && d.delete_url) {
+                confirmDeleteAbsence(d.delete_url, d.therapist);
+            }
+        });
+    })
+    .catch(err => {
+        Swal.fire({ icon: 'error', title: 'Errore', text: 'Impossibile caricare i dettagli.' });
+        console.error(err);
+    });
+};
+
+function confirmDeleteAbsence(url, therapistName) {
+    Swal.fire({
+        title: 'Eliminare assenza?',
+        text: 'L\\'assenza di ' + therapistName + ' sara\\' eliminata definitivamente.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Elimina',
+        cancelButtonText: 'Annulla',
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+    }).then((res) => {
+        if (!res.isConfirmed) return;
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '{$csrfParam}';
+        csrf.value = '{$csrfToken}';
+        form.appendChild(csrf);
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+JS;
+$this->registerJs($js, \yii\web\View::POS_END);
+?>
