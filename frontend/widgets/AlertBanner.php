@@ -6,13 +6,15 @@ use yii\base\Widget;
 use yii\helpers\Html;
 
 /**
- * Widget riusabile per banner di stato/avviso evidenti.
+ * Widget riusabile per banner di stato/avviso.
+ * Usa inline-style con colori pastello: indipendente dalla build di Tailwind.
  *
  * Esempio:
  * echo AlertBanner::widget([
  *     'variant' => 'danger',
  *     'title' => 'Piano Terapeutico Interrotto',
  *     'message' => 'Questo piano è stato interrotto il 29/04/2026.<br>Motivo: ...',
+ *     'rawMessage' => true,
  * ]);
  *
  * Variants: info | success | warning | danger
@@ -36,21 +38,30 @@ class AlertBanner extends Widget
         $title = $this->title !== '' ? Html::encode($this->title) : '';
         $message = $this->rawMessage ? $this->message : nl2br(Html::encode($this->message));
 
-        $wrapperClass = "rounded-xl border-2 shadow-md p-5 mb-6 flex items-start gap-4 {$config['wrapper']}";
-        Html::addCssClass($this->options, $wrapperClass);
+        $wrapperStyle = sprintf(
+            'display:flex;align-items:center;gap:14px;border-radius:12px;border:2px solid %s;background:%s;padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,0.06);',
+            $config['border'],
+            $config['bg']
+        );
+        Html::addCssStyle($this->options, $wrapperStyle);
 
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">'
-            . '<path stroke-linecap="round" stroke-linejoin="round" d="' . $iconPath . '"/>'
-            . '</svg>';
+        $iconWrapStyle = sprintf(
+            'display:flex;align-items:center;justify-content:center;flex-shrink:0;width:40px;height:40px;border-radius:9999px;background:%s;color:%s;',
+            $config['iconBg'],
+            $config['iconColor']
+        );
 
-        $iconWrapper = '<div class="' . $config['iconWrap'] . ' flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0">' . $svg . '</div>';
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">'
+            . '<path stroke-linecap="round" stroke-linejoin="round" d="' . $iconPath . '"/></svg>';
 
-        $body = '<div class="flex-1 min-w-0">';
+        $iconWrapper = '<div style="' . $iconWrapStyle . '">' . $svg . '</div>';
+
+        $body = '<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">';
         if ($title !== '') {
-            $body .= '<h3 class="text-base font-semibold ' . $config['titleColor'] . ' mb-1">' . $title . '</h3>';
+            $body .= '<div style="font-weight:600;font-size:15px;line-height:1.3;color:' . $config['titleColor'] . ';margin-bottom:2px;">' . $title . '</div>';
         }
         if ($message !== '') {
-            $body .= '<div class="text-sm ' . $config['textColor'] . '">' . $message . '</div>';
+            $body .= '<div style="font-size:14px;line-height:1.4;color:' . $config['textColor'] . ';">' . $message . '</div>';
         }
         $body .= '</div>';
 
@@ -59,36 +70,44 @@ class AlertBanner extends Widget
 
     protected function getVariantConfig($variant)
     {
-        $defaults = [
+        $variants = [
             'info' => [
-                'wrapper' => 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/30',
-                'iconWrap' => 'bg-blue-100 text-blue-600 dark:bg-blue-800 dark:text-blue-300',
-                'titleColor' => 'text-blue-900 dark:text-blue-100',
-                'textColor' => 'text-blue-800 dark:text-blue-200',
+                'bg' => '#eff6ff',
+                'border' => '#93c5fd',
+                'iconBg' => '#dbeafe',
+                'iconColor' => '#1d4ed8',
+                'titleColor' => '#1e3a8a',
+                'textColor' => '#1e40af',
                 'icon' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
             ],
             'success' => [
-                'wrapper' => 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/30',
-                'iconWrap' => 'bg-green-100 text-green-600 dark:bg-green-800 dark:text-green-300',
-                'titleColor' => 'text-green-900 dark:text-green-100',
-                'textColor' => 'text-green-800 dark:text-green-200',
+                'bg' => '#ecfdf5',
+                'border' => '#6ee7b7',
+                'iconBg' => '#d1fae5',
+                'iconColor' => '#047857',
+                'titleColor' => '#064e3b',
+                'textColor' => '#065f46',
                 'icon' => 'M5 13l4 4L19 7',
             ],
             'warning' => [
-                'wrapper' => 'border-yellow-400 bg-yellow-50 dark:border-yellow-600 dark:bg-yellow-900/30',
-                'iconWrap' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-300',
-                'titleColor' => 'text-yellow-900 dark:text-yellow-100',
-                'textColor' => 'text-yellow-800 dark:text-yellow-200',
+                'bg' => '#fffbeb',
+                'border' => '#fcd34d',
+                'iconBg' => '#fef3c7',
+                'iconColor' => '#b45309',
+                'titleColor' => '#78350f',
+                'textColor' => '#92400e',
                 'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
             ],
             'danger' => [
-                'wrapper' => 'border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-900/30',
-                'iconWrap' => 'bg-red-100 text-red-600 dark:bg-red-800 dark:text-red-300',
-                'titleColor' => 'text-red-900 dark:text-red-100',
-                'textColor' => 'text-red-800 dark:text-red-200',
+                'bg' => '#fef2f2',
+                'border' => '#fca5a5',
+                'iconBg' => '#fee2e2',
+                'iconColor' => '#b91c1c',
+                'titleColor' => '#7f1d1d',
+                'textColor' => '#991b1b',
                 'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
             ],
         ];
-        return $defaults[$variant] ?? $defaults['info'];
+        return $variants[$variant] ?? $variants['info'];
     }
 }
