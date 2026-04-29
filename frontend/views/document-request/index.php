@@ -314,7 +314,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 // Ottieni il ruolo specifico dell'utente
                                 $auth = Yii::$app->authManager;
                                 $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
-                                $isAdmin = in_array('admin', $userRoles);
+                                $isAdmin = in_array('admin', $userRoles) || in_array('super_admin', $userRoles);
                                 $isManager = in_array('manager', $userRoles);
 
                                 if ($isAdmin) {
