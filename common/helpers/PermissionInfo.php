@@ -273,6 +273,230 @@ class PermissionInfo
                 'title' => 'Esportare dati',
                 'description' => "Permette l'esportazione dei dati in formato CSV/Excel."
             ],
+
+            // ==== Accesso (residui) ====
+            'manage_notifications' => [
+                'title' => 'Gestire notifiche di sistema',
+                'description' => "Gestione delle notifiche di sistema (avvisi automatici, alert per amministratori)."
+            ],
+
+            // ==== Appuntamenti ====
+            'create_appointment' => [
+                'title' => 'Creare appuntamenti',
+                'description' => "Permette di creare nuovi appuntamenti dal calendario."
+            ],
+            'update_appointment' => [
+                'title' => 'Modificare appuntamenti',
+                'description' => "Permette di modificare data, ora, durata e note degli appuntamenti."
+            ],
+            'delete_appointment' => [
+                'title' => 'Eliminare appuntamenti',
+                'description' => "Permette di cancellare appuntamenti dal calendario."
+            ],
+            'manage_appointments' => [
+                'title' => 'Gestire appuntamenti (generale)',
+                'description' => "Gestione completa degli appuntamenti: creazione, modifica, eliminazione, sostituzione."
+            ],
+            'manage_appointment_patterns' => [
+                'title' => 'Gestire pattern ricorrenti',
+                'description' => "Crea e modifica pattern di appuntamenti ricorrenti (es. ogni lunedi' per 12 settimane)."
+            ],
+
+            // ==== Assenze (residui) ====
+            'view_absence_statistics' => [
+                'title' => 'Visualizzare statistiche assenze',
+                'description' => "Accesso alle statistiche aggregate delle assenze (per terapista, paziente, periodo)."
+            ],
+
+            // ==== Calendario (residui) ====
+            'manage_own_schedule' => [
+                'title' => 'Gestire il proprio calendario',
+                'description' => "Vista limitata: il terapista puo' gestire solo il proprio calendario."
+            ],
+
+            // ==== Configurazione ====
+            'manage_districts' => [
+                'title' => 'Gestire distretti',
+                'description' => "Crea/modifica/elimina i distretti sanitari di riferimento."
+            ],
+            'manage_settings' => [
+                'title' => 'Gestire impostazioni',
+                'description' => "Accesso a parametri di configurazione del gestionale (e-mail, integrazioni, etc)."
+            ],
+
+            // ==== Dati personali (residui) ====
+            'view_assigned_patients' => [
+                'title' => 'Visualizzare pazienti assegnati',
+                'description' => "Vista dei pazienti che il terapista ha in carico via piani/appuntamenti."
+            ],
+
+            // ==== Documenti (residui) ====
+            'create_document_request' => [
+                'title' => 'Creare richieste documenti',
+                'description' => "Permette di aprire una nuova richiesta di documento (certificati, attestazioni)."
+            ],
+            'view_document_request' => [
+                'title' => 'Visualizzare richieste documenti',
+                'description' => "Accesso in lettura alle richieste documenti aperte dai pazienti/familiari."
+            ],
+            'update_document_request' => [
+                'title' => 'Modificare richieste documenti',
+                'description' => "Permette di aggiornare i dati di una richiesta (paziente, tipo, note)."
+            ],
+            'delete_document_request' => [
+                'title' => 'Eliminare richieste documenti',
+                'description' => "Rimuove una richiesta dal sistema. Non agisce sul cambio stato (gestito da altri permessi)."
+            ],
+
+            // ==== Gestione Admin ====
+            'create_admin' => [
+                'title' => 'Creare amministratori',
+                'description' => "Permette di creare nuovi utenti con ruolo admin. Operazione delicata: l'admin ha pieno accesso al sistema."
+            ],
+            'view_admin' => [
+                'title' => 'Visualizzare amministratori',
+                'description' => "Accesso alla lista degli admin del sistema."
+            ],
+            'update_admin' => [
+                'title' => 'Modificare amministratori',
+                'description' => "Modifica dati e permessi degli admin."
+            ],
+            'delete_admin' => [
+                'title' => 'Eliminare amministratori',
+                'description' => "Rimuove un admin dal sistema. Verificare di non rimanere senza admin attivi."
+            ],
+
+            // ==== Gestione Manager ====
+            'create_manager' => [
+                'title' => 'Creare manager',
+                'description' => "Permette di creare nuovi manager (ruolo intermedio tra admin e operatore)."
+            ],
+            'view_manager' => [
+                'title' => 'Visualizzare manager',
+                'description' => "Accesso alla lista dei manager."
+            ],
+            'update_manager' => [
+                'title' => 'Modificare manager',
+                'description' => "Modifica dati e permessi dei manager."
+            ],
+            'delete_manager' => [
+                'title' => 'Eliminare manager',
+                'description' => "Rimuove un manager dal sistema."
+            ],
+
+            // ==== Gestione Pazienti (residui) ====
+            'view_patient_statistics' => [
+                'title' => 'Visualizzare statistiche pazienti',
+                'description' => "Accesso alle statistiche aggregate sui pazienti (numero, distribuzione, trend)."
+            ],
+
+            // ==== Gestione Terapisti (residui) ====
+            'manage_therapist_schedule' => [
+                'title' => 'Gestire calendario terapisti',
+                'description' => "Permette di gestire il calendario di tutti i terapisti, non solo del proprio."
+            ],
+            'manage_therapist_substitutions' => [
+                'title' => 'Gestire sostituzioni terapisti',
+                'description' => "Crea e gestisce le sostituzioni quando un terapista e' assente."
+            ],
+            'view_therapist_statistics' => [
+                'title' => 'Visualizzare statistiche terapisti',
+                'description' => "Accesso alle statistiche aggregate sui terapisti (ore, presenze, performance)."
+            ],
+
+            // ==== Gestione Utenti Generica ====
+            'create_user' => [
+                'title' => 'Creare utenti',
+                'description' => "Permesso generico per creare utenti di qualunque tipo."
+            ],
+            'view_user' => [
+                'title' => 'Visualizzare utenti',
+                'description' => "Lista globale di tutti gli utenti del sistema."
+            ],
+            'update_user' => [
+                'title' => 'Modificare utenti',
+                'description' => "Modifica dati di un utente generico (qualunque ruolo)."
+            ],
+            'delete_user' => [
+                'title' => 'Eliminare utenti',
+                'description' => "Rimuove un utente dal sistema."
+            ],
+            'manage_users' => [
+                'title' => 'Gestire utenti (generale)',
+                'description' => "Permesso ombrello sulla gestione utenti."
+            ],
+            'manage_patients' => [
+                'title' => 'Gestire pazienti (generale)',
+                'description' => "Permesso ombrello su tutta la gestione pazienti (creazione, modifica, eliminazione, account)."
+            ],
+            'manage_therapists' => [
+                'title' => 'Gestire terapisti (generale)',
+                'description' => "Permesso ombrello su tutta la gestione terapisti (creazione, modifica, calendario, sostituzioni)."
+            ],
+
+            // ==== Notifiche (residui) ====
+            'view_notification' => [
+                'title' => 'Visualizzare notifiche',
+                'description' => "Accesso alla pagina delle notifiche personali."
+            ],
+            'update_notification' => [
+                'title' => 'Modificare notifiche',
+                'description' => "Permette di modificare titolo/messaggio di una notifica gia' inviata."
+            ],
+            'delete_notification' => [
+                'title' => 'Eliminare notifiche',
+                'description' => "Rimuove una notifica dal sistema."
+            ],
+
+            // ==== Piani Terapeutici (residui) ====
+            'manage_plan_therapies' => [
+                'title' => 'Gestire terapie del piano',
+                'description' => "Permette di aggiungere/rimuovere terapie all'interno di un piano terapeutico."
+            ],
+            'manage_plans' => [
+                'title' => 'Gestire piani terapeutici (generale)',
+                'description' => "Permesso ombrello sulla gestione piani: include creazione, modifica, terapie, eliminazione."
+            ],
+
+            // ==== Specializzazioni ====
+            'create_specialization' => [
+                'title' => 'Creare specializzazioni',
+                'description' => "Permette di aggiungere una nuova specializzazione (es. Logopedia, Psicomotricita')."
+            ],
+            'view_specialization' => [
+                'title' => 'Visualizzare specializzazioni',
+                'description' => "Accesso alla lista delle specializzazioni configurate."
+            ],
+            'update_specialization' => [
+                'title' => 'Modificare specializzazioni',
+                'description' => "Permette di modificare nome e trattamenti associati a una specializzazione."
+            ],
+            'delete_specialization' => [
+                'title' => 'Eliminare specializzazioni',
+                'description' => "Rimuove una specializzazione. Verifica prima eventuali terapisti collegati."
+            ],
+            'manage_treatment_types' => [
+                'title' => 'Gestire tipi di trattamento',
+                'description' => "Configurazione dei tipi di trattamento erogati (Fisiokinesiterapia, Logopedia, etc)."
+            ],
+
+            // ==== Visite Specialistiche ====
+            'create_specialist_visit' => [
+                'title' => 'Creare visite specialistiche',
+                'description' => "Registra una nuova visita specialistica per un paziente."
+            ],
+            'view_specialist_visit' => [
+                'title' => 'Visualizzare visite specialistiche',
+                'description' => "Accesso allo storico visite specialistiche dei pazienti."
+            ],
+            'update_specialist_visit' => [
+                'title' => 'Modificare visite specialistiche',
+                'description' => "Modifica i dati di una visita gia' registrata."
+            ],
+            'delete_specialist_visit' => [
+                'title' => 'Eliminare visite specialistiche',
+                'description' => "Rimuove una visita specialistica dallo storico paziente."
+            ],
         ];
     }
 
