@@ -313,6 +313,8 @@ class PermissionController extends Controller
             'manage_documents' => 'Documenti',
             'view_documents' => 'Documenti',
             'download_documents' => 'Documenti',
+            'change_document_request_status' => 'Documenti',
+            'mark_document_request_delivered' => 'Documenti',
             'manage_treatment_types' => 'Specializzazioni',
         ];
 
