@@ -444,7 +444,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/absence/daily']) ?>"
                                         class="menu-dropdown-item group <?= isSubmenuActive(['absence/daily'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Presenze Giornaliere
+                                        Riepilogo Giornaliero Terapisti
                                     </a>
                                 </li>
                                 <?php endif; ?>

@@ -203,9 +203,41 @@ class AbsenceController extends Controller
             ->indexBy('therapist_id')
             ->all();
 
+        // Build flat rows for GridView (ArrayDataProvider).
+        $rows = [];
+        foreach ($therapists as $therapist) {
+            $absence = $absences[$therapist->id] ?? null;
+            $profile = $therapist->user->profile ?? null;
+            $rows[] = [
+                'id' => $therapist->id,
+                'last_name' => $profile->last_name ?? '',
+                'first_name' => $profile->first_name ?? '',
+                'full_name' => $profile ? trim($profile->last_name . ' ' . $profile->first_name) : '',
+                'specialization' => $therapist->specialization->name ?? 'N/D',
+                'calendar_color' => $therapist->calendar_color ?: '#6B7280',
+                'status' => $absence ? 'absent' : 'present',
+                'absence_type' => $absence ? $absence->getTypeLabel() : null,
+                'absence_start' => $absence->start_date ?? null,
+                'absence_end' => $absence->end_date ?? null,
+                'absence_id' => $absence->id ?? null,
+            ];
+        }
+
+        $dataProvider = new \yii\data\ArrayDataProvider([
+            'allModels' => $rows,
+            'key' => 'id',
+            'pagination' => ['pageSize' => 30],
+            'sort' => [
+                'attributes' => ['full_name', 'last_name', 'specialization', 'status'],
+                'defaultOrder' => ['last_name' => SORT_ASC],
+            ],
+        ]);
+
         return $this->render('daily', [
-            'therapists' => $therapists,
-            'absences' => $absences,
+            'dataProvider' => $dataProvider,
+            'totalCount' => count($rows),
+            'absentCount' => count($absences),
+            'presentCount' => count($rows) - count($absences),
             'date' => $date,
             'groupName' => $groupName,
         ]);

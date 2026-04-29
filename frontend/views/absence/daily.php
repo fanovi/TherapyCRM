@@ -2,42 +2,38 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
+use yii\grid\GridView;
+use yii\widgets\Pjax;
 
 /** @var yii\web\View $this */
-/** @var common\models\Therapist[] $therapists */
-/** @var common\models\Absence[] $absences */
+/** @var yii\data\ArrayDataProvider $dataProvider */
+/** @var int $totalCount */
+/** @var int $absentCount */
+/** @var int $presentCount */
 /** @var string $date */
 /** @var string|null $groupName */
 
-$this->title = 'Presenze Giornaliere';
+$this->title = 'Riepilogo Giornaliero Terapisti';
 $this->params['breadcrumbs'][] = ['label' => 'Assenze', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
-
-$totalCount = count($therapists);
-$absentCount = count($absences);
-$presentCount = $totalCount - $absentCount;
 
 $formattedDate = Yii::$app->formatter->asDate($date, 'long');
 $isToday = $date === date('Y-m-d');
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
-    <!-- Breadcrumb Start -->
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
-                <?= Html::encode($this->title) ?>
-            </h2>
-            <?php if ($groupName): ?>
+    <!-- Header -->
+    <div x-data="{ pageName: '<?= Html::encode($this->title) ?>'}">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Gruppo: <strong><?= Html::encode($groupName) ?></strong>
+                    Stato presenze terapisti del <?= Html::encode($formattedDate) ?><?= $groupName ? ' &mdash; gruppo <strong>' . Html::encode($groupName) . '</strong>' : '' ?>.
                 </p>
-            <?php endif; ?>
-        </div>
+            </div>
 
-        <!-- Date picker -->
-        <form method="get" action="<?= Url::to(['absence/daily']) ?>">
-            <div class="flex items-center gap-3">
+            <!-- Date picker -->
+            <form method="get" action="<?= Url::to(['absence/daily']) ?>" class="flex items-center gap-2">
                 <?php if (!$isToday): ?>
                     <?= Html::a('Oggi', ['absence/daily'], [
                         'class' => 'inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
@@ -51,10 +47,9 @@ $isToday = $date === date('Y-m-d');
                     onchange="this.form.submit()"
                     class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:border-brand-300 focus:ring-brand-500/10 focus:ring-3 focus:outline-hidden"
                 />
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
-    <!-- Breadcrumb End -->
 
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 mb-6 md:gap-6">
@@ -97,12 +92,9 @@ $isToday = $date === date('Y-m-d');
                         <?= $absentCount ?>
                     </h4>
                 </div>
-                <?php if ($absentCount > 0): ?>
+                <?php if ($totalCount > 0): ?>
                 <span class="flex items-center gap-1 rounded-full bg-error-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500">
-                    <svg class="fill-current" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M5.56462 1.62393C5.70193 1.47072 5.90135 1.37432 6.12329 1.37432C6.1236 1.37432 6.12391 1.37432 6.12422 1.37432C6.31631 1.37415 6.50845 1.44731 6.65505 1.59381L9.65514 4.5918C9.94814 4.88459 9.94831 5.35947 9.65552 5.65246C9.36273 5.94546 8.88785 5.94562 8.59486 5.65283L6.87329 3.93247L6.87329 10.125C6.87329 10.5392 6.53751 10.875 6.12329 10.875C5.70908 10.875 5.37329 10.5392 5.37329 10.125L5.37329 3.93578L3.65516 5.65282C3.36218 5.94562 2.8873 5.94547 2.5945 5.65248C2.3017 5.35949 2.30185 4.88462 2.59484 4.59182L5.56462 1.62393Z"/>
-                    </svg>
-                    Attenzione
+                    <?= round(($absentCount / $totalCount) * 100) ?>%
                 </span>
                 <?php endif; ?>
             </div>
@@ -128,98 +120,149 @@ $isToday = $date === date('Y-m-d');
 
     <!-- Content Card -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="px-5 py-4 sm:px-6 sm:py-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-                    Riepilogo <?= Html::encode($formattedDate) ?>
-                </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Stato presenze dei terapisti<?= $groupName ? ' del gruppo ' . Html::encode($groupName) : '' ?>.
-                </p>
-            </div>
-            <?php if ($totalCount > 0): ?>
-                <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                    <span class="flex items-center gap-1">
-                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span> Presente
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span> Assente
-                    </span>
-                </div>
-            <?php endif; ?>
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Elenco Terapisti
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Stato presenze del <?= Html::encode($formattedDate) ?>.
+            </p>
         </div>
 
-        <div class="border-t border-gray-100 dark:border-gray-800">
-            <?php if (empty($therapists)): ?>
+        <!-- Toolbar -->
+        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <?= 'Trovati ' . $totalCount . ' terapisti' ?>
+            </div>
+            <div class="flex gap-2">
+                <?= Html::button('Aggiorna', [
+                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-brand-600 border border-transparent rounded-md shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
+                    'onclick' => '$.pjax.reload({container:"#daily-presence-pjax"});'
+                ]) ?>
+            </div>
+        </div>
+
+        <!-- GridView -->
+        <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
+            <?php Pjax::begin(['id' => 'daily-presence-pjax']); ?>
+
+            <?php if ($totalCount === 0): ?>
                 <div class="p-8 text-center">
                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nessun terapista trovato nel tuo gruppo.</p>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Nessun terapista trovato.</p>
                 </div>
             <?php else: ?>
-                <div class="p-5 sm:p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <?php foreach ($therapists as $therapist): ?>
-                            <?php
-                                $absence = isset($absences[$therapist->id]) ? $absences[$therapist->id] : null;
-                                $isAbsent = $absence !== null;
-                                $profile = $therapist->user->profile;
-                                $initials = '';
-                                if ($profile) {
-                                    $initials = mb_strtoupper(mb_substr($profile->first_name, 0, 1) . mb_substr($profile->last_name, 0, 1));
+                <?= GridView::widget([
+                    'dataProvider' => $dataProvider,
+                    'options' => ['class' => 'min-w-full'],
+                    'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
+                    'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0'],
+                    'rowOptions' => function ($row) {
+                        $base = 'border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600';
+                        $bg = $row['status'] === 'absent'
+                            ? 'bg-red-50/50 dark:bg-red-900/10'
+                            : 'bg-white dark:bg-gray-800';
+                        return ['class' => $bg . ' ' . $base];
+                    },
+                    'columns' => [
+                        [
+                            'attribute' => 'full_name',
+                            'label' => 'Terapista',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[240px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'format' => 'raw',
+                            'value' => function ($row) {
+                                $initials = mb_strtoupper(
+                                    mb_substr($row['first_name'], 0, 1) . mb_substr($row['last_name'], 0, 1)
+                                );
+                                $color = Html::encode($row['calendar_color']);
+                                $name = Html::encode($row['last_name'] . ' ' . $row['first_name']);
+                                return '<div class="flex items-center gap-3">'
+                                    . '<div class="flex-shrink-0 flex items-center justify-center h-9 w-9 rounded-full text-white text-xs font-bold" style="background-color: ' . $color . ';">'
+                                    . Html::encode($initials)
+                                    . '</div>'
+                                    . '<span class="font-medium text-gray-900 dark:text-white">' . $name . '</span>'
+                                    . '</div>';
+                            },
+                        ],
+                        [
+                            'attribute' => 'specialization',
+                            'label' => 'Specializzazione',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300'],
+                        ],
+                        [
+                            'attribute' => 'status',
+                            'label' => 'Stato',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'format' => 'raw',
+                            'value' => function ($row) {
+                                if ($row['status'] === 'absent') {
+                                    return '<span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-900/50 dark:text-red-300">'
+                                        . '<span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500"></span>Assente</span>';
                                 }
-                                $calendarColor = $therapist->calendar_color ?: '#6B7280';
-                            ?>
-                            <div class="rounded-xl border <?= $isAbsent ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-700' ?> bg-white p-4 shadow-sm dark:bg-gray-800/50 hover:shadow-md transition-shadow">
-                                <div class="flex items-center gap-3">
-                                    <!-- Avatar -->
-                                    <div class="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-full text-white text-sm font-bold" style="background-color: <?= Html::encode($calendarColor) ?>;">
-                                        <?= Html::encode($initials) ?>
-                                    </div>
-                                    <!-- Info -->
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                            <?= Html::encode($profile->last_name . ' ' . $profile->first_name) ?>
-                                        </p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                            <?= Html::encode($therapist->specialization->name ?? 'N/D') ?>
-                                        </p>
-                                    </div>
-                                    <!-- Badge -->
-                                    <?php if ($isAbsent): ?>
-                                        <span class="flex-shrink-0 inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-900/50 dark:text-red-300">
-                                            Assente
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="flex-shrink-0 inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/50 dark:text-green-300">
-                                            Presente
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-
-                                <?php if ($isAbsent): ?>
-                                    <div class="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 dark:bg-red-900/30">
-                                        <svg class="w-3.5 h-3.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="min-w-0">
-                                            <p class="text-xs font-medium text-red-700 dark:text-red-300">
-                                                <?= Html::encode($absence->getTypeLabel()) ?>
-                                            </p>
-                                            <p class="text-xs text-red-500 dark:text-red-400">
-                                                <?= Yii::$app->formatter->asDate($absence->start_date, 'short') ?>
-                                                &ndash;
-                                                <?= Yii::$app->formatter->asDate($absence->end_date, 'short') ?>
-                                            </p>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
+                                return '<span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/50 dark:text-green-300">'
+                                    . '<span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>Presente</span>';
+                            },
+                        ],
+                        [
+                            'label' => 'Tipo Assenza',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[160px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'format' => 'raw',
+                            'value' => function ($row) {
+                                if ($row['status'] !== 'absent') {
+                                    return '<span class="text-xs text-gray-400">&mdash;</span>';
+                                }
+                                return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-200 dark:text-amber-900">'
+                                    . Html::encode($row['absence_type'])
+                                    . '</span>';
+                            },
+                        ],
+                        [
+                            'label' => 'Periodo Assenza',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-xs text-gray-600 dark:text-gray-300'],
+                            'format' => 'raw',
+                            'value' => function ($row) {
+                                if ($row['status'] !== 'absent' || !$row['absence_start']) {
+                                    return '<span class="text-xs text-gray-400">&mdash;</span>';
+                                }
+                                $start = Yii::$app->formatter->asDate($row['absence_start'], 'php:d/m/Y');
+                                $end = Yii::$app->formatter->asDate($row['absence_end'], 'php:d/m/Y');
+                                return Html::encode($start) . ' &rarr; ' . Html::encode($end);
+                            },
+                        ],
+                        [
+                            'label' => 'Azioni',
+                            'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
+                            'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                            'format' => 'raw',
+                            'value' => function ($row) {
+                                if ($row['status'] !== 'absent' || !$row['absence_id']) {
+                                    return '<span class="text-xs text-gray-400">&mdash;</span>';
+                                }
+                                if (!Yii::$app->user->can('view_absence')) {
+                                    return '<span class="text-xs text-gray-400">&mdash;</span>';
+                                }
+                                return Html::a(
+                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>',
+                                    ['view', 'id' => $row['absence_id']],
+                                    [
+                                        'title' => 'Visualizza assenza',
+                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                    ]
+                                );
+                            },
+                        ],
+                    ],
+                ]); ?>
             <?php endif; ?>
+
+            <?php Pjax::end(); ?>
         </div>
     </div>
 </div>
