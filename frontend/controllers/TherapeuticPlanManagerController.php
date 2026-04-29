@@ -53,11 +53,17 @@ class TherapeuticPlanManagerController extends Controller
                 'class' => Cors::className(),
                 'cors' => [
                     // Origin specifici (no wildcard) richiesto per inviare credentials.
-                    // Lista include calendar-cgm.badil.it (iframe React in produzione)
-                    // e localhost dev.
+                    // Lista produzione (gruppovitolo) + stage (cgm.badil.it) + dev locale.
                     'Origin' => [
+                        // Produzione
+                        'http://app.gruppovitolo.local',
+                        'https://app.gruppovitolo.local',
+                        'http://calendar.gruppovitolo.local',
+                        'https://calendar.gruppovitolo.local',
+                        // Stage
                         'https://calendar-cgm.badil.it',
                         'https://app-cgm.badil.it',
+                        // Dev locale
                         'http://localhost',
                         'http://localhost:8080',
                         'http://localhost:5173',
