@@ -177,36 +177,29 @@ class DocumentRequestController extends BaseController
      */
     protected function canUpdateStatus($model, $newStatus)
     {
-        // Ottieni il ruolo specifico dell'utente
-        $auth = Yii::$app->authManager;
-        $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
-        $isAdmin = in_array('admin', $userRoles) || in_array('super_admin', $userRoles);
-        $isManager = in_array('manager', $userRoles);
-        
-        if ($isAdmin) {
-            // === ADMIN ===
-            // Admin non può modificare documenti già consegnati
-            if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                return false;
-            }
-            
-            return in_array($newStatus, [
+        $user = Yii::$app->user;
+        $canChangeFreely = $user->can('change_document_request_status');
+        $canMarkDelivered = $user->can('mark_document_request_delivered');
+
+        // Cambio stato libero (Inviata / Presa in carico / Stampato).
+        if ($canChangeFreely
+            && $model->status != RequestStatus::STATUS_CONSEGNATO
+            && in_array($newStatus, [
                 RequestStatus::STATUS_INVIATA,
                 RequestStatus::STATUS_PRESA_IN_CARICO,
-                RequestStatus::STATUS_STAMPATO
-            ]);
+                RequestStatus::STATUS_STAMPATO,
+            ], true)
+        ) {
+            return true;
         }
 
-        if ($isManager) {
-            // === MANAGER ===
+        // Marcatura Consegnato + ripristino allo stato precedente.
+        if ($canMarkDelivered) {
             if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                // Se è già consegnato, il manager può solo tornare allo stato precedente
                 $previousStatus = $this->getPreviousStatus($model);
                 return $newStatus == $previousStatus;
-            } else {
-                // Se non è ancora consegnato, il manager può solo impostare come consegnato
-                return $newStatus == RequestStatus::STATUS_CONSEGNATO;
             }
+            return $newStatus == RequestStatus::STATUS_CONSEGNATO;
         }
 
         return false;

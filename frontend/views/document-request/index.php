@@ -310,97 +310,63 @@ $this->params['breadcrumbs'][] = $this->title;
                                 );
                             },
                             'update-status' => function ($url, $model, $key) {
-                                // LOGICA SEMPLIFICATA:
-                                // Ottieni il ruolo specifico dell'utente
-                                $auth = Yii::$app->authManager;
-                                $userRoles = array_keys($auth->getRolesByUser(Yii::$app->user->id));
-                                $isAdmin = in_array('admin', $userRoles) || in_array('super_admin', $userRoles);
-                                $isManager = in_array('manager', $userRoles);
+                                $user = Yii::$app->user;
+                                $canChangeFreely = $user->can('change_document_request_status');
+                                $canMarkDelivered = $user->can('mark_document_request_delivered');
 
-                                if ($isAdmin) {
-                                    // === ADMIN ===
-                                    if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                                        return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Consegnato - Non modificabile">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                        </span>';
-                                    }
+                                $availableStatuses = [];
+                                $title = 'Cambia stato';
 
-                                    // Stati disponibili per admin (escluso quello corrente)
-                                    $availableStatuses = [];
-                                    if ($model->status != RequestStatus::STATUS_INVIATA) {
-                                        $availableStatuses[RequestStatus::STATUS_INVIATA] = 'Inviata';
-                                    }
-                                    if ($model->status != RequestStatus::STATUS_PRESA_IN_CARICO) {
-                                        $availableStatuses[RequestStatus::STATUS_PRESA_IN_CARICO] = 'Presa in carico';
-                                    }
-                                    if ($model->status != RequestStatus::STATUS_STAMPATO) {
-                                        $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
-                                    }
-
-                                    return Html::button(
-                                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                        </svg>',
-                                        [
-                                            'title' => 'Cambia Stato',
-                                            'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors',
-                                            'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
-                                        ]
-                                    );
-                                } elseif ($isManager) {
-                                    // === MANAGER ===
-                                    if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
-                                        // Trova stato precedente
+                                if ($model->status == RequestStatus::STATUS_CONSEGNATO) {
+                                    // Solo chi puo' marcare/revertire puo' tornare indietro.
+                                    if ($canMarkDelivered) {
                                         $previousStatusHistory = \common\models\DocumentRequestStatusHistory::find()
                                             ->where(['document_request_id' => $model->id])
                                             ->andWhere(['to_status_id' => RequestStatus::STATUS_CONSEGNATO])
                                             ->orderBy(['created_at' => SORT_DESC])
                                             ->one();
-
                                         $previousStatus = $previousStatusHistory && $previousStatusHistory->from_status_id
                                             ? $previousStatusHistory->from_status_id
                                             : RequestStatus::STATUS_STAMPATO;
-
-                                        $previousStatusLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
-
-                                        // Mostra opzione per tornare allo stato precedente
-                                        $availableStatuses = [$previousStatus => 'Torna a: ' . $previousStatusLabel];
-
-                                        return Html::button(
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
-                                            </svg>',
-                                            [
-                                                'title' => 'Torna a: ' . $previousStatusLabel,
-                                                'class' => 'inline-flex items-center p-1.5 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors',
-                                                'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
-                                            ]
-                                        );
-                                    } else {
-                                        // Mostra opzione per consegnare
-                                        $availableStatuses = [RequestStatus::STATUS_CONSEGNATO => 'Consegnato'];
-
-                                        return Html::button(
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>',
-                                            [
-                                                'title' => 'Segna come Consegnato',
-                                                'class' => 'inline-flex items-center p-1.5 text-brand-600 hover:text-brand-900 hover:bg-brand-50 rounded-lg transition-colors',
-                                                'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
-                                            ]
-                                        );
+                                        $previousLabel = \common\models\DocumentRequest::getStatusLabels()[$previousStatus] ?? 'Stato precedente';
+                                        $availableStatuses[$previousStatus] = 'Torna a: ' . $previousLabel;
+                                        $title = 'Torna a: ' . $previousLabel;
+                                    }
+                                } else {
+                                    if ($canChangeFreely) {
+                                        if ($model->status != RequestStatus::STATUS_INVIATA) {
+                                            $availableStatuses[RequestStatus::STATUS_INVIATA] = 'Inviata';
+                                        }
+                                        if ($model->status != RequestStatus::STATUS_PRESA_IN_CARICO) {
+                                            $availableStatuses[RequestStatus::STATUS_PRESA_IN_CARICO] = 'Presa in carico';
+                                        }
+                                        if ($model->status != RequestStatus::STATUS_STAMPATO) {
+                                            $availableStatuses[RequestStatus::STATUS_STAMPATO] = 'Stampato';
+                                        }
+                                    }
+                                    if ($canMarkDelivered) {
+                                        $availableStatuses[RequestStatus::STATUS_CONSEGNATO] = 'Consegnato';
                                     }
                                 }
 
-                                // Nessun permesso
-                                return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                    </svg>
-                                </span>';
+                                if (empty($availableStatuses)) {
+                                    return '<span class="inline-flex items-center p-1.5 text-gray-400 cursor-not-allowed" title="Non autorizzato">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                        </svg>
+                                    </span>';
+                                }
+
+                                return Html::button(
+                                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>',
+                                    [
+                                        'title' => $title,
+                                        'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors',
+                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . htmlspecialchars(json_encode($availableStatuses), ENT_QUOTES) . ')',
+                                    ]
+                                );
                             },
                         ],
                     ],
@@ -456,7 +422,8 @@ tr[style*="background-color: #f0fdf4"]:hover {
 }
 </style>
 
-<!-- BEGIN STATUS UPDATE MODAL -->
+<?php /* MODALE STATUS UPDATE: implementata su SweetAlert2, vedi script in fondo. */ ?>
+<?php /*
 <div
     class="fixed inset-0 items-center justify-center hidden p-5 overflow-y-auto modal z-99999"
     id="statusUpdateModal"
@@ -693,21 +660,115 @@ tr[style*="background-color: #f0fdf4"]:hover {
         </div>
     </div>
 </div>
-<!-- END STATUS UPDATE MODAL -->
+*/ ?>
 
 <?php
-// JavaScript semplificato per la nuova modale Alpine.js
-$this->registerJs("
-    // Funzione globale per aprire la modale
-    window.openStatusUpdateModal = function(requestId, statuses) {
-        // Dispatcha un evento personalizzato per Alpine.js
-        window.dispatchEvent(new CustomEvent('open-status-modal', {
-            detail: {
-                requestId: requestId,
-                statuses: statuses
-            }
-        }));
-    };
+// Modale di aggiornamento stato in SweetAlert2.
+$updateUrl = \yii\helpers\Url::to(['update-status']);
+$jsUpdateUrl = json_encode($updateUrl);
+$jsCsrfParam = json_encode(Yii::$app->request->csrfParam);
+$this->registerJs(<<<JS
+window.openStatusUpdateModal = function (requestId, statuses) {
+    if (typeof Swal === 'undefined') {
+        console.error('SweetAlert2 non caricato.');
+        return;
+    }
+    if (!statuses || Object.keys(statuses).length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Nessuna azione disponibile',
+            text: 'Non hai i permessi per modificare lo stato di questa richiesta.',
+            confirmButtonColor: '#2563eb'
+        });
+        return;
+    }
 
-", \yii\web\View::POS_END, 'document-request-status-modal');
+    var radios = '';
+    var first = null;
+    Object.entries(statuses).forEach(function (entry) {
+        var id = entry[0];
+        var label = entry[1];
+        if (first === null) { first = id; }
+        radios += '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;margin-bottom:6px;">'
+            + '<input type="radio" name="swal-status" value="' + id + '" style="margin:0;">'
+            + '<span style="font-size:14px;color:#111827;">' + label + '</span>'
+            + '</label>';
+    });
+
+    Swal.fire({
+        title: 'Aggiorna stato richiesta',
+        html: '<div style="text-align:left;">'
+            + '<p style="font-size:13px;color:#6b7280;margin:0 0 12px 0;">Seleziona il nuovo stato. L\\'operazione viene registrata nella cronologia.</p>'
+            + radios
+            + '</div>',
+        showCancelButton: true,
+        confirmButtonText: 'Conferma',
+        cancelButtonText: 'Annulla',
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+        focusConfirm: false,
+        didOpen: function () {
+            var firstRadio = Swal.getHtmlContainer().querySelector('input[name="swal-status"]');
+            if (firstRadio) { firstRadio.checked = true; }
+        },
+        preConfirm: function () {
+            var checked = Swal.getHtmlContainer().querySelector('input[name="swal-status"]:checked');
+            if (!checked) {
+                Swal.showValidationMessage('Seleziona uno stato.');
+                return false;
+            }
+            return checked.value;
+        }
+    }).then(function (result) {
+        if (!result.isConfirmed) { return; }
+        var newStatus = result.value;
+        var formData = new URLSearchParams();
+        formData.append('id', requestId);
+        formData.append('status', newStatus);
+        formData.append({$jsCsrfParam}, jQuery('meta[name=csrf-token]').attr('content') || '');
+
+        Swal.fire({
+            title: 'Aggiornamento in corso...',
+            didOpen: function () { Swal.showLoading(); },
+            allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false
+        });
+
+        fetch({$jsUpdateUrl}, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        })
+        .then(function (resp) { return resp.json(); })
+        .then(function (data) {
+            if (data && data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Stato aggiornato',
+                    timer: 1200,
+                    showConfirmButton: false
+                }).then(function () { window.location.reload(); });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore',
+                    text: (data && data.message) ? data.message : 'Errore sconosciuto.',
+                    confirmButtonColor: '#2563eb'
+                });
+            }
+        })
+        .catch(function (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Errore di rete',
+                text: err && err.message ? err.message : 'Impossibile contattare il server.',
+                confirmButtonColor: '#2563eb'
+            });
+        });
+    });
+};
+JS, \yii\web\View::POS_END, 'document-request-status-modal');
 ?> 
