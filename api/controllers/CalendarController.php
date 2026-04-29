@@ -1171,13 +1171,6 @@ class CalendarController extends ActiveController
                 throw new BadRequestHttpException('Solo gli appuntamenti confermati possono essere segnati come assenti');
             }
 
-            // Verifica che l'appuntamento non sia oltre 15 giorni nel futuro
-            $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
-            $now = new \DateTime();
-            if ($appointmentDateTime > $now->modify('+15 days')) {
-                throw new BadRequestHttpException('Non è possibile segnare come assente un appuntamento a più di 15 giorni di distanza');
-            }
-
             $transaction = Yii::$app->db->beginTransaction();
 
             try {
