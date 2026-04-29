@@ -80,7 +80,7 @@ foreach ($rolePermissions as $perms) {
                 </svg>
             </span>
             <input type="text" id="permissionsSearch" autocomplete="off"
-                   placeholder="Cerca per nome permesso o descrizione..."
+                   placeholder="Cerca permesso..."
                    style="padding-left:44px;"
                    class="w-full pr-4 py-3 text-sm bg-white text-gray-900 placeholder-gray-400 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500">
         </div>
@@ -118,21 +118,15 @@ foreach ($rolePermissions as $perms) {
                 <?php else: ?>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         <?php foreach ($perms as $permName => $perm): ?>
-                            <div class="permission-item flex items-start gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"
+                            <?php $permLabel = $perm->description ?: ucfirst(str_replace('_', ' ', $permName)); ?>
+                            <div class="permission-item flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"
                                  data-permission-name="<?= Html::encode(strtolower($permName . ' ' . ($perm->description ?? ''))) ?>">
-                                <svg class="w-4 h-4 mt-0.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-mono text-gray-800 dark:text-white/90 truncate" title="<?= Html::encode($permName) ?>">
-                                        <?= Html::encode($permName) ?>
-                                    </p>
-                                    <?php if (!empty($perm->description)): ?>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                            <?= Html::encode($perm->description) ?>
-                                        </p>
-                                    <?php endif; ?>
-                                </div>
+                                <p class="text-sm text-gray-800 dark:text-white/90 truncate min-w-0">
+                                    <?= Html::encode($permLabel) ?>
+                                </p>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -163,21 +157,15 @@ foreach ($rolePermissions as $perms) {
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 <?php foreach ($directPermissions as $permName => $perm): ?>
-                    <div class="permission-item flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-100 bg-white dark:border-amber-800 dark:bg-gray-800"
+                    <?php $permLabel = $perm->description ?: ucfirst(str_replace('_', ' ', $permName)); ?>
+                    <div class="permission-item flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-100 bg-white dark:border-amber-800 dark:bg-gray-800"
                          data-permission-name="<?= Html::encode(strtolower($permName . ' ' . ($perm->description ?? ''))) ?>">
-                        <svg class="w-4 h-4 mt-0.5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                         </svg>
-                        <div class="min-w-0">
-                            <p class="text-xs font-mono text-gray-800 dark:text-white/90 truncate" title="<?= Html::encode($permName) ?>">
-                                <?= Html::encode($permName) ?>
-                            </p>
-                            <?php if (!empty($perm->description)): ?>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                    <?= Html::encode($perm->description) ?>
-                                </p>
-                            <?php endif; ?>
-                        </div>
+                        <p class="text-sm text-gray-800 dark:text-white/90 truncate min-w-0">
+                            <?= Html::encode($permLabel) ?>
+                        </p>
                     </div>
                 <?php endforeach; ?>
             </div>
