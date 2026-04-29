@@ -1036,11 +1036,14 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Paziente non trovato');
             }
 
-            // Trova il piano terapeutico attivo più recente
+            // Trova il piano terapeutico attivo più recente.
+            // Sono esclusi gli stati finali (terminated/expired/completed):
+            // su questi piani non si possono creare/modificare appuntamenti dal calendario.
             $therapeuticPlan = TherapeuticPlan::find()
                 ->where(['patient_id' => $patientId])
                 ->andWhere(['<=', 'start_date', date('Y-m-d')])
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                ->andWhere(['not in', 'status', ['terminated', 'expired', 'completed']])
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
 
