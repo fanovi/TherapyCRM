@@ -5,6 +5,7 @@ namespace frontend\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
+use yii\db\Expression;
 use common\models\TherapeuticPlan;
 
 /**
@@ -57,6 +58,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
             ],
             'sort' => [
                 'defaultOrder' => [
+                    'status_priority' => SORT_DESC,
                     'created_at' => SORT_DESC,
                 ],
                 'attributes' => [
@@ -72,6 +74,11 @@ class TherapeuticPlanSearch extends TherapeuticPlan
                     'patientName' => [
                         'asc' => ['patients.last_name' => SORT_ASC, 'patients.first_name' => SORT_ASC],
                         'desc' => ['patients.last_name' => SORT_DESC, 'patients.first_name' => SORT_DESC],
+                    ],
+                    // Pseudo-attributo: 1 se status='active', altrimenti 0. Default order DESC mostra prima gli attivi.
+                    'status_priority' => [
+                        'asc' => [new Expression("(therapeutic_plans.status = 'active') ASC")],
+                        'desc' => [new Expression("(therapeutic_plans.status = 'active') DESC")],
                     ],
                 ],
             ],
@@ -95,7 +102,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
 
         $query->andFilterWhere(['like', 'therapeutic_plans.protocol_number', $this->protocol_number])
             ->andFilterWhere(['like', 'therapeutic_plans.notes', $this->notes])
-            ->andFilterWhere(['like', 'therapeutic_plans.status', $this->status]);
+            ->andFilterWhere(['therapeutic_plans.status' => $this->status]);
 
         // Date filters
         if (!empty($this->start_date)) {

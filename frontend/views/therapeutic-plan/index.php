@@ -191,20 +191,46 @@ $this->params['breadcrumbs'][] = $this->title;
                         },
                         'filter' => false,
                         'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white'],
+                    ],
+                    [
+                        'attribute' => 'status',
+                        'label' => 'Stato',
+                        'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
-                        'content' => function ($model) {
-                            if (!$model->end_date) {
-                                return '<span class="text-sm text-gray-500 dark:text-gray-400">N/A</span>';
-                            }
-
-                            $isExpired = $model->isExpired();
-                            $badgeClass = $isExpired ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-
-                            return '<div class="text-sm text-gray-900 dark:text-white">'
-                                . Yii::$app->formatter->asDate($model->end_date)
-                                . '</div><span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $badgeClass . '">'
-                                . ($isExpired ? 'Scaduto' : 'Attivo') . '</span>';
-                        }
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => Html::activeDropDownList(
+                            $searchModel,
+                            'status',
+                            [
+                                'draft' => 'Bozza',
+                                'pending' => 'In Attesa',
+                                'active' => 'Attivo',
+                                'suspended' => 'Sospeso',
+                                'completed' => 'Completato',
+                                'terminated' => 'Interrotto',
+                                'expired' => 'Scaduto',
+                            ],
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $map = [
+                                'draft'      => ['label' => 'Bozza',      'class' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'],
+                                'pending'    => ['label' => 'In Attesa',  'class' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'],
+                                'active'     => ['label' => 'Attivo',     'class' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'],
+                                'suspended'  => ['label' => 'Sospeso',    'class' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'],
+                                'completed'  => ['label' => 'Completato', 'class' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'],
+                                'terminated' => ['label' => 'Interrotto', 'class' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'],
+                                'expired'    => ['label' => 'Scaduto',    'class' => 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100'],
+                            ];
+                            $entry = $map[$model->status] ?? ['label' => $model->status, 'class' => 'bg-gray-100 text-gray-800'];
+                            return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $entry['class'] . '">'
+                                . Html::encode($entry['label']) . '</span>';
+                        },
                     ],
                     [
                         'class' => 'yii\grid\ActionColumn',
