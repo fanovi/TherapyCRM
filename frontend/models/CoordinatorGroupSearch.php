@@ -54,8 +54,8 @@ class CoordinatorGroupSearch extends CoordinatorGroup
                 'attributes' => [
                     'name',
                     'coordinator_name' => [
-                        'asc' => ['user_profiles.first_name' => SORT_ASC, 'user_profiles.last_name' => SORT_ASC],
-                        'desc' => ['user_profiles.first_name' => SORT_DESC, 'user_profiles.last_name' => SORT_DESC],
+                        'asc' => ['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC],
+                        'desc' => ['user_profiles.last_name' => SORT_DESC, 'user_profiles.first_name' => SORT_DESC],
                     ],
                     'created_at',
                 ],

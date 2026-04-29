@@ -67,7 +67,7 @@ class PlanStatisticsSearch extends Model
             ->select(['id', 'CONCAT(first_name, " ", last_name) as name'])
             ->from('therapist')
             ->where(['status' => 'active'])
-            ->orderBy('first_name, last_name')
+            ->orderBy('last_name, first_name')
             ->all();
     }
 
@@ -80,7 +80,7 @@ class PlanStatisticsSearch extends Model
             ->select(['id', 'CONCAT(first_name, " ", last_name) as name'])
             ->from('patient')
             ->where(['status' => 'active'])
-            ->orderBy('first_name, last_name')
+            ->orderBy('last_name, first_name')
             ->all();
     }
 

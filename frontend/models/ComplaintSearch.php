@@ -64,12 +64,12 @@ class ComplaintSearch extends Complaint
                     'title',
                     'created_at',
                     'patient_name' => [
-                        'asc' => ['patients.first_name' => SORT_ASC, 'patients.last_name' => SORT_ASC],
-                        'desc' => ['patients.first_name' => SORT_DESC, 'patients.last_name' => SORT_DESC],
+                        'asc' => ['patients.last_name' => SORT_ASC, 'patients.first_name' => SORT_ASC],
+                        'desc' => ['patients.last_name' => SORT_DESC, 'patients.first_name' => SORT_DESC],
                     ],
                     'account_name' => [
-                        'asc' => ['user_profiles.first_name' => SORT_ASC, 'user_profiles.last_name' => SORT_ASC],
-                        'desc' => ['user_profiles.first_name' => SORT_DESC, 'user_profiles.last_name' => SORT_DESC],
+                        'asc' => ['user_profiles.last_name' => SORT_ASC, 'user_profiles.first_name' => SORT_ASC],
+                        'desc' => ['user_profiles.last_name' => SORT_DESC, 'user_profiles.first_name' => SORT_DESC],
                     ],
                 ],
                 'defaultOrder' => [
