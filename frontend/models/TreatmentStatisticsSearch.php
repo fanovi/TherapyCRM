@@ -261,9 +261,9 @@ class TreatmentStatisticsSearch extends Model
     public static function getCombinationModeOptions()
     {
         return [
-            'any' => 'Almeno uno (ANY)',
-            'all' => 'Tutti (ALL)',
-            'exact' => 'Esattamente questi (EXACT)',
+            'any' => 'Almeno uno',
+            'all' => 'Tutti',
+            'exact' => 'Esattamente questi',
         ];
     }
 

@@ -99,19 +99,19 @@ $activeTreatments = count($ranking);
                             <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
                                 $searchModel->combinationMode === 'any' || empty($searchModel->combinationMode), 
                                 ['value' => 'any', 'class' => 'form-check-input']) ?>
-                            <span>Almeno uno (ANY)</span>
+                            <span>Almeno uno</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
                             <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
                                 $searchModel->combinationMode === 'all', 
                                 ['value' => 'all', 'class' => 'form-check-input']) ?>
-                            <span>Tutti (ALL)</span>
+                            <span>Tutti</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
                             <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
                                 $searchModel->combinationMode === 'exact', 
                                 ['value' => 'exact', 'class' => 'form-check-input']) ?>
-                            <span>Esattamente questi (EXACT)</span>
+                            <span>Esattamente questi</span>
                         </label>
                     </div>
                 </div>

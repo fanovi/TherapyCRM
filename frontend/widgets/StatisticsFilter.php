@@ -351,7 +351,7 @@ class StatisticsFilter extends Widget
      */
     protected function renderCombinationModeField()
     {
-        $modeOptions = ['any' => 'Almeno uno (ANY)', 'all' => 'Tutti (ALL)', 'exact' => 'Esattamente questi (EXACT)',];
+        $modeOptions = ['any' => 'Almeno uno', 'all' => 'Tutti', 'exact' => 'Esattamente questi',];
         
         return $this->form->field($this->model, 'combinationMode')->radioList($modeOptions, ['item' => function ($index, $label, $name, $checked, $value) { $radio = Html::radio($name, $checked, ['value' => $value, 'id' => "radio-{$name}-{$value}", 'class' => 'form-radio text-blue-600']); $label = Html::label($label, "radio-{$name}-{$value}", ['class' => 'ml-2']); return Html::tag('div', $radio . ' ' . $label, ['class' => 'inline-flex items-center mr-4']); }]);
     }
