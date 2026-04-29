@@ -111,33 +111,32 @@ foreach ($categories as $perms) {
                             $itemType = 'available';
                         }
                         ?>
-                        <label class="permissions-grid-item flex items-start space-x-2 p-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-800 <?= $isFromRole ? 'cursor-default' : 'cursor-pointer' ?>"
+                        <label class="permissions-grid-item flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 <?= $isFromRole ? 'cursor-default' : 'cursor-pointer' ?>"
                                data-type="<?= Html::encode($itemType) ?>"
                                data-name="<?= Html::encode(strtolower($permission->name)) ?>"
                                data-label="<?= Html::encode(strtolower($label)) ?>"
                                data-category="<?= Html::encode(strtolower($category)) ?>">
                             <?php if ($isFromRole): ?>
                                 <input type="checkbox"
-                                       class="mt-0.5 h-4 w-4 text-gray-400 border-gray-300 rounded cursor-default"
+                                       class="shrink-0 h-4 w-4 text-gray-400 border-gray-300 rounded cursor-default"
                                        checked
                                        disabled>
                             <?php else: ?>
                                 <input type="checkbox"
                                        name="permissions[]"
                                        value="<?= Html::encode($permission->name) ?>"
-                                       class="mt-0.5 h-4 w-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500"
+                                       class="shrink-0 h-4 w-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500"
                                        <?= $isDirectExtra ? 'checked' : '' ?>>
                             <?php endif; ?>
-                            <div class="flex-1 min-w-0">
-                                <span class="text-sm text-gray-800 dark:text-gray-200 permissions-grid-item-label">
+                            <div class="flex-1 min-w-0 flex items-center gap-2">
+                                <span class="text-sm text-gray-800 dark:text-gray-200 permissions-grid-item-label truncate">
                                     <?= Html::encode($label) ?>
                                 </span>
                                 <?php if ($isFromRole): ?>
-                                    <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">ruolo</span>
+                                    <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">ruolo</span>
                                 <?php elseif ($isDirectExtra): ?>
-                                    <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">extra</span>
+                                    <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">extra</span>
                                 <?php endif; ?>
-                                <code class="block text-xs text-gray-400 dark:text-gray-500 permissions-grid-item-code"><?= Html::encode($permission->name) ?></code>
                             </div>
                         </label>
                     <?php endforeach; ?>
