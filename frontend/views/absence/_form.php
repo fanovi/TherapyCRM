@@ -320,10 +320,10 @@ function checkAppointments() {
         $('#appointments-alert').addClass('hidden');
         return;
     }
-    
-    // Mostra un indicatore di caricamento
-    $('#appointments-alert').removeClass('hidden');
-    $('#appointments-count').html('<span class=\"inline-flex items-center\"><svg class=\"animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-500\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle><path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg>Controllo appuntamenti in corso...</span>');
+
+    // Resta nascosto durante l'ajax: mostra solo se ci sono appuntamenti
+    $('#appointments-alert').addClass('hidden');
+    $('#appointments-count').html('');
     $('#appointments-list').html('');
     
     $.ajax({
@@ -370,18 +370,10 @@ function checkAppointments() {
                 $('#appointments-list').html(listHtml);
                 $('#appointments-alert').removeClass('hidden');
             } else {
-                $('#appointments-count').html(
-                    '<span class=\"text-green-800 dark:text-green-200\"><strong>Ottimo!</strong> Nessun appuntamento programmato nel periodo selezionato.</span>'
-                );
+                // Nessun appuntamento: alert resta nascosto, niente flash
+                $('#appointments-count').html('');
                 $('#appointments-list').html('');
-                $('#appointments-alert').removeClass('hidden');
-                
-                // Nascondi dopo 3 secondi se non ci sono appuntamenti
-                setTimeout(function() {
-                    if ($('#appointments-list').html() === '') {
-                        $('#appointments-alert').addClass('hidden');
-                    }
-                }, 3000);
+                $('#appointments-alert').addClass('hidden');
             }
         },
         error: function() {
