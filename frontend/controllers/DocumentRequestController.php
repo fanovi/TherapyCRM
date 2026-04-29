@@ -115,7 +115,7 @@ class DocumentRequestController extends BaseController
         }
         
         $model = $this->findModel($id);
-        $newStatus = Yii::$app->request->post('status');
+        $newStatus = (int) Yii::$app->request->post('status');
         
         // Log per debugging
         Yii::info("Update status request - ID: $id, Current Status: {$model->status}, New Status: $newStatus", __METHOD__);
