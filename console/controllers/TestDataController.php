@@ -20,14 +20,23 @@ use common\models\District;
 use common\models\Specialization;
 use common\models\TreatmentType;
 use common\models\SpecializationTreatment;
+use common\models\CoordinatorGroup;
+use common\models\GroupTherapist;
+use common\models\Regime;
+use common\models\RegimeSetting;
+use common\models\Setting;
 use yii\db\Query;
 
 /**
  * Genera dati di test per il sistema calendario
- * 
+ *
  * Usage:
- * yii test-data/generate-all   # Genera tutti i dati
- * yii test-data/clear-all      # Pulisce tutti i dati
+ * yii test-data/generate-all      # Genera tutti i dati (legacy)
+ * yii test-data/clear-all         # Pulisce tutti i dati
+ * yii test-data/generate-complete yes
+ *                                 # Wipe completo + reseed con roster definito
+ *                                 # (1 super_admin, 5 admin, 3 coordinator,
+ *                                 #  20 therapist, 50 paziente con piano + 20 appuntamenti)
  */
 class TestDataController extends Controller
 {
@@ -1226,7 +1235,7 @@ class TestDataController extends Controller
             }
             
             $this->stdout("   🔄 Perfetto per testare il sistema di switch tra più pazienti!\n");
-            
+
         } catch (\Exception $e) {
             $transaction->rollBack();
             $this->stdout("❌ Errore durante la creazione: " . $e->getMessage() . "\n");
@@ -1234,5 +1243,620 @@ class TestDataController extends Controller
         }
 
         return ExitCode::OK;
+    }
+
+    /**
+     * Genera un dataset completo per il server di test:
+     *   - 1 super_admin, 5 admin, 3 coordinator, 20 therapist
+     *   - 50 pazienti (ognuno con account patient_family collegato)
+     *   - 1 piano terapeutico per paziente
+     *   - 1 plan_therapy + 1 appointment_pattern per piano
+     *   - 20 appuntamenti per piano distribuiti dal 2024 a oggi
+     *   - contatori assenze aggiornati
+     *
+     * Per evitare wipe accidentali, va passato l'argomento "yes":
+     *     php yii test-data/generate-complete yes
+     */
+    public function actionGenerateComplete($confirm = null)
+    {
+        if ($confirm !== 'yes') {
+            $this->stdout("⚠️  Questa action CANCELLA tutti gli utenti, pazienti, terapisti, piani e appuntamenti.\n");
+            $this->stdout("Per confermare: php yii test-data/generate-complete yes\n");
+            return ExitCode::OK;
+        }
+
+        $startTs = microtime(true);
+        $this->stdout("🚀 Generazione dataset completo (server di test)...\n\n");
+
+        // 0. Fix DEFINER orfani (trigger/view definiti da utenti MySQL inesistenti)
+        $this->stdout("🔧 Verifica DEFINER trigger/view...\n");
+        $this->fixOrphanDefiners();
+
+        // 1. Wipe
+        $this->stdout("🗑️  Pulizia dati esistenti...\n");
+        $this->wipeAll();
+
+        // 2. Base data (regime/setting/distretti/specializzazioni/trattamenti)
+        $this->stdout("📍 Verifica/seed dati di base...\n");
+        $this->ensureBaseData();
+
+        // 3. Roster utenti — password uniforme: 12345678 (default di seedStaffUser)
+        $this->stdout("👥 Creazione roster utenti...\n");
+        $superAdmin = $this->seedStaffUser(
+            'super_admin@therapy.test',
+            'Super',
+            'Admin',
+            'super_admin'
+        );
+
+        $admins = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $admins[] = $this->seedStaffUser(
+                "admin$i@therapy.test",
+                "Admin$i",
+                "Sistema",
+                'admin'
+            );
+        }
+
+        $managers = [];
+        for ($i = 1; $i <= 2; $i++) {
+            $managers[] = $this->seedStaffUser(
+                "manager$i@therapy.test",
+                "Manager$i",
+                "Operativo",
+                'manager'
+            );
+        }
+
+        $coordinators = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $coordinators[] = $this->seedStaffUser(
+                "coordinator$i@therapy.test",
+                "Coordinator$i",
+                "Centro",
+                'coordinator'
+            );
+        }
+
+        // Terapisti: distribuisci sulle specializzazioni esistenti, ruota colori
+        $colors = [
+            '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+            '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
+        ];
+        $specializations = Specialization::find()->all();
+        if (empty($specializations)) {
+            $this->stdout("❌ Nessuna specializzazione trovata: il seed di base è fallito.\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+        $therapistUsers = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $user = $this->seedStaffUser(
+                "terapista$i@therapy.test",
+                "Terapista$i",
+                "Cognome$i",
+                'therapist'
+            );
+
+            $therapist = new Therapist();
+            $therapist->user_id = $user->id;
+            $therapist->specialization_id = $specializations[($i - 1) % count($specializations)]->id;
+            $therapist->weekly_hours_contract = [20, 30, 38][($i - 1) % 3];
+            $therapist->calendar_color = $colors[($i - 1) % count($colors)];
+            $therapist->is_active = true;
+            $therapist->is_internal = ($i % 2 === 0) ? 1 : 0;
+            $therapist->can_supervise = ($i % 5 === 0) ? 1 : 0;
+            $therapist->can_parental_training = ($i % 4 === 0) ? 1 : 0;
+            if (!$therapist->save()) {
+                throw new \RuntimeException("Errore creazione therapist $i: " . json_encode($therapist->getFirstErrors()));
+            }
+            $therapistUsers[] = $user;
+        }
+        $this->stdout("   ✓ 1 super_admin, 5 admin, 2 manager, 3 coordinator, 20 therapist\n");
+
+        // 3b. Gruppi coordinatori — un gruppo per coordinatore, terapisti distribuiti round-robin
+        $this->stdout("👨‍👧‍👦 Creazione gruppi coordinatori...\n");
+        $groupAssignedFrom = date('Y-m-d', strtotime('2024-01-01'));
+        $assignedById = $admins[0]->id;
+        foreach ($coordinators as $idx => $coordUser) {
+            $group = new CoordinatorGroup();
+            $group->name = 'Gruppo ' . ($idx + 1);
+            $group->coordinator_user_id = $coordUser->id;
+            $group->is_active = 1;
+            if (!$group->save()) {
+                throw new \RuntimeException("Errore gruppo $idx: " . json_encode($group->getFirstErrors()));
+            }
+
+            // Distribuisci therapist al gruppo: round-robin sull'indice
+            foreach ($therapistUsers as $tIdx => $tUser) {
+                if ($tIdx % count($coordinators) !== $idx) {
+                    continue;
+                }
+                $therapist = Therapist::findOne(['user_id' => $tUser->id]);
+                $gt = new GroupTherapist();
+                $gt->group_id = $group->id;
+                $gt->therapist_id = $therapist->id;
+                $gt->assigned_from = $groupAssignedFrom;
+                $gt->assigned_by = $assignedById;
+                if (!$gt->save()) {
+                    throw new \RuntimeException("Errore group_therapist (g={$group->id}, t={$therapist->id}): " . json_encode($gt->getFirstErrors()));
+                }
+            }
+        }
+        $this->stdout("   ✓ 3 gruppi creati, 20 terapisti distribuiti\n");
+
+        // 4. Pazienti + account collegato (patient_family)
+        $this->stdout("🏥 Creazione 50 pazienti + account collegati...\n");
+        $districts = District::find()->all();
+        $patientFirstNames = [
+            'Marco','Luca','Giulia','Sofia','Andrea','Chiara','Matteo','Alessia','Davide','Francesca',
+            'Lorenzo','Martina','Gabriele','Beatrice','Tommaso','Greta','Filippo','Aurora','Riccardo','Camilla',
+            'Federico','Emma','Edoardo','Alice','Leonardo','Anna','Mattia','Sara','Diego','Noemi',
+            'Stefano','Eleonora','Pietro','Margherita','Antonio','Ludovica','Cristian','Elena','Niccolò','Linda',
+            'Alessandro','Vittoria','Gianluca','Caterina','Simone','Bianca','Nicolò','Asia','Manuel','Rebecca',
+        ];
+        $patientLastNames = [
+            'Rossi','Bianchi','Verdi','Romano','Ricci','Marino','Greco','Bruno','Gallo','Conti',
+            'De Luca','Mancini','Costa','Giordano','Rizzo','Lombardi','Moretti','Barbieri','Fontana','Santoro',
+            'Mariani','Rinaldi','Caruso','Ferrari','Galli','Martini','Leone','Longo','Gentile','Martinelli',
+            'Vitale','Lombardo','Serra','Coppola','De Santis','Marchetti','Parisi','Villa','Conte','Ferraro',
+            'Fabbri','Bianco','Marini','Grasso','Valentini','Messina','Sala','De Angelis','Rossini','Esposito',
+        ];
+        $patients = [];
+        for ($i = 1; $i <= 50; $i++) {
+            $patient = new Patient();
+            $patient->first_name = $patientFirstNames[$i - 1];
+            $patient->last_name = $patientLastNames[$i - 1];
+            $patient->birth_date = date('Y-m-d', strtotime('-' . rand(3, 15) . ' years -' . rand(0, 365) . ' days'));
+            $patient->gender = ($i % 2 === 0) ? 'F' : 'M';
+            $patient->born_in_italy = 1;
+            $patient->fiscal_code = sprintf('TSTPZN%02dA01H501%s', $i, chr(65 + ($i % 26)));
+            $patient->district_id = $districts[$i % count($districts)]->id;
+            $patient->residence_city = 'Napoli';
+            $patient->residence_province_code = 'NA';
+            $patient->notes = ($i % 7 === 0) ? 'Necessita supporto costante' : null;
+            if (!$patient->save()) {
+                throw new \RuntimeException("Errore creazione paziente $i: " . json_encode($patient->getFirstErrors()));
+            }
+            $patients[] = $patient;
+
+            // account patient_family collegato
+            $famUser = $this->seedStaffUser(
+                "paziente$i@therapy.test",
+                "Genitore$i",
+                "Test",
+                'patient_family'
+            );
+            $accountPatient = new AccountPatient();
+            $accountPatient->user_id = $famUser->id;
+            $accountPatient->patient_id = $patient->id;
+            $accountPatient->relationship_type = AccountPatient::RELATIONSHIP_PARENT;
+            $accountPatient->has_parental_authority = true;
+            if (!$accountPatient->save()) {
+                throw new \RuntimeException("Errore account_patient $i: " . json_encode($accountPatient->getFirstErrors()));
+            }
+        }
+        $this->stdout("   ✓ 50 pazienti creati\n");
+
+        // 5. Piani terapeutici, plan_therapies, pattern e appuntamenti
+        $this->stdout("📋 Creazione piani terapeutici + 20 appuntamenti per piano...\n");
+        // Escludi i regimi con regole di validazione complesse (es. ABA richiede
+        // ore di supervisione/parent_training pre-definite)
+        $regimes = Regime::find()
+            ->where(['NOT IN', 'nome', ['ABA']])
+            ->all();
+        if (empty($regimes)) {
+            throw new \RuntimeException("Nessun regime utilizzabile in DB (escluso ABA)");
+        }
+        $regimeSettings = []; // regime_id => [setting_id,...]
+        foreach (RegimeSetting::find()->all() as $rs) {
+            $regimeSettings[$rs->regime_id][] = $rs->setting_id;
+        }
+
+        $treatments = TreatmentType::find()->all();
+        $treatmentsBySpec = []; // specialization_id => [treatment_id,...]
+        foreach (SpecializationTreatment::find()->all() as $st) {
+            $treatmentsBySpec[$st->specialization_id][] = $st->treatment_type_id;
+        }
+
+        $totalAppointments = 0;
+        $todayDate = new \DateTime('today');
+        $minStart = new \DateTime('2024-01-01');
+        $maxStart = (clone $todayDate)->modify('-30 days');
+        $maxStartTs = $maxStart->getTimestamp();
+        $minStartTs = $minStart->getTimestamp();
+
+        $createdById = $admins[0]->id;
+        $patternCreatedById = $coordinators[0]->id;
+
+        foreach ($patients as $idx => $patient) {
+            // Plan
+            $startTs2 = rand($minStartTs, $maxStartTs);
+            $startDate = date('Y-m-d', $startTs2);
+            $regime = $regimes[$idx % count($regimes)];
+
+            $plan = new TherapeuticPlan();
+            $plan->patient_id = $patient->id;
+            $plan->start_date = $startDate;
+            $plan->duration_days = 365;
+            $plan->regime_id = $regime->id;
+            $plan->district_id = $patient->district_id;
+            $plan->status = 'active';
+            $plan->approval_date = $startDate;
+            $plan->protocol_number = sprintf('PROT-%04d/%s', 1000 + $idx, date('Y', $startTs2));
+            $plan->notes = 'Piano terapeutico generato per ambiente di test';
+            $plan->created_by = $createdById;
+            if (!$plan->save()) {
+                throw new \RuntimeException("Errore creazione piano per paziente {$patient->id}: " . json_encode($plan->getFirstErrors()));
+            }
+
+            // Setting valido per il regime
+            $allowedSettings = $regimeSettings[$regime->id] ?? [];
+            if (empty($allowedSettings)) {
+                // fallback: qualsiasi setting
+                $allowedSettings = array_map(fn($s) => $s->id, Setting::find()->all());
+            }
+            $settingId = $allowedSettings[array_rand($allowedSettings)];
+
+            // Scegli un terapista compatibile per il pattern
+            $therapistUser = $therapistUsers[$idx % count($therapistUsers)];
+            $therapist = Therapist::findOne(['user_id' => $therapistUser->id]);
+            $allowedTreatments = $treatmentsBySpec[$therapist->specialization_id] ?? [];
+            if (empty($allowedTreatments)) {
+                // fallback: qualsiasi trattamento
+                $allowedTreatments = array_map(fn($t) => $t->id, $treatments);
+            }
+            $treatmentId = $allowedTreatments[array_rand($allowedTreatments)];
+
+            // PlanTherapy
+            $planTherapy = new PlanTherapy();
+            $planTherapy->therapeutic_plan_id = $plan->id;
+            $planTherapy->treatment_type_id = $treatmentId;
+            $planTherapy->weekly_hours = 1.00;
+            $planTherapy->setting_id = $settingId;
+            $planTherapy->is_group = 0;
+            if (!$planTherapy->save()) {
+                throw new \RuntimeException("Errore plan_therapy per piano {$plan->id}: " . json_encode($planTherapy->getFirstErrors()));
+            }
+
+            // Pattern (settimanale)
+            $startDt = new \DateTime($startDate);
+            $dayOfWeek = (int)$startDt->format('N'); // 1-7
+            if ($dayOfWeek > 5) {
+                $dayOfWeek = 1; // sposta a lunedì
+            }
+            $hour = 9 + ($idx % 8); // 9-16
+            $minute = ($idx % 2) * 30;
+            $startTime = sprintf('%02d:%02d', $hour, $minute);
+            $duration = 60;
+            $validFrom = $startDate;
+            $validTo = date('Y-m-d', strtotime($startDate . ' +365 days'));
+
+            $pattern = new AppointmentPattern();
+            $pattern->plan_therapy_id = $planTherapy->id;
+            $pattern->therapist_id = $therapist->id;
+            $pattern->id_setting = $settingId;
+            $pattern->day_of_week = $dayOfWeek;
+            $pattern->start_time = $startTime;
+            $pattern->duration_minutes = $duration;
+            $pattern->valid_from = $validFrom;
+            $pattern->valid_to = $validTo;
+            $pattern->created_by = $patternCreatedById;
+            if (!$pattern->save()) {
+                throw new \RuntimeException("Errore pattern per piano {$plan->id}: " . json_encode($pattern->getFirstErrors()));
+            }
+
+            // 20 appuntamenti distribuiti dal start_date a oggi (o fino a +20 settimane se piano molto recente)
+            $created = $this->generateTwentyAppointments(
+                $plan,
+                $planTherapy,
+                $pattern,
+                $patient,
+                $therapist,
+                $settingId,
+                $createdById,
+                $todayDate
+            );
+            $totalAppointments += $created;
+
+            // Counter assenze (model AbsenceCounter è fuori sync con lo schema:
+            // dichiara therapist_id/created_at che la tabella non ha → INSERT diretto)
+            Yii::$app->db->createCommand()->insert('absence_counters', [
+                'patient_id' => $patient->id,
+                'therapeutic_plan_id' => $plan->id,
+                'total_appointments' => 0,
+                'total_absences' => 0,
+                'justified_absences' => 0,
+                'unjustified_absences' => 0,
+            ])->execute();
+        }
+        $this->stdout("   ✓ 50 piani, 50 plan_therapies, 50 pattern, $totalAppointments appuntamenti\n");
+
+        // 6. Aggiorna contatori assenze
+        $this->stdout("📊 Aggiornamento contatori assenze...\n");
+        $this->updateAbsenceCountersComplete();
+
+        // Stats
+        $this->stdout("\n✅ Completato in " . round(microtime(true) - $startTs, 1) . "s\n\n");
+        $this->showStats();
+
+        $this->stdout("\n🔑 Credenziali (password uniforme: 12345678):\n");
+        $this->stdout("   super_admin@therapy.test\n");
+        $this->stdout("   admin1..5@therapy.test\n");
+        $this->stdout("   manager1..2@therapy.test\n");
+        $this->stdout("   coordinator1..3@therapy.test\n");
+        $this->stdout("   terapista1..20@therapy.test\n");
+        $this->stdout("   paziente1..50@therapy.test\n");
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Pulisce tutto: utenti, profili, pazienti, terapisti, piani, appuntamenti, RBAC assignments.
+     * Mantiene: ruoli RBAC, regime, setting, distretti, specializzazioni, treatment_types.
+     */
+    private function wipeAll()
+    {
+        $db = Yii::$app->db;
+        $db->createCommand('SET FOREIGN_KEY_CHECKS = 0')->execute();
+        try {
+            $tables = [
+                'absences',
+                'absence_counters',
+                'appointments',
+                'appointment_patterns',
+                'plan_therapies',
+                'therapeutic_plans',
+                'account_patients',
+                'patients',
+                'group_therapists',
+                'therapist_substitutions',
+                'therapist_busy_slots',
+                'therapists',
+                'auth_assignment',
+                'auth_token',
+                'user_profiles',
+                'users',
+            ];
+            foreach ($tables as $t) {
+                if ($db->getTableSchema($t, true) !== null) {
+                    $db->createCommand("TRUNCATE TABLE `$t`")->execute();
+                }
+            }
+        } finally {
+            $db->createCommand('SET FOREIGN_KEY_CHECKS = 1')->execute();
+        }
+    }
+
+    /**
+     * Crea utente + profilo + assegna ruolo RBAC. Ritorna il modello User.
+     */
+    private function seedStaffUser($email, $firstName, $lastName, $roleName, $password = '12345678')
+    {
+        $user = new User();
+        $user->username = $email;
+        $user->email = $email;
+        $user->password_hash = Yii::$app->security->generatePasswordHash($password);
+        $user->auth_key = Yii::$app->security->generateRandomString();
+        $user->status = User::STATUS_ACTIVE;
+        if (!$user->save()) {
+            throw new \RuntimeException("Errore user $email: " . json_encode($user->getFirstErrors()));
+        }
+
+        $profile = new UserProfile();
+        $profile->user_id = $user->id;
+        $profile->first_name = $firstName;
+        $profile->last_name = $lastName;
+        $profile->fiscal_code = strtoupper(substr($firstName, 0, 3) . substr($lastName, 0, 3)) . sprintf('%02dA01H501A', $user->id % 100);
+        $encKey = Yii::$app->params['encryptionKey'] ?? null;
+        if ($encKey) {
+            $profile->phone = base64_encode(Yii::$app->security->encryptByKey('3331234567', $encKey));
+            $profile->address = base64_encode(Yii::$app->security->encryptByKey('Via Roma 1, Napoli', $encKey));
+        }
+        if (!$profile->save()) {
+            throw new \RuntimeException("Errore profilo $email: " . json_encode($profile->getFirstErrors()));
+        }
+
+        $auth = Yii::$app->authManager;
+        $role = $auth->getRole($roleName);
+        if ($role) {
+            $auth->assign($role, $user->id);
+        } else {
+            $this->stdout("   ⚠️  Ruolo '$roleName' non trovato — utente creato senza ruolo.\n");
+        }
+
+        return $user;
+    }
+
+    /**
+     * Distribuisce 20 appuntamenti (ritmo settimanale) a partire da plan.start_date.
+     * Status: passato → mix completed/absent_*; futuro → scheduled.
+     */
+    private function generateTwentyAppointments(
+        TherapeuticPlan $plan,
+        PlanTherapy $planTherapy,
+        AppointmentPattern $pattern,
+        Patient $patient,
+        Therapist $therapist,
+        int $settingId,
+        int $createdById,
+        \DateTime $today
+    ): int {
+        $count = 0;
+        $cursor = new \DateTime($plan->start_date);
+        // allinea al day_of_week del pattern
+        while ((int)$cursor->format('N') !== (int)$pattern->day_of_week) {
+            $cursor->modify('+1 day');
+        }
+
+        for ($i = 0; $i < 20; $i++) {
+            $datetime = $cursor->format('Y-m-d') . ' ' . $pattern->start_time . ':00';
+            $appointmentDt = new \DateTime($datetime);
+
+            if ($appointmentDt < $today) {
+                $r = rand(1, 100);
+                if ($r <= 80) {
+                    $status = Appointment::STATUS_COMPLETED;
+                } elseif ($r <= 90) {
+                    $status = Appointment::STATUS_ABSENT_JUSTIFIED;
+                } elseif ($r <= 96) {
+                    $status = Appointment::STATUS_ABSENT_NOT_JUSTIFIED;
+                } else {
+                    $status = Appointment::STATUS_CANCELLED;
+                }
+            } else {
+                $status = Appointment::STATUS_SCHEDULED;
+            }
+
+            $appt = new Appointment();
+            $appt->pattern_id = $pattern->id;
+            $appt->plan_therapy_id = $planTherapy->id;
+            $appt->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
+            $appt->therapist_id = $therapist->id;
+            $appt->patient_id = $patient->id;
+            $appt->appointment_datetime = $datetime;
+            $appt->duration_minutes = $pattern->duration_minutes;
+            $appt->id_setting = $settingId;
+            $appt->status = $status;
+            $appt->appointment_type = Appointment::TYPE_TERAPIA;
+            $appt->appointment_category = Appointment::CATEGORY_REGULAR;
+            $appt->treatment_type_id = $planTherapy->treatment_type_id;
+            $appt->created_by = $createdById;
+            if ($appt->save()) {
+                $count++;
+            } else {
+                $this->stdout("     ⚠️  appuntamento non salvato: " . json_encode($appt->getFirstErrors()) . "\n");
+            }
+
+            $cursor->modify('+7 days');
+        }
+        return $count;
+    }
+
+    /**
+     * Aggiorna counters in modo compatibile con lo schema corrente
+     * (appointments.patient_id è ora denormalizzato).
+     */
+    private function updateAbsenceCountersComplete()
+    {
+        $sql = "
+            UPDATE absence_counters ac
+            JOIN (
+                SELECT
+                    pt.therapeutic_plan_id,
+                    a.patient_id,
+                    COUNT(*) AS total_appointments,
+                    SUM(a.status IN ('absent_justified','absent_not_justified')) AS total_absences,
+                    SUM(a.status = 'absent_justified') AS justified_absences,
+                    SUM(a.status = 'absent_not_justified') AS unjustified_absences
+                FROM appointments a
+                JOIN plan_therapies pt ON a.plan_therapy_id = pt.id
+                WHERE a.patient_id IS NOT NULL
+                GROUP BY pt.therapeutic_plan_id, a.patient_id
+            ) s
+              ON s.therapeutic_plan_id = ac.therapeutic_plan_id
+             AND s.patient_id = ac.patient_id
+            SET ac.total_appointments = s.total_appointments,
+                ac.total_absences = s.total_absences,
+                ac.justified_absences = s.justified_absences,
+                ac.unjustified_absences = s.unjustified_absences
+        ";
+        Yii::$app->db->createCommand($sql)->execute();
+    }
+
+    /**
+     * Riallinea il DEFINER di trigger/view che puntano a utenti MySQL
+     * inesistenti (es. 'phpmyadmin'@'localhost' creato da pma in passato).
+     * Idempotente: se tutti i DEFINER sono validi, non fa nulla.
+     */
+    private function fixOrphanDefiners(): void
+    {
+        $db = Yii::$app->db;
+
+        $existingUsers = array_map(
+            fn($r) => $r['User'] . '@' . $r['Host'],
+            $db->createCommand('SELECT User, Host FROM mysql.user')->queryAll()
+        );
+
+        $newDefiner = 'root@localhost';
+        if (!in_array($newDefiner, $existingUsers, true)) {
+            $this->stdout("   ⚠️  root@localhost non esiste — skip fix definer.\n");
+            return;
+        }
+
+        // Triggers
+        $triggers = $db->createCommand(
+            "SELECT TRIGGER_NAME, DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE()"
+        )->queryAll();
+        $fixedTriggers = 0;
+        foreach ($triggers as $t) {
+            if (in_array($t['DEFINER'], $existingUsers, true)) {
+                continue;
+            }
+            $name = $t['TRIGGER_NAME'];
+            $row = $db->createCommand("SHOW CREATE TRIGGER `$name`")->queryOne();
+            $createSql = $row['SQL Original Statement'] ?? array_values($row)[2];
+            $newSql = preg_replace(
+                "/DEFINER=`[^`]+`@`[^`]+`/",
+                "DEFINER=`root`@`localhost`",
+                $createSql,
+                1
+            );
+            $db->createCommand("DROP TRIGGER IF EXISTS `$name`")->execute();
+            $db->createCommand($newSql)->execute();
+            $fixedTriggers++;
+        }
+
+        // Views
+        $views = $db->createCommand(
+            "SELECT TABLE_NAME, DEFINER FROM information_schema.VIEWS WHERE TABLE_SCHEMA = DATABASE()"
+        )->queryAll();
+        $fixedViews = 0;
+        foreach ($views as $v) {
+            if (in_array($v['DEFINER'], $existingUsers, true)) {
+                continue;
+            }
+            $name = $v['TABLE_NAME'];
+            $row = $db->createCommand("SHOW CREATE VIEW `$name`")->queryOne();
+            $createSql = $row['Create View'] ?? array_values($row)[1];
+            $newSql = preg_replace(
+                "/DEFINER=`[^`]+`@`[^`]+`/",
+                "DEFINER=`root`@`localhost`",
+                $createSql,
+                1
+            );
+            // CREATE VIEW non si "DROPpa" sempre, ma OR REPLACE lo gestisce.
+            $newSql = preg_replace('/^CREATE\s+/', 'CREATE OR REPLACE ', $newSql, 1);
+            $db->createCommand($newSql)->execute();
+            $fixedViews++;
+        }
+
+        if ($fixedTriggers + $fixedViews > 0) {
+            $this->stdout("   ✓ DEFINER ricreati: $fixedTriggers trigger, $fixedViews view\n");
+        } else {
+            $this->stdout("   ✓ Nessun DEFINER orfano\n");
+        }
+    }
+
+    /**
+     * Garantisce dati di base. Se distretti/specializzazioni/trattamenti
+     * sono assenti, riusa il seed legacy.
+     */
+    private function ensureBaseData()
+    {
+        if (District::find()->count() == 0
+            || Specialization::find()->count() == 0
+            || TreatmentType::find()->count() == 0
+        ) {
+            $this->generateBaseData();
+        }
+        if (Regime::find()->count() == 0) {
+            $this->stdout("   ⚠️  Tabella 'regime' vuota: i piani non possono essere creati senza regime.\n");
+            throw new \RuntimeException('Tabella regime vuota');
+        }
+        if (Setting::find()->count() == 0) {
+            $this->stdout("   ⚠️  Tabella 'setting' vuota: necessaria per plan_therapies/appointment_patterns.\n");
+            throw new \RuntimeException('Tabella setting vuota');
+        }
     }
 } 
