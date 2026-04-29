@@ -624,8 +624,6 @@ class PatientController extends Controller
             if ($patient->save()) {
                 Yii::$app->session->setFlash('success', 'Paziente creato con successo.');
                 return $this->redirect(['view', 'id' => $patient->id]);
-            } else {
-                Yii::$app->session->setFlash('error', 'Errore nel salvare il paziente: ' . implode(', ', $patient->getFirstErrors()));
             }
         }
 
@@ -727,8 +725,6 @@ class PatientController extends Controller
             if ($patient->save()) {
                 Yii::$app->session->setFlash('success', 'Paziente aggiornato con successo.');
                 return $this->redirect(['view', 'id' => $patient->id]);
-            } else {
-                Yii::$app->session->setFlash('error', "Errore nell'aggiornare il paziente: " . implode(', ', $patient->getFirstErrors()));
             }
         }
 

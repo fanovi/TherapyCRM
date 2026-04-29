@@ -67,6 +67,7 @@ $sidebarClosed = ($currentController === 'calendar');
             <?= $this->render('_header') ?>
 
             <main>
+                <?= $this->render('_flashes') ?>
                 <?= $content ?>
             </main>
             <!-- ===== Main Content End ===== -->

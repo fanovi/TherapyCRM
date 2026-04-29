@@ -16,12 +16,6 @@ $this->params['breadcrumbs'][] = $this->title;
         <p class="text-gray-500 dark:text-gray-400 mt-1">Gestisci le impostazioni dell'autenticazione a due fattori per tutti gli utenti.</p>
     </div>
 
-    <?php if (Yii::$app->session->hasFlash('success')): ?>
-        <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-            <?= Yii::$app->session->getFlash('success') ?>
-        </div>
-    <?php endif; ?>
-
     <?= Html::beginForm(['system-setting/update-two-factor'], 'post', ['class' => 'max-w-2xl']) ?>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">

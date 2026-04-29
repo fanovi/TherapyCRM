@@ -60,12 +60,6 @@ $labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2';
         </nav>
     </div>
 
-    <?php if (Yii::$app->session->hasFlash('error')): ?>
-        <div class="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200">
-            <?= Html::encode(Yii::$app->session->getFlash('error')) ?>
-        </div>
-    <?php endif; ?>
-
     <div class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
         <h3 class="mb-1 text-base font-medium text-gray-800 dark:text-white/90">Dati Account</h3>
         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
