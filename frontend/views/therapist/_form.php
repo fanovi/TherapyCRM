@@ -182,7 +182,7 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Dipendente</span>
                         </label>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Spunta se il terapista è Dipendente, altrimenti sarà consulente esterno
+                            Indica se il terapista è dipendente della struttura. Deselezionato = consulente esterno.
                         </p>
                     </div>
                 </div>
