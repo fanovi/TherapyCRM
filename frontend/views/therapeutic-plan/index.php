@@ -144,7 +144,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'attribute' => 'district_id',
                         'label' => 'Distretto',
                         'value' => function ($model) {
-                            return $model->district ? $model->district->name : 'N/A';
+                            return $model->district ? $model->district->getDropdownLabel() : 'N/A';
                         },
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
@@ -159,7 +159,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             ]
                         ),
                         'content' => function ($model) {
-                            $districtName = $model->district ? $model->district->name : '-';
+                            $districtName = $model->district ? $model->district->getDropdownLabel() : '-';
                             return '<span class="text-sm text-gray-900 dark:text-white">' . Html::encode($districtName) . '</span>';
                         }
                     ],

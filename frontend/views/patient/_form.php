@@ -12,7 +12,7 @@ use yii\widgets\ActiveForm;
 /** @var bool $isUpdate */
 /** @var array $districts */
 $isUpdate = $isUpdate ?? false;
-$districts = $districts ?? ArrayHelper::map(District::find()->all(), 'id', 'name');
+$districts = $districts ?? District::getOptionsForSelect();
 $province = $province ?? ArrayHelper::map(Provincia::find()->orderBy('nome')->all(), 'id', 'nome');
 
 // Imposta "nato in Italia" come default se è un nuovo paziente

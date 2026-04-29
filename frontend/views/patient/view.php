@@ -310,7 +310,7 @@ $activeTherapeuticPlan = $model->getActiveTherapeuticPlan();
                         'attribute' => 'district.name',
                         'label' => 'Distretto',
                         'value' => function ($model) {
-                            return $model->district ? $model->district->name : '-';
+                            return $model->district ? $model->district->getDropdownLabel() : '-';
                         }
                     ],
                     [

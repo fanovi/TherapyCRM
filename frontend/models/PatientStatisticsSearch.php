@@ -288,7 +288,7 @@ class PatientStatisticsSearch extends Model
                 'sp.age',
                 'sp.piano_terapeutico_attivo',
                 'sp.trattamenti_count_no_aba',
-                'd.name as district_name'
+                "CASE WHEN d.asl_reference IS NOT NULL AND d.asl_reference != '' AND LOCATE(d.asl_reference, d.name) = 0 THEN CONCAT(d.asl_reference, ' - ', d.name) ELSE d.name END AS district_name"
             ])
             ->from('statistics_patients_mv sp')
             ->leftJoin('patients p', 'sp.id = p.id')

@@ -16,7 +16,7 @@ $this->title = 'Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
 
 // Get districts for filter
-$districts = ArrayHelper::map(District::find()->all(), 'id', 'name');
+$districts = District::getOptionsForSelect();
 
 // Registra il CSS per le notifiche e il JS
 $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification']));
@@ -178,7 +178,7 @@ $this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\we
                                 ]
                             ),
                             'value' => function ($model) {
-                                return $model->district ? $model->district->name : '-';
+                                return $model->district ? $model->district->getDropdownLabel() : '-';
                             }
                         ],
                         // [

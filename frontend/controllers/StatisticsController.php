@@ -869,11 +869,7 @@ class StatisticsController extends BaseController
 
     protected function getDistrictOptions()
     {
-        return ArrayHelper::map(
-            \common\models\District::find()->orderBy('name')->all(),
-            'id',
-            'name'
-        );
+        return \common\models\District::getDropdownData();
     }
 
     protected function getAbsenceHourlyData()
