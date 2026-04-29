@@ -364,7 +364,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     [
                                         'title' => $title,
                                         'class' => 'inline-flex items-center p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors',
-                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . htmlspecialchars(json_encode($availableStatuses), ENT_QUOTES) . ')',
+                                        'onclick' => 'openStatusUpdateModal(' . $model->id . ', ' . json_encode($availableStatuses) . ')',
                                     ]
                                 );
                             },
