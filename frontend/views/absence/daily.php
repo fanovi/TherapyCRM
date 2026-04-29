@@ -130,19 +130,6 @@ $isToday = $date === date('Y-m-d');
             </p>
         </div>
 
-        <!-- Toolbar -->
-        <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex justify-between items-center">
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-                <?= 'Trovati ' . $totalCount . ' terapisti' ?>
-            </div>
-            <div class="flex gap-2">
-                <?= Html::button('Aggiorna', [
-                    'class' => 'inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-brand-600 border border-transparent rounded-md shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
-                    'onclick' => '$.pjax.reload({container:"#daily-presence-pjax"});'
-                ]) ?>
-            </div>
-        </div>
-
         <!-- GridView -->
         <div class="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
             <?php Pjax::begin(['id' => 'daily-presence-pjax']); ?>
