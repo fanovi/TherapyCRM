@@ -78,14 +78,6 @@ $this->params['breadcrumbs'][] = $this->title;
                 'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
                 'columns' => [
                     [
-                        'attribute' => 'id',
-                        'headerOptions' => ['class' => 'px-4 py-3'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'ID...'],
-                        'options' => ['style' => 'width: 80px;'],
-                    ],
-                    [
                         'attribute' => 'protocol_number',
                         'label' => 'N. Protocollo',
                         'headerOptions' => ['class' => 'px-4 py-3'],
