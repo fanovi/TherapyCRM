@@ -5,8 +5,6 @@ namespace frontend\controllers;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
-use yii\web\ForbiddenHttpException;
-use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use common\models\Complaint;
 use frontend\models\ComplaintSearch;
@@ -27,14 +25,9 @@ class ComplaintController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'],  // Only authenticated users
+                        'actions' => ['index', 'view'],
+                        'roles' => ['view_complaints'],
                     ],
-                ],
-            ],
-            'verbs' => [
-                'class' => VerbFilter::class,
-                'actions' => [
-                    'delete' => ['POST'],
                 ],
             ],
         ];

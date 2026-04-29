@@ -315,6 +315,7 @@ class PermissionController extends Controller
             'download_documents' => 'Documenti',
             'change_document_request_status' => 'Documenti',
             'mark_document_request_delivered' => 'Documenti',
+            'view_complaints' => 'Reclami',
             'manage_treatment_types' => 'Specializzazioni',
         ];
 

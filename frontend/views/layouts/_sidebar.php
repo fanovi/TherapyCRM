@@ -599,6 +599,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <!-- Menu Item Document Requests -->
 
                     <!-- Menu Item Complaints -->
+                    <?php if (Yii::$app->user->can('view_complaints')): ?>
                     <li>
                         <a
                             href="<?= \yii\helpers\Url::to(['/complaint/index']) ?>"
@@ -626,6 +627,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                             </span>
                         </a>
                     </li>
+                    <?php endif; ?>
                     <!-- Menu Item Complaints -->
 
                     <!-- Menu Item Notifications -->
