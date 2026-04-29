@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\DetailView;
+use frontend\widgets\AlertBanner;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\TherapeuticPlan */
@@ -84,83 +85,52 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
 
     <!-- Status Alert -->
-    <!-- Status Alert -->
     <?php if ($model->status === 'suspended'): ?>
-        <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Piano Terapeutico Sospeso</h3>
-                    <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-                        Questo piano è stato sospeso dal <?= Yii::$app->formatter->asDate($model->suspension_date) ?>.
-                        <?php if ($model->suspension_reason): ?>
-                            <br>Motivo: <?= Html::encode($model->suspension_reason) ?>
-                        <?php endif; ?>
-                    </p>
-                </div>
-            </div>
-        </div>
-    <?php elseif ($model->status === 'expired' || $model->status === 'terminated'): ?>
-        <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
-                        Piano Terapeutico <?= $model->status === 'expired' ? 'Scaduto' : 'Interrotto' ?>
-                    </h3>
-                    <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                        <?php if ($model->status === 'expired'): ?>
-                            Questo piano terapeutico è scaduto il <?= Yii::$app->formatter->asDate($model->end_date) ?>.
-                        <?php else: ?>
-                            Questo piano è stato interrotto<?= $model->termination_date ? ' il ' . Yii::$app->formatter->asDate($model->termination_date) : '' ?>.
-                            <?php if ($model->termination_reason): ?>
-                                <br>Motivo: <?= Html::encode($model->termination_reason) ?>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </p>
-                </div>
-            </div>
-        </div>
+        <?php
+        $msg = 'Questo piano è stato sospeso dal ' . Yii::$app->formatter->asDate($model->suspension_date) . '.';
+        if ($model->suspension_reason) {
+            $msg .= '<br>Motivo: ' . Html::encode($model->suspension_reason);
+        }
+        echo AlertBanner::widget([
+            'variant' => 'warning',
+            'title' => 'Piano Terapeutico Sospeso',
+            'message' => $msg,
+            'rawMessage' => true,
+        ]);
+        ?>
+    <?php elseif ($model->status === 'expired'): ?>
+        <?= AlertBanner::widget([
+            'variant' => 'danger',
+            'title' => 'Piano Terapeutico Scaduto',
+            'message' => 'Questo piano terapeutico è scaduto il ' . Yii::$app->formatter->asDate($model->end_date) . '.',
+        ]) ?>
+    <?php elseif ($model->status === 'terminated'): ?>
+        <?php
+        $msg = 'Questo piano è stato interrotto'
+            . ($model->termination_date ? ' il ' . Yii::$app->formatter->asDate($model->termination_date) : '')
+            . '.';
+        if ($model->termination_reason) {
+            $msg .= '<br>Motivo: ' . Html::encode($model->termination_reason);
+        }
+        echo AlertBanner::widget([
+            'variant' => 'danger',
+            'title' => 'Piano Terapeutico Interrotto',
+            'message' => $msg,
+            'rawMessage' => true,
+        ]);
+        ?>
     <?php elseif ($model->status === 'active'): ?>
-        <div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 dark:bg-green-900/20 dark:border-green-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-green-800 dark:text-green-200">Piano Terapeutico Attivo</h3>
-                    <p class="mt-1 text-sm text-green-700 dark:text-green-300">
-                        Questo piano terapeutico è attivo<?= $model->end_date ? ' fino al ' . Yii::$app->formatter->asDate($model->end_date) : '' ?>.
-                    </p>
-                </div>
-            </div>
-        </div>
+        <?= AlertBanner::widget([
+            'variant' => 'success',
+            'title' => 'Piano Terapeutico Attivo',
+            'message' => 'Questo piano terapeutico è attivo' . ($model->end_date ? ' fino al ' . Yii::$app->formatter->asDate($model->end_date) : '') . '.',
+        ]) ?>
     <?php elseif ($model->status === 'pending'): ?>
-        <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/20 dark:border-blue-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Piano Terapeutico In Attesa</h3>
-                    <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                        Il piano inizierà il <?= Yii::$app->formatter->asDate($model->start_date) ?>.
-                    </p>
-                </div>
-            </div>
-        </div>
+        <?= AlertBanner::widget([
+            'variant' => 'info',
+            'title' => 'Piano Terapeutico In Attesa',
+            'message' => 'Il piano inizierà il ' . Yii::$app->formatter->asDate($model->start_date) . '.',
+        ]) ?>
     <?php endif; ?>
 
     <!-- Dati Piano Terapeutico -->
