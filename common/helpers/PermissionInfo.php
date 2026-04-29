@@ -6,12 +6,18 @@ namespace common\helpers;
  * Descrizioni estese dei permessi RBAC, pensate per essere mostrate
  * all'utente cliccando sull'icona info accanto al nome del permesso.
  *
- * La mappa qui sotto contiene SOLO i permessi per cui esiste una
- * descrizione "umana" piu' ricca dell'auth_item.description. Per gli
- * altri il fallback ritorna null e l'icona info non viene resa.
+ * Convenzione: la mappa contiene SOLO i permessi che oggi sono
+ * effettivamente "attivi" - cioe' presenti in {{%permission_metadata}}
+ * con is_active = 1 (oppure permessi nuovi non ancora registrati in
+ * permission_metadata ma gia' usati in produzione, come i due
+ * change_document_request_status / mark_document_request_delivered).
  *
- * Convenzione: title corto come la voce in elenco; description lunga
- * con esempi di cosa l'utente puo' fare e i contesti tipici.
+ * I permessi orfani (is_active = 0) non vanno descritti qui: sono
+ * filtrati a monte dalle viste /site/my-permissions, /permission/roles,
+ * /permission/view-role e dall'editor permessi extra.
+ *
+ * Quando viene attivato un nuovo permesso aggiungere la voce qui in
+ * modo che l'icona info compaia accanto al nome.
  */
 class PermissionInfo
 {
@@ -30,11 +36,7 @@ class PermissionInfo
             'app_login' => [
                 'title' => 'Accesso all\'app mobile',
                 'description' => "Consente di loggarsi all'app mobile dei terapisti/pazienti.\n\n"
-                    . "Solo i ruoli therapist e patient_family possono averlo. Gli altri ruoli non passano il login mobile anche se assegnato."
-            ],
-            'manage_system' => [
-                'title' => 'Configurazione di sistema',
-                'description' => "Accesso a impostazioni avanzate del sistema (parametri globali, configurazioni tecniche)."
+                    . "Solo i ruoli therapist e patient_family possono averlo: gli altri ruoli non passano il login mobile anche se assegnato."
             ],
             'manage_permissions' => [
                 'title' => 'Gestire permessi utenti',
@@ -63,6 +65,8 @@ class PermissionInfo
                 'title' => 'Eliminare coordinatori',
                 'description' => "Permette di eliminare un coordinatore dal sistema. Operazione irreversibile."
             ],
+
+            // ==== Gruppi Coordinatori ====
             'view_coordinator_group' => [
                 'title' => 'Visualizzare gruppi coordinatori',
                 'description' => "Accesso in lettura ai gruppi di coordinamento (lista terapisti che fanno capo a un coordinator)."
@@ -71,9 +75,13 @@ class PermissionInfo
                 'title' => 'Creare gruppi coordinatori',
                 'description' => "Permette di creare un nuovo gruppo di coordinamento e assegnargli terapisti."
             ],
-            'manage_coordinator_groups' => [
-                'title' => 'Gestire gruppi di coordinamento',
-                'description' => "Gestione completa dei gruppi: creazione, modifica, eliminazione, riassegnazione terapisti."
+            'update_coordinator_group' => [
+                'title' => 'Modificare gruppi coordinatori',
+                'description' => "Permette di rinominare un gruppo e di aggiungere/rimuovere terapisti dal gruppo stesso."
+            ],
+            'delete_coordinator_group' => [
+                'title' => 'Eliminare gruppi coordinatori',
+                'description' => "Rimuove un gruppo di coordinamento. I terapisti restano nel sistema ma senza gruppo associato."
             ],
 
             // ==== Terapisti ====
@@ -116,13 +124,17 @@ class PermissionInfo
                 'title' => 'Eliminare pazienti',
                 'description' => "Eliminazione paziente. Operazione delicata: rimuove anche relazioni associate."
             ],
-            'manage_patient_accounts' => [
-                'title' => 'Gestire account dei pazienti',
-                'description' => "Crea/modifica gli account utente collegati ai pazienti (familiari, tutori, paziente stesso) e le loro credenziali."
-            ],
             'view_own_group_patients' => [
                 'title' => 'Visualizzare i pazienti del proprio gruppo',
                 'description' => "Il coordinator vede solo i pazienti curati dai terapisti del suo gruppo (pagina /patient/my-group + search globale)."
+            ],
+            'view_patient_data' => [
+                'title' => 'Visualizzare dati paziente',
+                'description' => "Accesso alle informazioni cliniche e di dettaglio del paziente (referti, note terapista, storico)."
+            ],
+            'view_patient_absence' => [
+                'title' => 'Visualizzare assenze pazienti',
+                'description' => "Vista delle assenze relative ai pazienti, accessibile anche da chi non gestisce calendario completo."
             ],
 
             // ==== Piani Terapeutici ====
@@ -143,7 +155,7 @@ class PermissionInfo
                 'description' => "Elimina un piano. Gli appuntamenti collegati restano ma orfani."
             ],
 
-            // ==== Appuntamenti / Calendario ====
+            // ==== Calendario ====
             'view_calendar' => [
                 'title' => 'Visualizzare calendario',
                 'description' => "Permette di accedere alla pagina /calendar in sola visualizzazione (drag e creazione disabilitati)."
@@ -152,14 +164,6 @@ class PermissionInfo
                 'title' => 'Gestire calendario completo',
                 'description' => "Pieno controllo del calendario: creazione, modifica, spostamento e cancellazione di appuntamenti.\n\n"
                     . "Senza questo permesso il calendario rimane in sola lettura anche se l'utente puo' aprirlo."
-            ],
-            'view_appointment' => [
-                'title' => 'Visualizzare appuntamenti',
-                'description' => "Accesso in lettura ai dettagli degli appuntamenti."
-            ],
-            'view_own_appointments' => [
-                'title' => 'Visualizzare i propri appuntamenti',
-                'description' => "Vista limitata ai soli appuntamenti dell'utente corrente (terapista o paziente)."
             ],
 
             // ==== Assenze ====
@@ -179,14 +183,6 @@ class PermissionInfo
                 'title' => 'Eliminare assenze',
                 'description' => "Rimuove un'assenza dal sistema, ripristinando l'appuntamento associato se previsto."
             ],
-            'view_patient_absence' => [
-                'title' => 'Visualizzare assenze pazienti',
-                'description' => "Vista delle assenze relative ai pazienti, accessibile anche da chi non gestisce calendario completo."
-            ],
-            'manage_absence_recovery' => [
-                'title' => 'Gestire recuperi assenze',
-                'description' => "Permette di programmare e gestire i recuperi delle assenze giustificate."
-            ],
 
             // ==== Documenti ====
             'view_documents' => [
@@ -196,10 +192,6 @@ class PermissionInfo
             'manage_documents' => [
                 'title' => 'Gestire documenti',
                 'description' => "Gestione completa: visualizza, modifica stato, carica, rimuovi documenti."
-            ],
-            'download_documents' => [
-                'title' => 'Scaricare documenti',
-                'description' => "Permette di scaricare file documento dal sistema."
             ],
             'change_document_request_status' => [
                 'title' => 'Cambiare stato richiesta documento (libero)',
@@ -216,44 +208,17 @@ class PermissionInfo
                     . "Tipico per chi consegna materialmente il documento al paziente (es. operatore allo sportello, manager)."
             ],
 
-            // ==== Notifiche / Comunicazioni ====
-            'view_notification' => [
-                'title' => 'Visualizzare notifiche',
-                'description' => "Accesso alla pagina notifiche personali."
-            ],
-            'create_notification' => [
-                'title' => 'Creare notifiche',
-                'description' => "Permette di inviare notifiche manuali a uno o piu' utenti."
-            ],
-            'manage_notification_templates' => [
-                'title' => 'Gestire template notifiche',
-                'description' => "Crea/modifica i template usati per le notifiche automatiche di sistema."
-            ],
-            'send_notifications' => [
-                'title' => 'Inviare notifiche',
-                'description' => "Permette di inviare notifiche broadcast o programmate."
-            ],
-            'view_messages' => [
-                'title' => 'Visualizzare messaggi',
-                'description' => "Accesso alla messaggistica interna tra utenti."
-            ],
-            'send_messages' => [
-                'title' => 'Inviare messaggi',
-                'description' => "Permette di inviare messaggi all'interno della piattaforma."
-            ],
-            'manage_communications' => [
-                'title' => 'Gestire comunicazioni',
-                'description' => "Gestione completa delle comunicazioni: invio, modifica, archiviazione."
+            // ==== Notifiche ====
+            'view_notifications' => [
+                'title' => 'Visualizzare notifiche del sistema',
+                'description' => "Accesso alla pagina /notification con la lista delle notifiche di sistema (avvisi, promemoria, comunicazioni)."
             ],
 
-            // ==== Dati personali ====
-            'view_own_data' => [
-                'title' => 'Visualizzare i propri dati',
-                'description' => "Permette all'utente di vedere il proprio profilo e le informazioni personali."
-            ],
-            'update_own_data' => [
-                'title' => 'Modificare i propri dati',
-                'description' => "Permette di aggiornare le proprie informazioni anagrafiche, telefono, indirizzo."
+            // ==== Reclami ====
+            'view_complaints' => [
+                'title' => 'Visualizzare reclami',
+                'description' => "Accesso alla sezione Reclami: lista e dettaglio dei reclami inseriti dai pazienti/familiari.\n\n"
+                    . "Tipico di admin e super_admin per il monitoraggio della qualita' del servizio."
             ],
 
             // ==== Statistiche / Report ====
@@ -261,57 +226,9 @@ class PermissionInfo
                 'title' => 'Visualizzare statistiche e dashboard',
                 'description' => "Accesso alla dashboard analitica e ai grafici sintetici."
             ],
-            'view_reports' => [
-                'title' => 'Visualizzare rapporti',
-                'description' => "Permette di vedere i report di attivita' (es. report attivita' terapista)."
-            ],
-            'generate_reports' => [
-                'title' => 'Generare rapporti',
-                'description' => "Genera nuovi report parametrizzati (per periodo, terapista, paziente)."
-            ],
             'export_data' => [
                 'title' => 'Esportare dati',
                 'description' => "Permette l'esportazione dei dati in formato CSV/Excel."
-            ],
-
-            // ==== Accesso (residui) ====
-            'manage_notifications' => [
-                'title' => 'Gestire notifiche di sistema',
-                'description' => "Gestione delle notifiche di sistema (avvisi automatici, alert per amministratori)."
-            ],
-
-            // ==== Appuntamenti ====
-            'create_appointment' => [
-                'title' => 'Creare appuntamenti',
-                'description' => "Permette di creare nuovi appuntamenti dal calendario."
-            ],
-            'update_appointment' => [
-                'title' => 'Modificare appuntamenti',
-                'description' => "Permette di modificare data, ora, durata e note degli appuntamenti."
-            ],
-            'delete_appointment' => [
-                'title' => 'Eliminare appuntamenti',
-                'description' => "Permette di cancellare appuntamenti dal calendario."
-            ],
-            'manage_appointments' => [
-                'title' => 'Gestire appuntamenti (generale)',
-                'description' => "Gestione completa degli appuntamenti: creazione, modifica, eliminazione, sostituzione."
-            ],
-            'manage_appointment_patterns' => [
-                'title' => 'Gestire pattern ricorrenti',
-                'description' => "Crea e modifica pattern di appuntamenti ricorrenti (es. ogni lunedi' per 12 settimane)."
-            ],
-
-            // ==== Assenze (residui) ====
-            'view_absence_statistics' => [
-                'title' => 'Visualizzare statistiche assenze',
-                'description' => "Accesso alle statistiche aggregate delle assenze (per terapista, paziente, periodo)."
-            ],
-
-            // ==== Calendario (residui) ====
-            'manage_own_schedule' => [
-                'title' => 'Gestire il proprio calendario',
-                'description' => "Vista limitata: il terapista puo' gestire solo il proprio calendario."
             ],
 
             // ==== Configurazione ====
@@ -322,30 +239,6 @@ class PermissionInfo
             'manage_settings' => [
                 'title' => 'Gestire impostazioni',
                 'description' => "Accesso a parametri di configurazione del gestionale (e-mail, integrazioni, etc)."
-            ],
-
-            // ==== Dati personali (residui) ====
-            'view_assigned_patients' => [
-                'title' => 'Visualizzare pazienti assegnati',
-                'description' => "Vista dei pazienti che il terapista ha in carico via piani/appuntamenti."
-            ],
-
-            // ==== Documenti (residui) ====
-            'create_document_request' => [
-                'title' => 'Creare richieste documenti',
-                'description' => "Permette di aprire una nuova richiesta di documento (certificati, attestazioni)."
-            ],
-            'view_document_request' => [
-                'title' => 'Visualizzare richieste documenti',
-                'description' => "Accesso in lettura alle richieste documenti aperte dai pazienti/familiari."
-            ],
-            'update_document_request' => [
-                'title' => 'Modificare richieste documenti',
-                'description' => "Permette di aggiornare i dati di una richiesta (paziente, tipo, note)."
-            ],
-            'delete_document_request' => [
-                'title' => 'Eliminare richieste documenti',
-                'description' => "Rimuove una richiesta dal sistema. Non agisce sul cambio stato (gestito da altri permessi)."
             ],
 
             // ==== Gestione Admin ====
@@ -382,120 +275,6 @@ class PermissionInfo
             'delete_manager' => [
                 'title' => 'Eliminare manager',
                 'description' => "Rimuove un manager dal sistema."
-            ],
-
-            // ==== Gestione Pazienti (residui) ====
-            'view_patient_statistics' => [
-                'title' => 'Visualizzare statistiche pazienti',
-                'description' => "Accesso alle statistiche aggregate sui pazienti (numero, distribuzione, trend)."
-            ],
-
-            // ==== Gestione Terapisti (residui) ====
-            'manage_therapist_schedule' => [
-                'title' => 'Gestire calendario terapisti',
-                'description' => "Permette di gestire il calendario di tutti i terapisti, non solo del proprio."
-            ],
-            'manage_therapist_substitutions' => [
-                'title' => 'Gestire sostituzioni terapisti',
-                'description' => "Crea e gestisce le sostituzioni quando un terapista e' assente."
-            ],
-            'view_therapist_statistics' => [
-                'title' => 'Visualizzare statistiche terapisti',
-                'description' => "Accesso alle statistiche aggregate sui terapisti (ore, presenze, performance)."
-            ],
-
-            // ==== Gestione Utenti Generica ====
-            'create_user' => [
-                'title' => 'Creare utenti',
-                'description' => "Permesso generico per creare utenti di qualunque tipo."
-            ],
-            'view_user' => [
-                'title' => 'Visualizzare utenti',
-                'description' => "Lista globale di tutti gli utenti del sistema."
-            ],
-            'update_user' => [
-                'title' => 'Modificare utenti',
-                'description' => "Modifica dati di un utente generico (qualunque ruolo)."
-            ],
-            'delete_user' => [
-                'title' => 'Eliminare utenti',
-                'description' => "Rimuove un utente dal sistema."
-            ],
-            'manage_users' => [
-                'title' => 'Gestire utenti (generale)',
-                'description' => "Permesso ombrello sulla gestione utenti."
-            ],
-            'manage_patients' => [
-                'title' => 'Gestire pazienti (generale)',
-                'description' => "Permesso ombrello su tutta la gestione pazienti (creazione, modifica, eliminazione, account)."
-            ],
-            'manage_therapists' => [
-                'title' => 'Gestire terapisti (generale)',
-                'description' => "Permesso ombrello su tutta la gestione terapisti (creazione, modifica, calendario, sostituzioni)."
-            ],
-
-            // ==== Notifiche (residui) ====
-            'view_notification' => [
-                'title' => 'Visualizzare notifiche',
-                'description' => "Accesso alla pagina delle notifiche personali."
-            ],
-            'update_notification' => [
-                'title' => 'Modificare notifiche',
-                'description' => "Permette di modificare titolo/messaggio di una notifica gia' inviata."
-            ],
-            'delete_notification' => [
-                'title' => 'Eliminare notifiche',
-                'description' => "Rimuove una notifica dal sistema."
-            ],
-
-            // ==== Piani Terapeutici (residui) ====
-            'manage_plan_therapies' => [
-                'title' => 'Gestire terapie del piano',
-                'description' => "Permette di aggiungere/rimuovere terapie all'interno di un piano terapeutico."
-            ],
-            'manage_plans' => [
-                'title' => 'Gestire piani terapeutici (generale)',
-                'description' => "Permesso ombrello sulla gestione piani: include creazione, modifica, terapie, eliminazione."
-            ],
-
-            // ==== Specializzazioni ====
-            'create_specialization' => [
-                'title' => 'Creare specializzazioni',
-                'description' => "Permette di aggiungere una nuova specializzazione (es. Logopedia, Psicomotricita')."
-            ],
-            'view_specialization' => [
-                'title' => 'Visualizzare specializzazioni',
-                'description' => "Accesso alla lista delle specializzazioni configurate."
-            ],
-            'update_specialization' => [
-                'title' => 'Modificare specializzazioni',
-                'description' => "Permette di modificare nome e trattamenti associati a una specializzazione."
-            ],
-            'delete_specialization' => [
-                'title' => 'Eliminare specializzazioni',
-                'description' => "Rimuove una specializzazione. Verifica prima eventuali terapisti collegati."
-            ],
-            'manage_treatment_types' => [
-                'title' => 'Gestire tipi di trattamento',
-                'description' => "Configurazione dei tipi di trattamento erogati (Fisiokinesiterapia, Logopedia, etc)."
-            ],
-
-            // ==== Visite Specialistiche ====
-            'create_specialist_visit' => [
-                'title' => 'Creare visite specialistiche',
-                'description' => "Registra una nuova visita specialistica per un paziente."
-            ],
-            'view_specialist_visit' => [
-                'title' => 'Visualizzare visite specialistiche',
-                'description' => "Accesso allo storico visite specialistiche dei pazienti."
-            ],
-            'update_specialist_visit' => [
-                'title' => 'Modificare visite specialistiche',
-                'description' => "Modifica i dati di una visita gia' registrata."
-            ],
-            'delete_specialist_visit' => [
-                'title' => 'Eliminare visite specialistiche',
-                'description' => "Rimuove una visita specialistica dallo storico paziente."
             ],
         ];
     }
