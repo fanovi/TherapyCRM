@@ -227,9 +227,9 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Azioni',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right'],
-                        'template' => '{view} {update} {delete} {calendar-link}',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]', 'style' => 'width:200px;'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-right', 'style' => 'white-space:nowrap;'],
+                        'template' => '<div class="inline-flex items-center gap-1 whitespace-nowrap">{view}{update}{delete}{calendar-link}</div>',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
                                 return Html::a(
@@ -240,7 +240,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url,
                                     [
                                         'title' => 'Visualizza',
-                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                        'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                         'data-pjax' => '0'
                                     ]
                                 );
@@ -254,7 +254,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     $url,
                                     [
                                         'title' => 'Modifica',
-                                        'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
+                                        'class' => 'text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
                                         'data-pjax' => '0'
                                     ]
                                 );
@@ -285,7 +285,7 @@ $this->params['breadcrumbs'][] = $this->title;
 </svg>',
                                         $url, [
                                     'title' => 'Link al calendario',
-                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
+                                    'class' => 'text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20',
                                 ]);
                             },
                         ],
