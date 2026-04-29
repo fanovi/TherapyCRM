@@ -1,7 +1,10 @@
 <?php
 
+use common\helpers\PermissionInfo;
 use yii\helpers\Html;
 use yii\helpers\Url;
+
+$this->registerJs(PermissionInfo::getJsHandler(), \yii\web\View::POS_END, 'permission-info-handler');
 
 $this->registerCss('
 .toggle-switch {
@@ -196,6 +199,7 @@ $this->title = 'Ruolo: ' . $roleLabel;
                                 <div class="min-w-0">
                                     <span class="perm-name block text-sm font-medium text-gray-800 dark:text-white/90 truncate">
                                         <?= Html::encode($description) ?>
+                                        <?= PermissionInfo::renderInfoIcon($permission->name) ?>
                                         <?php if ($isSystem): ?>
                                             <span class="text-xs text-amber-600 font-normal">(sistema)</span>
                                         <?php endif; ?>

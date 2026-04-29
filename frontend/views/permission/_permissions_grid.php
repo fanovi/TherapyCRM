@@ -1,6 +1,9 @@
 <?php
 
+use common\helpers\PermissionInfo;
 use yii\helpers\Html;
+
+$this->registerJs(PermissionInfo::getJsHandler(), \yii\web\View::POS_END, 'permission-info-handler');
 
 /** @var array $allPermissions */
 /** @var array $rolePermissions */
@@ -132,6 +135,7 @@ foreach ($categories as $perms) {
                                 <span class="text-sm text-gray-800 dark:text-gray-200 permissions-grid-item-label truncate">
                                     <?= Html::encode($label) ?>
                                 </span>
+                                <?= PermissionInfo::renderInfoIcon($permission->name) ?>
                                 <?php if ($isFromRole): ?>
                                     <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">ruolo</span>
                                 <?php elseif ($isDirectExtra): ?>

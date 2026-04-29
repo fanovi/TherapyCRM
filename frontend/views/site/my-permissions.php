@@ -1,5 +1,6 @@
 <?php
 
+use common\helpers\PermissionInfo;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -7,6 +8,8 @@ use yii\helpers\Url;
 /* @var $roles \yii\rbac\Role[] */
 /* @var $rolePermissions array<string, \yii\rbac\Permission[]> */
 /* @var $directPermissions \yii\rbac\Permission[] */
+
+$this->registerJs(PermissionInfo::getJsHandler(), \yii\web\View::POS_END, 'permission-info-handler');
 
 $this->title = 'I miei permessi';
 $this->params['breadcrumbs'][] = $this->title;
@@ -124,9 +127,12 @@ foreach ($rolePermissions as $perms) {
                                 <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                                <p class="text-sm text-gray-800 dark:text-white/90 truncate min-w-0">
-                                    <?= Html::encode($permLabel) ?>
-                                </p>
+                                <div class="flex items-center min-w-0 flex-1">
+                                    <p class="text-sm text-gray-800 dark:text-white/90 truncate">
+                                        <?= Html::encode($permLabel) ?>
+                                    </p>
+                                    <?= PermissionInfo::renderInfoIcon($permName) ?>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -163,9 +169,12 @@ foreach ($rolePermissions as $perms) {
                         <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                         </svg>
-                        <p class="text-sm text-gray-800 dark:text-white/90 truncate min-w-0">
-                            <?= Html::encode($permLabel) ?>
-                        </p>
+                        <div class="flex items-center min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 dark:text-white/90 truncate">
+                                <?= Html::encode($permLabel) ?>
+                            </p>
+                            <?= PermissionInfo::renderInfoIcon($permName) ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
