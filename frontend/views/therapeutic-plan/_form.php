@@ -261,6 +261,25 @@ use yii\helpers\Url;
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Data Interruzione (visibile solo se status = terminated) -->
+                        <div class="form-group" id="termination-date-container" style="<?= $model->status === 'terminated' ? '' : 'display:none;' ?>">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Data Interruzione <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <?= $form->field($model, 'termination_date')->input('date', [
+                                    'placeholder' => 'Seleziona data',
+                                    'id' => 'therapeuticplan-termination-date',
+                                    'class' => 'block w-full rounded-lg border-gray-300 bg-gray-50 text-gray-900 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-brand-500 dark:focus:ring-brand-500 text-sm px-3 py-2 pr-10'
+                                ])->label(false) ?>
+                                <button type="button" onclick="document.getElementById('therapeuticplan-termination-date').showPicker()" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer">
+                                    <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M6.66659 1.5415C7.0808 1.5415 7.41658 1.87729 7.41658 2.2915V2.99984H12.5833V2.2915C12.5833 1.87729 12.919 1.5415 13.3333 1.5415C13.7475 1.5415 14.0833 1.87729 14.0833 2.2915V2.99984L15.4166 2.99984C16.5212 2.99984 17.4166 3.89527 17.4166 4.99984V7.49984V15.8332C17.4166 16.9377 16.5212 17.8332 15.4166 17.8332H4.58325C3.47868 17.8332 2.58325 16.9377 2.58325 15.8332V7.49984V4.99984C2.58325 3.89527 3.47868 2.99984 4.58325 2.99984L5.91659 2.99984V2.2915C5.91659 1.87729 6.25237 1.5415 6.66659 1.5415ZM6.66659 4.49984H4.58325C4.30711 4.49984 4.08325 4.7237 4.08325 4.99984V6.74984H15.9166V4.99984C15.9166 4.7237 15.6927 4.49984 15.4166 4.49984H13.3333H6.66659ZM15.9166 8.24984H4.08325V15.8332C4.08325 16.1093 4.30711 16.3332 4.58325 16.3332H15.4166C15.6927 16.3332 15.9166 16.1093 15.9166 15.8332V8.24984Z" fill="" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Motivo Sospensione (visibile solo se status = suspended) -->
@@ -269,6 +288,14 @@ use yii\helpers\Url;
                             'rows' => 3,
                             'placeholder' => 'Inserisci il motivo della sospensione...',
                         ])->label('Motivo Sospensione') ?>
+                    </div>
+
+                    <!-- Motivo Interruzione (visibile solo se status = terminated) -->
+                    <div class="form-group mt-6" id="termination-reason-container" style="<?= $model->status === 'terminated' ? '' : 'display:none;' ?>">
+                        <?= $form->field($model, 'termination_reason')->textarea([
+                            'rows' => 3,
+                            'placeholder' => 'Inserisci il motivo dell\'interruzione...',
+                        ])->label('Motivo Interruzione') ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -998,9 +1025,12 @@ $this->registerJs('
         
         return true;
     });
-    // Gestione visibilità campi sospensione
+    // Gestione visibilità campi sospensione / interruzione
     $('#status-select').on('change', function() {
-        if ($(this).val() === 'suspended') {
+        var v = $(this).val();
+
+        // Sospensione
+        if (v === 'suspended') {
             $('#suspension-date-container').show();
             $('#suspension-reason-container').show();
             $('#therapeuticplan-suspension-date').attr('required', true);
@@ -1010,6 +1040,19 @@ $this->registerJs('
             $('#therapeuticplan-suspension-date').attr('required', false);
             $('#therapeuticplan-suspension-date').val('');
             $('#therapeuticplan-suspension_reason').val('');
+        }
+
+        // Interruzione
+        if (v === 'terminated') {
+            $('#termination-date-container').show();
+            $('#termination-reason-container').show();
+            $('#therapeuticplan-termination-date').attr('required', true);
+        } else {
+            $('#termination-date-container').hide();
+            $('#termination-reason-container').hide();
+            $('#therapeuticplan-termination-date').attr('required', false);
+            $('#therapeuticplan-termination-date').val('');
+            $('#therapeuticplan-termination_reason').val('');
         }
     });
 ");

@@ -26,6 +26,8 @@ use Yii;
  * @property string $status
  * @property string|null $suspension_date
  * @property string|null $suspension_reason
+ * @property string|null $termination_date
+ * @property string|null $termination_reason
  *
  * @property Patient $patient
  * @property User $createdBy
@@ -108,6 +110,15 @@ class TherapeuticPlan extends ActiveRecord
                 return $model->status === 'suspended';
             }, 'whenClient' => "function (attribute, value) {
                 return $('#status').val() === 'suspended';
+            }"],
+            [['termination_date'], 'date', 'format' => 'php:Y-m-d'],
+            [['termination_reason'], 'string'],
+            [['termination_date', 'termination_reason'], 'default', 'value' => null],
+            // Validazione: termination_date e termination_reason solo se status = terminated
+            ['termination_date', 'required', 'when' => function($model) {
+                return $model->status === 'terminated';
+            }, 'whenClient' => "function (attribute, value) {
+                return $('#status').val() === 'terminated';
             }"],
         ];
     }
@@ -230,6 +241,8 @@ class TherapeuticPlan extends ActiveRecord
             'status' => 'Stato',
             'suspension_date' => 'Data Sospensione',
             'suspension_reason' => 'Motivo Sospensione',
+            'termination_date' => 'Data Interruzione',
+            'termination_reason' => 'Motivo Interruzione',
         ];
     }
 

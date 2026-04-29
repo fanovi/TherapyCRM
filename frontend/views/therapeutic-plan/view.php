@@ -117,7 +117,14 @@ $this->params['breadcrumbs'][] = $this->title;
                         Piano Terapeutico <?= $model->status === 'expired' ? 'Scaduto' : 'Interrotto' ?>
                     </h3>
                     <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                        Questo piano terapeutico è <?= $model->status === 'expired' ? 'scaduto il ' . Yii::$app->formatter->asDate($model->end_date) : 'stato interrotto' ?>.
+                        <?php if ($model->status === 'expired'): ?>
+                            Questo piano terapeutico è scaduto il <?= Yii::$app->formatter->asDate($model->end_date) ?>.
+                        <?php else: ?>
+                            Questo piano è stato interrotto<?= $model->termination_date ? ' il ' . Yii::$app->formatter->asDate($model->termination_date) : '' ?>.
+                            <?php if ($model->termination_reason): ?>
+                                <br>Motivo: <?= Html::encode($model->termination_reason) ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </p>
                 </div>
             </div>
@@ -270,6 +277,23 @@ $this->params['breadcrumbs'][] = $this->title;
                         'visible' => $model->status === 'suspended',
                         'value' => function ($model) {
                             return $model->suspension_reason ? nl2br(Html::encode($model->suspension_reason)) : 'N/A';
+                        },
+                        'format' => 'raw'
+                    ],
+                    [
+                        'attribute' => 'termination_date',
+                        'label' => 'Data Interruzione',
+                        'visible' => $model->status === 'terminated',
+                        'value' => function ($model) {
+                            return $model->termination_date ? Yii::$app->formatter->asDate($model->termination_date) : 'N/A';
+                        }
+                    ],
+                    [
+                        'attribute' => 'termination_reason',
+                        'label' => 'Motivo Interruzione',
+                        'visible' => $model->status === 'terminated',
+                        'value' => function ($model) {
+                            return $model->termination_reason ? nl2br(Html::encode($model->termination_reason)) : 'N/A';
                         },
                         'format' => 'raw'
                     ],
