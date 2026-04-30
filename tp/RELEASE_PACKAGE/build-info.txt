@@ -1,5 +1,6 @@
 TherapyCRM - Build Info
-Data: Sun Feb  1 09:14:15 CET 2026
-Versione: 1.8
-Version Code: 12
+Data: Thu Apr 30 17:58:40 CEST 2026
+Versione: 1.12
+Version Code: 16
 Package: com.tp.cgm.badil
+API Endpoint: https://app.sanlucacentromedico.it/api
