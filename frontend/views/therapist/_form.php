@@ -256,15 +256,6 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
     </div>
     <?php endif; ?>
 
-    <?php if (Yii::$app->user->can('manage_permissions')): ?>
-        <?= $this->render('/permission/_permissions_grid', [
-            'allPermissions' => $allPermissions ?? [],
-            'rolePermissions' => $rolePermissions ?? [],
-            'userDirectPermissions' => $userDirectPermissions ?? [],
-            'categories' => $categories ?? [],
-        ]) ?>
-    <?php endif; ?>
-
     <!-- Action Buttons -->
     <div class="mt-8 flex items-center justify-between gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
         <div class="text-sm text-gray-500 dark:text-gray-400">
