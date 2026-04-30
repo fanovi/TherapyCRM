@@ -11,6 +11,7 @@ import {
   twoFactorFailure,
   accountReactivationRequired,
   reactivationSuccess,
+  clearReactivationState,
   biometricLoginStart,
   biometricLoginSuccess,
   biometricLoginFailure,
@@ -368,6 +369,10 @@ export const loginService = {
         await AsyncStorage.setItem('tempToken', tempTokenStr);
         await AsyncStorage.setItem('user', JSON.stringify(response.user));
 
+        // Riattivazione completata: ripulisci lo stato relativo prima di
+        // passare alla schermata di cambio password.
+        dispatch(clearReactivationState());
+
         dispatch(
           loginSuccess({
             user: response.user,
@@ -382,6 +387,11 @@ export const loginService = {
       // Se dopo riattivazione serve 2FA
       if (response.requires2fa) {
         console.log('🔐 2FA required after reactivation');
+
+        // Riattivazione completata: ripulisci lo stato per evitare che
+        // AppNavigator riproponga la schermata di riattivazione.
+        dispatch(clearReactivationState());
+
         dispatch(
           twoFactorRequired({
             user: response.user,
