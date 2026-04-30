@@ -269,7 +269,15 @@ class AuthController extends Controller
                 }
             }
 
-            $requiresPasswordChange = $userData['first_login'];
+            // Sorgente di verita' = flag su DB. Se per qualunque motivo il
+            // userData non lo riporta (cache, build differenti), leggiamo
+            // direttamente dal modello.
+            $requiresPasswordChange = $userData['first_login']
+                ?? null;
+            if ($requiresPasswordChange === null || $requiresPasswordChange === '') {
+                $requiresPasswordChange = $user ? (int) $user->requires_password_change : 0;
+            }
+            $requiresPasswordChange = (int) $requiresPasswordChange;
 
             // Se è primo login, non genera il token completo
             if ($requiresPasswordChange) {
@@ -1979,6 +1987,22 @@ class AuthController extends Controller
             ];
         }
 
+        // Anche se la password non e' scaduta nei 90gg, il flag potrebbe
+        // essere stato impostato da un'altra operazione: in tal caso,
+        // forziamo il cambio password.
+        if ((int) $user->requires_password_change === 1) {
+            $userData['first_login'] = 1;
+            return [
+                'success' => true,
+                'message' => 'Account riattivato. È necessario cambiare la password.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_password_change' => 1,
+                    'temp_token' => $this->generateTempToken($userData),
+                ]
+            ];
+        }
+
         // Nessun altro check necessario - genera JWT
         $tokens = $this->generateAccessToken([
             'user_id' => $user->id,
@@ -2822,6 +2846,22 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
                     ]
                 ];
             }
+        }
+
+        // Se il flag requires_password_change e' impostato (anche da
+        // operazioni precedenti), forza il cambio password prima di emettere
+        // un access_token completo.
+        if ((int) $userModel->requires_password_change === 1) {
+            $userData['first_login'] = 1;
+            return [
+                'success' => true,
+                'message' => 'Login biometrico riuscito. È necessario cambiare la password.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_password_change' => 1,
+                    'temp_token' => $this->generateTempToken($userData),
+                ]
+            ];
         }
 
         // Aggiorna last_login_at
