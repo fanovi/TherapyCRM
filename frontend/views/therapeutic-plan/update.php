@@ -24,7 +24,29 @@ $this->params['breadcrumbs'][] = 'Modifica';
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white"><?= Html::encode($this->title) ?></h1>
     </div>
 
-    <?= Alert::widget() ?>
+    <div id="form-alert-container">
+        <?= Alert::widget() ?>
+    </div>
+    <?php
+    $this->registerJs(<<<JS
+        (function() {
+            var container = document.getElementById('form-alert-container');
+            if (!container) return;
+            var alertEl = container.querySelector('[role="alert"]');
+            if (alertEl) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                alertEl.classList.add('ring-2', 'ring-red-400');
+                setTimeout(function() {
+                    alertEl.classList.remove('ring-2', 'ring-red-400');
+                }, 2500);
+            }
+            var btn = document.getElementById('submit-btn');
+            if (btn) {
+                btn.disabled = false;
+            }
+        })();
+JS);
+    ?>
 
     <?= $this->render('_form', [
         'model' => $model,
