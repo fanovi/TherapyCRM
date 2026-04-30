@@ -1098,8 +1098,23 @@ class CalendarController extends ActiveController
      */
     private function getPatientAvatar($patientId)
     {
-        // Per ora usa un placeholder, in futuro potresti avere avatar reali
-        return 'https://ui-avatars.com/api/?name=Patient&background=FFF3E0&color=F57C00&size=128';
+        // Genera un avatar placeholder con le iniziali reali del paziente
+        // (Cognome + Nome) tramite ui-avatars.com.
+        $patient = \common\models\Patient::findOne($patientId);
+        if (!$patient) {
+            return 'https://ui-avatars.com/api/?name=?&background=FFF3E0&color=F57C00&size=128';
+        }
+        $name = trim(($patient->last_name ?? '') . ' ' . ($patient->first_name ?? ''));
+        if ($name === '') {
+            $name = '?';
+        }
+        return 'https://ui-avatars.com/api/?'
+            . http_build_query([
+                'name' => $name,
+                'background' => 'FFF3E0',
+                'color' => 'F57C00',
+                'size' => 128,
+            ]);
     }
 
     /**
