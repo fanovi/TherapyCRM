@@ -702,16 +702,14 @@ class ImportController extends Controller
     }
 
     /**
-     * Get days between two dates
-     * @param mixed $start
-     * @param mixed $end
-     * @return int
+     * Durata in giorni inclusiva tra due date (entrambi gli estremi contano).
+     * Allineato alla semantica di `therapeutic_plans.duration_days`.
      */
     private function getDays($start, $end)
     {
         $date1 = new DateTime($start);
         $date2 = new DateTime($end);
-        return  $date1->diff($date2)->days;
+        return $date1->diff($date2)->days + 1;
     }
 
     /**
