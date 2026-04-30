@@ -342,9 +342,7 @@ use yii\helpers\Url;
             <?php endif; ?>
           </span>
 
-          <span class="text-theme-sm mr-1 block font-medium">
-            <?= htmlspecialchars($firstName) ?><?= $userRoleLabel !== '' ? ' (' . htmlspecialchars($userRoleLabel) . ')' : '' ?>
-          </span>
+          <span class="text-theme-sm mr-1 block font-medium"> <?= htmlspecialchars($firstName) ?> </span>
 
           <svg
             :class="dropdownOpen && 'rotate-180'"
