@@ -973,8 +973,28 @@ class CalendarController extends ActiveController
      */
     private function getTherapistAvatar($therapistId)
     {
-        // Per ora usa un placeholder, in futuro potresti avere avatar reali
-        return 'https://ui-avatars.com/api/?name=Therapist&background=E3F2FD&color=1976D2&size=128';
+        // Avatar placeholder con iniziali reali (Cognome Nome) del terapista.
+        $name = '?';
+        if ($therapistId) {
+            $therapist = \common\models\Therapist::find()
+                ->with('user.profile')
+                ->where(['id' => $therapistId])
+                ->one();
+            if ($therapist && $therapist->user && $therapist->user->profile) {
+                $p = $therapist->user->profile;
+                $candidate = trim(($p->last_name ?? '') . ' ' . ($p->first_name ?? ''));
+                if ($candidate !== '') {
+                    $name = $candidate;
+                }
+            }
+        }
+        return 'https://ui-avatars.com/api/?'
+            . http_build_query([
+                'name' => $name,
+                'background' => 'E3F2FD',
+                'color' => '1976D2',
+                'size' => 128,
+            ]);
     }
 
     /**
