@@ -1825,6 +1825,21 @@ class AuthController extends Controller
             ];
         }
 
+        // Se la password e' scaduta o e' richiesto il cambio, blocca il login
+        // completo: l'app deve mostrare la schermata di cambio password con il
+        // temp_token, non un access_token vero.
+        if ((int) $user->requires_password_change === 1) {
+            return [
+                'success' => true,
+                'message' => '2FA superata. È necessario cambiare la password.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_password_change' => 1,
+                    'temp_token' => $this->generateTempToken($userData),
+                ]
+            ];
+        }
+
         // Genera token di accesso completo
         $tokens = $this->generateAccessToken([
             'user_id' => $tokenData['user_id'],
