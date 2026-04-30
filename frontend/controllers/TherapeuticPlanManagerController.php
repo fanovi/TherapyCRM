@@ -2107,8 +2107,15 @@ class TherapeuticPlanManagerController extends Controller
                 throw new NotFoundHttpException('Appuntamento non trovato');
             }
 
-            if ($appointment->status === 'completed') {
-                throw new BadRequestHttpException('Non è possibile modificare un appuntamento completato');
+            $immutableStatuses = [
+                Appointment::STATUS_COMPLETED,
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ];
+            if (in_array($appointment->status, $immutableStatuses, true)) {
+                throw new BadRequestHttpException('Non è possibile modificare un appuntamento con stato "' . $appointment->status . '"');
             }
 
             // Gestione diversa per appuntamenti privati vs piano terapeutico
