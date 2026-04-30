@@ -151,6 +151,26 @@ export const loginService = {
 
       console.log('✅ Password changed successfully');
 
+      // Se dopo il cambio password serve la 2FA, non salvare token: indirizza
+      // verso la schermata 2FA con il temp_token aggiornato.
+      if (response.requires2fa) {
+        console.log(
+          '🔐 2FA required after password change - method:',
+          response.twoFactorMethod,
+        );
+        const newTempToken = response.tempToken ? String(response.tempToken) : '';
+        await AsyncStorage.setItem('tempToken', newTempToken);
+        dispatch(
+          twoFactorRequired({
+            user: response.user,
+            twoFactorMethod: response.twoFactorMethod,
+            tempToken: response.tempToken,
+            totpConfigured: response.totpConfigured,
+          }),
+        );
+        return response;
+      }
+
       const authToken = response.token ? String(response.token) : '';
       const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
       const userString = JSON.stringify(response.user);

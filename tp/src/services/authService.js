@@ -629,7 +629,16 @@ export const authService = {
       );
 
       if (response.success && response.data) {
-        const {user, access_token, refresh_token, token_type, expires_in} = response.data;
+        const {
+          user,
+          access_token,
+          refresh_token,
+          token_type,
+          expires_in,
+          requires_2fa,
+          two_factor_method,
+          temp_token: newTempToken,
+        } = response.data;
 
         let actualToken = null;
         if (typeof access_token === 'object' && access_token !== null) {
@@ -657,6 +666,18 @@ export const authService = {
             numeroAlbo: user.numero_albo || '',
           }),
         };
+
+        // Se dopo il cambio password il backend richiede 2FA, propaghiamo
+        // il flag e il temp_token alla logica di login.
+        if (requires_2fa) {
+          return {
+            user: transformedUser,
+            requires2fa: true,
+            twoFactorMethod: two_factor_method,
+            tempToken: newTempToken,
+            totpConfigured: !!response.data.totp_configured,
+          };
+        }
 
         return {
           user: transformedUser,
