@@ -173,23 +173,58 @@ $this->params['breadcrumbs'][] = $this->title;
 $removeUrl = \yii\helpers\Url::to(['absence/remove-patient-absence']);
 $js = <<<JS
 function removePatientAbsence(id) {
-    if (!confirm('Sei sicuro di voler rimuovere l\\'assenza? L\\'appuntamento verrà ripristinato come confermato.')) {
-        return;
-    }
-    $.ajax({
-        url: '{$removeUrl}',
-        type: 'POST',
-        data: {id: id},
-        success: function(response) {
-            if (response.success) {
-                $.pjax.reload({container: '#patient-absence-grid-pjax'});
-            } else {
-                alert('Errore: ' + (response.error || 'Errore sconosciuto'));
+    Swal.fire({
+        title: 'Rimuovere l\\'assenza?',
+        text: 'L\\'appuntamento verrà ripristinato come confermato.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Rimuovi',
+        cancelButtonText: 'Annulla',
+        confirmButtonColor: '#3b82f6',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+    }).then(function(res) {
+        if (!res.isConfirmed) return;
+
+        Swal.fire({
+            title: 'Operazione in corso...',
+            didOpen: function() { Swal.showLoading(); },
+            showConfirmButton: false,
+            allowOutsideClick: false,
+        });
+
+        $.ajax({
+            url: '{$removeUrl}',
+            type: 'POST',
+            data: {id: id},
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Assenza rimossa',
+                        text: 'L\\'appuntamento è stato ripristinato.',
+                        confirmButtonColor: '#3b82f6',
+                    }).then(function() {
+                        $.pjax.reload({container: '#patient-absence-grid-pjax'});
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operazione non riuscita',
+                        text: response.error || 'Errore sconosciuto',
+                        confirmButtonColor: '#dc2626',
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Errore di comunicazione',
+                    text: 'Impossibile contattare il server. Riprova.',
+                    confirmButtonColor: '#dc2626',
+                });
             }
-        },
-        error: function() {
-            alert('Errore di comunicazione con il server');
-        }
+        });
     });
 }
 JS;

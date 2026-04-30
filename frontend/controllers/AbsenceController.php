@@ -635,6 +635,35 @@ class AbsenceController extends Controller
             // Salva lo status precedente per il log
             $oldStatus = $appointment->status;
 
+            // Pre-check: verifica che lo slot non sia stato occupato da un altro
+            // appuntamento attivo dopo la cancellazione (stesso terapista, stessa
+            // fascia oraria con tolleranza ±5 min). Restituisce un messaggio chiaro
+            // invece di lasciare scattare la validazione del modello.
+            $start = strtotime($appointment->appointment_datetime);
+            $end = $start + ($appointment->duration_minutes * 60);
+            $hasConflict = Appointment::find()
+                ->where(['therapist_id' => $appointment->therapist_id])
+                ->andWhere(['!=', 'id', $appointment->id])
+                ->andWhere(['between', 'appointment_datetime',
+                    date('Y-m-d H:i:s', $start - 300),
+                    date('Y-m-d H:i:s', $end + 300),
+                ])
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_COMPLETED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                    Appointment::STATUS_THERAPIST_ABSENT,
+                ]])
+                ->exists();
+            if ($hasConflict) {
+                $transaction->rollBack();
+                return [
+                    'success' => false,
+                    'error' => 'Impossibile ripristinare l\'appuntamento: nello stesso orario il terapista ha gia\' un altro appuntamento attivo. Cancella l\'altro appuntamento prima di rimuovere l\'assenza.',
+                ];
+            }
+
             // Riporta lo status a scheduled
             $appointment->status = Appointment::STATUS_SCHEDULED;
 
