@@ -332,18 +332,19 @@ class SiteController extends BaseController
     public function actionRequestPasswordReset()
     {
         $model = new PasswordResetRequestForm();
+        $confirmed = false;
+
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail()) {
-                Yii::$app->session->setFlash('success', 'Controlla la tua email per le istruzioni successive.');
-
-                return $this->goHome();
+                $confirmed = true;
+            } else {
+                Yii::$app->session->setFlash('error', "Spiacenti, non riusciamo a resettare la password per l'indirizzo email fornito.");
             }
-
-            Yii::$app->session->setFlash('error', "Spiacenti, non riusciamo a resettare la password per l'indirizzo email fornito.");
         }
 
         return $this->render('requestPasswordResetToken', [
             'model' => $model,
+            'confirmed' => $confirmed,
         ]);
     }
 
