@@ -137,7 +137,7 @@ const TherapistDashboardScreen = ({navigation}) => {
         <View style={styles.statsGrid}>
           <TouchableOpacity
             style={styles.statCard}
-            onPress={() => navigation.navigate('TherapistPatientsScreen')}>
+            onPress={() => navigation.navigate('Patients')}>
             <Card style={styles.statCardInner}>
               <Card.Content style={styles.statContent}>
                 <Avatar.Icon
