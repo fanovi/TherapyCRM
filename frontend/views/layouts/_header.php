@@ -296,6 +296,31 @@ use yii\helpers\Url;
     $profile = $user->profile;
     $fullName = $profile ? $profile->getFullName() : ($user->username ?? 'Utente');
     $firstName = $profile ? $profile->first_name : ($user->username ?? 'Utente');
+
+    // Determina il ruolo principale dell'utente per mostrarlo nell'header.
+    $roleLabels = [
+        'super_admin' => 'Super Admin',
+        'admin'       => 'Admin',
+        'manager'     => 'Manager',
+        'coordinator' => 'Coordinatore',
+        'therapist'   => 'Terapista',
+        'patient'     => 'Paziente',
+    ];
+    $userRoleLabel = '';
+    $userRoles = Yii::$app->authManager->getRolesByUser($user->id);
+    if (!empty($userRoles)) {
+        // Priorità: ruolo più alto della gerarchia se presente
+        foreach (array_keys($roleLabels) as $roleName) {
+            if (isset($userRoles[$roleName])) {
+                $userRoleLabel = $roleLabels[$roleName];
+                break;
+            }
+        }
+        if ($userRoleLabel === '') {
+            $first = reset($userRoles);
+            $userRoleLabel = $roleLabels[$first->name] ?? $first->name;
+        }
+    }
     ?>
       <div
         class="relative"
@@ -317,7 +342,9 @@ use yii\helpers\Url;
             <?php endif; ?>
           </span>
 
-          <span class="text-theme-sm mr-1 block font-medium"> <?= htmlspecialchars($firstName) ?> </span>
+          <span class="text-theme-sm mr-1 block font-medium">
+            <?= htmlspecialchars($firstName) ?><?= $userRoleLabel !== '' ? ' (' . htmlspecialchars($userRoleLabel) . ')' : '' ?>
+          </span>
 
           <svg
             :class="dropdownOpen && 'rotate-180'"
@@ -343,7 +370,7 @@ use yii\helpers\Url;
           <div>
             <span
               class="text-theme-sm block font-medium text-gray-700 dark:text-gray-400">
-              <?= htmlspecialchars($fullName) ?>
+              <?= htmlspecialchars($fullName) ?><?= $userRoleLabel !== '' ? ' (' . htmlspecialchars($userRoleLabel) . ')' : '' ?>
             </span>
             <span
               class="text-theme-xs mt-0.5 block text-gray-500 dark:text-gray-400">
