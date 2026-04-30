@@ -23,9 +23,54 @@ import {CaptureProtection} from 'react-native-capture-protection';
 import moment from 'moment';
 import 'moment/locale/it';
 import 'react-native-gesture-handler';
+import {LocaleConfig} from 'react-native-calendars';
 
 // Configura moment per il locale italiano
 moment.locale('it');
+
+// Configura react-native-calendars per il locale italiano
+LocaleConfig.locales.it = {
+  monthNames: [
+    'Gennaio',
+    'Febbraio',
+    'Marzo',
+    'Aprile',
+    'Maggio',
+    'Giugno',
+    'Luglio',
+    'Agosto',
+    'Settembre',
+    'Ottobre',
+    'Novembre',
+    'Dicembre',
+  ],
+  monthNamesShort: [
+    'Gen',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mag',
+    'Giu',
+    'Lug',
+    'Ago',
+    'Set',
+    'Ott',
+    'Nov',
+    'Dic',
+  ],
+  dayNames: [
+    'Domenica',
+    'Lunedì',
+    'Martedì',
+    'Mercoledì',
+    'Giovedì',
+    'Venerdì',
+    'Sabato',
+  ],
+  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'],
+  today: 'Oggi',
+};
+LocaleConfig.defaultLocale = 'it';
 
 // Inizializza il store per authService, axiosConfig e authUtils
 setStore(store);
