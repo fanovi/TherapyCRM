@@ -105,6 +105,10 @@ const authSlice = createSlice({
       state.requires2fa = false;
       state.twoFactorMethod = null;
       state.twoFactorTempToken = null;
+      // Pulisci anche i flag di cambio password: se ci eravamo passati
+      // prima della 2FA, ora il login e' completo.
+      state.requiresPasswordChange = false;
+      state.tempToken = null;
       state.currentRole =
         action.payload.user.roles?.[action.payload.user.roles.length - 1] ||
         action.payload.user.role ||
