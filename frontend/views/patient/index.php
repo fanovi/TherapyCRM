@@ -16,7 +16,7 @@ $this->title = 'Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
 
 // Get districts for filter
-$districts = District::getOptionsForSelect();
+$districts = District::getDropdownData();
 
 // Registra il CSS per le notifiche e il JS
 $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification']));

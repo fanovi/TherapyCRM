@@ -17,7 +17,7 @@ use yii\widgets\Pjax;
 $this->title = 'I Miei Pazienti';
 $this->params['breadcrumbs'][] = $this->title;
 
-$districts = District::getOptionsForSelect();
+$districts = District::getDropdownData();
 $patientTherapistsMap = isset($patientTherapistsMap) && is_array($patientTherapistsMap)
     ? $patientTherapistsMap
     : [];
