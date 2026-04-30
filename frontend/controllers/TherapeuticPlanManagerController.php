@@ -3697,7 +3697,12 @@ class TherapeuticPlanManagerController extends Controller
 
         $query = Appointment::find()
             ->where(['therapist_id' => $therapistId])
-            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['not in', 'status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ]])
             ->andWhere([
                 'or',
                 [
@@ -3780,7 +3785,12 @@ class TherapeuticPlanManagerController extends Controller
                     ['a.patient_id' => $patientId]
                 ]
             ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['not in', 'a.status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ]])
             ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
 
         if ($excludeAppointmentId) {
@@ -3875,7 +3885,12 @@ class TherapeuticPlanManagerController extends Controller
                 ['tp.patient_id' => $patientId],
                 ['a.patient_id' => $patientId]
             ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['not in', 'a.status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ]])
             ->andWhere([
                 'or',
                 [
@@ -4978,7 +4993,12 @@ class TherapeuticPlanManagerController extends Controller
                 'st.specialization_id' => $specializationId,
                 'tp.patient_id' => $patientId
             ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+            ->andWhere(['not in', 'a.status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ]])
             ->andWhere(['between', 'a.appointment_datetime', $dateStart, $dateEnd]);
 
         if ($excludeAppointmentId) {

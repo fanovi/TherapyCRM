@@ -219,8 +219,13 @@ class Appointment extends ActiveRecord
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) - 300),
                     date('Y-m-d H:i:s', strtotime($this->appointment_datetime) + ($this->duration_minutes * 60) + 300)
                 ])
-                ->andWhere(['!=', 'status', self::STATUS_CANCELLED])
-                ->andWhere(['!=', 'status', self::STATUS_COMPLETED])
+                ->andWhere(['not in', 'status', [
+                    self::STATUS_CANCELLED,
+                    self::STATUS_COMPLETED,
+                    self::STATUS_ABSENT_JUSTIFIED,
+                    self::STATUS_ABSENT_NOT_JUSTIFIED,
+                    self::STATUS_THERAPIST_ABSENT,
+                ]])
                 ->andWhere(['!=', 'id', $this->id ?: 0]);
 
             // Se questo appuntamento fa parte di una sessione di gruppo,
