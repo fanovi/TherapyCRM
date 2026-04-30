@@ -18,30 +18,47 @@ $this->params['breadcrumbs'][] = ['label' => 'Piani Terapeutici', 'url' => ['ind
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="mx-auto max-w-4xl p-4 md:p-6 therapeutic-plan-create">
-    <div id="form-alert-container">
-        <?= Alert::widget() ?>
-    </div>
     <?php
-    $this->registerJs(<<<JS
-        (function() {
-            var container = document.getElementById('form-alert-container');
-            if (!container) return;
-            var alertEl = container.querySelector('[role="alert"]');
-            if (alertEl) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                alertEl.classList.add('ring-2', 'ring-red-400');
-                setTimeout(function() {
-                    alertEl.classList.remove('ring-2', 'ring-red-400');
-                }, 2500);
+    // Estrai flash error/danger PRIMA del widget per mostrarlo come Swal (rimossi dalla session per evitare doppia visualizzazione).
+    $errorFlashes = [];
+    foreach (['error', 'danger'] as $key) {
+        if (Yii::$app->session->hasFlash($key)) {
+            $val = Yii::$app->session->getFlash($key, null, true);
+            foreach ((array) $val as $msg) {
+                $errorFlashes[] = $msg;
             }
-            // Reset eventuale loader del pulsante submit (in caso di back/forward cache)
-            var btn = document.getElementById('submit-btn');
-            if (btn) {
-                btn.disabled = false;
-            }
-        })();
-JS);
+        }
+    }
     ?>
+    <?= Alert::widget() ?>
+    <?php if (!empty($errorFlashes)): ?>
+        <?php
+        $errorJson = \yii\helpers\Json::htmlEncode($errorFlashes);
+        $this->registerJs(<<<JS
+            (function() {
+                var errors = {$errorJson};
+                if (!errors || !errors.length) return;
+                var html = errors.length === 1
+                    ? errors[0]
+                    : '<ul style="text-align:left;margin:0;padding-left:1.2em;">' + errors.map(function(e){ return '<li>' + e + '</li>'; }).join('') + '</ul>';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Errore di validazione',
+                        html: html,
+                        confirmButtonText: 'Ho capito',
+                        confirmButtonColor: '#dc2626'
+                    });
+                } else {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    alert(errors.join('\\n'));
+                }
+                var btn = document.getElementById('submit-btn');
+                if (btn) btn.disabled = false;
+            })();
+JS);
+        ?>
+    <?php endif; ?>
     <?= $this->render('_form', [
         'model' => $model,
         'therapyModel' => $therapyModel,
