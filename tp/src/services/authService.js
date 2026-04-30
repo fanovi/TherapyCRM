@@ -311,8 +311,15 @@ export const authService = {
       });
 
       if (response.success && response.data) {
-        const {user, access_token, refresh_token, token_type, expires_in} =
-          response.data;
+        const {
+          user,
+          access_token,
+          refresh_token,
+          token_type,
+          expires_in,
+          requires_password_change,
+          temp_token: newTempToken,
+        } = response.data;
 
         let actualToken = null;
         if (typeof access_token === 'object' && access_token !== null) {
@@ -333,14 +340,25 @@ export const authService = {
           dataNascita: user.data_nascita || '',
           indirizzo: user.indirizzo || '',
           status: user.status || 'attivo',
-          isFirstLogin: false,
-          isPasswordResetRequired: false,
+          isFirstLogin: !!requires_password_change,
+          isPasswordResetRequired: !!requires_password_change,
           patients: user.patients || [],
           ...(user.user_type === 'terapista' && {
             specializzazione: user.specializzazione || '',
             numeroAlbo: user.numero_albo || '',
           }),
         };
+
+        // Se dopo la 2FA il backend richiede comunque il cambio password
+        // (flag DB ancora a 1), propaghiamo il flag e il temp_token alla
+        // logica di login per indirizzare alla schermata di cambio password.
+        if (requires_password_change) {
+          return {
+            user: transformedUser,
+            requiresPasswordChange: true,
+            tempToken: newTempToken,
+          };
+        }
 
         return {
           user: transformedUser,

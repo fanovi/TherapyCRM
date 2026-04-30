@@ -298,6 +298,26 @@ export const loginService = {
 
       console.log('✅ 2FA verification successful');
 
+      // Se il backend dopo la 2FA richiede il cambio password (flag DB
+      // ancora a 1), passa il flusso a loginSuccess con requiresPasswordChange
+      // invece di salvare un access_token completo.
+      if (response.requiresPasswordChange) {
+        console.log('🔐 Password change required after 2FA');
+        const tempTokenStr = response.tempToken ? String(response.tempToken) : '';
+        await AsyncStorage.setItem('tempToken', tempTokenStr);
+        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+
+        dispatch(
+          loginSuccess({
+            user: response.user,
+            token: response.tempToken,
+            requiresPasswordChange: true,
+            tempToken: response.tempToken,
+          }),
+        );
+        return response;
+      }
+
       const authToken = response.token ? String(response.token) : '';
       const refreshTokenStr = response.refreshToken ? String(response.refreshToken) : '';
       const userString = JSON.stringify(response.user);

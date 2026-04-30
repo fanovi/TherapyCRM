@@ -1964,6 +1964,21 @@ class AuthController extends Controller
             }
         }
 
+        // Priorita': se il flag e' a 1 (impostato da operazione precedente)
+        // forza il cambio password prima della 2FA.
+        if ((int) $user->requires_password_change === 1) {
+            $userData['first_login'] = 1;
+            return [
+                'success' => true,
+                'message' => 'Account riattivato. È necessario cambiare la password.',
+                'data' => [
+                    'user' => $userData,
+                    'requires_password_change' => 1,
+                    'temp_token' => $this->generateTempToken($userData),
+                ]
+            ];
+        }
+
         // Check 2FA
         if ($tfaService->is2faRequired($user)) {
             $method = $tfaService->getPreferredMethod($user->id);
