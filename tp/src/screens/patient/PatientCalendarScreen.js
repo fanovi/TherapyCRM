@@ -406,13 +406,6 @@ const PatientCalendarScreen = () => {
               {getAppointmentStatusLabel(appointment.status)}
             </Chip>
           </View>
-          {appointment.therapist && (
-            <Avatar.Image
-              size={48}
-              source={{uri: appointment.therapist.avatar}}
-              style={styles.therapistAvatar}
-            />
-          )}
         </View>
 
         <View style={styles.appointmentDetails}>

@@ -855,11 +855,6 @@ const TherapistCalendarScreen = () => {
               </View>
             </View>
             <View style={styles.headerActions}>
-              <Avatar.Image
-                size={48}
-                source={{uri: appointment.patient.avatar}}
-                style={styles.patientAvatar}
-              />
               {showMenu && (
                 <Menu
                   visible={menuVisible[appointment.id] || false}
