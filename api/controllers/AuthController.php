@@ -2809,6 +2809,21 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
             ];
         }
 
+        // Sicurezza: se la password e' stata cambiata DOPO la registrazione del
+        // device biometrico, il token va invalidato (es. reset password via web).
+        // L'utente deve registrare nuovamente la biometria.
+        if (!empty($userModel->password_changed_at)) {
+            $passwordChangedTs = strtotime($userModel->password_changed_at);
+            if ($passwordChangedTs && $passwordChangedTs > (int) $device->created_at) {
+                $device->is_active = 0;
+                $device->save(false);
+                return [
+                    'success' => false,
+                    'message' => 'Token biometrico non più valido: password modificata. Registra nuovamente la biometria.',
+                    'error_code' => 'BIOMETRIC_PASSWORD_CHANGED'
+                ];
+            }
+        }
         // Costruisci dati utente (stessa logica del login normale)
         $userData = $this->buildUserData($userModel);
         if (!$userData) {
