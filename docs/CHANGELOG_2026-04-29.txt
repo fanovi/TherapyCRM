@@ -1,0 +1,165 @@
+Lavori fatti oggi sul gestionale - 29/04/2026
+=============================================
+
+Lista basata sulle 13 note del 26/02/2026.
+
+
+1. Terapista Interno -> Dipendente
+----------------------------------
+- Etichetta "Terapista Interno" sostituita con "Dipendente" nelle interfacce
+- Hint del campo riscritto: "Indica se il terapista e' dipendente della
+  struttura. Deselezionato = consulente esterno."
+
+
+2. Nuovo ruolo: Direttore
+-------------------------
+- Skip per scelta dell'utente.
+
+
+3. Togliere blocco notifica assenza (max 15gg) + annullo fino 1h prima
+---------------------------------------------------------------------
+- Rimosso il blocco "max 15 giorni" sulla segnalazione di assenza paziente
+  (api/controllers/CalendarController.php :: actionMarkPatientAbsent):
+  ora la segnalazione e' possibile in qualsiasi momento prima dell'appuntamento
+- Annullo assenza fino a 1h prima dell'inizio dell'appuntamento confermato
+  funzionante sia da gestionale sia da app (gia' esistente)
+
+
+4. Verificare fine Piano (paziente vede dall'1 al 5 mese successivo)
+--------------------------------------------------------------------
+- Range date passato/futuro del calendario paziente verificato come gia'
+  configurabile da backend -> "Impostazioni Calendario"
+  (patient_past_range_value/unit, patient_future_range_value/unit)
+
+
+5. Coordinatore vede solo informazioni / solo assenze del suo reparto
+---------------------------------------------------------------------
+- AbsenceController filtra via CoordinatorGroup -> GroupTherapist su
+  index/view/create/update/delete + daily + patients
+- Coordinator vede solo le assenze (e gli appuntamenti assenti) dei
+  terapisti del proprio gruppo
+- Permesso 'view_absence' assegnato anche al ruolo coordinator
+  (mancava, sidebar lo nascondeva)
+- Permesso 'view_patient_absence' assegnato a super_admin e coordinator
+  (prima solo admin/manager/therapist)
+
+
+6. Coordinatore: presenza e assenza giornata nel reparto
+--------------------------------------------------------
+- Sezione "Riepilogo Giornaliero Terapisti" rinominata e spostata sotto
+  "Terapisti" in sidebar (prima era sotto "Assenze")
+- Vista rifatta con GridView e filtri colonna
+  (Terapista / Specializzazione / Stato / Tipo Assenza)
+- ArrayDataProvider + nuovo modello frontend\models\DailyAbsenceFilter
+- Filtro coordinator gia' presente lato controller
+- Toolbar "Trovati X terapisti" + bottone Aggiorna rimossi (ridondanti)
+
+
+7. Verifica sezione Assenze
+---------------------------
+- Tooltip informativo accanto a "Non disponibile" che spiega il vincolo
+  1h prima dell'appuntamento
+- Modale SweetAlert per il dettaglio assenza dal Riepilogo Giornaliero,
+  con tasti Modifica (redirect a /update) ed Elimina (conferma + POST delete)
+- Nuovo endpoint AJAX actionDailyDetail che ritorna i dati dell'assenza
+  in JSON (con filtro coordinator)
+- Fix flash fantasma "Nessun appuntamento" su /absence/update: l'alert
+  appuntamenti resta nascosto durante l'ajax e appare solo se count > 0
+
+
+8. Gestione Ruolo Supervisore e Parental Training
+-------------------------------------------------
+Verifica: gia' implementato end-to-end.
+- DB: campi can_supervise + can_parental_training su therapists
+  (migration m260226_000001)
+- Form terapista: checkbox "Supervisione" + "Parental Training"
+- API actionGetTherapistsByTreatment:
+    code 'SUP' -> filtra can_supervise = 1
+    code 'PT'  -> filtra can_parental_training = 1
+- React TherapistSelector.tsx chiama l'endpoint quando si sceglie il
+  treatment, popolando il dropdown solo con i terapisti abilitati
+
+
+9. Problema interruzione piano
+------------------------------
+- Migration: aggiunti i campi termination_date + termination_reason a
+  therapeutic_plans (separati da suspension_* per preservare lo storico
+  se un piano passa per stati multipli)
+- Modello TherapeuticPlan: validazione condizionata, attribute labels,
+  dichiarazioni @property
+- _form.php: container Data/Motivo Interruzione visibili solo se
+  status='terminated'; JS toggle aggiornato per gestire entrambi gli stati
+- view.php: alert di stato e DetailView mostrano i nuovi campi
+- Filtro su actionGetPatientPlan: piani in stato finale
+  (terminated/expired/completed) esclusi -> React calendar non li riceve
+  come attivi -> no creazione/modifica appuntamenti collegati al piano.
+  Privati restano funzionanti
+- GridView piani: nuova colonna "Stato" con badge colorato + filtro dropdown
+- Ordinamento di default 'active' first, poi created_at DESC
+- Rimosso badge errato "Attivo/Scaduto" dalla colonna Data Fine
+  (mostrava "Attivo" anche per piani draft/terminated solo perche' end_date
+  era futura)
+- Rimossa la colonna ID dalla GridView piani
+- Icone azioni allineate sullo stesso rigo (whitespace-nowrap + flex gap)
+- Dashboard: il conteggio "piani terapeutici attivi" ora richiede sia
+  status='active' sia end_date >= oggi (prima contava qualsiasi stato con
+  end_date futura)
+
+
+10. Reset password dopo 90gg
+----------------------------
+Verifica: gia' implementato.
+- api/controllers/AuthController.php : al login app calcola eta' password
+  (password_changed_at oppure fallback created_at); se >= 90 giorni setta
+  requires_password_change = 1 e ritorna temp_token
+- tp/src/services/authService.js + actions/auth.js: forzano il cambio
+  password se requires_password_change = 1
+- User::setPassword() aggiorna password_changed_at = NOW() automaticamente
+- Check al login, no cron necessario
+
+
+11. Ordinare Cognome/Nome con ordine per Cognome
+------------------------------------------------
+- Allineato l'ordinamento Cognome -> Nome (era invertito in alcuni search):
+    ComplaintSearch (patient_name, account_name)
+    DocumentRequestSearch (account_patient_name, patient_name)
+    CoordinatorGroupSearch (coordinator_name)
+    PlanStatisticsSearch (orderBy listini)
+
+
+12. NAPOLI Distretto 58 -> Invece di "Distretto 58"
+---------------------------------------------------
+- Display dei distretti unificato via District::getDropdownLabel()
+  -> mostra "ASL - Nome" (es. "Napoli - Distretto 58") invece del solo nome
+- Aggiornati:
+    Patient (index, view, _form, my-group)
+    TherapeuticPlan (index)
+    PatientStatisticsSearch (CASE SQL CONCAT)
+    StatisticsController (usa District::getDropdownData() centralizzato)
+
+
+13. Max 3 ore supervisione / parental / RBT (accorpabili stessa fascia)
+-----------------------------------------------------------------------
+TODO - Da chiarire con il cliente. Note ambigua, possibili interpretazioni:
+  A) Singola sessione SUP/PT/RBT: durata max 3h
+  B) Totale mensile per piano: max 3h
+  C) Totale settimanale: max 3h
+  D) Stessa fascia oraria: SUP + PT + RBT cumulabili fino a 3h
+Da definire prima di implementare.
+
+
+Bonus (non in lista originale)
+==============================
+- Nuovo widget riusabile frontend\widgets\AlertBanner con varianti
+  info / success / warning / danger (inline-style colori pastello,
+  indipendente dalla build di Tailwind)
+- Refactor frontend/views/layouts/_flashes.php: i flash messages riusano
+  AlertBanner -> look coerente su tutto il gestionale
+- Vista piano: i 5 alert di stato hardcoded sostituiti dal nuovo widget
+
+
+Stato finale
+============
+- 11 punti completati
+- 1  punto skippato   (Direttore)
+- 1  punto da chiarire (max 3h)

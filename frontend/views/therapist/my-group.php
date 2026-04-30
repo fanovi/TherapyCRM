@@ -169,22 +169,6 @@ $this->params['breadcrumbs'][] = $this->title;
                         ),
                     ],
                     [
-                        'attribute' => 'calendar_color',
-                        'label' => 'Colore',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
-                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-center'],
-                        'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-1 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => '#000000'],
-                        'format' => 'raw',
-                        'content' => function($model) {
-                            $color = $model->calendar_color ?: '#6B7280';
-                            return '<div class="flex items-center justify-center gap-2">
-                                <div class="w-6 h-6 rounded-full border-2 border-gray-300" style="background-color: ' . Html::encode($color) . '"></div>
-                                <span class="text-xs text-gray-500">' . Html::encode($color) . '</span>
-                            </div>';
-                        }
-                    ],
-                    [
                         'attribute' => 'is_active',
                         'label' => 'Stato',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[100px]'],
