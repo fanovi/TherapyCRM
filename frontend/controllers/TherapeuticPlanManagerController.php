@@ -3366,6 +3366,14 @@ class TherapeuticPlanManagerController extends Controller
         if ($plan->isExpired()) {
             throw new BadRequestHttpException('Piano terapeutico scaduto');
         }
+
+        // Solo i piani con status='active' sono operativi: bozza, in attesa,
+        // sospeso, interrotto, completato, scaduto non permettono operazioni.
+        if ($plan->status !== 'active') {
+            throw new BadRequestHttpException(
+                'Piano terapeutico non attivo (stato: ' . $plan->status . ')'
+            );
+        }
     }
 
     /**
