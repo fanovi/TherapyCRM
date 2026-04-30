@@ -100,7 +100,16 @@ class TherapeuticPlan extends ActiveRecord
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
             [['status'], 'string'],
-            [['status'], 'default', 'value' => 'draft'],
+            // Default 'active'; se data fine già passata -> 'expired'.
+            [['status'], 'default', 'value' => function ($model) {
+                if ($model->start_date && $model->duration_days) {
+                    $endDate = date('Y-m-d', strtotime($model->start_date . ' + ' . ($model->duration_days - 1) . ' days'));
+                    if ($endDate < date('Y-m-d')) {
+                        return 'expired';
+                    }
+                }
+                return 'active';
+            }],
             [['status'], 'in', 'range' => ['draft', 'pending', 'active', 'suspended', 'completed', 'terminated', 'expired']],
             [['suspension_date'], 'date', 'format' => 'php:Y-m-d'],
             [['suspension_reason'], 'string'],

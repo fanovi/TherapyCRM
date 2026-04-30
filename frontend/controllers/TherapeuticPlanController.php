@@ -415,6 +415,7 @@ class TherapeuticPlanController extends BaseController
         if ($this->request->isPost) {
             $isValid = true;
             $error = null;
+            $transaction = null;
 
             try {
                 // Carica i dati del form
@@ -558,7 +559,9 @@ class TherapeuticPlanController extends BaseController
                 Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
                 return $this->redirect(['view', 'id' => $model->id]);
             } catch (\Exception $e) {
-                $transaction->rollBack();
+                if ($transaction !== null && $transaction->isActive) {
+                    $transaction->rollBack();
+                }
                 Yii::$app->session->setFlash('error', $e->getMessage());
                 $isValid = false;
             }
@@ -822,9 +825,12 @@ class TherapeuticPlanController extends BaseController
 
         Yii::info("Verifica sovrapposizione piani per paziente {$patientId}: {$startDate} - {$endDate}", __METHOD__);
 
-        // Query per trovare piani sovrapposti
+        // Query per trovare piani sovrapposti.
+        // Escludi piani non bloccanti: draft (non avviato), completed/terminated/expired (conclusi).
+        // Restano bloccanti: pending, active, suspended.
         $query = TherapeuticPlan::find()
             ->where(['patient_id' => $patientId])
+            ->andWhere(['not in', 'status', ['draft', 'completed', 'terminated', 'expired']])
             ->andWhere([
                 'or',
                 // Il nuovo piano inizia durante un piano esistente
