@@ -710,16 +710,20 @@ class CalendarController extends ActiveController
             $weekStart = date('Y-m-d', strtotime('monday this week'));
             $weekEnd = date('Y-m-d', strtotime('sunday this week'));
 
-            // Pazienti attivi (con appuntamenti negli ultimi 30 giorni)
-            $activePatientsCount = Appointment::find()
-                ->alias('a')
-                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
-                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+            // Pazienti attivi (con appuntamenti negli ultimi 30 giorni).
+            // Stessa logica di actionTherapistPatients per garantire coerenza tra dashboard e lista:
+            // conta solo i Patient reali con appuntamento valido nei 30gg.
+            $activePatientsCount = (int) Patient::find()
+                ->alias('p')
+                ->innerJoin('appointments a', 'a.patient_id = p.id OR (a.plan_therapy_id IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM plan_therapies pt
+                    LEFT JOIN therapeutic_plans tp ON pt.therapeutic_plan_id = tp.id
+                    WHERE pt.id = a.plan_therapy_id AND tp.patient_id = p.id
+                ))')
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['>=', 'DATE(a.appointment_datetime)', date('Y-m-d', strtotime('-30 days'))])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
-                ->select('DISTINCT COALESCE(tp.patient_id, a.patient_id) as patient_id')
-                ->count();
+                ->count('DISTINCT p.id');
 
             // Appuntamenti di oggi
             $todayAppointments = Appointment::find()
