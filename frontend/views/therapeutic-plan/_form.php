@@ -1039,8 +1039,13 @@ $this->registerJs('
         });
     };
 
-    // Hook afterValidate di Yii ActiveForm: intercetta errori client-side prima del submit.
+    // Hook afterValidate: mostra Swal SOLO quando l'utente ha cliccato submit,
+    // non sulle validazioni per-campo (validateOnChange/Blur).
+    var submitAttempted = false;
+    $('#therapeutic-plan-form').on('submit', function() { submitAttempted = true; });
     $('#therapeutic-plan-form').on('afterValidate', function(e, messages, errorAttributes) {
+        if (!submitAttempted) return;
+        submitAttempted = false;
         if (!errorAttributes || errorAttributes.length === 0) return;
         var errors = [];
         errorAttributes.forEach(function(attr) {
