@@ -1011,7 +1011,7 @@ $this->registerJs('
         }
         
         if (!isValid) {
-            alert('Errori di validazione:\\n\\n' + errors.join('\\n'));
+            showValidationSwal(errors);
             return false;
         }
         
@@ -1020,6 +1020,40 @@ $this->registerJs('
         
         return true;
     });
+    // Helper Swal per errori validazione (riusato da beforeSubmit/afterValidate)
+    window.showValidationSwal = function(errors) {
+        if (!errors || !errors.length) return;
+        if (typeof Swal === 'undefined') {
+            alert('Errori di validazione:\\n\\n' + errors.join('\\n'));
+            return;
+        }
+        var html = errors.length === 1
+            ? errors[0]
+            : '<ul style=\"text-align:left;margin:0;padding-left:1.2em;\">' + errors.map(function(e){ return '<li>' + e + '</li>'; }).join('') + '</ul>';
+        Swal.fire({
+            icon: 'error',
+            title: 'Errore di validazione',
+            html: html,
+            confirmButtonText: 'Ho capito',
+            confirmButtonColor: '#dc2626'
+        });
+    };
+
+    // Hook afterValidate di Yii ActiveForm: intercetta errori client-side prima del submit.
+    $('#therapeutic-plan-form').on('afterValidate', function(e, messages, errorAttributes) {
+        if (!errorAttributes || errorAttributes.length === 0) return;
+        var errors = [];
+        errorAttributes.forEach(function(attr) {
+            var msgs = messages[attr.id];
+            if (msgs && msgs.length) {
+                msgs.forEach(function(m) { errors.push(m); });
+            }
+        });
+        if (errors.length) {
+            showValidationSwal(errors);
+        }
+    });
+
     // Gestione visibilità campi sospensione / interruzione
     $('#status-select').on('change', function() {
         var v = $(this).val();
