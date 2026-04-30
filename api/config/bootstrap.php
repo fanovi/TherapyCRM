@@ -1,5 +1,6 @@
 <?php
 
-// Imposta timezone UTC per l'applicazione API
-// Questo garantisce che tutti i timestamp siano consistenti in UTC
-date_default_timezone_set('UTC');
+// Timezone Europe/Rome per coerenza con il gestionale e con quanto mostrato
+// agli utenti (locali, non UTC). Tutte le date salvate da API tramite
+// date()/time() saranno quindi nella timezone italiana.
+date_default_timezone_set('Europe/Rome');
