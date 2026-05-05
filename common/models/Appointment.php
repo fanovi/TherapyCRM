@@ -210,35 +210,54 @@ class Appointment extends ActiveRecord
      */
     public function validateTherapistAvailability($attribute, $params)
     {
-        if (!empty($this->therapist_id) && !empty($this->appointment_datetime)) {
-            $query = static::find()
-                ->where(['therapist_id' => $this->therapist_id])
-                ->andWhere([
-                    'between',
-                    'appointment_datetime',
-                    date('Y-m-d H:i:s', strtotime($this->appointment_datetime) - 300),
-                    date('Y-m-d H:i:s', strtotime($this->appointment_datetime) + ($this->duration_minutes * 60) + 300)
-                ])
-                ->andWhere(['not in', 'status', [
-                    self::STATUS_CANCELLED,
-                    self::STATUS_COMPLETED,
-                    self::STATUS_ABSENT_JUSTIFIED,
-                    self::STATUS_ABSENT_NOT_JUSTIFIED,
-                    self::STATUS_THERAPIST_ABSENT,
-                ]])
-                ->andWhere(['!=', 'id', $this->id ?: 0]);
+        if (empty($this->therapist_id) || empty($this->appointment_datetime)) {
+            return;
+        }
+        if (empty($this->duration_minutes) || (int)$this->duration_minutes <= 0) {
+            return;
+        }
 
-            // Se questo appuntamento fa parte di una sessione di gruppo,
-            // escludi altri appuntamenti della stessa sessione di gruppo dalla validazione
-            if (!empty($this->group_session_id)) {
-                $query->andWhere(['!=', 'group_session_id', $this->group_session_id]);
-            }
+        try {
+            $startDt = new \DateTimeImmutable($this->appointment_datetime);
+        } catch (\Exception) {
+            return;
+        }
+        $endDt = $startDt->add(new \DateInterval('PT' . (int)$this->duration_minutes . 'M'));
+        $start = $startDt->format('Y-m-d H:i:s');
+        $end   = $endDt->format('Y-m-d H:i:s');
 
-            $conflictingAppointment = $query->exists();
+        $existingEnd = new \yii\db\Expression('DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)');
 
-            if ($conflictingAppointment) {
-                $this->addError($attribute, 'Il terapista ha già un appuntamento in questo orario');
-            }
+        $query = static::find()
+            ->where(['therapist_id' => $this->therapist_id])
+            ->andWhere([
+                'or',
+                ['and',
+                    ['<=', 'appointment_datetime', $start],
+                    ['>',  $existingEnd, $start],
+                ],
+                ['and',
+                    ['<',  'appointment_datetime', $end],
+                    ['>=', 'appointment_datetime', $start],
+                ],
+            ])
+            ->andWhere(['not in', 'status', [
+                self::STATUS_CANCELLED,
+                self::STATUS_COMPLETED,
+                self::STATUS_ABSENT_JUSTIFIED,
+                self::STATUS_ABSENT_NOT_JUSTIFIED,
+                self::STATUS_THERAPIST_ABSENT,
+            ]])
+            ->andWhere(['!=', 'id', $this->id ?: 0]);
+
+        // Se questo appuntamento fa parte di una sessione di gruppo,
+        // escludi altri appuntamenti della stessa sessione di gruppo dalla validazione
+        if (!empty($this->group_session_id)) {
+            $query->andWhere(['!=', 'group_session_id', $this->group_session_id]);
+        }
+
+        if ($query->exists()) {
+            $this->addError($attribute, 'Il terapista ha già un appuntamento in questo orario');
         }
     }
 
