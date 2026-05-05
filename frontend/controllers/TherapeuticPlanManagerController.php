@@ -3,11 +3,13 @@
 namespace frontend\controllers;
 
 use common\components\PlanHelper;
+use common\helpers\NotificationHelper;
 use common\models\Absence;
 use common\models\Appointment;
 use common\models\AppointmentPattern;
 use common\models\CoordinatorGroup;
 use common\models\GroupTherapist;
+use common\models\Notification;
 use common\models\Patient;
 use common\models\PlanTherapy;
 use common\models\PrivateCycle;
@@ -4411,6 +4413,19 @@ class TherapeuticPlanManagerController extends Controller
 
                 $transaction->commit();
 
+                try {
+                    $this->sendSubstitutionNotifications(
+                        $appointmentsToSubstitute,
+                        $originalTherapistId,
+                        $newTherapistId,
+                        $reason,
+                        $isGroupSubstitution,
+                        (bool)$dontRegisterAbsence
+                    );
+                } catch (\Exception $e) {
+                    Yii::error('Errore invio notifiche sostituzione: ' . $e->getMessage(), __METHOD__);
+                }
+
                 $message = $isGroupSubstitution
                     ? "Terapista sostituito con successo per {$substitutedCount} appuntamenti del gruppo"
                     : 'Terapista sostituito con successo';
@@ -4437,6 +4452,150 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error('Errore nella sostituzione terapista: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Invia le notifiche al terapista sostituto e a quello sostituito.
+     * Una sola notifica per gruppo (anche se include più appuntamenti).
+     *
+     * @param Appointment[] $appointments
+     * @param int $originalTherapistId
+     * @param int $newTherapistId
+     * @param string|null $reason
+     * @param bool $isGroupSubstitution
+     * @param bool $dontRegisterAbsence
+     * @return void
+     */
+    private function sendSubstitutionNotifications(
+        array $appointments,
+        $originalTherapistId,
+        $newTherapistId,
+        $reason,
+        $isGroupSubstitution,
+        $dontRegisterAbsence
+    ) {
+        if (empty($appointments)) {
+            return;
+        }
+
+        $originalTherapist = Therapist::findOne($originalTherapistId);
+        $newTherapist = Therapist::findOne($newTherapistId);
+
+        if (!$originalTherapist || !$newTherapist) {
+            Yii::warning("Notifiche sostituzione non inviate: terapista non trovato (originale={$originalTherapistId}, nuovo={$newTherapistId})", __METHOD__);
+            return;
+        }
+
+        $originalUserId = $originalTherapist->user_id;
+        $newUserId = $newTherapist->user_id;
+        $newTherapistName = $this->getTherapistDisplayName($newTherapist);
+
+        if ($isGroupSubstitution) {
+            $count = count($appointments);
+            $timestamps = array_map(function ($a) {
+                return strtotime($a->appointment_datetime);
+            }, $appointments);
+            sort($timestamps);
+            $firstDate = date('d/m/Y', $timestamps[0]);
+            $lastDate = date('d/m/Y', end($timestamps));
+            $rangeText = $firstDate === $lastDate
+                ? "del {$firstDate}"
+                : "dal {$firstDate} al {$lastDate}";
+            $whatForSubstitute = "{$count} appuntamenti di gruppo {$rangeText}";
+            $whatForOriginal = "I tuoi {$count} appuntamenti di gruppo {$rangeText}";
+            $appointmentIds = array_map(function ($a) {
+                return $a->id;
+            }, $appointments);
+        } else {
+            $apt = $appointments[0];
+            $dt = new DateTime($apt->appointment_datetime);
+            $date = $dt->format('d/m/Y');
+            $time = $dt->format('H:i');
+            $patient = isset($apt->planTherapy->therapeuticPlan->patient)
+                ? $apt->planTherapy->therapeuticPlan->patient
+                : null;
+            $patientName = $patient
+                ? trim($patient->last_name . ' ' . $patient->first_name)
+                : 'paziente';
+            $whatForSubstitute = "l'appuntamento con {$patientName} del {$date} alle {$time}";
+            $whatForOriginal = "Il tuo appuntamento con {$patientName} del {$date} alle {$time}";
+            $appointmentIds = [$apt->id];
+        }
+
+        $payload = [
+            'type' => 'therapist_substitution',
+            'is_group' => $isGroupSubstitution,
+            'appointment_ids' => $appointmentIds,
+            'original_therapist_id' => $originalTherapistId,
+            'substitute_therapist_id' => $newTherapistId,
+            'reason' => $reason,
+            'absence_registered' => !$dontRegisterAbsence,
+        ];
+
+        if ($newUserId) {
+            if ($dontRegisterAbsence) {
+                $titleSub = $isGroupSubstitution ? 'Appuntamenti assegnati' : 'Appuntamento assegnato';
+                $verbSub = $isGroupSubstitution ? 'Ti sono stati assegnati' : 'Ti è stato assegnato';
+                $messageSub = "{$verbSub} {$whatForSubstitute}.";
+            } else {
+                $titleSub = 'Sostituzione assegnata';
+                $verbSub = $isGroupSubstitution ? 'Ti sono stati assegnati' : 'Ti è stata assegnata una sostituzione:';
+                $messageSub = $isGroupSubstitution
+                    ? "{$verbSub} {$whatForSubstitute} in sostituzione."
+                    : "{$verbSub} {$whatForSubstitute}.";
+            }
+            if (!empty($reason)) {
+                $messageSub .= "\nMotivo: {$reason}";
+            }
+            NotificationHelper::sendToUsers(
+                [$newUserId],
+                $titleSub,
+                $messageSub,
+                Notification::TYPE_INFO,
+                $payload
+            );
+        }
+
+        if ($originalUserId && $originalUserId !== $newUserId) {
+            if ($dontRegisterAbsence) {
+                $titleOrig = $isGroupSubstitution ? 'Appuntamenti riassegnati' : 'Appuntamento riassegnato';
+                $verbOrig = $isGroupSubstitution ? 'sono stati riassegnati' : 'è stato riassegnato';
+                $messageOrig = "{$whatForOriginal} {$verbOrig} a {$newTherapistName}.";
+            } else {
+                $titleOrig = 'Sostituzione registrata';
+                $verbOrig = $isGroupSubstitution ? 'sono stati sostituiti' : 'è stato sostituito';
+                $messageOrig = "{$whatForOriginal} {$verbOrig} da {$newTherapistName}.";
+            }
+            if (!empty($reason)) {
+                $messageOrig .= "\nMotivo: {$reason}";
+            }
+            NotificationHelper::sendToUsers(
+                [$originalUserId],
+                $titleOrig,
+                $messageOrig,
+                Notification::TYPE_INFO,
+                $payload
+            );
+        }
+    }
+
+    /**
+     * Restituisce il nome visualizzabile di un terapista (Cognome Nome),
+     * con fallback sull'username o sull'id se il profilo non è disponibile.
+     */
+    private function getTherapistDisplayName(Therapist $therapist)
+    {
+        $user = $therapist->user;
+        if ($user && $user->profile) {
+            $name = trim(($user->profile->last_name ?? '') . ' ' . ($user->profile->first_name ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
+        if ($user && !empty($user->username)) {
+            return $user->username;
+        }
+        return "terapista #{$therapist->id}";
     }
 
     /**
