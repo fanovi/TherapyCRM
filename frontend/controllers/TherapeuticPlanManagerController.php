@@ -5315,11 +5315,11 @@ class TherapeuticPlanManagerController extends Controller
                 'code' => 'PLAN_THERAPY_NOT_FOUND'
             ];
         }
-        $appointmentDate = new DateTime($appointmentDateTime);
-        $planTherapyDate = new DateTime($plan->start_date);
-        $planTherapyEndDate = new DateTime($plan->end_date);
-
-        if ($appointmentDate < $planTherapyDate || $appointmentDate > $planTherapyEndDate) {
+        // Confronta solo la parte data: end_date è inclusiva, ma il datetime
+        // dell'appuntamento porta un orario che lo farebbe risultare "dopo"
+        // mezzanotte dell'ultimo giorno valido.
+        $appointmentDay = (new DateTime($appointmentDateTime))->format('Y-m-d');
+        if ($appointmentDay < $plan->start_date || $appointmentDay > $plan->end_date) {
             throw new BadRequestHttpException("La data dell'appuntamento non è valida per il piano terapeutico.");
         }
 
