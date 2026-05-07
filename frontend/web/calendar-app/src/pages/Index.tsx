@@ -415,13 +415,15 @@ const Index = () => {
       setError(null);
 
       try {
-        const therapistsList = await therapyAPI.getTherapists();
+        const numericPatientId = patientId ? parseInt(patientId) : undefined;
+        const therapistsList = await therapyAPI.getTherapists(numericPatientId);
         setTherapists(therapistsList);
 
         if (therapistId) {
           setIsTherapistView(true);
 
           try {
+            // Vista terapista: nessun paziente specifico, niente filtro ABA.
             const therapists = await therapyAPI.getTherapists();
             const therapist = therapists.find(
               (t) => t.id.toString() === therapistId

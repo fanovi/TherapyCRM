@@ -104,7 +104,8 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
           data = await therapyAPI.getTherapistsByTreatment(
             isPrivateMode
               ? selectedTreatmentType.id
-              : selectedSpecialization.treatment_type_id
+              : selectedSpecialization.treatment_type_id,
+            patientId
           );
           // } else if (selectedSpecialization) {
           //   // In modalità normale, carica terapisti per specializzazione

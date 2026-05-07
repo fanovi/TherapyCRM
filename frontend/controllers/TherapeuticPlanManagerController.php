@@ -1178,10 +1178,10 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
-            // Filtro ABA: se il paziente del contesto ha un piano ABA attivo,
-            // mostra solo i terapisti abilitati (is_aba=1). patientId viene
-            // dedotto dal Referer (/calendar/{id}) o passato esplicito.
-            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+            // Filtro ABA: se il paziente ha un piano ABA attivo, mostra solo
+            // i terapisti abilitati (is_aba=1). Richiede patientId esplicito.
+            $patientId = (int) Yii::$app->request->get('patientId', 0);
+            if ($this->patientHasActiveABAPlan($patientId)) {
                 $query->andWhere(['therapists.is_aba' => 1]);
             }
 
@@ -1313,8 +1313,9 @@ class TherapeuticPlanManagerController extends Controller
                 $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
             }
 
-            // Filtro ABA: vedi getPatientIdFromContext().
-            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+            // Filtro ABA: richiede patientId esplicito in query.
+            $patientId = (int) $request->get('patientId', 0);
+            if ($this->patientHasActiveABAPlan($patientId)) {
                 $therapists->andWhere(['t.is_aba' => 1]);
             }
 
@@ -1404,8 +1405,9 @@ class TherapeuticPlanManagerController extends Controller
                 $query->andWhere(['t.can_parental_training' => 1]);
             }
 
-            // Filtro ABA: vedi getPatientIdFromContext().
-            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+            // Filtro ABA: richiede patientId esplicito in query.
+            $patientId = (int) Yii::$app->request->get('patientId', 0);
+            if ($this->patientHasActiveABAPlan($patientId)) {
                 $query->andWhere(['t.is_aba' => 1]);
             }
 
@@ -5118,32 +5120,6 @@ class TherapeuticPlanManagerController extends Controller
     private function isABARegime($therapeuticPlan)
     {
         return $therapeuticPlan->regime && stripos($therapeuticPlan->regime->nome, 'ABA') !== false;
-    }
-
-    /**
-     * Estrae il patientId dal Referer quando la richiesta arriva da
-     * /calendar/{patientId}. Necessario perche' gli endpoint terapisti
-     * vengono invocati dal calendar-app senza esplicito patientId in query
-     * e il filtro ABA dipende dal paziente del calendario aperto.
-     *
-     * @return int 0 se non determinabile
-     */
-    private function getPatientIdFromContext()
-    {
-        $explicit = (int) Yii::$app->request->get('patientId', 0);
-        if ($explicit > 0) {
-            return $explicit;
-        }
-        $referer = Yii::$app->request->getReferrer();
-        if (!$referer) {
-            return 0;
-        }
-        // Match /calendar/{id} (id_patient lato Yii). Esclude /calendar/therapist/...
-        $path = parse_url($referer, PHP_URL_PATH) ?: '';
-        if (preg_match('#/calendar/(\d+)(?:/|$|\?)#', $path, $m)) {
-            return (int) $m[1];
-        }
-        return 0;
     }
 
     /**

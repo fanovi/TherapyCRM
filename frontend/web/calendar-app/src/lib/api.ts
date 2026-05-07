@@ -98,10 +98,19 @@ class TherapeuticPlanManagerAPI {
   // === GESTIONE TERAPISTI ===
 
   /**
-   * Ottiene la lista di tutti i terapisti attivi
+   * Ottiene la lista di tutti i terapisti attivi.
+   * Se patientId viene passato e il paziente ha un piano ABA attivo,
+   * il backend filtra automaticamente per is_aba=1.
    */
-  async getTherapists(): Promise<Therapist[]> {
-    const response = await this.get<APIResponse<Therapist[]>>("get-therapists");
+  async getTherapists(patientId?: number): Promise<Therapist[]> {
+    const params: Record<string, string | number> = {};
+    if (patientId) {
+      params.patientId = patientId;
+    }
+    const response = await this.get<APIResponse<Therapist[]>>(
+      "get-therapists",
+      params,
+    );
 
     if (!response.success) {
       throw new Error(response.error || "Errore nel caricamento terapisti");
@@ -111,16 +120,23 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
-   * Ottiene la lista dei terapisti filtrati per tipo di trattamento
+   * Ottiene la lista dei terapisti filtrati per tipo di trattamento.
+   * Se patientId viene passato e il paziente ha un piano ABA attivo,
+   * il backend filtra automaticamente per is_aba=1.
    */
   async getTherapistsByTreatment(
     treatmentTypeId: number,
+    patientId?: number,
   ): Promise<Therapist[]> {
+    const params: Record<string, string | number> = {
+      treatmentTypeId,
+    };
+    if (patientId) {
+      params.patientId = patientId;
+    }
     const response = await this.get<APIResponse<Therapist[]>>(
       "get-therapists-by-treatment",
-      {
-        treatmentTypeId,
-      },
+      params,
     );
 
     if (!response.success) {
@@ -174,6 +190,7 @@ class TherapeuticPlanManagerAPI {
       appointmentId?: number; // ID appuntamento per escludere terapista originale
       force?: boolean; // Se true, ignora filtri e restituisce tutti i terapisti
     },
+    patientId?: number,
   ): Promise<Therapist[]> {
     const params: Record<string, string | number> = {
       specializationId,
@@ -190,6 +207,12 @@ class TherapeuticPlanManagerAPI {
       if (availabilityCheck.force) {
         params.force = 1; // Boolean come numero per l'API
       }
+    }
+
+    // Filtro ABA: il backend usa patientId per restringere a is_aba=1 quando
+    // il paziente ha un piano ABA attivo.
+    if (patientId) {
+      params.patientId = patientId;
     }
 
     const response = await this.get<APIResponse<Therapist[]>>(

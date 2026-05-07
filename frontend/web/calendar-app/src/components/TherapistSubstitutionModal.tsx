@@ -109,7 +109,8 @@ export const TherapistSubstitutionModal: React.FC<
             duration: appointment.duration,
             appointmentId: appointment.id, // Backend userà questo per escludere il terapista originale
             force: force, // Se true, restituisce tutti i terapisti ignorando filtri
-          }
+          },
+          appointment.patient?.id
         );
 
       if (force) {
