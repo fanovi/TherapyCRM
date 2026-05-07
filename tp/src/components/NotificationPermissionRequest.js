@@ -8,8 +8,6 @@ const NotificationPermissionRequest = () => {
     shouldShowRequest,
     isLoading,
     requestPermission,
-    dismissRequest,
-    forceShowBanner,
   } = useNotificationPermissionManager();
 
   const handleRequestPermission = async () => {
@@ -42,10 +40,6 @@ const NotificationPermissionRequest = () => {
     } finally {
       setIsRequesting(false);
     }
-  };
-
-  const handleDismiss = () => {
-    dismissRequest();
   };
 
   console.log('🔍 NotificationPermissionRequest - Stato:', {
@@ -83,10 +77,6 @@ const NotificationPermissionRequest = () => {
           <Text style={styles.buttonText}>
             {isRequesting ? 'Richiesta in corso...' : 'Abilita Notifiche'}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.dismissButton} onPress={handleDismiss}>
-          <Text style={styles.dismissButtonText}>Non ora</Text>
         </TouchableOpacity>
 
         <Text style={styles.note}>
