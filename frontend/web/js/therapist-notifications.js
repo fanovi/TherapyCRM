@@ -78,6 +78,7 @@ $(document).ready(function () {
 
     const result = await Swal.fire({
       title: "Invia Notifica",
+      width: "640px",
       html: `
         <div style="text-align:left;font-size:13px;color:#6b7280;margin-bottom:12px;">
           Destinatari: <strong>${count} terapista${count === 1 ? "" : "i"}</strong> selezionato${count === 1 ? "" : "i"}.
