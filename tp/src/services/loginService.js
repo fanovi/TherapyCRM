@@ -15,10 +15,35 @@ import {
   biometricLoginStart,
   biometricLoginSuccess,
   biometricLoginFailure,
+  setBiometricRegistered,
 } from '../slices/authSlice';
 import {setPatientsFromLogin, resetPatients} from '../slices/patientSlice';
 import {authService} from './authService';
 import {persistor} from '../store';
+import {biometricService} from './biometricService';
+
+/**
+ * Garantisce che il token biometrico sul device appartenga all'utente che si
+ * sta autenticando ora. Se un utente diverso aveva enrollato la biometria,
+ * la pulisce localmente e azzera il flag in Redux per evitare che
+ * il prossimo "biometric login" autentichi l'utente sbagliato.
+ *
+ * Da chiamare SOLO dopo un login normale (email/password) andato a buon fine,
+ * non su flussi 2FA / changePassword intermedi che usano tempToken.
+ */
+async function syncBiometricForCurrentUser(dispatch, currentUserId) {
+  try {
+    const cleared = await biometricService.ensureUserMatch(currentUserId);
+    if (cleared) {
+      dispatch(setBiometricRegistered(false));
+      console.log(
+        '🔐 Biometric data cleared: belonged to a different user',
+      );
+    }
+  } catch (e) {
+    console.warn('🔐 Biometric mismatch check failed:', e?.message);
+  }
+}
 
 export const loginService = {
   async login(dispatch, credentials) {
@@ -112,6 +137,9 @@ export const loginService = {
         }
         await AsyncStorage.multiSet(storageItems);
 
+        // Pulizia biometria se sul device c'e' enrollment di un altro utente.
+        await syncBiometricForCurrentUser(dispatch, response.user?.id);
+
         dispatch(
           loginSuccess({
             user: response.user,
@@ -188,6 +216,8 @@ export const loginService = {
       // Rimuovi il temp token
       await AsyncStorage.removeItem('tempToken');
 
+      await syncBiometricForCurrentUser(dispatch, response.user?.id);
+
       dispatch(
         changePasswordSuccess({
           user: response.user,
@@ -255,6 +285,8 @@ export const loginService = {
         storageItems.push(['refreshToken', refreshTokenStr]);
       }
       await AsyncStorage.multiSet(storageItems);
+
+      await syncBiometricForCurrentUser(dispatch, response.user?.id);
 
       dispatch(
         loginSuccess({
@@ -330,6 +362,8 @@ export const loginService = {
         storageItems.push(['refreshToken', refreshTokenStr]);
       }
       await AsyncStorage.multiSet(storageItems);
+
+      await syncBiometricForCurrentUser(dispatch, response.user?.id);
 
       dispatch(
         twoFactorSuccess({
@@ -438,6 +472,8 @@ export const loginService = {
         storageItems.push(['refreshToken', refreshTokenStr]);
       }
       await AsyncStorage.multiSet(storageItems);
+
+      await syncBiometricForCurrentUser(dispatch, response.user?.id);
 
       dispatch(
         reactivationSuccess({
@@ -584,11 +620,16 @@ export const loginService = {
       await persistor.purge();
       console.log('🗑️ Redux Persist purged');
 
-      // 4. Pulisci AsyncStorage (preserva biometria per ri-login rapido)
+      // 4. Pulisci AsyncStorage (preserva biometria per ri-login rapido,
+      //    incluso l'id dell'utente che ha enrollato per il check al re-login).
       const savedBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
+      const savedBiometricUserId = await AsyncStorage.getItem('biometric_user_id');
       await AsyncStorage.clear();
       if (savedBiometricRegistered) {
         await AsyncStorage.setItem('biometric_registered', savedBiometricRegistered);
+      }
+      if (savedBiometricUserId) {
+        await AsyncStorage.setItem('biometric_user_id', savedBiometricUserId);
       }
       console.log('🧹 AsyncStorage cleared (biometric preserved)');
 
@@ -602,9 +643,13 @@ export const loginService = {
         dispatch(logoutUser());
         await persistor.purge();
         const fallbackBiometricRegistered = await AsyncStorage.getItem('biometric_registered');
+        const fallbackBiometricUserId = await AsyncStorage.getItem('biometric_user_id');
         await AsyncStorage.clear();
         if (fallbackBiometricRegistered) {
           await AsyncStorage.setItem('biometric_registered', fallbackBiometricRegistered);
+        }
+        if (fallbackBiometricUserId) {
+          await AsyncStorage.setItem('biometric_user_id', fallbackBiometricUserId);
         }
         console.log('🧹 Force cleanup completed (biometric preserved)');
       } catch (finalError) {

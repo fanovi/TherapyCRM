@@ -7,6 +7,7 @@ import {API_CONFIG} from '../config/api';
 const KEYCHAIN_SERVICE = 'cms-terapisti-biometric';
 const STORAGE_KEY_REGISTERED = 'biometric_registered';
 const STORAGE_KEY_DECLINED = 'biometric_enrollment_declined';
+const STORAGE_KEY_USER_ID = 'biometric_user_id';
 
 export const biometricService = {
   /**
@@ -43,9 +44,10 @@ export const biometricService = {
    * Registra la biometria: chiama il server per generare un token, poi lo salva nel Keychain protetto da biometria.
    * @param {string} authToken - JWT valido dell'utente
    * @param {string} deviceName - es. "iOS 18.0"
+   * @param {number|string|null} userId - id dell'utente che sta enrollando (per evitare che un altro utente riusi il token su questo device)
    * @returns {{ success: boolean, error?: string }}
    */
-  async registerBiometric(authToken, deviceName) {
+  async registerBiometric(authToken, deviceName, userId = null) {
     try {
       const platform = Platform.OS; // 'ios' o 'android'
 
@@ -82,6 +84,9 @@ export const biometricService = {
 
       // Segna come registrato
       await AsyncStorage.setItem(STORAGE_KEY_REGISTERED, 'true');
+      if (userId !== null && userId !== undefined && userId !== '') {
+        await AsyncStorage.setItem(STORAGE_KEY_USER_ID, String(userId));
+      }
       // Rimuovi eventuale flag "rifiutato"
       await AsyncStorage.removeItem(STORAGE_KEY_DECLINED);
 
@@ -272,6 +277,46 @@ export const biometricService = {
       await AsyncStorage.removeItem(STORAGE_KEY_REGISTERED);
     } catch {
       // Ignora errori di AsyncStorage
+    }
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY_USER_ID);
+    } catch {
+      // Ignora errori di AsyncStorage
+    }
+  },
+
+  /**
+   * Garantisce che la biometria locale appartenga all'utente attualmente
+   * autenticato. Se l'enrollment e' di un altro utente, lo cancella.
+   *
+   * Risolve il caso: utente A enrolla biometria; A logout; B login normale -
+   * se non puliamo, B troverebbe la biometria abilitata e usandola loggherebbe A.
+   *
+   * @param {number|string|null} currentUserId
+   * @returns {boolean} true se la biometria e' stata invalidata (mismatch)
+   */
+  async ensureUserMatch(currentUserId) {
+    if (currentUserId === null || currentUserId === undefined || currentUserId === '') {
+      return false;
+    }
+    try {
+      const registered = await AsyncStorage.getItem(STORAGE_KEY_REGISTERED);
+      if (registered !== 'true') {
+        return false;
+      }
+      const enrolledUserId = await AsyncStorage.getItem(STORAGE_KEY_USER_ID);
+      if (!enrolledUserId) {
+        // Vecchio enrollment senza id associato: per sicurezza pulisci.
+        await this.clearBiometricData();
+        return true;
+      }
+      if (String(enrolledUserId) !== String(currentUserId)) {
+        await this.clearBiometricData();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   },
 

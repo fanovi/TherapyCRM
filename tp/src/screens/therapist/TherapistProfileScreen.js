@@ -42,6 +42,7 @@ const TherapistProfileScreen = () => {
         const result = await biometricService.registerBiometric(
           token,
           biometricLabel,
+          user?.id ?? null,
         );
         if (result.success) {
           dispatch(setBiometricRegistered(true));

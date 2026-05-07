@@ -6,7 +6,7 @@ import {biometricService} from '../services/biometricService';
 
 const BiometricEnrollmentModal = ({visible, onDismiss, onSuccess}) => {
   const theme = useTheme();
-  const {token} = useSelector(state => state.auth);
+  const {token, user} = useSelector(state => state.auth);
   const {biometricBiometryType} = useSelector(state => state.auth);
   const [loading, setLoading] = React.useState(false);
 
@@ -16,7 +16,7 @@ const BiometricEnrollmentModal = ({visible, onDismiss, onSuccess}) => {
     setLoading(true);
     try {
       const deviceName = `${biometricLabel}`;
-      const result = await biometricService.registerBiometric(token, deviceName);
+      const result = await biometricService.registerBiometric(token, deviceName, user?.id ?? null);
 
       if (result.success) {
         onSuccess?.();
