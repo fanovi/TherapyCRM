@@ -79,13 +79,15 @@ $(document).ready(function () {
     const result = await Swal.fire({
       title: "Invia Notifica",
       width: "640px",
+      heightAuto: false,
+      position: "center",
       html: `
         <div style="text-align:left;font-size:13px;color:#6b7280;margin-bottom:12px;">
           Destinatari: <strong>${count} paziente${count === 1 ? "" : "i"}</strong> selezionato${count === 1 ? "" : "i"}.
           La notifica viene recapitata a tutti gli account collegati.
         </div>
-        <input id="swal-notif-title" class="swal2-input" placeholder="Titolo notifica" maxlength="100" autocomplete="off" />
-        <textarea id="swal-notif-message" class="swal2-textarea" placeholder="Messaggio" maxlength="500" rows="4"></textarea>
+        <input id="swal-notif-title" class="swal2-input" placeholder="Titolo notifica" maxlength="100" autocomplete="off" style="width:100%;max-width:none;display:block;margin:0 0 12px 0;box-sizing:border-box;" />
+        <textarea id="swal-notif-message" class="swal2-textarea" placeholder="Messaggio" maxlength="500" rows="5" style="width:100%;max-width:none;display:block;margin:0;box-sizing:border-box;"></textarea>
         <div style="display:flex;align-items:center;justify-content:flex-start;margin-top:8px;">
           <input id="swal-notif-readconf" type="checkbox" style="width:16px;height:16px;margin-right:8px;" />
           <label for="swal-notif-readconf" style="font-size:13px;color:#374151;cursor:pointer;">
