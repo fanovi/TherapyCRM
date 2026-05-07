@@ -468,11 +468,8 @@ class TherapistController extends Controller
         $therapistIds = is_array($data['therapist_ids']) ? $data['therapist_ids'] : [$data['therapist_ids']];
         $title = trim($data['title']);
         $message = trim($data['message']);
+        // Conferma di lettura disabilitata per i terapisti (parametro forzato a false).
         $requiresReadConfirmation = false;
-        if (isset($data['requires_read_confirmation'])) {
-            $value = $data['requires_read_confirmation'];
-            $requiresReadConfirmation = ($value === true || $value === 'true' || $value === 1 || $value === '1');
-        }
 
         try {
             // Per i terapisti il legame con l'utente e' diretto via therapists.user_id.

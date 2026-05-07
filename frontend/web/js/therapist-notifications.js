@@ -81,7 +81,6 @@ $(document).ready(function () {
       modalData.success = "";
       modalData.title = "";
       modalData.message = "";
-      $("#requires-read-confirmation").prop("checked", false);
 
       modal.classList.remove("hidden");
       modal.classList.add("flex");
@@ -97,15 +96,11 @@ $(document).ready(function () {
 
     const title = modalData.title?.trim();
     const message = modalData.message?.trim();
-    const requiresReadConfirmation = $("#requires-read-confirmation").is(
-      ":checked"
-    );
 
     const dataToSend = {
       therapist_ids: selectedTherapists,
       title: title,
       message: message,
-      requires_read_confirmation: requiresReadConfirmation ? 1 : 0,
       _csrf: $("meta[name=csrf-token]").attr("content"),
     };
 
