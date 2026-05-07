@@ -1,11 +1,10 @@
 /**
- * Sistema Notifiche Pazienti - Versione Semplificata
+ * Sistema Notifiche Pazienti - flusso interamente gestito con SweetAlert2.
  */
 
 $(document).ready(function () {
   let selectedPatients = [];
 
-  // Inizializzazione
   init();
 
   function init() {
@@ -14,20 +13,17 @@ $(document).ready(function () {
   }
 
   function bindEvents() {
-    // Checkbox "Seleziona tutto"
     $(document).on("change", "#select-all-patients", function () {
       const isChecked = $(this).is(":checked");
       $(".patient-checkbox").prop("checked", isChecked);
       updateSelectedPatients();
     });
 
-    // Checkbox singoli pazienti
     $(document).on("change", ".patient-checkbox", function () {
       updateSelectedPatients();
       updateSelectAllState();
     });
 
-    // Bottone "Invia Notifica"
     $(document).on("click", "#send-notifications-btn", function (e) {
       e.preventDefault();
       if (selectedPatients.length === 0) {
@@ -37,7 +33,7 @@ $(document).ready(function () {
         );
         return;
       }
-      openModal();
+      openSwalSendModal();
     });
   }
 
@@ -52,7 +48,6 @@ $(document).ready(function () {
   function updateSelectAllState() {
     const total = $(".patient-checkbox").length;
     const checked = $(".patient-checkbox:checked").length;
-
     $("#select-all-patients").prop(
       "indeterminate",
       checked > 0 && checked < total
@@ -71,99 +66,104 @@ $(document).ready(function () {
     }
   }
 
-  function openModal() {
-    // Trova e apri la modale
-    const modal = document.getElementById("notificationModal");
-    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
-
-    if (modalData) {
-      modalData.selectedCount = selectedPatients.length;
-      modalData.showModal = true;
-      modalData.errors = "";
-      modalData.success = "";
-      modalData.title = "";
-      modalData.message = "";
-      // Reset checkbox con jQuery
-      $("#requires-read-confirmation").prop("checked", false);
-
-      // Mostra la modale
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
-  }
-
-  // Funzione globale per inviare le notifiche (chiamata dal modal Alpine)
-  window.sendPatientNotifications = async function () {
-    const modal = document.getElementById("notificationModal");
-    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
-
-    if (!modalData) return;
-
-    const title = modalData.title?.trim();
-    const message = modalData.message?.trim();
-
-    // Leggi direttamente dalla checkbox usando jQuery
-    const requiresReadConfirmation = $("#requires-read-confirmation").is(
-      ":checked"
-    );
-
-    const dataToSend = {
-      patient_ids: selectedPatients,
-      title: title,
-      message: message,
-      requires_read_confirmation: requiresReadConfirmation ? 1 : 0,
-      _csrf: $("meta[name=csrf-token]").attr("content"),
-    };
-
-    if (!title || !message) {
-      swalError(
-        "Campi mancanti",
-        "Inserisci sia il titolo che il messaggio della notifica."
-      );
+  async function openSwalSendModal() {
+    if (typeof Swal === "undefined") {
+      alert("Componente Swal non disponibile.");
       return;
     }
 
-    modalData.isLoading = true;
-    modalData.errors = "";
-    modalData.success = "";
+    const url = window.sendNotificationUrl || "/patient/send-notification";
+    const csrf = $("meta[name=csrf-token]").attr("content");
+    const count = selectedPatients.length;
 
-    swalLoading("Invio notifiche in corso...");
+    const result = await Swal.fire({
+      title: "Invia Notifica",
+      html: `
+        <div style="text-align:left;font-size:13px;color:#6b7280;margin-bottom:12px;">
+          Destinatari: <strong>${count} paziente${count === 1 ? "" : "i"}</strong> selezionato${count === 1 ? "" : "i"}.
+          La notifica viene recapitata a tutti gli account collegati.
+        </div>
+        <input id="swal-notif-title" class="swal2-input" placeholder="Titolo notifica" maxlength="100" autocomplete="off" />
+        <textarea id="swal-notif-message" class="swal2-textarea" placeholder="Messaggio" maxlength="500" rows="4"></textarea>
+        <div style="display:flex;align-items:center;justify-content:flex-start;margin-top:8px;">
+          <input id="swal-notif-readconf" type="checkbox" style="width:16px;height:16px;margin-right:8px;" />
+          <label for="swal-notif-readconf" style="font-size:13px;color:#374151;cursor:pointer;">
+            Richiede conferma di lettura
+          </label>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Invia Notifica",
+      cancelButtonText: "Annulla",
+      confirmButtonColor: "#2563eb",
+      reverseButtons: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      didOpen: () => {
+        document.getElementById("swal-notif-title").focus();
+      },
+      preConfirm: async () => {
+        const title = (
+          document.getElementById("swal-notif-title").value || ""
+        ).trim();
+        const message = (
+          document.getElementById("swal-notif-message").value || ""
+        ).trim();
+        const requiresReadConfirmation = document.getElementById(
+          "swal-notif-readconf"
+        ).checked;
 
-    try {
-      const response = await $.ajax({
-        url: window.sendNotificationUrl || "/patient/send-notification",
-        type: "POST",
-        data: dataToSend,
-        dataType: "json",
-      });
+        if (!title || !message) {
+          Swal.showValidationMessage(
+            "Inserisci sia il titolo che il messaggio della notifica."
+          );
+          return false;
+        }
 
-      if (response.success) {
-        modalData.closeModal();
-        clearAllSelections();
-        swalSuccess(
-          "Notifiche inviate",
-          response.message || "Notifiche inviate con successo!"
-        );
-      } else {
-        swalError(
-          "Errore invio notifiche",
-          response.error || "Errore durante l'invio delle notifiche."
-        );
-      }
-    } catch (error) {
-      console.error("Errore AJAX:", error);
+        try {
+          const response = await $.ajax({
+            url: url,
+            type: "POST",
+            data: {
+              patient_ids: selectedPatients,
+              title: title,
+              message: message,
+              requires_read_confirmation: requiresReadConfirmation ? 1 : 0,
+              _csrf: csrf,
+            },
+            dataType: "json",
+          });
 
-      let errorMessage = "Errore di comunicazione con il server.";
-      if (error.responseJSON?.error) {
-        errorMessage = error.responseJSON.error;
-      } else if (error.status) {
-        errorMessage = `Errore ${error.status}: ${error.statusText}`;
-      }
-      swalError("Errore invio notifiche", errorMessage);
-    } finally {
-      modalData.isLoading = false;
+          if (!response || !response.success) {
+            Swal.showValidationMessage(
+              (response && response.error) ||
+                "Errore durante l'invio delle notifiche."
+            );
+            return false;
+          }
+
+          return response;
+        } catch (err) {
+          let errorMessage = "Errore di comunicazione con il server.";
+          if (err && err.responseJSON && err.responseJSON.error) {
+            errorMessage = err.responseJSON.error;
+          } else if (err && err.status) {
+            errorMessage = `Errore ${err.status}: ${err.statusText}`;
+          }
+          Swal.showValidationMessage(errorMessage);
+          return false;
+        }
+      },
+    });
+
+    if (result.isConfirmed && result.value) {
+      clearAllSelections();
+      swalSuccess(
+        "Notifiche inviate",
+        result.value.message || "Notifiche inviate con successo!"
+      );
     }
-  };
+  }
 
   function clearAllSelections() {
     selectedPatients = [];
@@ -173,17 +173,6 @@ $(document).ready(function () {
   }
 
   // Helper Swal (fallback ad alert nativo se Swal non e' disponibile)
-  function swalLoading(title) {
-    if (typeof Swal === "undefined") return;
-    Swal.fire({
-      title: title,
-      didOpen: () => Swal.showLoading(),
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      showConfirmButton: false,
-    });
-  }
-
   function swalSuccess(title, text) {
     if (typeof Swal === "undefined") {
       alert(title + "\n" + text);
@@ -195,20 +184,6 @@ $(document).ready(function () {
       text: text,
       timer: 1800,
       showConfirmButton: false,
-    });
-  }
-
-  function swalError(title, text) {
-    if (typeof Swal === "undefined") {
-      alert(title + "\n" + text);
-      return;
-    }
-    Swal.fire({
-      icon: "error",
-      title: title,
-      text: text,
-      confirmButtonText: "Ho capito",
-      confirmButtonColor: "#dc2626",
     });
   }
 

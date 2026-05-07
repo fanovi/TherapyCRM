@@ -1,5 +1,5 @@
 /**
- * Sistema Notifiche Terapisti - allineato a patient-notifications.js
+ * Sistema Notifiche Terapisti - flusso interamente gestito con SweetAlert2.
  */
 
 $(document).ready(function () {
@@ -13,20 +13,17 @@ $(document).ready(function () {
   }
 
   function bindEvents() {
-    // Checkbox "Seleziona tutto"
     $(document).on("change", "#select-all-therapists", function () {
       const isChecked = $(this).is(":checked");
       $(".therapist-checkbox").prop("checked", isChecked);
       updateSelectedTherapists();
     });
 
-    // Checkbox singoli terapisti
     $(document).on("change", ".therapist-checkbox", function () {
       updateSelectedTherapists();
       updateSelectAllState();
     });
 
-    // Bottone "Invia Notifica"
     $(document).on("click", "#send-notifications-btn", function (e) {
       e.preventDefault();
       if (selectedTherapists.length === 0) {
@@ -36,7 +33,7 @@ $(document).ready(function () {
         );
         return;
       }
-      openModal();
+      openSwalSendModal();
     });
   }
 
@@ -51,7 +48,6 @@ $(document).ready(function () {
   function updateSelectAllState() {
     const total = $(".therapist-checkbox").length;
     const checked = $(".therapist-checkbox:checked").length;
-
     $("#select-all-therapists").prop(
       "indeterminate",
       checked > 0 && checked < total
@@ -70,89 +66,94 @@ $(document).ready(function () {
     }
   }
 
-  function openModal() {
-    const modal = document.getElementById("notificationModal");
-    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
-
-    if (modalData) {
-      modalData.selectedCount = selectedTherapists.length;
-      modalData.showModal = true;
-      modalData.errors = "";
-      modalData.success = "";
-      modalData.title = "";
-      modalData.message = "";
-
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
-  }
-
-  // Funzione globale per inviare le notifiche (chiamata dal modal Alpine)
-  window.sendTherapistNotifications = async function () {
-    const modal = document.getElementById("notificationModal");
-    const modalData = Alpine.$data(modal.querySelector("[x-data]"));
-
-    if (!modalData) return;
-
-    const title = modalData.title?.trim();
-    const message = modalData.message?.trim();
-
-    const dataToSend = {
-      therapist_ids: selectedTherapists,
-      title: title,
-      message: message,
-      _csrf: $("meta[name=csrf-token]").attr("content"),
-    };
-
-    if (!title || !message) {
-      swalError(
-        "Campi mancanti",
-        "Inserisci sia il titolo che il messaggio della notifica."
-      );
+  async function openSwalSendModal() {
+    if (typeof Swal === "undefined") {
+      alert("Componente Swal non disponibile.");
       return;
     }
 
-    modalData.isLoading = true;
-    modalData.errors = "";
-    modalData.success = "";
+    const url = window.sendNotificationUrl || "/therapist/send-notification";
+    const csrf = $("meta[name=csrf-token]").attr("content");
+    const count = selectedTherapists.length;
 
-    swalLoading("Invio notifiche in corso...");
+    const result = await Swal.fire({
+      title: "Invia Notifica",
+      html: `
+        <div style="text-align:left;font-size:13px;color:#6b7280;margin-bottom:12px;">
+          Destinatari: <strong>${count} terapista${count === 1 ? "" : "i"}</strong> selezionato${count === 1 ? "" : "i"}.
+          La notifica viene recapitata agli account dei terapisti selezionati.
+        </div>
+        <input id="swal-notif-title" class="swal2-input" placeholder="Titolo notifica" maxlength="100" autocomplete="off" />
+        <textarea id="swal-notif-message" class="swal2-textarea" placeholder="Messaggio" maxlength="500" rows="4"></textarea>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Invia Notifica",
+      cancelButtonText: "Annulla",
+      confirmButtonColor: "#2563eb",
+      reverseButtons: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      didOpen: () => {
+        document.getElementById("swal-notif-title").focus();
+      },
+      preConfirm: async () => {
+        const title = (
+          document.getElementById("swal-notif-title").value || ""
+        ).trim();
+        const message = (
+          document.getElementById("swal-notif-message").value || ""
+        ).trim();
 
-    try {
-      const response = await $.ajax({
-        url: window.sendNotificationUrl || "/therapist/send-notification",
-        type: "POST",
-        data: dataToSend,
-        dataType: "json",
-      });
+        if (!title || !message) {
+          Swal.showValidationMessage(
+            "Inserisci sia il titolo che il messaggio della notifica."
+          );
+          return false;
+        }
 
-      if (response.success) {
-        modalData.closeModal();
-        clearAllSelections();
-        swalSuccess(
-          "Notifiche inviate",
-          response.message || "Notifiche inviate con successo!"
-        );
-      } else {
-        swalError(
-          "Errore invio notifiche",
-          response.error || "Errore durante l'invio delle notifiche."
-        );
-      }
-    } catch (error) {
-      console.error("Errore AJAX:", error);
+        try {
+          const response = await $.ajax({
+            url: url,
+            type: "POST",
+            data: {
+              therapist_ids: selectedTherapists,
+              title: title,
+              message: message,
+              _csrf: csrf,
+            },
+            dataType: "json",
+          });
 
-      let errorMessage = "Errore di comunicazione con il server.";
-      if (error.responseJSON?.error) {
-        errorMessage = error.responseJSON.error;
-      } else if (error.status) {
-        errorMessage = `Errore ${error.status}: ${error.statusText}`;
-      }
-      swalError("Errore invio notifiche", errorMessage);
-    } finally {
-      modalData.isLoading = false;
+          if (!response || !response.success) {
+            Swal.showValidationMessage(
+              (response && response.error) ||
+                "Errore durante l'invio delle notifiche."
+            );
+            return false;
+          }
+
+          return response;
+        } catch (err) {
+          let errorMessage = "Errore di comunicazione con il server.";
+          if (err && err.responseJSON && err.responseJSON.error) {
+            errorMessage = err.responseJSON.error;
+          } else if (err && err.status) {
+            errorMessage = `Errore ${err.status}: ${err.statusText}`;
+          }
+          Swal.showValidationMessage(errorMessage);
+          return false;
+        }
+      },
+    });
+
+    if (result.isConfirmed && result.value) {
+      clearAllSelections();
+      swalSuccess(
+        "Notifiche inviate",
+        result.value.message || "Notifiche inviate con successo!"
+      );
     }
-  };
+  }
 
   function clearAllSelections() {
     selectedTherapists = [];
@@ -162,17 +163,6 @@ $(document).ready(function () {
   }
 
   // Helper Swal (fallback ad alert nativo se Swal non e' disponibile)
-  function swalLoading(title) {
-    if (typeof Swal === "undefined") return;
-    Swal.fire({
-      title: title,
-      didOpen: () => Swal.showLoading(),
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      showConfirmButton: false,
-    });
-  }
-
   function swalSuccess(title, text) {
     if (typeof Swal === "undefined") {
       alert(title + "\n" + text);
@@ -184,20 +174,6 @@ $(document).ready(function () {
       text: text,
       timer: 1800,
       showConfirmButton: false,
-    });
-  }
-
-  function swalError(title, text) {
-    if (typeof Swal === "undefined") {
-      alert(title + "\n" + text);
-      return;
-    }
-    Swal.fire({
-      icon: "error",
-      title: title,
-      text: text,
-      confirmButtonText: "Ho capito",
-      confirmButtonColor: "#dc2626",
     });
   }
 
