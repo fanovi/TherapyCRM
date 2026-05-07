@@ -1,4 +1,5 @@
 import {OneSignal} from 'react-native-onesignal';
+import {navigateToNotificationDetail} from '../navigation/navigationRef';
 
 class OneSignalService {
   constructor() {
@@ -67,20 +68,22 @@ class OneSignalService {
    * @param {Object} notification
    */
   handleNotificationClick(notification) {
-    const additionalData = notification.additionalData;
+    const additionalData = notification ? notification.additionalData : null;
+    if (!additionalData) {
+      return;
+    }
 
-    if (additionalData) {
-      // Esempi di navigazione basata sui dati della notifica
-      if (additionalData.screen) {
-        // Naviga alla schermata specificata
-        console.log('Navigazione verso:', additionalData.screen);
-        // Implementa la navigazione qui usando React Navigation
-      }
+    // Server invia notification_ids: array di id notifica.
+    // Apriamo la prima per il dettaglio.
+    let firstId = null;
+    if (Array.isArray(additionalData.notification_ids)) {
+      firstId = additionalData.notification_ids[0];
+    } else if (additionalData.notification_id) {
+      firstId = additionalData.notification_id;
+    }
 
-      if (additionalData.notification_ids) {
-        // Segna le notifiche come lette nell'API
-        this.markNotificationsAsRead(additionalData.notification_ids);
-      }
+    if (firstId) {
+      navigateToNotificationDetail(firstId);
     }
   }
 

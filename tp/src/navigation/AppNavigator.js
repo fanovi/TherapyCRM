@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
+import {navigationRef} from './navigationRef';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {useSelector, useDispatch} from 'react-redux';
 import {ActivityIndicator, View} from 'react-native';
@@ -217,7 +218,7 @@ const AppNavigator = () => {
 
   return (
     <SafeAreaWrapper>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator screenOptions={{headerShown: false}}>
           {!isAuthenticated || requiresPasswordChange || requires2fa || requiresReactivation ? (
             <Stack.Screen name="Auth" component={AuthNavigator} />
