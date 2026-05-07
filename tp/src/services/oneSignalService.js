@@ -54,11 +54,10 @@ class OneSignalService {
 
     // Gestisce quando l'utente tocca una notifica
     OneSignal.Notifications.addEventListener('click', event => {
-      if (__DEV__) {
-        console.log('👆 Notifica cliccata:', event.notification);
-      }
-
-      // Qui puoi implementare la navigazione basata sui dati della notifica
+      console.log(
+        '[OneSignal] click event',
+        JSON.stringify(event, null, 2),
+      );
       this.handleNotificationClick(event.notification);
     });
   }
@@ -68,23 +67,61 @@ class OneSignalService {
    * @param {Object} notification
    */
   handleNotificationClick(notification) {
+    console.log(
+      '[OneSignal] handleNotificationClick notification=',
+      JSON.stringify(notification, null, 2),
+    );
+
     const additionalData = notification ? notification.additionalData : null;
-    if (!additionalData) {
-      return;
-    }
+    console.log('[OneSignal] additionalData=', additionalData);
 
-    // Server invia notification_ids: array di id notifica.
-    // Apriamo la prima per il dettaglio.
     let firstId = null;
-    if (Array.isArray(additionalData.notification_ids)) {
-      firstId = additionalData.notification_ids[0];
-    } else if (additionalData.notification_id) {
-      firstId = additionalData.notification_id;
+    const extractFirstFrom = obj => {
+      if (!obj) return null;
+      if (Array.isArray(obj.notification_ids) && obj.notification_ids.length > 0) {
+        return obj.notification_ids[0];
+      }
+      if (typeof obj.notification_ids === 'string') {
+        try {
+          const parsed = JSON.parse(obj.notification_ids);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+        } catch (e) {
+          if (/^\d+$/.test(obj.notification_ids)) {
+            return parseInt(obj.notification_ids, 10);
+          }
+        }
+      }
+      if (obj.notification_id) return obj.notification_id;
+      return null;
+    };
+
+    firstId = extractFirstFrom(additionalData);
+
+    // Fallback: alcune versioni del SDK Android non popolano additionalData
+    // ma lasciano i dati custom dentro rawPayload.custom.a.
+    if (!firstId && notification && notification.rawPayload) {
+      try {
+        const raw =
+          typeof notification.rawPayload === 'string'
+            ? JSON.parse(notification.rawPayload)
+            : notification.rawPayload;
+        let custom = raw && raw.custom;
+        if (typeof custom === 'string') {
+          custom = JSON.parse(custom);
+        }
+        if (custom && custom.a) {
+          firstId = extractFirstFrom(custom.a);
+        }
+      } catch (e) {
+        console.log('[OneSignal] rawPayload parse error', e?.message);
+      }
     }
 
-    if (firstId) {
-      navigateToNotificationDetail(firstId);
-    }
+    console.log('[OneSignal] resolved firstId=', firstId);
+
+    // Naviga sempre: se c'e' un id va al dettaglio, altrimenti almeno
+    // alla lista notifiche (cosi' l'utente non resta sulla home).
+    navigateToNotificationDetail(firstId);
   }
 
   /**
