@@ -25,6 +25,12 @@ class PatientSearch extends Patient
     public $therapist_ids;
 
     /**
+     * Filtra i pazienti per email di uno degli account collegati (account_patients -> users.email).
+     * @var string|null
+     */
+    public $email;
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
@@ -35,7 +41,7 @@ class PatientSearch extends Patient
                 'first_name', 'last_name', 'fiscal_code', 'birth_date', 'notes', 'created_at',
                 'birth_city', 'birth_province_name', 'birth_province_code',
                 'residence_address', 'residence_city', 'residence_province_name', 'residence_province_code', 'residence_postal_code',
-                'phone_number'
+                'phone_number', 'email'
             ], 'safe'],
             [['therapist_ids'], 'safe'],
         ];
@@ -124,6 +130,16 @@ class PatientSearch extends Patient
             ->andFilterWhere(['like', 'residence_province_code', $this->residence_province_code])
             ->andFilterWhere(['like', 'residence_postal_code', $this->residence_postal_code])
             ->andFilterWhere(['like', 'phone_number', $this->phone_number]);
+
+        // Filtro per email account collegato (subquery su account_patients + users)
+        if ($this->email !== null && $this->email !== '') {
+            $emailSub = (new \yii\db\Query())
+                ->select('ap.patient_id')
+                ->from(['ap' => '{{%account_patients}}'])
+                ->innerJoin(['u' => '{{%users}}'], 'u.id = ap.user_id')
+                ->where(['like', 'u.email', $this->email]);
+            $query->andWhere(['id' => $emailSub]);
+        }
 
         return $dataProvider;
     }

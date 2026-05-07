@@ -150,6 +150,24 @@ $this->registerJsFile('@web/js/patient-notifications.js?v=' . $patientNotifMtime
                             }
                         ],
                         [
+                            'attribute' => 'email',
+                            'label' => 'Email account',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[200px]'],
+                            'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap text-xs'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Email...'],
+                            'format' => 'raw',
+                            'value' => function ($model) {
+                                $emails = [];
+                                foreach ($model->getLinkedUsers()->select('email')->column() as $em) {
+                                    if ($em) {
+                                        $emails[] = Html::encode($em);
+                                    }
+                                }
+                                return $emails ? implode('<br>', $emails) : '<span class="text-gray-400">-</span>';
+                            }
+                        ],
+                        [
                             'label' => 'Data di Nascita (Età)',
                             'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
