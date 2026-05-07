@@ -160,6 +160,43 @@ $this->params['breadcrumbs'][] = $this->title;
                         'label' => 'Specializzazione',
                     ],
                     [
+                        'label' => 'Trattamenti coperti',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $treatments = $model->specialization
+                                ? $model->specialization->treatmentTypes
+                                : [];
+                            if (empty($treatments)) {
+                                return '<span class="text-gray-400">Nessun trattamento associato alla specializzazione</span>';
+                            }
+                            $badges = [];
+                            foreach ($treatments as $tt) {
+                                $badges[] = '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">'
+                                    . Html::encode($tt->name)
+                                    . (!empty($tt->code) ? ' <span class="text-gray-500 ml-1">(' . Html::encode($tt->code) . ')</span>' : '')
+                                    . '</span>';
+                            }
+                            return '<div class="flex flex-wrap gap-2">' . implode('', $badges) . '</div>';
+                        }
+                    ],
+                    [
+                        'label' => 'Capacità',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $items = [];
+                            $items[] = $model->can_supervise
+                                ? '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-200 dark:text-purple-900">Supervisione</span>'
+                                : '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 line-through">Supervisione</span>';
+                            $items[] = $model->can_parental_training
+                                ? '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-200 dark:text-indigo-900">Parental Training</span>'
+                                : '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 line-through">Parental Training</span>';
+                            $items[] = $model->is_aba
+                                ? '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-200 dark:text-emerald-900">ABA</span>'
+                                : '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 line-through">ABA</span>';
+                            return '<div class="flex flex-wrap gap-2">' . implode('', $items) . '</div>';
+                        }
+                    ],
+                    [
                         'attribute' => 'weekly_hours_contract',
                         'label' => 'Ore Settimanali Contratto',
                     ],
