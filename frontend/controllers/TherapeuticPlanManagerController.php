@@ -1178,6 +1178,13 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
+            // Filtro ABA: se il paziente del contesto ha un piano ABA attivo,
+            // mostra solo i terapisti abilitati (is_aba=1). patientId viene
+            // dedotto dal Referer (/calendar/{id}) o passato esplicito.
+            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+                $query->andWhere(['therapists.is_aba' => 1]);
+            }
+
             $allowedIds = $this->getCoordinatorTherapistFilter();
             if ($allowedIds !== null) {
                 $query->andWhere(['therapists.id' => $allowedIds]);
@@ -1306,6 +1313,11 @@ class TherapeuticPlanManagerController extends Controller
                 $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
             }
 
+            // Filtro ABA: vedi getPatientIdFromContext().
+            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+                $therapists->andWhere(['t.is_aba' => 1]);
+            }
+
             // Se è fornito appointmentId, escludi il terapista originale dell'appuntamento
             if ($appointmentId > 0) {
                 $appointment = Appointment::findOne($appointmentId);
@@ -1390,6 +1402,11 @@ class TherapeuticPlanManagerController extends Controller
                 $query->andWhere(['t.can_supervise' => 1]);
             } elseif ($treatmentType && $treatmentType->code === 'PT') {
                 $query->andWhere(['t.can_parental_training' => 1]);
+            }
+
+            // Filtro ABA: vedi getPatientIdFromContext().
+            if ($this->patientHasActiveABAPlan($this->getPatientIdFromContext())) {
+                $query->andWhere(['t.is_aba' => 1]);
             }
 
             $allowedIds = $this->getCoordinatorTherapistFilter();
@@ -5101,6 +5118,59 @@ class TherapeuticPlanManagerController extends Controller
     private function isABARegime($therapeuticPlan)
     {
         return $therapeuticPlan->regime && stripos($therapeuticPlan->regime->nome, 'ABA') !== false;
+    }
+
+    /**
+     * Estrae il patientId dal Referer quando la richiesta arriva da
+     * /calendar/{patientId}. Necessario perche' gli endpoint terapisti
+     * vengono invocati dal calendar-app senza esplicito patientId in query
+     * e il filtro ABA dipende dal paziente del calendario aperto.
+     *
+     * @return int 0 se non determinabile
+     */
+    private function getPatientIdFromContext()
+    {
+        $explicit = (int) Yii::$app->request->get('patientId', 0);
+        if ($explicit > 0) {
+            return $explicit;
+        }
+        $referer = Yii::$app->request->getReferrer();
+        if (!$referer) {
+            return 0;
+        }
+        // Match /calendar/{id} (id_patient lato Yii). Esclude /calendar/therapist/...
+        $path = parse_url($referer, PHP_URL_PATH) ?: '';
+        if (preg_match('#/calendar/(\d+)(?:/|$|\?)#', $path, $m)) {
+            return (int) $m[1];
+        }
+        return 0;
+    }
+
+    /**
+     * Verifica se il paziente ha un piano terapeutico ABA attualmente attivo.
+     * "Attivo" = oggi compreso tra start_date ed end_date e status in
+     * (active, pending, suspended). Regime ABA = nome regime contiene "ABA".
+     *
+     * @param int|null $patientId
+     * @return bool
+     */
+    private function patientHasActiveABAPlan($patientId)
+    {
+        $patientId = (int) $patientId;
+        if ($patientId <= 0) {
+            return false;
+        }
+        $today = date('Y-m-d');
+        $plan = TherapeuticPlan::find()
+            ->alias('tp')
+            ->innerJoin('{{%regime}} r', 'r.id = tp.regime_id')
+            ->where(['tp.patient_id' => $patientId])
+            ->andWhere(['tp.status' => ['active', 'pending', 'suspended']])
+            ->andWhere(['<=', 'tp.start_date', $today])
+            ->andWhere(['>=', 'tp.end_date', $today])
+            ->andWhere(['like', 'r.nome', 'ABA'])
+            ->one();
+        return $plan !== null;
     }
 
     /**
