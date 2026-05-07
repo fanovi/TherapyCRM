@@ -14,7 +14,9 @@ $this->params['breadcrumbs'][] = $this->title;
 
 // Notifiche terapisti (stesso pattern di patient/index.php)
 $this->registerJsVar('sendNotificationUrl', Url::to(['therapist/send-notification']));
-$this->registerJsFile('@web/js/therapist-notifications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
+$therapistNotifJs = '@web/js/therapist-notifications.js';
+$therapistNotifMtime = @filemtime(Yii::getAlias('@webroot/js/therapist-notifications.js')) ?: time();
+$this->registerJsFile($therapistNotifJs . '?v=' . $therapistNotifMtime, ['depends' => [\yii\web\JqueryAsset::class]]);
 ?>
 <div class="mx-auto max-w-full p-4 md:p-6">
     <!-- Breadcrumb Start -->

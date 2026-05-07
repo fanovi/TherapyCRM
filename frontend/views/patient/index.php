@@ -18,9 +18,10 @@ $this->params['breadcrumbs'][] = $this->title;
 // Get districts for filter
 $districts = District::getDropdownData();
 
-// Registra il CSS per le notifiche e il JS
+// Registra il CSS per le notifiche e il JS (cache-bust via filemtime)
 $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification']));
-$this->registerJsFile('@web/js/patient-notifications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
+$patientNotifMtime = @filemtime(Yii::getAlias('@webroot/js/patient-notifications.js')) ?: time();
+$this->registerJsFile('@web/js/patient-notifications.js?v=' . $patientNotifMtime, ['depends' => [\yii\web\JqueryAsset::class]]);
 ?>
 
 <div class="mx-auto max-w-7xl p-4 md:p-6">
