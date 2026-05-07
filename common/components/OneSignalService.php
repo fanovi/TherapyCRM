@@ -98,7 +98,24 @@ class OneSignalService extends Component
             
             if ($response->isOk) {
                 $result = $response->data;
-                Yii::info('OneSignal notification sent successfully: ' . json_encode($result), __METHOD__);
+                $recipients = isset($result['recipients']) ? (int)$result['recipients'] : null;
+                $apiErrors = $result['errors'] ?? null;
+                if ($recipients === 0 || !empty($apiErrors)) {
+                    Yii::error(
+                        'OneSignal: nessun destinatario raggiunto. user_ids=' . json_encode($userIds)
+                        . ' recipients=' . json_encode($recipients)
+                        . ' errors=' . json_encode($apiErrors)
+                        . ' response=' . json_encode($result),
+                        __METHOD__
+                    );
+                } else {
+                    Yii::error(
+                        'OneSignal notification sent successfully: user_ids=' . json_encode($userIds)
+                        . ' recipients=' . json_encode($recipients)
+                        . ' response=' . json_encode($result),
+                        __METHOD__
+                    );
+                }
                 return $result;
             } else {
                 $error = 'OneSignal API error: ' . $response->statusCode . ' - ' . $response->content;
