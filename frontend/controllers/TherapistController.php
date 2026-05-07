@@ -5,6 +5,7 @@ namespace frontend\controllers;
 use common\models\Absence;
 use common\models\Appointment;
 use common\models\AuthToken;
+use common\models\Notification;
 use common\models\Specialization;
 use common\models\Therapist;
 use common\models\TherapistSubstitution;
@@ -436,6 +437,91 @@ class TherapistController extends Controller
         }
 
         return $this->redirect(['index']);
+    }
+
+    /**
+     * Invia notifiche ai terapisti selezionati.
+     * POST: therapist_ids[], title, message, requires_read_confirmation.
+     * Allineato a PatientController::actionSendNotification.
+     */
+    public function actionSendNotification()
+    {
+        if (!Yii::$app->user->can('create_therapist')) {
+            throw new ForbiddenHttpException('Non hai i permessi per inviare notifiche.');
+        }
+
+        if (!Yii::$app->request->isPost) {
+            throw new \yii\web\BadRequestHttpException('Metodo non consentito.');
+        }
+
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $data = Yii::$app->request->post();
+
+        if (empty($data['therapist_ids']) || empty($data['title']) || empty($data['message'])) {
+            return [
+                'success' => false,
+                'error' => 'Parametri mancanti: seleziona almeno un terapista e inserisci titolo e messaggio.'
+            ];
+        }
+
+        $therapistIds = is_array($data['therapist_ids']) ? $data['therapist_ids'] : [$data['therapist_ids']];
+        $title = trim($data['title']);
+        $message = trim($data['message']);
+        $requiresReadConfirmation = false;
+        if (isset($data['requires_read_confirmation'])) {
+            $value = $data['requires_read_confirmation'];
+            $requiresReadConfirmation = ($value === true || $value === 'true' || $value === 1 || $value === '1');
+        }
+
+        try {
+            // Per i terapisti il legame con l'utente e' diretto via therapists.user_id.
+            $userIds = Therapist::find()
+                ->select('user_id')
+                ->where(['id' => $therapistIds])
+                ->andWhere(['IS NOT', 'user_id', null])
+                ->column();
+            $userIds = array_values(array_unique(array_map('intval', $userIds)));
+
+            if (empty($userIds)) {
+                return [
+                    'success' => false,
+                    'error' => 'Nessun account collegato ai terapisti selezionati.'
+                ];
+            }
+
+            $result = Yii::$app->notificationService->sendNotification(
+                $userIds,
+                $title,
+                $message,
+                Notification::TYPE_INFO,
+                Yii::$app->user->id,
+                $requiresReadConfirmation
+            );
+
+            Yii::info('Invio notifiche ai terapisti: ' . implode(',', $therapistIds)
+                . ' - Utenti destinatari: ' . implode(',', $userIds)
+                . ' - Risultato: ' . print_r($result, true), __METHOD__);
+
+            return [
+                'success' => true,
+                'message' => sprintf(
+                    'Notifica inviata con successo a %d account dei terapisti selezionati.',
+                    $result['notifications_created']
+                ),
+                'details' => [
+                    'therapists_count' => count($therapistIds),
+                    'accounts_notified' => $result['notifications_created'],
+                    'errors' => $result['errors'] ?? []
+                ]
+            ];
+        } catch (\Exception $e) {
+            Yii::error('Errore invio notifiche ai terapisti: ' . $e->getMessage(), __METHOD__);
+            return [
+                'success' => false,
+                'error' => "Errore durante l'invio delle notifiche: " . $e->getMessage()
+            ];
+        }
     }
 
     /**
