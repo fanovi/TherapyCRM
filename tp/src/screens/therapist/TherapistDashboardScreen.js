@@ -20,6 +20,7 @@ import {useSelector, useDispatch} from 'react-redux';
 import {loginService} from '../../services/loginService';
 import {therapistService} from '../../services/therapistService';
 import ScreenTemplate from '../../components/ScreenTemplate';
+import DashboardNotificationBanner from '../../components/DashboardNotificationBanner';
 
 const TherapistDashboardScreen = ({navigation}) => {
   const dispatch = useDispatch();
@@ -117,6 +118,9 @@ const TherapistDashboardScreen = ({navigation}) => {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }>
+      {/* Banner per i permessi delle notifiche */}
+      <DashboardNotificationBanner />
+
       {error && (
         <View
           style={[
