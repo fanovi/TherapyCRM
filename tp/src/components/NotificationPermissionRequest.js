@@ -135,16 +135,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  dismissButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 16,
-  },
-  dismissButtonText: {
-    color: '#6c757d',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
 });
 
 export default NotificationPermissionRequest;

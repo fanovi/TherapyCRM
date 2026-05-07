@@ -18,6 +18,7 @@ use yii\behaviors\TimestampBehavior;
  * @property boolean $is_internal
  * @property boolean $can_supervise
  * @property boolean $can_parental_training
+ * @property boolean $is_aba
  * @property string $created_at
  * @property string $updated_at
  *
@@ -71,7 +72,7 @@ class Therapist extends ActiveRecord
             [['user_id', 'specialization_id', 'weekly_hours_contract'], 'required', 'message' => '{attribute} è obbligatorio.'],
             [['user_id', 'specialization_id', 'weekly_hours_contract'], 'integer', 'message' => '{attribute} deve essere un numero valido.'],
             [['weekly_hours_contract'], 'integer', 'min' => 1, 'max' => 40, 'message' => 'Le ore settimanali devono essere comprese tra 1 e 40.'],
-            [['is_active', 'is_internal', 'can_supervise', 'can_parental_training'], 'boolean'],
+            [['is_active', 'is_internal', 'can_supervise', 'can_parental_training', 'is_aba'], 'boolean'],
             [['created_at', 'updated_at'], 'safe'],
             [['calendar_color'], 'string', 'max' => 7, 'message' => 'Il colore del calendario non è valido.'],
             [['calendar_color'], 'match', 'pattern' => '/^#[0-9A-Fa-f]{6}$/', 'message' => 'Il colore deve essere in formato esadecimale (es. #FF0000).'],
@@ -96,6 +97,7 @@ class Therapist extends ActiveRecord
             'is_internal' => 'Dipendente',
             'can_supervise' => 'Supervisione',
             'can_parental_training' => 'Parental Training',
+            'is_aba' => 'ABA',
             'created_at' => 'Creato il',
             'updated_at' => 'Aggiornato il',
         ];
