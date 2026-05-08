@@ -1314,9 +1314,11 @@ class TherapeuticPlanManagerController extends Controller
                 $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
             }
 
-            // Filtro ABA: richiede patientId esplicito in query.
+            // Filtro ABA: richiede patientId esplicito. Saltato se force=true
+            // o se richiesto esplicitamente (applyABAFilter=0).
             $patientId = (int) $request->get('patientId', 0);
-            if ($this->patientHasActiveABAPlan($patientId)) {
+            $applyABAFilter = $request->get('applyABAFilter', '1') !== '0';
+            if (!$force && $applyABAFilter && $this->patientHasActiveABAPlan($patientId)) {
                 $therapists->andWhere(['t.is_aba' => 1]);
             }
 
@@ -1328,9 +1330,12 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
-            $allowedIds = $this->getCoordinatorTherapistFilter();
-            if ($allowedIds !== null) {
-                $therapists->andWhere(['t.id' => $allowedIds]);
+            // Filtro coordinatore: saltato se force=true (mostra tutti i terapisti)
+            if (!$force) {
+                $allowedIds = $this->getCoordinatorTherapistFilter();
+                if ($allowedIds !== null) {
+                    $therapists->andWhere(['t.id' => $allowedIds]);
+                }
             }
 
             $therapists = $therapists->orderBy(['up.last_name' => SORT_ASC])->all();
