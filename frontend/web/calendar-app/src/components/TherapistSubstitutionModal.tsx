@@ -16,7 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, UserX, UserCheck } from "lucide-react";
+import { AlertCircle, UserX, UserCheck, ChevronsUpDown, Check } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Appointment, Therapist } from "@/types/therapy";
@@ -61,7 +75,7 @@ export const TherapistSubstitutionModal: React.FC<
   const [hasForced, setHasForced] = useState(false);
   const [showAllTherapists, setShowAllTherapists] = useState(true);
   const [filterABA, setFilterABA] = useState(false);
-  const [therapistSearch, setTherapistSearch] = useState("");
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   // Reset del form e caricamento terapisti quando si apre/chiude la modale
   useEffect(() => {
@@ -89,14 +103,6 @@ export const TherapistSubstitutionModal: React.FC<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAllTherapists, filterABA]);
 
-  const filteredTherapists = availableTherapists.filter((t) => {
-    if (!therapistSearch) return true;
-    const q = therapistSearch.toLowerCase();
-    return (
-      t.name.toLowerCase().includes(q) ||
-      (t.specialization || "").toLowerCase().includes(q)
-    );
-  });
 
   if (!appointment) return null;
 
@@ -328,14 +334,6 @@ export const TherapistSubstitutionModal: React.FC<
             )}
           </div>
 
-          <Input
-            type="text"
-            placeholder="Cerca terapista per nome o specializzazione..."
-            value={therapistSearch}
-            onChange={(e) => setTherapistSearch(e.target.value)}
-            className="text-sm"
-          />
-
           {loadingTherapists ? (
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2">
@@ -362,54 +360,97 @@ export const TherapistSubstitutionModal: React.FC<
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Lista terapisti cliccabile */}
-                <div className="space-y-1">
+                {/* Combobox cercabile */}
+                <div className="space-y-2">
                   <Label>Nuovo Terapista *</Label>
-                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
-                    {filteredTherapists.length === 0 && (
-                      <div className="p-3 text-sm text-gray-500 text-center">
-                        Nessun risultato
-                      </div>
-                    )}
-                    {filteredTherapists.map((therapist) => {
-                      const isSelected =
-                        selectedTherapistId === therapist.id.toString();
-                      return (
-                        <div
-                          key={therapist.id}
-                          onClick={() =>
-                            setSelectedTherapistId(therapist.id.toString())
-                          }
-                          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 transition-colors ${
-                            isSelected
-                              ? "bg-blue-100 hover:bg-blue-100"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {therapist.isAvailable ? (
-                            <UserCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
-                          ) : (
-                            <UserX className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-800 truncate">
-                              {therapist.name}{" "}
-                              <span className="text-xs text-gray-500 font-normal">
-                                ({therapist.specialization})
-                              </span>
-                            </div>
-                            {!therapist.isAvailable && (
-                              <div className="text-[11px] text-orange-600">
-                                {therapist.unavailabilityReason
-                                  ? therapist.unavailabilityReason
-                                  : "Occupato — verra' creato gruppo"}
-                              </div>
+                  <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={comboboxOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {selectedTherapist ? (
+                          <span className="flex items-center gap-2 truncate">
+                            {selectedTherapist.isAvailable ? (
+                              <UserCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <UserX className="h-4 w-4 text-orange-500 flex-shrink-0" />
                             )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <span className="truncate">
+                              {selectedTherapist.name}
+                              <span className="text-xs text-gray-500 ml-1">
+                                ({selectedTherapist.specialization})
+                              </span>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">
+                            Seleziona terapista sostituto...
+                          </span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[var(--radix-popover-trigger-width)] p-0"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Cerca per nome o specializzazione..." />
+                        <CommandList>
+                          <CommandEmpty>Nessun risultato</CommandEmpty>
+                          <CommandGroup>
+                            {availableTherapists.map((therapist) => {
+                              const value = `${therapist.name} ${therapist.specialization || ""}`;
+                              const isSelected =
+                                selectedTherapistId === therapist.id.toString();
+                              return (
+                                <CommandItem
+                                  key={therapist.id}
+                                  value={value}
+                                  onSelect={() => {
+                                    setSelectedTherapistId(
+                                      therapist.id.toString()
+                                    );
+                                    setComboboxOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      isSelected ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {therapist.isAvailable ? (
+                                    <UserCheck className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
+                                  ) : (
+                                    <UserX className="h-4 w-4 text-orange-500 mr-2 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="truncate">
+                                      {therapist.name}
+                                      <span className="text-xs text-gray-500 ml-1">
+                                        ({therapist.specialization})
+                                      </span>
+                                    </div>
+                                    {!therapist.isAvailable && (
+                                      <div className="text-[11px] text-orange-600">
+                                        {therapist.unavailabilityReason ||
+                                          "Occupato — verra' creato gruppo"}
+                                      </div>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* Warning quando si seleziona terapista occupato */}
