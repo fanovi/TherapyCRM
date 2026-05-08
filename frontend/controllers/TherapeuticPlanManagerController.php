@@ -5387,7 +5387,9 @@ class TherapeuticPlanManagerController extends Controller
             $appointmentId = (int) Yii::$app->request->get('appointmentId');
             $search = trim((string) Yii::$app->request->get('search', ''));
             $page = max(1, (int) Yii::$app->request->get('page', 1));
-            $pageSize = min(2000, max(1, (int) Yii::$app->request->get('pageSize', 20)));
+            // Nessun upper clamp pratico: chiamata gia' protetta dall'auth
+            // del frontend, il filtro client-side puo' richiedere lista intera
+            $pageSize = max(1, (int) Yii::$app->request->get('pageSize', 20));
 
             if (!$appointmentId) {
                 return $this->errorResponse('appointmentId obbligatorio');
