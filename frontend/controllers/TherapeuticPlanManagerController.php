@@ -4298,6 +4298,115 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Trova gli appuntamenti gia' esistenti del nuovo terapista negli stessi
+     * slot dei $appointmentsToSubstitute. Ritorna mappa appointmentId => Appointment[].
+     * Esclude gli appointment che fanno gia' parte dei sostituendi (per evitare
+     * di considerare appointment del gruppo che vengono spostati su nuovo therapist).
+     *
+     * @param int $newTherapistId
+     * @param Appointment[] $appointmentsToSubstitute
+     * @return array<int, Appointment[]>
+     */
+    private function findNewTherapistConflictsForSubstitution($newTherapistId, $appointmentsToSubstitute)
+    {
+        $excludeIds = array_map(fn($a) => $a->id, $appointmentsToSubstitute);
+        $result = [];
+        foreach ($appointmentsToSubstitute as $apt) {
+            $start = $apt->appointment_datetime;
+            $endTs = strtotime($start) + ($apt->duration_minutes * 60);
+            $end = date('Y-m-d H:i:s', $endTs);
+
+            $existing = Appointment::find()
+                ->where(['therapist_id' => $newTherapistId])
+                ->andWhere(['not in', 'id', $excludeIds ?: [0]])
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                    Appointment::STATUS_THERAPIST_ABSENT,
+                ]])
+                ->andWhere([
+                    'or',
+                    [
+                        'and',
+                        ['<=', 'appointment_datetime', $start],
+                        ['>', 'DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)', $start],
+                    ],
+                    [
+                        'and',
+                        ['<', 'appointment_datetime', $end],
+                        ['>=', 'appointment_datetime', $start],
+                    ],
+                ])
+                ->all();
+            if ($existing) {
+                $result[$apt->id] = $existing;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Fonde l'appointment $currentAppointment con eventuali $existingAppointments
+     * del nuovo terapista (sovrapposti nello stesso slot) sotto un unico
+     * group_session_id condiviso. Preferisce UUID gia' esistente fra gli
+     * appointment coinvolti, altrimenti ne genera uno nuovo.
+     *
+     * @param Appointment $currentAppointment
+     * @param Appointment[] $existingAppointments
+     */
+    private function mergeIntoExistingTherapistGroup($currentAppointment, $existingAppointments)
+    {
+        if (empty($existingAppointments)) return;
+
+        // Determina UUID condiviso: preferisci uno gia' esistente
+        $sharedGroupId = $currentAppointment->group_session_id;
+        if (!$sharedGroupId) {
+            foreach ($existingAppointments as $ex) {
+                if ($ex->group_session_id) {
+                    $sharedGroupId = $ex->group_session_id;
+                    break;
+                }
+            }
+        }
+        if (!$sharedGroupId) {
+            $sharedGroupId = Appointment::generateGroupSessionId();
+        }
+
+        // Raccogli TUTTI gli appointment dei gruppi coinvolti (transitive closure)
+        $groupIds = [];
+        $allInvolved = array_merge([$currentAppointment], $existingAppointments);
+        foreach ($allInvolved as $a) {
+            if ($a->group_session_id) {
+                $groupIds[$a->group_session_id] = true;
+            }
+        }
+        $toUpdate = $allInvolved;
+        if (!empty($groupIds)) {
+            $extra = Appointment::find()
+                ->where(['group_session_id' => array_keys($groupIds)])
+                ->all();
+            $existingIds = array_map(fn($x) => $x->id, $toUpdate);
+            foreach ($extra as $e) {
+                if (!in_array($e->id, $existingIds)) {
+                    $toUpdate[] = $e;
+                }
+            }
+        }
+
+        foreach ($toUpdate as $apt) {
+            if ($apt->group_session_id !== $sharedGroupId) {
+                $apt->group_session_id = $sharedGroupId;
+                if (!$apt->save(false, ['group_session_id'])) {
+                    throw new Exception("Errore fusione gruppo per appointment ID {$apt->id}");
+                }
+            }
+        }
+
+        Yii::info("Fusione gruppo dopo sostituzione: appointment {$currentAppointment->id} fuso con " . count($existingAppointments) . " appointment esistenti del terapista. Group session: {$sharedGroupId}", __METHOD__);
+    }
+
+    /**
      * Sostituzione terapista
      *
      * @return array
@@ -4366,6 +4475,14 @@ class TherapeuticPlanManagerController extends Controller
                 $substitutedAppointmentIds = [];
                 $originalTherapistId = $appointment->therapist_id;
 
+                // Pre-fetch eventuali appuntamenti del nuovo terapista negli stessi slot.
+                // Servono per fondere automaticamente in un gruppo quando l'utente
+                // seleziona un sostituto che ha gia' altri appuntamenti.
+                $newTherapistConflicts = $this->findNewTherapistConflictsForSubstitution(
+                    $newTherapistId,
+                    $appointmentsToSubstitute
+                );
+
                 foreach ($appointmentsToSubstitute as $currentAppointment) {
                     // Se dontRegisterAbsence è true, fai solo il cambio semplice
                     if ($dontRegisterAbsence) {
@@ -4376,6 +4493,12 @@ class TherapeuticPlanManagerController extends Controller
                         if (!$currentAppointment->save()) {
                             throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
                         }
+
+                        // Fonde in gruppo eventuali appuntamenti pre-esistenti del nuovo terapista
+                        $this->mergeIntoExistingTherapistGroup(
+                            $currentAppointment,
+                            $newTherapistConflicts[$currentAppointment->id] ?? []
+                        );
 
                         $substitutedCount++;
                         $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -4416,6 +4539,12 @@ class TherapeuticPlanManagerController extends Controller
                     if (!$currentAppointment->save()) {
                         throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
                     }
+
+                    // Fonde in un gruppo eventuali appuntamenti pre-esistenti del nuovo terapista nello stesso slot
+                    $this->mergeIntoExistingTherapistGroup(
+                        $currentAppointment,
+                        $newTherapistConflicts[$currentAppointment->id] ?? []
+                    );
 
                     // Crea o aggiorna il record di sostituzione
                     $substitution = TherapistSubstitution::findOne(['appointment_id' => $currentAppointment->id]);

@@ -58,6 +58,8 @@ export const TherapistSubstitutionModal: React.FC<
     null
   );
   const [hasForced, setHasForced] = useState(false);
+  const [showAllTherapists, setShowAllTherapists] = useState(false);
+  const [therapistSearch, setTherapistSearch] = useState("");
 
   // Reset del form e caricamento terapisti quando si apre/chiude la modale
   useEffect(() => {
@@ -68,11 +70,30 @@ export const TherapistSubstitutionModal: React.FC<
       setAvailableTherapists([]);
       setOriginalTherapist(null);
       setHasForced(false);
+      setShowAllTherapists(false);
 
       // Carica i terapisti della stessa specializzazione
       loadTherapistsBySpecialization();
     }
   }, [isOpen, appointment]);
+
+  // Reload quando si cambia toggle "tutti i terapisti"
+  useEffect(() => {
+    if (!isOpen) return;
+    setAvailableTherapists([]);
+    setHasForced(false);
+    loadTherapistsBySpecialization(showAllTherapists);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAllTherapists]);
+
+  const filteredTherapists = availableTherapists.filter((t) => {
+    if (!therapistSearch) return true;
+    const q = therapistSearch.toLowerCase();
+    return (
+      t.name.toLowerCase().includes(q) ||
+      (t.specialization || "").toLowerCase().includes(q)
+    );
+  });
 
   if (!appointment) return null;
 
@@ -264,93 +285,62 @@ export const TherapistSubstitutionModal: React.FC<
             </div>
           )}
 
-          {/* Loading terapisti */}
+          {/* Toggle filtro specializzazione + barra ricerca */}
+          <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <Label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox
+                id="show-all-therapists"
+                checked={showAllTherapists}
+                onCheckedChange={(checked) =>
+                  setShowAllTherapists(checked === true)
+                }
+              />
+              <span>
+                {showAllTherapists
+                  ? "Tutti i terapisti"
+                  : `Solo spec. ${originalTherapist?.specialization || ""}`}
+              </span>
+            </Label>
+            {availableTherapists.length > 0 && (
+              <span className="text-xs text-gray-600">
+                {availableTherapists.filter((t) => t.isAvailable).length}/{availableTherapists.length} liberi
+              </span>
+            )}
+          </div>
+
+          <Input
+            type="text"
+            placeholder="Cerca terapista per nome o specializzazione..."
+            value={therapistSearch}
+            onChange={(e) => setTherapistSearch(e.target.value)}
+            className="text-sm"
+          />
+
           {loadingTherapists ? (
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 <span className="text-blue-800">
-                  Caricamento terapisti disponibili...
+                  Caricamento terapisti...
                 </span>
               </div>
             </div>
           ) : availableTherapists.length === 0 ? (
-            <>
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                  <span className="font-medium text-orange-800">
-                    Nessun terapista disponibile
-                  </span>
-                </div>
-                <p className="text-sm text-orange-700">
-                  Non ci sono altri terapisti con specializzazione{" "}
-                  <strong>{originalTherapist?.specialization}</strong> disponibili
-                  per la sostituzione.
-                </p>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <span className="font-medium text-orange-800">
+                  Nessun terapista trovato
+                </span>
               </div>
-              {/* Pulsante per mostrare tutti i terapisti */}
-              {!hasForced && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => loadTherapistsBySpecialization(true)}
-                  className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
-                >
-                  Mostra tutti i terapisti
-                </Button>
-              )}
-            </>
+              <p className="text-sm text-orange-700">
+                {showAllTherapists
+                  ? "Nessun terapista nel sistema."
+                  : `Nessun terapista con specializzazione ${originalTherapist?.specialization}. Attiva "Tutti i terapisti".`}
+              </p>
+            </div>
           ) : (
             <>
-              {/* Messaggio informativo specializzazione */}
-              <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-700">
-                  Solo terapisti con spec.{" "}
-                  <strong>{originalTherapist?.specialization}</strong>
-                </p>
-              </div>
-
-              {/* Contatore disponibilità */}
-              {(() => {
-                const available = availableTherapists.filter(
-                  (t) => t.isAvailable
-                ).length;
-                const total = availableTherapists.length;
-                const unavailable = total - available;
-
-                return (
-                  total > 0 && (
-                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-700">
-                        <strong>
-                          {available}/{total}
-                        </strong>{" "}
-                        disponibili
-                        {unavailable > 0 && (
-                          <span className="text-xs text-gray-600 ml-2">
-                            (quelli non disponibili sono disabilitati)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  )
-                );
-              })()}
-
-              {/* Pulsante per mostrare tutti i terapisti */}
-              {!hasForced && !loadingTherapists && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadTherapistsBySpecialization(true)}
-                  className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
-                >
-                  Mostra tutti i terapisti
-                </Button>
-              )}
-
               <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Selezione nuovo terapista */}
                 <div className="space-y-2">
@@ -364,40 +354,50 @@ export const TherapistSubstitutionModal: React.FC<
                       <SelectValue placeholder="Seleziona il terapista sostituto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableTherapists.map((therapist) => (
+                      {filteredTherapists.length === 0 && (
+                        <div className="p-2 text-sm text-gray-500 text-center">
+                          Nessun risultato
+                        </div>
+                      )}
+                      {filteredTherapists.map((therapist) => (
                         <SelectItem
                           key={therapist.id}
                           value={therapist.id.toString()}
-                          disabled={!therapist.isAvailable}
                         >
                           <div className="flex items-center gap-2">
                             {therapist.isAvailable ? (
                               <UserCheck className="h-4 w-4 text-green-600" />
                             ) : (
-                              <UserX className="h-4 w-4 text-red-600" />
+                              <UserX className="h-4 w-4 text-orange-500" />
                             )}
-                            <span
-                              className={
-                                therapist.isAvailable ? "" : "text-gray-500"
-                              }
-                            >
-                              {therapist.name}
-                            </span>
+                            <span>{therapist.name}</span>
                             <span className="text-sm text-gray-500">
                               ({therapist.specialization})
                             </span>
-                            {!therapist.isAvailable &&
-                              therapist.unavailabilityReason && (
-                                <span className="text-xs text-red-600 ml-2">
-                                  - {therapist.unavailabilityReason}
-                                </span>
-                              )}
+                            {!therapist.isAvailable && (
+                              <span className="text-xs text-orange-600 ml-1">
+                                {therapist.unavailabilityReason
+                                  ? `- ${therapist.unavailabilityReason}`
+                                  : "- occupato (verra' creato gruppo)"}
+                              </span>
+                            )}
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Warning quando si seleziona terapista occupato */}
+                {selectedTherapist && !selectedTherapist.isAvailable && (
+                  <div className="bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-amber-800">
+                      Il terapista ha gia' un appuntamento in questo slot.
+                      Verra' fuso in un gruppo con il/i paziente/i sostituito/i.
+                    </span>
+                  </div>
+                )}
 
                 {/* Preview nuovo terapista */}
                 {selectedTherapist && (
@@ -454,9 +454,17 @@ export const TherapistSubstitutionModal: React.FC<
                   <Button
                     type="submit"
                     disabled={!selectedTherapistId || loading}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    className={`flex-1 ${
+                      selectedTherapist && !selectedTherapist.isAvailable
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-purple-600 hover:bg-purple-700"
+                    }`}
                   >
-                    {loading ? "Sostituendo..." : "Conferma Sostituzione"}
+                    {loading
+                      ? "Sostituendo..."
+                      : selectedTherapist && !selectedTherapist.isAvailable
+                        ? "Conferma e crea gruppo"
+                        : "Conferma Sostituzione"}
                   </Button>
                 </div>
               </form>
