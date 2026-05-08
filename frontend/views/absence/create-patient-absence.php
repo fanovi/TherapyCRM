@@ -495,4 +495,8 @@ $js = <<<JS
 })();
 JS;
 $this->registerJs($js);
+
+$this->registerCss(<<<CSS
+div:where(.swal2-container) { z-index: 2147483647 !important; }
+CSS);
 ?>
