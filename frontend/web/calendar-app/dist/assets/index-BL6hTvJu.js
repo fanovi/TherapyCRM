@@ -290,8 +290,7 @@ Durata: ${j.duration} min`,children:f.jsxs("div",{className:"font-semibold trunc
 
   /* Stili per appuntamenti di gruppo */
 .fc-event.group-session-event {
-  outline: 3px solid #1E40AF;
-  outline-offset: -3px;
+  box-shadow: 0 0 0 3px #1E40AF;
   position: relative;
   overflow: visible !important;
 }
