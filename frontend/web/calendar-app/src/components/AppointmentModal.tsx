@@ -69,22 +69,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     }
   }, [isOpen, patient?.therapeuticPlan?.regime?.id]);
 
-  // Quando lo slot ABA contiene già appuntamenti, pre-seleziona il primo tipo libero
-  useEffect(() => {
-    if (!isOpen || !isABARegime) return;
-    const allTypes: Array<"terapia" | "parent_training" | "supervisione"> = [
-      "terapia",
-      "parent_training",
-      "supervisione",
-    ];
-    const firstFree = allTypes.find(
-      (t) => !existingAppointmentTypes.includes(t)
-    );
-    if (firstFree) {
-      setAppointmentType(firstFree);
-    }
-  }, [isOpen, isABARegime, existingAppointmentTypes]);
-
   const loadSettings = async () => {
     try {
       setSettingsLoading(true);
@@ -322,53 +306,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               </Select>
             )}
           </div>
-
-          {/* Selettore tipo appuntamento ABA (terapia / parent_training / supervisione) */}
-          {isABARegime && (
-            <div className="space-y-2">
-              <Label htmlFor="appointmentType">Tipo appuntamento</Label>
-              <Select
-                value={appointmentType}
-                onValueChange={(value) =>
-                  setAppointmentType(
-                    value as "terapia" | "parent_training" | "supervisione"
-                  )
-                }
-              >
-                <SelectTrigger id="appointmentType">
-                  <SelectValue placeholder="Seleziona tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value="terapia"
-                    disabled={existingAppointmentTypes.includes("terapia")}
-                  >
-                    Terapia
-                    {existingAppointmentTypes.includes("terapia") &&
-                      " (già presente)"}
-                  </SelectItem>
-                  <SelectItem
-                    value="parent_training"
-                    disabled={existingAppointmentTypes.includes(
-                      "parent_training"
-                    )}
-                  >
-                    Parent Training
-                    {existingAppointmentTypes.includes("parent_training") &&
-                      " (già presente)"}
-                  </SelectItem>
-                  <SelectItem
-                    value="supervisione"
-                    disabled={existingAppointmentTypes.includes("supervisione")}
-                  >
-                    Supervisione
-                    {existingAppointmentTypes.includes("supervisione") &&
-                      " (già presente)"}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div className="space-y-3 border-t pt-3">
             <div className="flex items-center space-x-2">
