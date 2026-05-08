@@ -814,21 +814,27 @@ class AbsenceController extends Controller
      */
     public function actionCreatePatientAbsence()
     {
-        return $this->render('create-patient-absence');
+        $searchModel = new \frontend\models\PatientSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        return $this->render('create-patient-absence', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
     }
 
     /**
      * AJAX: ricerca pazienti per autocomplete.
      */
-    public function actionSearchPatientsAbsence($q = '')
+    public function actionSearchPatientsAbsence($q = '', $page = 1, $pageSize = 20)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         $q = trim((string) $q);
+        $page = max(1, (int) $page);
+        $pageSize = min(200, max(1, (int) $pageSize));
 
         $query = \common\models\Patient::find()
             ->select(['id', 'first_name', 'last_name', 'birth_date', 'fiscal_code'])
-            ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])
-            ->limit(50);
+            ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC]);
 
         if ($q !== '') {
             $query->andWhere([
@@ -842,7 +848,10 @@ class AbsenceController extends Controller
             ]);
         }
 
-        $patients = $query->asArray()->all();
+        $total = (int) $query->count();
+        $offset = ($page - 1) * $pageSize;
+        $patients = $query->offset($offset)->limit($pageSize)->asArray()->all();
+
         $items = array_map(function ($p) {
             return [
                 'id' => (int) $p['id'],
@@ -852,7 +861,13 @@ class AbsenceController extends Controller
             ];
         }, $patients);
 
-        return ['success' => true, 'items' => $items];
+        return [
+            'success' => true,
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'pageSize' => $pageSize,
+        ];
     }
 
     /**

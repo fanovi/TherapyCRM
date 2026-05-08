@@ -2,113 +2,139 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
+use yii\grid\GridView;
+use yii\widgets\Pjax;
 
 /** @var yii\web\View $this */
+/** @var frontend\models\PatientSearch $searchModel */
+/** @var yii\data\ActiveDataProvider $dataProvider */
 
 $this->title = 'Crea Assenze Paziente';
 $this->params['breadcrumbs'][] = ['label' => 'Assenze Pazienti', 'url' => ['patients']];
 $this->params['breadcrumbs'][] = $this->title;
 
-$searchUrl = Url::to(['absence/search-patients-absence']);
 $apptsUrl = Url::to(['absence/patient-appointments-absence']);
 $markUrl = Url::to(['absence/mark-patients-absent']);
-$csrfParam = Yii::$app->request->csrfParam;
 $csrfToken = Yii::$app->request->csrfToken;
 ?>
 
-<div class="mx-auto max-w-full p-4 md:p-6" id="patient-absence-app">
+<div class="mx-auto max-w-full p-4 md:p-6">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
             <?= Html::encode($this->title) ?>
         </h2>
         <a href="<?= Url::to(['patients']) ?>"
            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <span>← Torna alla lista assenze</span>
+            ← Torna alla lista assenze
         </a>
     </div>
 
-    <!-- Step 1: Ricerca paziente -->
-    <div class="rounded-2xl border border-gray-200 bg-white p-5 mb-4">
-        <h3 class="text-base font-semibold text-gray-800 mb-3">1. Seleziona paziente</h3>
-        <div id="patient-selected-box" class="hidden mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-            <div>
-                <div class="font-medium text-blue-900" id="patient-selected-name"></div>
-                <div class="text-xs text-blue-700" id="patient-selected-meta"></div>
-            </div>
-            <button type="button" id="btn-change-patient"
-                    class="text-sm text-blue-700 hover:underline">Cambia</button>
+    <div class="rounded-2xl border border-gray-200 bg-white">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-800">Seleziona paziente</h3>
+            <p class="text-xs text-gray-500 mt-1">Clicca su un paziente per gestire le sue assenze.</p>
         </div>
-
-        <div id="patient-search-box" class="relative">
-            <input type="text" id="patient-search-input"
-                   placeholder="Cerca paziente per nome, cognome, codice fiscale o data di nascita..."
-                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                   autocomplete="off" />
-            <div id="patient-search-spinner" class="hidden absolute right-3 top-2.5">
-                <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                </svg>
-            </div>
-            <ul id="patient-search-results"
-                class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg divide-y"></ul>
+        <div class="overflow-x-auto">
+            <?php Pjax::begin(['id' => 'patients-absence-pjax', 'enablePushState' => false]); ?>
+            <?= GridView::widget([
+                'dataProvider' => $dataProvider,
+                'filterModel' => $searchModel,
+                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500'],
+                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50'],
+                'rowOptions' => function ($model) {
+                    return [
+                        'class' => 'bg-white border-b hover:bg-blue-50 cursor-pointer patient-row',
+                        'data-id' => $model->id,
+                        'data-name' => trim($model->first_name . ' ' . $model->last_name),
+                        'data-fc' => $model->fiscal_code ?? '',
+                        'data-bd' => $model->birth_date ?? '',
+                    ];
+                },
+                'filterRowOptions' => ['class' => 'bg-gray-100 border-b border-gray-200'],
+                'columns' => [
+                    [
+                        'attribute' => 'last_name',
+                        'label' => 'Cognome',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-3 font-medium text-gray-900'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'Cognome...'],
+                    ],
+                    [
+                        'attribute' => 'first_name',
+                        'label' => 'Nome',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-3'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'Nome...'],
+                    ],
+                    [
+                        'attribute' => 'fiscal_code',
+                        'label' => 'Codice fiscale',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
+                        'contentOptions' => ['class' => 'px-4 py-3 text-xs'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'CF...'],
+                    ],
+                    [
+                        'attribute' => 'birth_date',
+                        'label' => 'Data nascita',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'contentOptions' => ['class' => 'px-4 py-3 text-xs'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'type' => 'date'],
+                        'value' => function ($m) {
+                            return $m->birth_date
+                                ? Yii::$app->formatter->asDate($m->birth_date, 'php:d/m/Y')
+                                : '-';
+                        },
+                    ],
+                    [
+                        'header' => 'Azione',
+                        'headerOptions' => ['class' => 'px-4 py-3 w-32'],
+                        'contentOptions' => ['class' => 'px-4 py-3'],
+                        'format' => 'raw',
+                        'value' => function ($m) {
+                            return '<button type="button" class="open-patient-modal rounded-lg bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700">Gestisci assenze</button>';
+                        },
+                    ],
+                ],
+            ]); ?>
+            <?php Pjax::end(); ?>
         </div>
     </div>
+</div>
 
-    <!-- Step 2: Filtri data + tabella appuntamenti -->
-    <div id="appointments-section" class="hidden">
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 mb-4">
-            <h3 class="text-base font-semibold text-gray-800 mb-3">2. Filtra appuntamenti</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Da</label>
-                    <input type="date" id="filter-from"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">A</label>
-                    <input type="date" id="filter-to"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                </div>
-                <div class="flex items-end gap-2">
-                    <button type="button" id="btn-filter"
-                            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                        Filtra
-                    </button>
-                    <button type="button" id="btn-filter-reset"
-                            class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        Reset
-                    </button>
-                </div>
+<!-- Modale gestione assenze paziente -->
+<div id="patient-absence-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-10 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-5 border-b border-gray-200">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800" id="modal-patient-name">-</h3>
+                <p class="text-xs text-gray-500" id="modal-patient-meta">-</p>
+            </div>
+            <button type="button" id="modal-close" class="text-gray-400 hover:text-gray-600 p-1">
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
+        </div>
+
+        <div class="p-5 border-b border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Da</label>
+                <input type="date" id="filter-from" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">A</label>
+                <input type="date" id="filter-to" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="button" id="btn-filter" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Filtra</button>
+                <button type="button" id="btn-filter-reset" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Reset</button>
             </div>
         </div>
 
-        <div class="rounded-2xl border border-gray-200 bg-white">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                    <h3 class="text-base font-semibold text-gray-800">3. Appuntamenti</h3>
-                    <p class="text-xs text-gray-500">
-                        <span id="appts-count">0</span> appuntamenti — <span id="selected-count">0</span> selezionati
-                    </p>
-                </div>
-                <div class="flex gap-2">
-                    <button type="button" id="btn-bulk-mark" disabled
-                            class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Marca selezionati come assenti
-                    </button>
-                </div>
-            </div>
-
-            <div id="appts-loading" class="hidden p-8 text-center text-sm text-gray-500">
-                Caricamento appuntamenti...
-            </div>
-            <div id="appts-empty" class="hidden p-8 text-center text-sm text-gray-500">
-                Nessun appuntamento trovato per i filtri selezionati.
-            </div>
-
-            <div id="appts-table-wrap" class="overflow-x-auto">
+        <div class="flex-1 overflow-y-auto">
+            <div id="appts-loading" class="hidden p-8 text-center text-sm text-gray-500">Caricamento appuntamenti...</div>
+            <div id="appts-empty" class="hidden p-8 text-center text-sm text-gray-500">Nessun appuntamento trovato.</div>
+            <div id="appts-table-wrap" class="hidden overflow-x-auto">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-gray-50 text-gray-700">
+                    <thead class="bg-gray-50 text-gray-700 sticky top-0">
                         <tr>
                             <th class="px-4 py-2 text-left w-10">
                                 <input type="checkbox" id="select-all" class="h-4 w-4 cursor-pointer" />
@@ -125,10 +151,17 @@ $csrfToken = Yii::$app->request->csrfToken;
                     <tbody id="appts-tbody" class="divide-y divide-gray-100"></tbody>
                 </table>
             </div>
+        </div>
 
-            <div class="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-600">
-                Suggerimento: clicca sulla data per selezionare/deselezionare tutti gli appuntamenti del giorno.
-            </div>
+        <div class="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <p class="text-xs text-gray-600">
+                <span id="appts-count">0</span> appuntamenti — <span id="selected-count">0</span> selezionati
+                <span class="ml-2 text-gray-500">Suggerimento: clicca sulla data per (de)selezionare tutti del giorno</span>
+            </p>
+            <button type="button" id="btn-bulk-mark" disabled
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                Marca selezionati come assenti
+            </button>
         </div>
     </div>
 </div>
@@ -136,14 +169,9 @@ $csrfToken = Yii::$app->request->csrfToken;
 <?php
 $js = <<<JS
 (function(){
-  const SEARCH_URL = '$searchUrl';
   const APPTS_URL = '$apptsUrl';
   const MARK_URL = '$markUrl';
   const CSRF_TOKEN = '$csrfToken';
-
-  let selectedPatient = null;
-  let appointments = [];
-  const selectedIds = new Set();
 
   const \$ = id => document.getElementById(id);
   const el = (tag, opts) => {
@@ -156,7 +184,9 @@ $js = <<<JS
     return e;
   };
 
-  function debounce(fn, ms){ let t; return function(){ clearTimeout(t); const a=arguments; t=setTimeout(()=>fn.apply(null,a),ms); }; }
+  let selectedPatient = null;
+  let appointments = [];
+  const selectedIds = new Set();
 
   function fmtDate(iso){ if(!iso) return '-'; const m = String(iso).match(/^(\\d{4})-(\\d{2})-(\\d{2})/); return m ? m[3]+'/'+m[2]+'/'+m[1] : iso; }
   function fmtTime(iso){ const m = String(iso).match(/(\\d{2}:\\d{2})/); return m ? m[1] : '-'; }
@@ -180,75 +210,48 @@ $js = <<<JS
     return wrap;
   }
 
-  // ---- search paziente ----
-  const searchInput = \$('patient-search-input');
-  const searchResults = \$('patient-search-results');
-  const searchSpinner = \$('patient-search-spinner');
-
-  async function fetchPatients(q){
-    searchSpinner.classList.remove('hidden');
-    try{
-      const r = await fetch(SEARCH_URL+'?q='+encodeURIComponent(q));
-      const data = await r.json();
-      renderResults(data.items || []);
-    }catch(e){ console.error(e); }
-    finally{ searchSpinner.classList.add('hidden'); }
-  }
-
-  function renderResults(items){
-    searchResults.replaceChildren();
-    if (!items.length) { searchResults.classList.add('hidden'); return; }
-    items.forEach(p => {
-      const li = el('li', { cls: 'px-3 py-2 hover:bg-blue-50 cursor-pointer' });
-      li.dataset.id = p.id;
-      li.dataset.name = p.name || '';
-      li.dataset.fc = p.fiscalCode || '';
-      li.dataset.bd = p.birthDate || '';
-      li.appendChild(el('div', { cls: 'font-medium', text: p.name }));
-      const meta = (p.fiscalCode || '-') + (p.birthDate ? (' • ' + fmtDate(p.birthDate)) : '');
-      li.appendChild(el('div', { cls: 'text-xs text-gray-500', text: meta }));
-      searchResults.appendChild(li);
-    });
-    searchResults.classList.remove('hidden');
-  }
-
-  searchInput.addEventListener('input', debounce(()=>{ fetchPatients(searchInput.value.trim()); }, 350));
-  searchInput.addEventListener('focus', ()=>{ if (searchInput.value.trim()) fetchPatients(searchInput.value.trim()); });
-
-  searchResults.addEventListener('click', (e)=>{
-    const li = e.target.closest('li[data-id]');
-    if (!li) return;
+  // --- click su row paziente apre modale ---
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.open-patient-modal');
+    const row = e.target.closest('.patient-row');
+    if (!btn && !row) return;
+    if (e.target.closest('input')) return;
+    const tr = row || (btn && btn.closest('.patient-row'));
+    if (!tr || !tr.dataset.id) return;
     selectedPatient = {
-      id: parseInt(li.dataset.id),
-      name: li.dataset.name,
-      fiscalCode: li.dataset.fc,
-      birthDate: li.dataset.bd,
+      id: parseInt(tr.dataset.id),
+      name: tr.dataset.name || '',
+      fiscalCode: tr.dataset.fc || '',
+      birthDate: tr.dataset.bd || '',
     };
-    \$('patient-selected-box').classList.remove('hidden');
-    \$('patient-search-box').classList.add('hidden');
-    \$('patient-selected-name').textContent = selectedPatient.name;
-    \$('patient-selected-meta').textContent = (selectedPatient.fiscalCode||'-') + (selectedPatient.birthDate?(' • '+fmtDate(selectedPatient.birthDate)):'');
-    searchResults.classList.add('hidden');
-    \$('appointments-section').classList.remove('hidden');
+    openModal();
+  });
+
+  function openModal(){
+    \$('modal-patient-name').textContent = selectedPatient.name || '-';
+    const metaParts = [];
+    if (selectedPatient.fiscalCode) metaParts.push(selectedPatient.fiscalCode);
+    if (selectedPatient.birthDate) metaParts.push(fmtDate(selectedPatient.birthDate));
+    \$('modal-patient-meta').textContent = metaParts.join(' • ') || '-';
+    \$('filter-from').value = '';
+    \$('filter-to').value = '';
+    \$('patient-absence-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    selectedIds.clear();
     loadAppointments();
-  });
+  }
 
-  document.addEventListener('click', (e)=>{
-    if (!searchResults.contains(e.target) && e.target !== searchInput) searchResults.classList.add('hidden');
-  });
-
-  \$('btn-change-patient').addEventListener('click', ()=>{
+  function closeModal(){
+    \$('patient-absence-modal').classList.add('hidden');
+    document.body.style.overflow = '';
     selectedPatient = null;
     appointments = [];
     selectedIds.clear();
-    \$('patient-selected-box').classList.add('hidden');
-    \$('patient-search-box').classList.remove('hidden');
-    \$('appointments-section').classList.add('hidden');
-    searchInput.value = '';
-    searchInput.focus();
-  });
+  }
 
-  // ---- appointment loading ----
+  \$('modal-close').addEventListener('click', closeModal);
+
+  // --- carica appuntamenti ---
   async function loadAppointments(){
     if (!selectedPatient) return;
     \$('appts-loading').classList.remove('hidden');
@@ -258,13 +261,13 @@ $js = <<<JS
     updateBulkBtn();
     const from = \$('filter-from').value || '';
     const to = \$('filter-to').value || '';
-    try{
+    try {
       const r = await fetch(APPTS_URL+'?patientId='+selectedPatient.id+'&from='+from+'&to='+to);
       const data = await r.json();
       appointments = data.items || [];
       renderAppointments();
-    }catch(e){ console.error(e); }
-    finally{ \$('appts-loading').classList.add('hidden'); }
+    } catch(e){ console.error(e); }
+    finally { \$('appts-loading').classList.add('hidden'); }
   }
 
   function renderAppointments(){
@@ -291,7 +294,7 @@ $js = <<<JS
       const tdDate = el('td', { cls: 'px-4 py-2 cursor-pointer underline-on-hover', text: fmtDate(a.datetime), attrs: { title: 'Clic per (de)selezionare tutti del giorno' } });
       tdDate.dataset.day = date;
 
-      const tdTime = el('td', { cls: 'px-4 py-2', text: fmtTime(a.datetime)+' ('+a.duration+'min)' });
+      const tdTime = el('td', { cls: 'px-4 py-2', text: fmtTime(a.datetime) + ' (' + a.duration + 'min)' });
       const tdTher = el('td', { cls: 'px-4 py-2', text: a.therapist || '-' });
       const tdTreat = el('td', { cls: 'px-4 py-2', text: a.treatmentType || '-' });
       const tdAt = el('td', { cls: 'px-4 py-2 text-xs', text: a.appointmentType || '-' });
@@ -371,11 +374,9 @@ $js = <<<JS
     loadAppointments();
   });
 
-  // ---- swal dialog mark absent ----
   function buildSwalContent(defaultType){
     const root = document.createElement('div');
-
-    const lblT = el('label', { cls: 'swal-l', text: 'Tipo' });
+    const lblT = el('label', { text: 'Tipo' });
     lblT.style.cssText = 'display:block;text-align:left;font-size:12px;font-weight:600;margin-bottom:4px;';
     const sel = document.createElement('select');
     sel.id = 'swal-type';
@@ -387,24 +388,20 @@ $js = <<<JS
       if (defaultType === o[0]) op.selected = true;
       sel.appendChild(op);
     });
-
     const lblR = el('label', { text: 'Motivo *' });
     lblR.style.cssText = 'display:block;text-align:left;font-size:12px;font-weight:600;margin:8px 0 4px 0;';
     const inpR = document.createElement('input');
     inpR.id = 'swal-reason'; inpR.className = 'swal2-input';
     inpR.placeholder = "Motivo dell'assenza";
     inpR.style.cssText = 'width:100%;max-width:none;display:block;margin:0 0 10px 0;';
-
     const lblN = el('label', { text: 'Note (opzionale)' });
     lblN.style.cssText = 'display:block;text-align:left;font-size:12px;font-weight:600;margin:8px 0 4px 0;';
     const txtN = document.createElement('textarea');
     txtN.id = 'swal-notes'; txtN.className = 'swal2-textarea'; txtN.rows = 2;
     txtN.placeholder = 'Note aggiuntive';
     txtN.style.cssText = 'width:100%;max-width:none;display:block;margin:0;';
-
     const warn = el('div', { text: 'Le assenze inserite da gestionale NON sono revocabili dal paziente tramite app.' });
     warn.style.cssText = 'margin-top:10px;font-size:11px;color:#92400e;text-align:left;';
-
     root.appendChild(lblT); root.appendChild(sel);
     root.appendChild(lblR); root.appendChild(inpR);
     root.appendChild(lblN); root.appendChild(txtN);
@@ -413,10 +410,7 @@ $js = <<<JS
   }
 
   function openMarkDialog(ids, defaultType){
-    if (typeof Swal === 'undefined') {
-      alert('Componente Swal non disponibile');
-      return;
-    }
+    if (typeof Swal === 'undefined') { alert('Componente Swal non disponibile'); return; }
     Swal.fire({
       title: 'Segna ' + ids.length + ' appuntamento/i come assente',
       html: buildSwalContent(defaultType),
