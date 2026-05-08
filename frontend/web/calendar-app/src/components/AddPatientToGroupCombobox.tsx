@@ -18,7 +18,8 @@ interface Props {
   onConfirm: (candidates: Candidate[]) => Promise<void>;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_DEFAULT = 20;
+const PAGE_SIZE_FILTERED = 100;
 const DEBOUNCE_MS = 350;
 
 export const AddPatientToGroupCombobox: React.FC<Props> = ({
@@ -56,7 +57,14 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
     return `${m[3]}/${m[2]}/${m[1]}`;
   };
 
-  // Fetch on open / query / page change
+  const pageSize = onlyAvailable ? PAGE_SIZE_FILTERED : PAGE_SIZE_DEFAULT;
+
+  // Reset pagina quando si cambia filtro
+  useEffect(() => {
+    setPage(1);
+  }, [onlyAvailable]);
+
+  // Fetch on open / query / page / filter change
   useEffect(() => {
     if (!isOpen) return;
     abortRef.current?.abort();
@@ -70,27 +78,16 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
         appointmentId,
         search: debouncedQuery,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
       })
       .then((res) => {
         if (ctrl.signal.aborted) return;
-        let mergedItems: Candidate[] = [];
-        setItems((prev) => {
-          mergedItems = page === 1 ? res.items : [...prev, ...res.items];
-          return mergedItems;
-        });
-        setTotal(res.total);
-
-        // Auto-fetch successive pagine SOLO qui (no useEffect race):
-        // se filtro "solo disponibili" attivo e non abbiamo ancora abbastanza
-        // eleggibili, scarica pagina successiva (1 alla volta nella chain).
-        if (
-          onlyAvailable &&
-          mergedItems.filter((i) => i.eligible).length < PAGE_SIZE &&
-          mergedItems.length < res.total
-        ) {
-          setPage(page + 1);
+        if (page === 1) {
+          setItems(res.items);
+        } else {
+          setItems((prev) => [...prev, ...res.items]);
         }
+        setTotal(res.total);
       })
       .catch((e) => {
         if (ctrl.signal.aborted) return;
@@ -101,7 +98,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
       });
 
     return () => ctrl.abort();
-  }, [isOpen, debouncedQuery, page, appointmentId, onlyAvailable]);
+  }, [isOpen, debouncedQuery, page, appointmentId, pageSize]);
 
   // Reset on close
   useEffect(() => {
@@ -131,14 +128,6 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
       setPage((p) => p + 1);
     }
   };
-
-  // Durante auto-fetch (filtro on, hasMore, target non ancora raggiunto)
-  // nascondo la lista parziale e mostro solo loader, UX piu' pulita.
-  const isAutoFetching =
-    onlyAvailable &&
-    loading &&
-    displayItems.length < PAGE_SIZE &&
-    hasMore;
 
   const toggleSelect = (c: Candidate) => {
     if (!c.eligible || submitting) return;
@@ -234,14 +223,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             </div>
           )}
 
-          {isAutoFetching && (
-            <div className="p-12 flex flex-col items-center justify-center gap-2 text-sm text-gray-500">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              Ricerca pazienti disponibili...
-            </div>
-          )}
-
-          {!isAutoFetching && displayItems.length === 0 && !loading && !error && (
+          {displayItems.length === 0 && !loading && !error && (
             <div className="p-8 text-center text-sm text-gray-500">
               {onlyAvailable && items.length > 0
                 ? "Nessun paziente disponibile fra i risultati"
@@ -251,7 +233,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             </div>
           )}
 
-          <ul className={`divide-y ${isAutoFetching ? "hidden" : ""}`}>
+          <ul className="divide-y">
             {displayItems.map((c) => {
               const isSelected = selectedIds.has(c.id);
               return (
@@ -314,7 +296,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             })}
           </ul>
 
-          {loading && !isAutoFetching && (
+          {loading && (
             <div className="p-4 flex items-center justify-center gap-2 text-sm text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
               Caricamento...
