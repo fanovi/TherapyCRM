@@ -378,6 +378,7 @@ class TherapeuticPlanManagerAPI {
    */
   async createAppointment(request: CreateAppointmentRequest): Promise<{
     appointmentId: number;
+    groupSessionId?: string | null;
     weeklyLimitExceeded: any[];
   }> {
     const response = await this.post<any>("create-appointment", request);
@@ -760,6 +761,7 @@ class TherapeuticPlanManagerAPI {
     id_setting?: number;
   }): Promise<{
     appointmentId: number;
+    groupSessionId?: string | null;
   }> {
     const response = await this.post<any>("create-aba-appointment", request);
 

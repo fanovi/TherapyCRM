@@ -759,7 +759,7 @@ const Index = () => {
           setting_id: appointmentData.id_setting,
           isGroup: appointmentData.isGroup || false,
           groupPatients: [],
-          groupSessionId: null,
+          groupSessionId: (result as any)?.groupSessionId ?? null,
           appointmentSource: "therapeutic_plan",
           isRecurring: false,
           appointmentType: appointmentData.appointmentType,
