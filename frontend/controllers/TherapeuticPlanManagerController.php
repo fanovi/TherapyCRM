@@ -1314,11 +1314,11 @@ class TherapeuticPlanManagerController extends Controller
                 $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
             }
 
-            // Filtro ABA: richiede patientId esplicito. Saltato se force=true
-            // o se richiesto esplicitamente (applyABAFilter=0).
+            // Filtro ABA: richiede patientId esplicito. Saltato esplicitamente
+            // via applyABAFilter=0 (indipendente da force/specializzazione).
             $patientId = (int) $request->get('patientId', 0);
             $applyABAFilter = $request->get('applyABAFilter', '1') !== '0';
-            if (!$force && $applyABAFilter && $this->patientHasActiveABAPlan($patientId)) {
+            if ($applyABAFilter && $this->patientHasActiveABAPlan($patientId)) {
                 $therapists->andWhere(['t.is_aba' => 1]);
             }
 

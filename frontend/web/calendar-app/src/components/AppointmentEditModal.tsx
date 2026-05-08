@@ -1357,6 +1357,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         onConfirm={handleTherapistSubstitution}
         appointment={currentPatientAppointment || appointment}
         therapists={therapists}
+        isABARegime={isABARegime}
       />
 
       {/* Modale aggiunta paziente al gruppo (search + eligibility) */}

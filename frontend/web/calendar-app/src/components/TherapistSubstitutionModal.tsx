@@ -35,11 +35,12 @@ interface TherapistSubstitutionModalProps {
   }) => void;
   appointment: Appointment | null;
   therapists: Therapist[];
+  isABARegime?: boolean;
 }
 
 export const TherapistSubstitutionModal: React.FC<
   TherapistSubstitutionModalProps
-> = ({ isOpen, onClose, onConfirm, appointment, therapists }) => {
+> = ({ isOpen, onClose, onConfirm, appointment, therapists, isABARegime }) => {
   const isGroupAppointment =
     appointment?.groupSessionId !== null &&
     appointment?.groupPatients &&
@@ -59,6 +60,7 @@ export const TherapistSubstitutionModal: React.FC<
   );
   const [hasForced, setHasForced] = useState(false);
   const [showAllTherapists, setShowAllTherapists] = useState(true);
+  const [filterABA, setFilterABA] = useState(false);
   const [therapistSearch, setTherapistSearch] = useState("");
 
   // Reset del form e caricamento terapisti quando si apre/chiude la modale
@@ -71,20 +73,21 @@ export const TherapistSubstitutionModal: React.FC<
       setOriginalTherapist(null);
       setHasForced(false);
       setShowAllTherapists(true);
+      setFilterABA(false);
 
       // Carica i terapisti della stessa specializzazione
       loadTherapistsBySpecialization();
     }
   }, [isOpen, appointment]);
 
-  // Reload quando si cambia toggle "tutti i terapisti"
+  // Reload quando si cambia toggle "tutti i terapisti" o filtro ABA
   useEffect(() => {
     if (!isOpen) return;
     setAvailableTherapists([]);
     setHasForced(false);
     loadTherapistsBySpecialization(showAllTherapists);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAllTherapists]);
+  }, [showAllTherapists, filterABA]);
 
   const filteredTherapists = availableTherapists.filter((t) => {
     if (!therapistSearch) return true;
@@ -129,7 +132,8 @@ export const TherapistSubstitutionModal: React.FC<
             time: timeString,
             duration: appointment.duration,
             appointmentId: appointment.id, // Backend userà questo per escludere il terapista originale
-            force: force, // Se true, restituisce tutti i terapisti ignorando filtri
+            force: force, // Se true, restituisce tutti i terapisti ignorando filtro spec/coordinator
+            applyABAFilter: filterABA, // Indipendente: se true forza is_aba=1 per pazienti ABA
           },
           appointment.patient?.id
         );
@@ -285,27 +289,42 @@ export const TherapistSubstitutionModal: React.FC<
             </div>
           )}
 
-          {/* Toggle filtro specializzazione + barra ricerca */}
-          <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-            <Label
-              htmlFor="filter-by-spec"
-              className="flex items-center gap-2 text-sm cursor-pointer select-none"
-            >
-              <Checkbox
-                id="filter-by-spec"
-                checked={!showAllTherapists}
-                onCheckedChange={(checked) =>
-                  setShowAllTherapists(checked !== true)
-                }
-              />
-              <span>
-                Filtra per spec. {originalTherapist?.specialization || ""}
-              </span>
-            </Label>
-            {availableTherapists.length > 0 && (
-              <span className="text-xs text-gray-600">
-                {availableTherapists.filter((t) => t.isAvailable).length}/{availableTherapists.length} liberi
-              </span>
+          {/* Toggle filtri */}
+          <div className="space-y-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between gap-2">
+              <Label
+                htmlFor="filter-by-spec"
+                className="flex items-center gap-2 text-sm cursor-pointer select-none"
+              >
+                <Checkbox
+                  id="filter-by-spec"
+                  checked={!showAllTherapists}
+                  onCheckedChange={(checked) =>
+                    setShowAllTherapists(checked !== true)
+                  }
+                />
+                <span>
+                  Filtra per spec. {originalTherapist?.specialization || ""}
+                </span>
+              </Label>
+              {availableTherapists.length > 0 && (
+                <span className="text-xs text-gray-600">
+                  {availableTherapists.filter((t) => t.isAvailable).length}/{availableTherapists.length} liberi
+                </span>
+              )}
+            </div>
+            {isABARegime && (
+              <Label
+                htmlFor="filter-by-aba"
+                className="flex items-center gap-2 text-sm cursor-pointer select-none"
+              >
+                <Checkbox
+                  id="filter-by-aba"
+                  checked={filterABA}
+                  onCheckedChange={(checked) => setFilterABA(checked === true)}
+                />
+                <span>Solo terapisti ABA (paziente in piano ABA)</span>
+              </Label>
             )}
           </div>
 
