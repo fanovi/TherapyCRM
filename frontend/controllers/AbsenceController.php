@@ -815,7 +815,7 @@ class AbsenceController extends Controller
     public function actionCreatePatientAbsence()
     {
         $searchModel = new \frontend\models\PatientSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
         return $this->render('create-patient-absence', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
