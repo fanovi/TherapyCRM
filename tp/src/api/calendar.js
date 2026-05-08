@@ -622,11 +622,6 @@ export const canRemoveAbsence = appointment => {
     return false;
   }
 
-  // Le assenze inserite dal gestionale non sono revocabili dal paziente
-  if (appointment.is_admin_absence) {
-    return false;
-  }
-
   const appointmentDate = new Date(appointment.datetime);
   const now = new Date();
   const oneHourBefore = new Date(appointmentDate.getTime() - 60 * 60 * 1000);
