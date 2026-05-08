@@ -628,12 +628,33 @@ const Index = () => {
       const combined = [...appointments];
 
       therapistAppointments.forEach((therapistApt) => {
-        const isDuplicate = appointments.some(
+        const isDuplicateById = appointments.some(
           (patientApt) => patientApt.id === therapistApt.id
         );
-        if (!isDuplicate) {
-          combined.push(therapistApt);
+        if (isDuplicateById) return;
+        // Dedup per gruppo: se gia' c'e' un appuntamento con lo stesso
+        // groupSessionId, evita di aggiungere quello raggruppato del terapista
+        // (e viceversa preferendo la versione con groupPatients popolato)
+        if (therapistApt.groupSessionId) {
+          const idx = combined.findIndex(
+            (a) => a.groupSessionId === therapistApt.groupSessionId
+          );
+          if (idx >= 0) {
+            // Sostituisci con la versione che ha groupPatients popolato (piu' info)
+            const existing = combined[idx];
+            const existingHasGroup =
+              Array.isArray((existing as any).groupPatients) &&
+              (existing as any).groupPatients.length > 0;
+            const newHasGroup =
+              Array.isArray((therapistApt as any).groupPatients) &&
+              (therapistApt as any).groupPatients.length > 0;
+            if (newHasGroup && !existingHasGroup) {
+              combined[idx] = therapistApt;
+            }
+            return;
+          }
         }
+        combined.push(therapistApt);
       });
 
       return combined;
