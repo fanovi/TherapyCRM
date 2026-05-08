@@ -743,8 +743,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
   /* Stili per appuntamenti di gruppo */
 .fc-event.group-session-event {
-  border-width: 3px !important;
-  border-style: solid !important;
+  outline: 3px solid #1E40AF;
+  outline-offset: -3px;
   position: relative;
   overflow: visible !important;
 }
