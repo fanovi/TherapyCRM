@@ -75,8 +75,8 @@ export const TherapistSubstitutionModal: React.FC<
       setShowAllTherapists(true);
       setFilterABA(false);
 
-      // Carica i terapisti della stessa specializzazione
-      loadTherapistsBySpecialization();
+      // Carica tutti i terapisti (default = nessun filtro)
+      loadTherapistsBySpecialization(true);
     }
   }, [isOpen, appointment]);
 
@@ -362,50 +362,54 @@ export const TherapistSubstitutionModal: React.FC<
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Selezione nuovo terapista */}
-                <div className="space-y-2">
-                  <Label htmlFor="new-therapist">Nuovo Terapista *</Label>
-                  <Select
-                    value={selectedTherapistId}
-                    onValueChange={setSelectedTherapistId}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleziona il terapista sostituto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredTherapists.length === 0 && (
-                        <div className="p-2 text-sm text-gray-500 text-center">
-                          Nessun risultato
-                        </div>
-                      )}
-                      {filteredTherapists.map((therapist) => (
-                        <SelectItem
+                {/* Lista terapisti cliccabile */}
+                <div className="space-y-1">
+                  <Label>Nuovo Terapista *</Label>
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {filteredTherapists.length === 0 && (
+                      <div className="p-3 text-sm text-gray-500 text-center">
+                        Nessun risultato
+                      </div>
+                    )}
+                    {filteredTherapists.map((therapist) => {
+                      const isSelected =
+                        selectedTherapistId === therapist.id.toString();
+                      return (
+                        <div
                           key={therapist.id}
-                          value={therapist.id.toString()}
+                          onClick={() =>
+                            setSelectedTherapistId(therapist.id.toString())
+                          }
+                          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 transition-colors ${
+                            isSelected
+                              ? "bg-blue-100 hover:bg-blue-100"
+                              : "hover:bg-gray-50"
+                          }`}
                         >
-                          <div className="flex items-center gap-2">
-                            {therapist.isAvailable ? (
-                              <UserCheck className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <UserX className="h-4 w-4 text-orange-500" />
-                            )}
-                            <span>{therapist.name}</span>
-                            <span className="text-sm text-gray-500">
-                              ({therapist.specialization})
-                            </span>
-                            {!therapist.isAvailable && (
-                              <span className="text-xs text-orange-600 ml-1">
-                                {therapist.unavailabilityReason
-                                  ? `- ${therapist.unavailabilityReason}`
-                                  : "- occupato (verra' creato gruppo)"}
+                          {therapist.isAvailable ? (
+                            <UserCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          ) : (
+                            <UserX className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-800 truncate">
+                              {therapist.name}{" "}
+                              <span className="text-xs text-gray-500 font-normal">
+                                ({therapist.specialization})
                               </span>
+                            </div>
+                            {!therapist.isAvailable && (
+                              <div className="text-[11px] text-orange-600">
+                                {therapist.unavailabilityReason
+                                  ? therapist.unavailabilityReason
+                                  : "Occupato — verra' creato gruppo"}
+                              </div>
                             )}
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Warning quando si seleziona terapista occupato */}
