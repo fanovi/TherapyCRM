@@ -20,6 +20,7 @@ import { Appointment, Patient, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 import { TherapistSubstitutionModal } from "./TherapistSubstitutionModal";
+import { AddPatientToGroupCombobox } from "./AddPatientToGroupCombobox";
 
 interface AppointmentEditModalProps {
   isOpen: boolean;
@@ -83,6 +84,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const [deleteAllFuture, setDeleteAllFuture] = useState(false);
   const [isSubstitutionMode, setIsSubstitutionMode] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showAddPatientCombobox, setShowAddPatientCombobox] = useState(false);
   const [formData, setFormData] = useState({
     therapistId: 0,
     date: "",
@@ -333,6 +335,79 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Aggiunge N candidati al gruppo via combobox: per ciascuno fetch
+   * planTherapy del paziente, dispatch endpoint corretto (ABA o standard).
+   * Refresh full a fine batch.
+   */
+  const handleAddCandidatesToGroup = async (
+    candidates: Array<{ id: number; name: string }>
+  ) => {
+    if (!appointment || candidates.length === 0) return;
+
+    const errors: string[] = [];
+    for (const c of candidates) {
+      try {
+        const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
+          c.id,
+          appointment.therapist!.id
+        );
+
+        if (isABARegime) {
+          await therapyAPI.createABAAppointment({
+            planTherapyId: planTherapyData.planTherapyId,
+            treatmentTypeId: planTherapyData.treatmentTypeId,
+            therapistId: appointment.therapist!.id,
+            patientId: c.id,
+            appointmentDateTime: appointment.datetime,
+            durationMinutes: appointment.duration,
+            appointmentType: (appointment.appointmentType || "terapia") as
+              | "terapia"
+              | "parent_training"
+              | "supervisione",
+            notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
+            isGroup: true,
+            groupSessionId: appointment.groupSessionId,
+            id_setting: appointment.id_setting,
+          });
+        } else {
+          await therapyAPI.createAppointment({
+            planTherapyId: planTherapyData.planTherapyId,
+            treatmentTypeId: planTherapyData.treatmentTypeId,
+            therapistId: appointment.therapist!.id,
+            appointmentDateTime: appointment.datetime,
+            durationMinutes: appointment.duration,
+            notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
+            isGroup: true,
+            groupSessionId: appointment.groupSessionId,
+            id_setting: appointment.id_setting,
+          } as any);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "errore sconosciuto";
+        errors.push(`${c.name}: ${msg}`);
+      }
+    }
+
+    const successCount = candidates.length - errors.length;
+    if (successCount > 0) {
+      showSuccess(
+        "Pazienti aggiunti",
+        `${successCount} paziente/i aggiunti al gruppo`
+      );
+    }
+    if (errors.length > 0) {
+      showError(
+        "Alcuni pazienti non aggiunti",
+        errors.join(" — ")
+      );
+    }
+    if (successCount > 0) {
+      onAppointmentUpdate(appointment.id.toString(), { refresh: true });
+      onClose();
     }
   };
 
@@ -1201,14 +1276,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     </button>
                   )}
 
-                  {canAddToGroup && appointment.groupSessionId && (
+                  {appointment.groupSessionId && (
                     <button
-                      onClick={handleAddToGroup}
+                      onClick={() => setShowAddPatientCombobox(true)}
                       disabled={loading}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                     >
                       <Users className="w-4 h-4" />
-                      Aggiungi al gruppo
+                      Aggiungi paziente
                     </button>
                   )}
 
@@ -1276,6 +1351,18 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         appointment={currentPatientAppointment || appointment}
         therapists={therapists}
       />
+
+      {/* Modale aggiunta paziente al gruppo (search + eligibility) */}
+      {appointment && (
+        <AddPatientToGroupCombobox
+          isOpen={showAddPatientCombobox}
+          onClose={() => setShowAddPatientCombobox(false)}
+          appointmentId={appointment.id}
+          onConfirm={async (candidates) => {
+            await handleAddCandidatesToGroup(candidates);
+          }}
+        />
+      )}
     </div>
   );
 };

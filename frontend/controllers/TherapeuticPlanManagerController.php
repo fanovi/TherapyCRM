@@ -5373,6 +5373,222 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    /**
+     * Restituisce candidati paziente per aggiunta a un gruppo, con flag eligibility
+     * e lista motivazioni di blocco. Search su nome/cognome/CF/data_nascita, paginato.
+     */
+    public function actionGetGroupCandidatePatients()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $appointmentId = (int) Yii::$app->request->get('appointmentId');
+            $search = trim((string) Yii::$app->request->get('search', ''));
+            $page = max(1, (int) Yii::$app->request->get('page', 1));
+            $pageSize = min(50, max(1, (int) Yii::$app->request->get('pageSize', 20)));
+
+            if (!$appointmentId) {
+                return $this->errorResponse('appointmentId obbligatorio');
+            }
+
+            $appointment = Appointment::find()
+                ->where(['id' => $appointmentId])
+                ->with(['planTherapy.therapeuticPlan.regime', 'planTherapy.treatmentType'])
+                ->one();
+
+            if (!$appointment) {
+                return $this->errorResponse('Appuntamento non trovato');
+            }
+
+            if (empty($appointment->group_session_id)) {
+                return $this->errorResponse('Appuntamento non e\' di gruppo');
+            }
+
+            $planTherapy = $appointment->planTherapy;
+            if (!$planTherapy || !$planTherapy->therapeuticPlan) {
+                return $this->errorResponse('Piano terapeutico non trovato per l\'appuntamento');
+            }
+
+            $treatmentTypeId = $planTherapy->treatment_type_id;
+            $appointmentType = $appointment->appointment_type ?: 'terapia';
+            $datetime = $appointment->appointment_datetime;
+            $duration = $appointment->duration_minutes;
+            $therapistId = $appointment->therapist_id;
+            $groupSessionId = $appointment->group_session_id;
+            $isGroupABA = $this->isABARegime($planTherapy->therapeuticPlan);
+
+            // Pazienti gia' nel gruppo (esclusi dalla lista candidati)
+            $existingPatientIds = Appointment::find()
+                ->select('patient_id')
+                ->where(['group_session_id' => $groupSessionId])
+                ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]])
+                ->column();
+
+            // Query base candidati con search
+            $query = Patient::find()
+                ->andWhere(['not in', 'id', $existingPatientIds ?: [0]])
+                ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC]);
+
+            if ($search !== '') {
+                $query->andWhere([
+                    'or',
+                    ['like', 'first_name', $search],
+                    ['like', 'last_name', $search],
+                    ['like', 'fiscal_code', $search],
+                    ['like', 'CONCAT(first_name, " ", last_name)', $search],
+                    ['like', 'CONCAT(last_name, " ", first_name)', $search],
+                    ['like', 'birth_date', $search],
+                ]);
+            }
+
+            $total = (int) $query->count();
+            $offset = ($page - 1) * $pageSize;
+            $patients = $query->offset($offset)->limit($pageSize)->all();
+
+            $items = [];
+            foreach ($patients as $patient) {
+                $reasons = $this->evaluateGroupCandidateReasons(
+                    $patient,
+                    $treatmentTypeId,
+                    $appointmentType,
+                    $datetime,
+                    $duration,
+                    $therapistId,
+                    $isGroupABA,
+                    $groupSessionId
+                );
+
+                $items[] = [
+                    'id' => $patient->id,
+                    'name' => $patient->getFullName(),
+                    'fiscalCode' => $patient->fiscal_code,
+                    'birthDate' => $patient->birth_date,
+                    'eligible' => empty($reasons),
+                    'reasons' => $reasons,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'items' => $items,
+                    'total' => $total,
+                    'page' => $page,
+                    'pageSize' => $pageSize,
+                    'groupContext' => [
+                        'appointmentType' => $appointmentType,
+                        'treatmentTypeId' => $treatmentTypeId,
+                        'treatmentTypeName' => $planTherapy->treatmentType ? $planTherapy->treatmentType->name : null,
+                        'datetime' => $datetime,
+                        'durationMinutes' => $duration,
+                        'isABA' => $isGroupABA,
+                    ],
+                ],
+            ];
+        } catch (Exception $e) {
+            Yii::error('Errore actionGetGroupCandidatePatients: ' . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Valuta tutti i motivi per cui un paziente NON puo' essere aggiunto al gruppo.
+     * Ritorna array di stringhe (vuoto = eleggibile).
+     */
+    private function evaluateGroupCandidateReasons(
+        $patient,
+        $treatmentTypeId,
+        $appointmentType,
+        $datetime,
+        $duration,
+        $therapistId,
+        $isGroupABA,
+        $groupSessionId
+    ) {
+        $reasons = [];
+        $appointmentDate = (new DateTime($datetime))->format('Y-m-d');
+
+        // 1. Piano terapeutico attivo nella data appuntamento
+        $therapeuticPlan = TherapeuticPlan::find()
+            ->where(['patient_id' => $patient->id])
+            ->andWhere(['<=', 'start_date', $appointmentDate])
+            ->andWhere(['>=', 'end_date', $appointmentDate])
+            ->with('regime')
+            ->one();
+
+        if (!$therapeuticPlan) {
+            $reasons[] = 'Nessun piano terapeutico attivo';
+            return $reasons;
+        }
+
+        // 2. Plan therapy specifica per il treatment_type del gruppo
+        $planTherapy = PlanTherapy::find()
+            ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+            ->andWhere(['treatment_type_id' => $treatmentTypeId])
+            ->one();
+
+        if (!$planTherapy) {
+            $reasons[] = 'Nessuna terapia di questo tipo nel piano';
+            return $reasons;
+        }
+
+        // 3. Regime ABA omogeneo
+        $isPatientPlanABA = $this->isABARegime($therapeuticPlan);
+        if ($isGroupABA !== $isPatientPlanABA) {
+            $reasons[] = $isGroupABA
+                ? 'Paziente non in regime ABA (gruppo ABA)'
+                : 'Paziente in regime ABA (gruppo non ABA)';
+        }
+
+        // 4. Slot temporale paziente non occupato
+        $slotConflict = $this->checkPatientTimeSlotConflict(
+            $patient->id,
+            $datetime,
+            $duration
+        );
+        if ($slotConflict) {
+            $reasons[] = 'Slot orario gia\' occupato da altro appuntamento';
+        }
+
+        // 5. ABA: conflitto stesso appointment_type+treatment_type stesso giorno
+        if ($isPatientPlanABA && $isGroupABA) {
+            $abaConflict = $this->checkABAConflicts(
+                $patient->id,
+                $therapistId,
+                $datetime,
+                $appointmentType,
+                $treatmentTypeId,
+                null,
+                $groupSessionId
+            );
+            if ($abaConflict) {
+                $reasons[] = 'Stesso tipo appuntamento gia\' presente nello stesso giorno';
+            }
+        } else {
+            // Non-ABA: stessa tipologia trattamento stesso giorno
+            $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
+                $planTherapy->id,
+                $datetime
+            );
+            if ($treatmentConflict) {
+                $reasons[] = 'Tipologia trattamento gia\' presente nello stesso giorno';
+            }
+        }
+
+        // 6. Limite ore plan_therapy
+        $hoursLimit = $this->checkPlanTherapyHoursLimit(
+            Appointment::SOURCE_THERAPEUTIC_PLAN,
+            $planTherapy->id,
+            $datetime,
+            $duration
+        );
+        if ($hoursLimit) {
+            $reasons[] = $hoursLimit['message'] ?? 'Limite ore terapia superato';
+        }
+
+        return $reasons;
+    }
+
     private function validateStartDate($appointmentDateTime, $planTherapy)
     {
         $plan = TherapeuticPlan::find()

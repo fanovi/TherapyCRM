@@ -962,6 +962,50 @@ class TherapeuticPlanManagerAPI {
 
     return response.isInGroup;
   }
+
+  /**
+   * Restituisce candidati paziente per aggiunta a gruppo, paginati e con
+   * flag eligibility + lista motivazioni di blocco.
+   */
+  async getGroupCandidatePatients(params: {
+    appointmentId: number;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{
+    items: Array<{
+      id: number;
+      name: string;
+      fiscalCode: string | null;
+      birthDate: string | null;
+      eligible: boolean;
+      reasons: string[];
+    }>;
+    total: number;
+    page: number;
+    pageSize: number;
+    groupContext: {
+      appointmentType: "terapia" | "parent_training" | "supervisione";
+      treatmentTypeId: number;
+      treatmentTypeName: string | null;
+      datetime: string;
+      durationMinutes: number;
+      isABA: boolean;
+    };
+  }> {
+    const response = await this.get<any>("get-group-candidate-patients", {
+      appointmentId: params.appointmentId,
+      search: params.search ?? "",
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || "Errore caricamento candidati");
+    }
+
+    return response.data;
+  }
 }
 
 // Esporta un'istanza singleton
