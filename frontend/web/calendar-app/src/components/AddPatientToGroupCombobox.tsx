@@ -19,7 +19,9 @@ interface Props {
 }
 
 const PAGE_SIZE_DEFAULT = 20;
-const PAGE_SIZE_FILTERED = 2000;
+// Filtro "solo disponibili": carica tutti i candidati, nessun limite
+// pratico (la query ritorna tutti i pazienti del DB).
+const PAGE_SIZE_FILTERED = 1000000;
 const DEBOUNCE_MS = 350;
 
 export const AddPatientToGroupCombobox: React.FC<Props> = ({
