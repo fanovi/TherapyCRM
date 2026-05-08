@@ -1927,7 +1927,11 @@ class TherapeuticPlanManagerController extends Controller
                 ->where([
                     'a.therapist_id' => $therapistId
                 ])
-                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->andWhere(['not in', 'a.status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                ]])
                 ->andWhere([
                     'between',
                     'a.appointment_datetime',
@@ -4797,8 +4801,12 @@ class TherapeuticPlanManagerController extends Controller
 
             $conflictingAppointment = Appointment::find()
                 ->where(['therapist_id' => $therapistId])
-                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-                ->andWhere(['!=', 'status', Appointment::STATUS_COMPLETED])
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_COMPLETED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                ]])
                 ->andWhere([
                     'or',
                     // L'appuntamento inizia durante il nuovo slot
