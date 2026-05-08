@@ -121,6 +121,15 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
     }
   };
 
+  // Se filtro "solo disponibili" attivo e nessun eleggibile visibile,
+  // auto-fetch pagine successive fino a trovare almeno 1 o esaurire i risultati.
+  useEffect(() => {
+    if (!isOpen || !onlyAvailable || loading || submitting) return;
+    if (displayItems.length === 0 && hasMore) {
+      setPage((p) => p + 1);
+    }
+  }, [onlyAvailable, displayItems.length, hasMore, loading, submitting, isOpen]);
+
   const toggleSelect = (c: Candidate) => {
     if (!c.eligible || submitting) return;
     setSelectedIds((prev) => {
