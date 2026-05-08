@@ -245,6 +245,7 @@ class TherapeuticPlanManagerController extends Controller
                 'message' => 'Appuntamento creato con successo',
                 'data' => [
                     'appointmentId' => $appointment->id,
+                    'groupSessionId' => $appointment->group_session_id,
                     'weeklyLimitExceeded' => $weeklyLimitInfo ? [$weeklyLimitInfo] : []
                 ]
             ];
@@ -4945,7 +4946,8 @@ class TherapeuticPlanManagerController extends Controller
                 'success' => true,
                 'message' => 'Appuntamento ABA creato con successo',
                 'data' => [
-                    'appointmentId' => $appointment->id
+                    'appointmentId' => $appointment->id,
+                    'groupSessionId' => $appointment->group_session_id
                 ]
             ];
         } catch (Exception $e) {
