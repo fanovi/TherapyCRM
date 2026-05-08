@@ -1153,19 +1153,21 @@ const Index = () => {
 
   // Aggiungi questa funzione dopo handleAppointmentDelete
   const handleSetGroupAppointment = async (appointmentId: number) => {
-    const scrollPos = saveScrollPosition();
     try {
-      await therapyAPI.setGroupAppointment(appointmentId);
+      const result = await therapyAPI.setGroupAppointment(appointmentId);
 
       showSuccess(
         "Appuntamento di gruppo",
         "L'appuntamento è stato impostato come appuntamento di gruppo"
       );
 
-      // NON chiamare onAppointmentUpdate, usa solo reloadCurrentVisibleAppointments
-      await reloadCurrentVisibleAppointments();
-      setRefreshKey((prev) => prev + 1);
-      restoreScrollPosition(scrollPos);
+      // Aggiorna stato locale: setta groupSessionId sull'appuntamento, no refresh calendario
+      const updateApt = (a: Appointment) =>
+        a.id === appointmentId
+          ? { ...a, groupSessionId: result.groupSessionId, isGroup: true }
+          : a;
+      setAppointments((prev) => prev.map(updateApt));
+      setTherapistAppointments((prev) => prev.map(updateApt));
 
       // Chiudi la modale
       setIsEditModalOpen(false);
