@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
+use common\helpers\GridViewHelper;
 
 /** @var yii\web\View $this */
 /** @var frontend\models\PatientSearch $searchModel */
@@ -29,74 +30,85 @@ $csrfToken = Yii::$app->request->csrfToken;
         </a>
     </div>
 
-    <div class="rounded-2xl border border-gray-200 bg-white">
-        <div class="px-5 py-4 border-b border-gray-100">
-            <h3 class="text-base font-semibold text-gray-800">Seleziona paziente</h3>
-            <p class="text-xs text-gray-500 mt-1">Clicca su un paziente per gestire le sue assenze.</p>
+    <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                Seleziona paziente
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Clicca su un paziente per gestire le sue assenze.
+            </p>
         </div>
-        <div class="overflow-x-auto">
-            <?php Pjax::begin(['id' => 'patients-absence-pjax', 'enablePushState' => false]); ?>
-            <?= GridView::widget([
-                'dataProvider' => $dataProvider,
-                'filterModel' => $searchModel,
-                'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500'],
-                'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50'],
-                'rowOptions' => function ($model) {
-                    return [
-                        'class' => 'bg-white border-b hover:bg-blue-50 cursor-pointer patient-row',
-                        'data-id' => $model->id,
-                        'data-name' => trim($model->first_name . ' ' . $model->last_name),
-                        'data-fc' => $model->fiscal_code ?? '',
-                        'data-bd' => $model->birth_date ?? '',
-                    ];
-                },
-                'filterRowOptions' => ['class' => 'bg-gray-100 border-b border-gray-200'],
-                'columns' => [
-                    [
-                        'attribute' => 'last_name',
-                        'label' => 'Cognome',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
-                        'contentOptions' => ['class' => 'px-4 py-3 font-medium text-gray-900'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'Cognome...'],
+
+        <div class="border-t border-gray-100 dark:border-gray-800">
+            <div class="overflow-x-auto">
+                <?php Pjax::begin(['id' => 'patients-absence-pjax', 'enablePushState' => false]); ?>
+                <?= GridView::widget(array_merge([
+                    'dataProvider' => $dataProvider,
+                    'filterModel' => $searchModel,
+                    'tableOptions' => ['class' => 'min-w-full text-sm text-left text-gray-500 dark:text-gray-400'],
+                    'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
+                    'rowOptions' => function ($model) {
+                        return [
+                            'class' => 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-600 cursor-pointer patient-row',
+                            'data-id' => $model->id,
+                            'data-name' => trim($model->first_name . ' ' . $model->last_name),
+                            'data-fc' => $model->fiscal_code ?? '',
+                            'data-bd' => $model->birth_date ?? '',
+                        ];
+                    },
+                    'filterRowOptions' => ['class' => 'bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'],
+                    'columns' => [
+                        [
+                            'attribute' => 'last_name',
+                            'label' => 'Cognome',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
+                            'contentOptions' => ['class' => 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cognome...'],
+                        ],
+                        [
+                            'attribute' => 'first_name',
+                            'label' => 'Nome',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
+                            'contentOptions' => ['class' => 'px-6 py-4 whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Nome...'],
+                        ],
+                        [
+                            'attribute' => 'fiscal_code',
+                            'label' => 'Codice fiscale',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[150px]'],
+                            'contentOptions' => ['class' => 'px-6 py-4 text-xs whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'CF...'],
+                        ],
+                        [
+                            'attribute' => 'birth_date',
+                            'label' => 'Data nascita',
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
+                            'contentOptions' => ['class' => 'px-6 py-4 text-xs whitespace-nowrap'],
+                            'filterOptions' => ['class' => 'px-2 py-2'],
+                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'type' => 'date'],
+                            'value' => function ($m) {
+                                return $m->birth_date
+                                    ? Yii::$app->formatter->asDate($m->birth_date, 'php:d/m/Y')
+                                    : '-';
+                            },
+                        ],
+                        [
+                            'header' => 'Azione',
+                            'headerOptions' => ['class' => 'px-6 py-3 w-32'],
+                            'contentOptions' => ['class' => 'px-6 py-4'],
+                            'format' => 'raw',
+                            'value' => function ($m) {
+                                return '<button type="button" class="open-patient-modal rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700">Gestisci assenze</button>';
+                            },
+                        ],
                     ],
-                    [
-                        'attribute' => 'first_name',
-                        'label' => 'Nome',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
-                        'contentOptions' => ['class' => 'px-4 py-3'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'Nome...'],
-                    ],
-                    [
-                        'attribute' => 'fiscal_code',
-                        'label' => 'Codice fiscale',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
-                        'contentOptions' => ['class' => 'px-4 py-3 text-xs'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'placeholder' => 'CF...'],
-                    ],
-                    [
-                        'attribute' => 'birth_date',
-                        'label' => 'Data nascita',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
-                        'contentOptions' => ['class' => 'px-4 py-3 text-xs'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded', 'type' => 'date'],
-                        'value' => function ($m) {
-                            return $m->birth_date
-                                ? Yii::$app->formatter->asDate($m->birth_date, 'php:d/m/Y')
-                                : '-';
-                        },
-                    ],
-                    [
-                        'header' => 'Azione',
-                        'headerOptions' => ['class' => 'px-4 py-3 w-32'],
-                        'contentOptions' => ['class' => 'px-4 py-3'],
-                        'format' => 'raw',
-                        'value' => function ($m) {
-                            return '<button type="button" class="open-patient-modal rounded-lg bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700">Gestisci assenze</button>';
-                        },
-                    ],
-                ],
-            ]); ?>
-            <?php Pjax::end(); ?>
+                ], GridViewHelper::getGridViewConfig('pazienti'))); ?>
+                <?php Pjax::end(); ?>
+            </div>
         </div>
     </div>
 </div>
