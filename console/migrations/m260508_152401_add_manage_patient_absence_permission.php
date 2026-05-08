@@ -19,8 +19,8 @@ class m260508_152401_add_manage_patient_absence_permission extends Migration
             echo "  Permesso 'manage_patient_absence' creato\n";
         }
 
-        // Assegna a ruoli admin/manager (NON therapist: solo super_admin/manager dovrebbe poter creare assenze)
-        $roles = ['admin', 'manager'];
+        // Assegna ai ruoli amministrativi
+        $roles = ['super_admin', 'admin', 'manager'];
         foreach ($roles as $roleName) {
             $role = $auth->getRole($roleName);
             if ($role && $permission && !$auth->hasChild($role, $permission)) {
