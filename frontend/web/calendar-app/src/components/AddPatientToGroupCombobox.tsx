@@ -19,7 +19,7 @@ interface Props {
 }
 
 const PAGE_SIZE_DEFAULT = 20;
-const PAGE_SIZE_FILTERED = 100;
+const PAGE_SIZE_FILTERED = 500;
 const DEBOUNCE_MS = 350;
 
 export const AddPatientToGroupCombobox: React.FC<Props> = ({
