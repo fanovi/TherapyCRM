@@ -464,19 +464,19 @@ $js = <<<JS
     }).then(async (res) => {
       if (!res.isConfirmed || !res.value) return;
       try {
+        const fd = new URLSearchParams();
+        fd.append('_csrf-frontend', CSRF_TOKEN);
+        ids.forEach(id => fd.append('appointmentIds[]', String(id)));
+        fd.append('absenceType', res.value.type);
+        fd.append('reason', res.value.reason);
+        fd.append('notes', res.value.notes || '');
         const r = await fetch(MARK_URL, {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/json',
             'X-CSRF-Token': CSRF_TOKEN,
           },
-          body: JSON.stringify({
-            appointmentIds: ids,
-            absenceType: res.value.type,
-            reason: res.value.reason,
-            notes: res.value.notes,
-          })
+          body: fd
         });
         const data = await r.json();
         if (data.success) {
