@@ -36,16 +36,25 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Debounce query
+  // Debounce query (mostra loader gia' durante il delay digitazione)
   useEffect(() => {
+    if (query !== debouncedQuery) setLoading(true);
     const t = setTimeout(() => {
       setDebouncedQuery(query);
       setPage(1);
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, debouncedQuery]);
+
+  const formatItalianDate = (iso: string | null): string => {
+    if (!iso) return "";
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return iso;
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  };
 
   // Fetch on open / query / page change
   useEffect(() => {
@@ -99,6 +108,18 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
 
   const hasMore = items.length < total;
   const selectedCount = selectedIds.size;
+  const displayItems = onlyAvailable ? items.filter((i) => i.eligible) : items;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Infinite scroll: incrementa page quando ci si avvicina al fondo
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el || loading || submitting || !hasMore) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distance < 120) {
+      setPage((p) => p + 1);
+    }
+  };
 
   const toggleSelect = (c: Candidate) => {
     if (!c.eligible || submitting) return;
@@ -130,7 +151,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
 
   const handleOpenCalendar = (e: React.MouseEvent, patientId: number) => {
     e.stopPropagation();
-    window.open(`/calendar/${patientId}`, "_blank");
+    window.open(`${therapyAPI.getAppOrigin()}/calendar/${patientId}`, "_blank");
   };
 
   if (!isOpen) return null;
@@ -154,7 +175,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="p-4 border-b">
+        <div className="p-4 border-b space-y-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -162,14 +183,31 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Nome, cognome, codice fiscale, data nascita..."
-              className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-9 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
               disabled={submitting}
             />
+            {(loading || query !== debouncedQuery) && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />
+            )}
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyAvailable}
+              onChange={(e) => setOnlyAvailable(e.target.checked)}
+              className="w-3.5 h-3.5 accent-blue-600"
+              disabled={submitting}
+            />
+            Mostra solo disponibili
+          </label>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto"
+        >
           {error && (
             <div className="p-3 m-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -177,16 +215,18 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             </div>
           )}
 
-          {items.length === 0 && !loading && !error && (
+          {displayItems.length === 0 && !loading && !error && (
             <div className="p-8 text-center text-sm text-gray-500">
-              {debouncedQuery
-                ? "Nessun paziente trovato"
-                : "Inizia a digitare per cercare"}
+              {onlyAvailable && items.length > 0
+                ? "Nessun paziente disponibile fra i risultati"
+                : debouncedQuery
+                  ? "Nessun paziente trovato"
+                  : "Inizia a digitare per cercare"}
             </div>
           )}
 
           <ul className="divide-y">
-            {items.map((c) => {
+            {displayItems.map((c) => {
               const isSelected = selectedIds.has(c.id);
               return (
                 <li
@@ -226,7 +266,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
                     </div>
                     <div className="text-xs text-gray-500 truncate">
                       {c.fiscalCode || "-"}
-                      {c.birthDate ? ` • ${c.birthDate}` : ""}
+                      {c.birthDate ? ` • ${formatItalianDate(c.birthDate)}` : ""}
                     </div>
                     {!c.eligible && c.reasons.length > 0 && (
                       <ul className="mt-1 text-[11px] text-red-600 list-disc list-inside">
@@ -252,18 +292,6 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             <div className="p-4 flex items-center justify-center gap-2 text-sm text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
               Caricamento...
-            </div>
-          )}
-
-          {hasMore && !loading && (
-            <div className="p-3 flex justify-center">
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                className="text-sm text-blue-600 hover:underline"
-                disabled={submitting}
-              >
-                Carica altri ({total - items.length} rimanenti)
-              </button>
             </div>
           )}
         </div>
