@@ -892,7 +892,10 @@ class AbsenceController extends Controller
                 ['tp.patient_id' => $patientId],
                 ['a.patient_id' => $patientId],
             ])
-            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED]);
+            ->andWhere(['not in', 'a.status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_COMPLETED,
+            ]]);
 
         if ($from) {
             $query->andWhere(['>=', 'a.appointment_datetime', $from . ' 00:00:00']);
