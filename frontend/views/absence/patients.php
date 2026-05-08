@@ -19,10 +19,10 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
             <?php if (Yii::$app->user->can('manage_patient_absence')): ?>
-                <a href="<?= \yii\helpers\Url::to(['absence/create-patient-absence']) ?>"
-                   class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
-                    + Crea assenza paziente
-                </a>
+                <?= Html::a('<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>Nuova assenza paziente',
+                    ['absence/create-patient-absence'],
+                    ['class' => 'inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600']
+                ) ?>
             <?php endif; ?>
         </div>
     </div>
