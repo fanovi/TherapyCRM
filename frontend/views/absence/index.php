@@ -75,6 +75,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'attribute' => 'therapist_name',
                         'label' => 'Terapista',
+                        'format' => 'raw',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[200px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
@@ -86,9 +87,15 @@ $this->params['breadcrumbs'][] = $this->title;
                             ]
                         ),
                         'value' => function($model) {
-                            return $model->therapist && $model->therapist->user && $model->therapist->user->profile
-                                ? $model->therapist->user->profile->last_name . ' ' . $model->therapist->user->profile->first_name
-                                : '';
+                            if (!$model->therapist || !$model->therapist->user || !$model->therapist->user->profile) {
+                                return '';
+                            }
+                            $name = $model->therapist->user->profile->last_name . ' ' . $model->therapist->user->profile->first_name;
+                            return \yii\helpers\Html::a(
+                                \yii\helpers\Html::encode($name),
+                                ['/therapist/view', 'id' => $model->therapist->id],
+                                ['class' => 'text-blue-600 hover:underline font-medium']
+                            );
                         }
                     ],
                     [
