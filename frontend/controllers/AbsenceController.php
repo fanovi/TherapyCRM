@@ -47,6 +47,16 @@ class AbsenceController extends Controller
                         'roles' => ['view_patient_absence'],
                     ],
                     [
+                        'actions' => [
+                            'create-patient-absence',
+                            'search-patients-absence',
+                            'patient-appointments-absence',
+                            'mark-patients-absent',
+                        ],
+                        'allow' => true,
+                        'roles' => ['manage_patient_absence'],
+                    ],
+                    [
                         'actions' => ['create', 'update', 'delete', 'check-appointments'],
                         'allow' => true,
                         'roles' => ['create_absence'],
@@ -58,6 +68,7 @@ class AbsenceController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                     'remove-patient-absence' => ['POST'],
+                    'mark-patients-absent' => ['POST'],
                 ],
             ],
         ];
@@ -791,5 +802,215 @@ class AbsenceController extends Controller
         }
 
         throw new NotFoundHttpException('La pagina richiesta non esiste.');
+    }
+
+    // =========================================================================
+    // CREAZIONE ASSENZE PAZIENTE DA GESTIONALE (manage_patient_absence)
+    // =========================================================================
+
+    /**
+     * Pagina UI per creare assenze paziente in blocco.
+     * Permission: manage_patient_absence
+     */
+    public function actionCreatePatientAbsence()
+    {
+        return $this->render('create-patient-absence');
+    }
+
+    /**
+     * AJAX: ricerca pazienti per autocomplete.
+     */
+    public function actionSearchPatientsAbsence($q = '')
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $q = trim((string) $q);
+
+        $query = \common\models\Patient::find()
+            ->select(['id', 'first_name', 'last_name', 'birth_date', 'fiscal_code'])
+            ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])
+            ->limit(50);
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'first_name', $q],
+                ['like', 'last_name', $q],
+                ['like', 'fiscal_code', $q],
+                ['like', 'CONCAT(first_name, " ", last_name)', $q],
+                ['like', 'CONCAT(last_name, " ", first_name)', $q],
+                ['like', 'birth_date', $q],
+            ]);
+        }
+
+        $patients = $query->asArray()->all();
+        $items = array_map(function ($p) {
+            return [
+                'id' => (int) $p['id'],
+                'name' => trim($p['first_name'] . ' ' . $p['last_name']),
+                'fiscalCode' => $p['fiscal_code'],
+                'birthDate' => $p['birth_date'],
+            ];
+        }, $patients);
+
+        return ['success' => true, 'items' => $items];
+    }
+
+    /**
+     * AJAX: lista appuntamenti del paziente con filtri data.
+     */
+    public function actionPatientAppointmentsAbsence($patientId, $from = null, $to = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $patientId = (int) $patientId;
+        if ($patientId <= 0) {
+            return ['success' => false, 'error' => 'patientId richiesto'];
+        }
+
+        $query = Appointment::find()
+            ->alias('a')
+            ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+            ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+            ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+            ->with(['therapist.user.profile', 'planTherapy.treatmentType', 'treatmentType'])
+            ->where([
+                'or',
+                ['tp.patient_id' => $patientId],
+                ['a.patient_id' => $patientId],
+            ])
+            ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED]);
+
+        if ($from) {
+            $query->andWhere(['>=', 'a.appointment_datetime', $from . ' 00:00:00']);
+        }
+        if ($to) {
+            $query->andWhere(['<=', 'a.appointment_datetime', $to . ' 23:59:59']);
+        }
+
+        $items = [];
+        foreach ($query->orderBy(['a.appointment_datetime' => SORT_ASC])->all() as $a) {
+            $treatmentType = $a->planTherapy && $a->planTherapy->treatmentType
+                ? $a->planTherapy->treatmentType->name
+                : ($a->treatmentType ? $a->treatmentType->name : '-');
+            $therapistName = $a->therapist && $a->therapist->user && $a->therapist->user->profile
+                ? $a->therapist->user->profile->getFullName()
+                : '-';
+            $items[] = [
+                'id' => $a->id,
+                'datetime' => $a->appointment_datetime,
+                'duration' => $a->duration_minutes,
+                'status' => $a->status,
+                'isAdminAbsence' => (bool) $a->is_admin_absence,
+                'appointmentType' => $a->appointment_type,
+                'treatmentType' => $treatmentType,
+                'therapist' => $therapistName,
+                'notes' => $a->notes,
+            ];
+        }
+
+        return ['success' => true, 'items' => $items];
+    }
+
+    /**
+     * Bulk: marca N appuntamenti come assenti con tipo+motivo.
+     * Setta is_admin_absence=1 per non revocabilita' lato app.
+     */
+    public function actionMarkPatientsAbsent()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $body = Yii::$app->request->getBodyParams();
+        $appointmentIds = $body['appointmentIds'] ?? [];
+        $absenceType = $body['absenceType'] ?? 'justified'; // justified | not_justified
+        $reason = trim($body['reason'] ?? '');
+        $notes = trim($body['notes'] ?? '');
+
+        if (!is_array($appointmentIds) || empty($appointmentIds)) {
+            return ['success' => false, 'error' => 'Selezionare almeno un appuntamento'];
+        }
+        if (!in_array($absenceType, ['justified', 'not_justified'])) {
+            return ['success' => false, 'error' => 'Tipo assenza non valido'];
+        }
+        if ($reason === '') {
+            return ['success' => false, 'error' => 'Motivo obbligatorio'];
+        }
+
+        $newStatus = $absenceType === 'justified'
+            ? Appointment::STATUS_ABSENT_JUSTIFIED
+            : Appointment::STATUS_ABSENT_NOT_JUSTIFIED;
+
+        $updated = 0;
+        $skipped = [];
+        $userId = Yii::$app->user->id;
+        $userLabel = 'Admin ID ' . $userId;
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            foreach ($appointmentIds as $aid) {
+                $appointment = Appointment::findOne((int) $aid);
+                if (!$appointment) {
+                    $skipped[] = ['id' => $aid, 'reason' => 'non trovato'];
+                    continue;
+                }
+                if (in_array($appointment->status, [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_COMPLETED,
+                ])) {
+                    $skipped[] = ['id' => $aid, 'reason' => 'stato non modificabile (' . $appointment->status . ')'];
+                    continue;
+                }
+
+                $oldStatus = $appointment->status;
+                $appointment->status = $newStatus;
+                $appointment->is_admin_absence = true;
+
+                $absenceNote = "ASSENZA INSERITA DA GESTIONALE - Tipo: " .
+                    ($absenceType === 'justified' ? 'giustificata' : 'non giustificata') .
+                    " - Motivo: {$reason}";
+                if ($notes !== '') {
+                    $absenceNote .= " - Note: {$notes}";
+                }
+                $absenceNote .= " - Da: {$userLabel} - " . date('Y-m-d H:i:s');
+
+                $appointment->notes = !empty($appointment->notes)
+                    ? $appointment->notes . "\n\n" . $absenceNote
+                    : $absenceNote;
+
+                if (!$appointment->save()) {
+                    throw new \Exception("Errore salvataggio appointment {$aid}: " . json_encode($appointment->errors));
+                }
+
+                // Activity log
+                $log = new ActivityLog([
+                    'user_id' => $userId,
+                    'action' => ActivityLog::ACTION_UPDATE,
+                    'entity_name' => 'Appointment',
+                    'entity_id' => $appointment->id,
+                    'old_values' => json_encode(['status' => $oldStatus]),
+                    'new_values' => json_encode([
+                        'status' => $newStatus,
+                        'operation' => 'admin_patient_absence',
+                        'absence_type' => $absenceType,
+                        'reason' => $reason,
+                        'notes' => $notes,
+                    ]),
+                    'ip_address' => Yii::$app->request->getUserIP(),
+                    'user_agent' => Yii::$app->request->getUserAgent(),
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+                $log->save(false);
+
+                $updated++;
+            }
+
+            $transaction->commit();
+            return [
+                'success' => true,
+                'updated' => $updated,
+                'skipped' => $skipped,
+            ];
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::error('Errore mark-patients-absent: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 }

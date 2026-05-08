@@ -156,6 +156,7 @@ class CalendarController extends ActiveController
                     'appointment_type' => $appointment->appointment_type,
                     'treatment_code' => $treatmentCode,
                     'notes' => $appointment->notes,
+                    'is_admin_absence' => (bool) $appointment->is_admin_absence,
                     'location' => 'Centro Terapeutico',
                     'therapist' => [
                         'id' => $appointment->therapist->id ?? null,
@@ -1521,6 +1522,13 @@ class CalendarController extends ActiveController
             // Verifica che lo status sia assente
             if (!in_array($appointment->status, [Appointment::STATUS_ABSENT_JUSTIFIED, Appointment::STATUS_ABSENT_NOT_JUSTIFIED])) {
                 throw new BadRequestHttpException('Solo gli appuntamenti con stato assente possono essere ripristinati');
+            }
+
+            // Blocco: assenze inserite da gestionale non sono revocabili dal paziente.
+            // Il terapista (autenticato come therapist) puo' comunque rimuoverle.
+            $therapistAuthCheck = $this->getAuthenticatedTherapistId();
+            if ($appointment->is_admin_absence && !$therapistAuthCheck) {
+                throw new BadRequestHttpException('Questa assenza è stata inserita dal gestionale e non può essere revocata dall\'app');
             }
 
             // Vincolo temporale: almeno 1 ora prima dell'inizio
