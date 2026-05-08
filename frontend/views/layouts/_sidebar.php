@@ -396,7 +396,12 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <!-- Menu Item Therapists -->
 
                     <!-- Menu Item Absences -->
-                    <?php if (Yii::$app->user->can('create_absence') || Yii::$app->user->can('view_absence')): ?>
+                    <?php if (
+                        Yii::$app->user->can('create_absence')
+                        || Yii::$app->user->can('view_absence')
+                        || Yii::$app->user->can('view_patient_absence')
+                        || Yii::$app->user->can('manage_patient_absence')
+                    ): ?>
                     <li>
                         <a
                             href="#"
