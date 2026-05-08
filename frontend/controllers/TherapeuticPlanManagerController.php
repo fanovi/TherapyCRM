@@ -3575,9 +3575,12 @@ class TherapeuticPlanManagerController extends Controller
                     $result['weeklyLimitExceeded'][] = $weeklyLimitInfo;
                 }
 
-                // Crea appuntamento
+                // Crea appuntamento (nuovo group_session_id per ciascuna occorrenza se isGroup)
+                $occurrenceGroupSessionId = !empty($data['isGroup'])
+                    ? Appointment::generateGroupSessionId()
+                    : null;
                 try {
-                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient);
+                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $occurrenceGroupSessionId);
                     $result['appointmentsCreated']++;
                     Yii::info("Appuntamento creato con successo: ID {$appointment->id}, DateTime: {$appointmentDateTime}", __METHOD__);
                 } catch (Exception $e) {
@@ -3602,7 +3605,7 @@ class TherapeuticPlanManagerController extends Controller
      * @return Appointment
      * @throws Exception
      */
-    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient)
+    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $groupSessionId = null)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
         $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
@@ -3620,6 +3623,7 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->duration_minutes = $pattern->duration_minutes;
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
+        $appointment->group_session_id = $groupSessionId;
 
         if ($pattern->id_setting == null && $appointment->id_setting == null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
