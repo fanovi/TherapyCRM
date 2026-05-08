@@ -196,7 +196,8 @@ class TherapeuticPlanManagerAPI {
       time: string; // H:i
       duration: number; // minuti
       appointmentId?: number; // ID appuntamento per escludere terapista originale
-      force?: boolean; // Se true, ignora filtri e restituisce tutti i terapisti
+      force?: boolean; // Se true, ignora filtro specializzazione
+      applyABAFilter?: boolean; // Default true; se false, ignora filtro is_aba
     },
     patientId?: number,
   ): Promise<Therapist[]> {
@@ -213,12 +214,15 @@ class TherapeuticPlanManagerAPI {
         params.appointmentId = availabilityCheck.appointmentId;
       }
       if (availabilityCheck.force) {
-        params.force = 1; // Boolean come numero per l'API
+        params.force = 1;
+      }
+      if (availabilityCheck.applyABAFilter === false) {
+        params.applyABAFilter = 0;
       }
     }
 
     // Filtro ABA: il backend usa patientId per restringere a is_aba=1 quando
-    // il paziente ha un piano ABA attivo.
+    // il paziente ha un piano ABA attivo (a meno di applyABAFilter=0).
     if (patientId) {
       params.patientId = patientId;
     }
