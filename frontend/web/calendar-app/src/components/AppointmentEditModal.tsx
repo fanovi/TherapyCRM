@@ -1212,20 +1212,6 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                     </button>
                   )}
 
-                  {appointment.appointmentSource === "therapeutic_plan" &&
-                    onAddTherapyInSlot &&
-                    isABARegime && (
-                      <button
-                        onClick={() => {
-                          onClose();
-                          onAddTherapyInSlot(appointment);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Aggiungi terapia
-                      </button>
-                    )}
                 </div>
 
                 {/* Pulsanti a destra */}
