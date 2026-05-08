@@ -22,6 +22,14 @@ import {
 class TherapeuticPlanManagerAPI {
   private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
+  /**
+   * Restituisce l'origin dell'app (senza /therapeutic-plan-manager).
+   * Usato per costruire link esterni come /calendar/{id}.
+   */
+  getAppOrigin(): string {
+    return this.baseURL.replace(/\/therapeutic-plan-manager\/?$/, "");
+  }
+
   // Cache per i settings
   private settingsCache: { id: number; nome: string }[] | null = null;
   private settingsCacheTimestamp: number = 0;
