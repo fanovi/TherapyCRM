@@ -590,9 +590,16 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         // Eliminazione gruppo - passa tutti gli ID del gruppo
         const groupIds = appointment.groupPatients.map((gp: any) => gp.appointmentId);
         onAppointmentDelete(appointment.id.toString(), { deletedIds: groupIds });
+      } else if (isGroupAppointment) {
+        // Cancellazione singolo paziente da gruppo: serve reload per
+        // aggiornare groupPatients dell'entry raggruppata (vista terapista)
+        onAppointmentDelete(selectedAppointmentId.toString(), {
+          deletedIds: [selectedAppointmentId],
+          needsReload: true,
+        });
       } else {
-        // Eliminazione singola
-        onAppointmentDelete(appointment.id.toString());
+        // Eliminazione singola standalone
+        onAppointmentDelete(selectedAppointmentId.toString());
       }
       onClose();
     } catch (error) {
