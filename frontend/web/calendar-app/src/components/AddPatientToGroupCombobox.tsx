@@ -74,12 +74,23 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
       })
       .then((res) => {
         if (ctrl.signal.aborted) return;
-        if (page === 1) {
-          setItems(res.items);
-        } else {
-          setItems((prev) => [...prev, ...res.items]);
-        }
+        let mergedItems: Candidate[] = [];
+        setItems((prev) => {
+          mergedItems = page === 1 ? res.items : [...prev, ...res.items];
+          return mergedItems;
+        });
         setTotal(res.total);
+
+        // Auto-fetch successive pagine SOLO qui (no useEffect race):
+        // se filtro "solo disponibili" attivo e non abbiamo ancora abbastanza
+        // eleggibili, scarica pagina successiva (1 alla volta nella chain).
+        if (
+          onlyAvailable &&
+          mergedItems.filter((i) => i.eligible).length < PAGE_SIZE &&
+          mergedItems.length < res.total
+        ) {
+          setPage(page + 1);
+        }
       })
       .catch((e) => {
         if (ctrl.signal.aborted) return;
@@ -90,7 +101,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
       });
 
     return () => ctrl.abort();
-  }, [isOpen, debouncedQuery, page, appointmentId]);
+  }, [isOpen, debouncedQuery, page, appointmentId, onlyAvailable]);
 
   // Reset on close
   useEffect(() => {
@@ -121,14 +132,13 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
     }
   };
 
-  // Se filtro "solo disponibili" attivo e nessun eleggibile visibile,
-  // auto-fetch pagine successive fino a trovare almeno 1 o esaurire i risultati.
-  useEffect(() => {
-    if (!isOpen || !onlyAvailable || loading || submitting) return;
-    if (displayItems.length === 0 && hasMore) {
-      setPage((p) => p + 1);
-    }
-  }, [onlyAvailable, displayItems.length, hasMore, loading, submitting, isOpen]);
+  // Durante auto-fetch (filtro on, hasMore, target non ancora raggiunto)
+  // nascondo la lista parziale e mostro solo loader, UX piu' pulita.
+  const isAutoFetching =
+    onlyAvailable &&
+    loading &&
+    displayItems.length < PAGE_SIZE &&
+    hasMore;
 
   const toggleSelect = (c: Candidate) => {
     if (!c.eligible || submitting) return;
@@ -224,7 +234,14 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             </div>
           )}
 
-          {displayItems.length === 0 && !loading && !error && (
+          {isAutoFetching && (
+            <div className="p-12 flex flex-col items-center justify-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              Ricerca pazienti disponibili...
+            </div>
+          )}
+
+          {!isAutoFetching && displayItems.length === 0 && !loading && !error && (
             <div className="p-8 text-center text-sm text-gray-500">
               {onlyAvailable && items.length > 0
                 ? "Nessun paziente disponibile fra i risultati"
@@ -234,7 +251,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             </div>
           )}
 
-          <ul className="divide-y">
+          <ul className={`divide-y ${isAutoFetching ? "hidden" : ""}`}>
             {displayItems.map((c) => {
               const isSelected = selectedIds.has(c.id);
               return (
@@ -297,7 +314,7 @@ export const AddPatientToGroupCombobox: React.FC<Props> = ({
             })}
           </ul>
 
-          {loading && (
+          {loading && !isAutoFetching && (
             <div className="p-4 flex items-center justify-center gap-2 text-sm text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
               Caricamento...
