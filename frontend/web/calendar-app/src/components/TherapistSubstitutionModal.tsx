@@ -58,7 +58,7 @@ export const TherapistSubstitutionModal: React.FC<
     null
   );
   const [hasForced, setHasForced] = useState(false);
-  const [showAllTherapists, setShowAllTherapists] = useState(false);
+  const [showAllTherapists, setShowAllTherapists] = useState(true);
   const [therapistSearch, setTherapistSearch] = useState("");
 
   // Reset del form e caricamento terapisti quando si apre/chiude la modale
@@ -70,7 +70,7 @@ export const TherapistSubstitutionModal: React.FC<
       setAvailableTherapists([]);
       setOriginalTherapist(null);
       setHasForced(false);
-      setShowAllTherapists(false);
+      setShowAllTherapists(true);
 
       // Carica i terapisti della stessa specializzazione
       loadTherapistsBySpecialization();
@@ -287,18 +287,19 @@ export const TherapistSubstitutionModal: React.FC<
 
           {/* Toggle filtro specializzazione + barra ricerca */}
           <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-            <Label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <Label
+              htmlFor="filter-by-spec"
+              className="flex items-center gap-2 text-sm cursor-pointer select-none"
+            >
               <Checkbox
-                id="show-all-therapists"
-                checked={showAllTherapists}
+                id="filter-by-spec"
+                checked={!showAllTherapists}
                 onCheckedChange={(checked) =>
-                  setShowAllTherapists(checked === true)
+                  setShowAllTherapists(checked !== true)
                 }
               />
               <span>
-                {showAllTherapists
-                  ? "Tutti i terapisti"
-                  : `Solo spec. ${originalTherapist?.specialization || ""}`}
+                Filtra per spec. {originalTherapist?.specialization || ""}
               </span>
             </Label>
             {availableTherapists.length > 0 && (
