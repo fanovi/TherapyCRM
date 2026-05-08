@@ -2236,7 +2236,8 @@ class TherapeuticPlanManagerController extends Controller
                     $data['appointmentDateTime'],
                     $appointment->appointment_type,
                     $appointment->planTherapy->treatment_type_id,
-                    $appointment->id
+                    $appointment->id,
+                    $appointment->group_session_id
                 );
 
                 if ($abaConflict) {
@@ -4891,13 +4892,20 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            // Risolvi group_session_id (UUID esistente per add-to-group, nuovo per create-new-group)
+            $groupSessionId = (isset($data['isGroup']) && $data['isGroup'])
+                ? $this->getGroupSessionId($data)
+                : null;
+
             // Verifica conflitti specifici ABA
             $conflict = $this->checkABAConflicts(
                 $data['patientId'],
                 $data['therapistId'],
                 $data['appointmentDateTime'],
                 $appointmentType,
-                $planTherapy->treatment_type_id
+                $planTherapy->treatment_type_id,
+                null,
+                $groupSessionId
             );
 
             if ($conflict) {
@@ -4920,6 +4928,7 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->status = Appointment::STATUS_SCHEDULED;
             $appointment->created_by = $this->getCurrentUserId();
             $appointment->id_setting = $data['id_setting'] ?? 1;
+            $appointment->group_session_id = $groupSessionId;
 
             if (!$appointment->save()) {
                 throw new Exception('Errore nel salvataggio: ' . json_encode($appointment->errors));
@@ -5152,7 +5161,7 @@ class TherapeuticPlanManagerController extends Controller
     /**
      * Verifica conflitti specifici per modalità ABA
      */
-    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId, $excludeAppointmentId = null)
+    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId, $excludeAppointmentId = null, $groupSessionId = null)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
         $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
@@ -5164,7 +5173,7 @@ class TherapeuticPlanManagerController extends Controller
             $appointmentDateTime,
             60,  // assumiamo durata standard, puoi passarla come parametro
             $excludeAppointmentId,
-            null
+            $groupSessionId
         );
 
         if ($therapistConflict) {
@@ -5192,6 +5201,15 @@ class TherapeuticPlanManagerController extends Controller
 
         if ($excludeAppointmentId) {
             $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
+        }
+
+        // Esclude appuntamenti dello stesso gruppo (per add-patient-to-group ABA)
+        if ($groupSessionId !== null) {
+            $query->andWhere([
+                'or',
+                ['a.group_session_id' => null],
+                ['!=', 'a.group_session_id', $groupSessionId]
+            ]);
         }
 
         return $query->one();

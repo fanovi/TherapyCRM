@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager";
+  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
   // Cache per i settings
   private settingsCache: { id: number; nome: string }[] | null = null;
@@ -755,6 +755,9 @@ class TherapeuticPlanManagerAPI {
     treatmentTypeId: number; // 🔥 AGGIUNTO
     appointmentType: "terapia" | "parent_training" | "supervisione";
     notes?: string;
+    isGroup?: boolean;
+    groupSessionId?: string | null;
+    id_setting?: number;
   }): Promise<{
     appointmentId: number;
   }> {
