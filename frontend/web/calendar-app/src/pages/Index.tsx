@@ -716,6 +716,7 @@ const Index = () => {
             durationMinutes: appointmentData.duration,
             appointmentType: appointmentData.appointmentType || "terapia",
             notes: appointmentData.notes,
+            isGroup: appointmentData.isGroup,
             id_setting: appointmentData.id_setting,
           };
 

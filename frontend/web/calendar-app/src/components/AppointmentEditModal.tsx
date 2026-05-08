@@ -250,7 +250,6 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     // Verifica condizioni base
     if (
       appointment.groupSessionId !== null &&
-      !isABARegime &&
       !isPrivateAppointment
     ) {
       try {
@@ -282,20 +281,40 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         appointment.therapist.id
       );
 
-      // Usa createAppointment passando il groupSessionId esistente
-      const request = {
-        planTherapyId: planTherapyData.planTherapyId,
-        treatmentTypeId: planTherapyData.treatmentTypeId,
-        therapistId: appointment.therapist.id,
-        appointmentDateTime: appointment.datetime,
-        durationMinutes: appointment.duration,
-        notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
-        isGroup: true,
-        groupSessionId: appointment.groupSessionId,
-        id_setting: appointment.id_setting, // Usa lo stesso setting dell'appuntamento di gruppo esistente
-      };
-
-      await therapyAPI.createAppointment(request);
+      // Per ABA: dispatch su endpoint ABA (mantiene appointment_type del gruppo)
+      if (isABARegime) {
+        const abaRequest = {
+          planTherapyId: planTherapyData.planTherapyId,
+          treatmentTypeId: planTherapyData.treatmentTypeId,
+          therapistId: appointment.therapist.id,
+          patientId: patient.id,
+          appointmentDateTime: appointment.datetime,
+          durationMinutes: appointment.duration,
+          appointmentType: (appointment.appointmentType || "terapia") as
+            | "terapia"
+            | "parent_training"
+            | "supervisione",
+          notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
+          isGroup: true,
+          groupSessionId: appointment.groupSessionId,
+          id_setting: appointment.id_setting,
+        };
+        await therapyAPI.createABAAppointment(abaRequest);
+      } else {
+        // Usa createAppointment passando il groupSessionId esistente
+        const request = {
+          planTherapyId: planTherapyData.planTherapyId,
+          treatmentTypeId: planTherapyData.treatmentTypeId,
+          therapistId: appointment.therapist.id,
+          appointmentDateTime: appointment.datetime,
+          durationMinutes: appointment.duration,
+          notes: `Aggiunto al gruppo sessione ${appointment.groupSessionId}`,
+          isGroup: true,
+          groupSessionId: appointment.groupSessionId,
+          id_setting: appointment.id_setting, // Usa lo stesso setting dell'appuntamento di gruppo esistente
+        };
+        await therapyAPI.createAppointment(request);
+      }
 
       showSuccess(
         "Paziente aggiunto",
@@ -1136,7 +1155,6 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
               {/* Checkbox per rendere di gruppo - NUOVA */}
               {!isGroupAppointment &&
-                !isABARegime &&
                 !isPrivateAppointment &&
                 appointment.appointmentSource === "therapeutic_plan" &&
                 onSetGroupAppointment && (

@@ -342,8 +342,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               </div>
             )}
 
-            {/* Mostra checkbox gruppo solo se NON è ABA e NON è privato */}
-            {!isABARegime && patient?.planTherapy && (
+            {/* Mostra checkbox gruppo se paziente ha piano terapeutico (incluso ABA) */}
+            {patient?.planTherapy && (
               <>
                 <div className="flex items-center space-x-2">
                   <Checkbox
