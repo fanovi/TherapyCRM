@@ -181,46 +181,31 @@ $js = <<<JS
     const root = document.createElement('div');
     root.style.textAlign = 'left';
 
-    // Filtri
-    const filters = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;margin-bottom:12px;align-items:end;' });
-    const fromBox = el('div');
-    fromBox.appendChild(el('label', { text: 'Da', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
-    const inpFrom = el('input', { attrs: { type: 'date', id: 'pa-filter-from' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;' });
-    fromBox.appendChild(inpFrom);
-    const toBox = el('div');
-    toBox.appendChild(el('label', { text: 'A', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
-    const inpTo = el('input', { attrs: { type: 'date', id: 'pa-filter-to' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;' });
-    toBox.appendChild(inpTo);
-    const btnFilter = el('button', { text: 'Filtra', attrs: { type: 'button', id: 'pa-btn-filter' }, style: 'padding:6px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;' });
-    const btnReset = el('button', { text: 'Reset', attrs: { type: 'button', id: 'pa-btn-reset' }, style: 'padding:6px 12px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;' });
-    filters.appendChild(fromBox); filters.appendChild(toBox); filters.appendChild(btnFilter); filters.appendChild(btnReset);
-    root.appendChild(filters);
+    // Header navigazione mese
+    const nav = el('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;' });
+    const btnPrev = el('button', { text: '←', attrs: { type: 'button', id: 'pa-prev-month' }, style: 'padding:6px 12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:14px;' });
+    const monthLabel = el('div', { attrs: { id: 'pa-month-label' }, text: '-', style: 'font-size:15px;font-weight:600;color:#1f2937;text-transform:capitalize;' });
+    const btnNext = el('button', { text: '→', attrs: { type: 'button', id: 'pa-next-month' }, style: 'padding:6px 12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:14px;' });
+    const btnToday = el('button', { text: 'Oggi', attrs: { type: 'button', id: 'pa-today' }, style: 'padding:6px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;' });
+    const navLeft = el('div', { style: 'display:flex;gap:6px;align-items:center;' });
+    navLeft.appendChild(btnPrev); navLeft.appendChild(monthLabel); navLeft.appendChild(btnNext);
+    nav.appendChild(navLeft); nav.appendChild(btnToday);
+    root.appendChild(nav);
 
     // Stato
-    const status = el('div', { attrs: { id: 'pa-status' }, text: 'Caricamento...', style: 'padding:14px;text-align:center;color:#6b7280;font-size:13px;' });
+    const status = el('div', { attrs: { id: 'pa-status' }, text: 'Caricamento...', style: 'padding:8px;text-align:center;color:#6b7280;font-size:13px;' });
     root.appendChild(status);
 
-    // Wrapper tabella
-    const tableWrap = el('div', { attrs: { id: 'pa-table-wrap' }, style: 'display:none;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:50vh;' });
-    const table = el('table', { style: 'width:100%;font-size:13px;border-collapse:collapse;' });
-    const thead = el('thead', { style: 'background:#f9fafb;position:sticky;top:0;z-index:1;' });
-    const trh = el('tr');
-    const headers = ['', 'Data', 'Orario', 'Terapista', 'Trattamento', 'Tipo', 'Stato', 'Azioni'];
-    headers.forEach((h, i) => {
-      const th = el('th', { style: 'padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;' });
-      if (i === 0) {
-        const ck = el('input', { attrs: { type: 'checkbox', id: 'pa-select-all' } });
-        th.appendChild(ck);
-      } else {
-        th.textContent = h;
-      }
-      trh.appendChild(th);
+    // Calendario
+    const calWrap = el('div', { attrs: { id: 'pa-cal-wrap' }, style: 'display:none;' });
+    // Header giorni settimana
+    const dayHead = el('div', { style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;' });
+    ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(d => {
+      dayHead.appendChild(el('div', { text: d, style: 'text-align:center;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;padding:6px 0;' }));
     });
-    thead.appendChild(trh);
-    table.appendChild(thead);
-    table.appendChild(el('tbody', { attrs: { id: 'pa-tbody' } }));
-    tableWrap.appendChild(table);
-    root.appendChild(tableWrap);
+    calWrap.appendChild(dayHead);
+    calWrap.appendChild(el('div', { attrs: { id: 'pa-cal-grid' }, style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px;' }));
+    root.appendChild(calWrap);
 
     // Footer
     const footer = el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;' });
@@ -233,6 +218,19 @@ $js = <<<JS
 
     return root;
   }
+
+  let currentMonth = new Date();
+  currentMonth.setDate(1);
+  currentMonth.setHours(0,0,0,0);
+
+  function setMonthLabel(){
+    const m = currentMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    const lbl = document.getElementById('pa-month-label');
+    if (lbl) lbl.textContent = m;
+  }
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
 
   function openSwalModal(){
     if (typeof Swal === 'undefined') { alert('Swal non disponibile'); return; }
@@ -268,46 +266,47 @@ $js = <<<JS
   }
 
   function wireModalHandlers(){
-    document.getElementById('pa-btn-filter').addEventListener('click', loadAppointments);
-    document.getElementById('pa-btn-reset').addEventListener('click', () => {
-      document.getElementById('pa-filter-from').value = '';
-      document.getElementById('pa-filter-to').value = '';
+    setMonthLabel();
+    document.getElementById('pa-prev-month').addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() - 1);
+      setMonthLabel();
+      loadAppointments();
+    });
+    document.getElementById('pa-next-month').addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+      setMonthLabel();
+      loadAppointments();
+    });
+    document.getElementById('pa-today').addEventListener('click', () => {
+      currentMonth = new Date();
+      currentMonth.setDate(1);
+      currentMonth.setHours(0,0,0,0);
+      setMonthLabel();
       loadAppointments();
     });
     document.getElementById('pa-btn-bulk').addEventListener('click', () => {
       if (selectedIds.size === 0) return;
       openMarkDialog(Array.from(selectedIds), null);
     });
-    document.getElementById('pa-select-all').addEventListener('change', (e) => {
-      appointments.forEach(a => { if (e.target.checked) selectedIds.add(a.id); else selectedIds.delete(a.id); });
-      document.querySelectorAll('.pa-row-cb').forEach(cb => cb.checked = e.target.checked);
-      updateBulkBtn();
-    });
-    document.getElementById('pa-tbody').addEventListener('change', (e) => {
-      const cb = e.target.closest('.pa-row-cb');
-      if (!cb) return;
-      const id = parseInt(cb.dataset.id);
-      if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
-      updateBulkBtn();
-    });
-    document.getElementById('pa-tbody').addEventListener('click', (e) => {
-      const dayCell = e.target.closest('[data-day]');
-      if (dayCell) {
-        const day = dayCell.dataset.day;
-        const ids = appointments.filter(a => String(a.datetime).startsWith(day)).map(a=>a.id);
-        const allSelected = ids.every(id => selectedIds.has(id));
-        ids.forEach(id => allSelected ? selectedIds.delete(id) : selectedIds.add(id));
-        document.querySelectorAll('.pa-row-cb').forEach(cb => {
-          cb.checked = selectedIds.has(parseInt(cb.dataset.id));
-        });
+    document.getElementById('pa-cal-grid').addEventListener('click', (e) => {
+      const chip = e.target.closest('.pa-appt-chip');
+      if (chip) {
+        e.stopPropagation();
+        const id = parseInt(chip.dataset.id);
+        if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+        chip.style.outline = selectedIds.has(id) ? '2px solid #2563eb' : 'none';
+        chip.style.outlineOffset = '-2px';
         updateBulkBtn();
         return;
       }
-      const qm = e.target.closest('.pa-quick-mark');
-      if (qm) {
-        const id = parseInt(qm.dataset.id);
-        const type = qm.dataset.type;
-        openMarkDialog([id], type);
+      const cell = e.target.closest('[data-day]');
+      if (cell) {
+        const day = cell.dataset.day;
+        const ids = appointments.filter(a => String(a.datetime).startsWith(day)).map(a=>a.id);
+        if (ids.length === 0) return;
+        const allSelected = ids.every(id => selectedIds.has(id));
+        ids.forEach(id => allSelected ? selectedIds.delete(id) : selectedIds.add(id));
+        renderCalendar();
       }
     });
   }
@@ -315,81 +314,93 @@ $js = <<<JS
   async function loadAppointments(){
     if (!selectedPatient) return;
     const status = document.getElementById('pa-status');
-    const tableWrap = document.getElementById('pa-table-wrap');
+    const wrap = document.getElementById('pa-cal-wrap');
     status.style.display = 'block';
     status.textContent = 'Caricamento appuntamenti...';
-    tableWrap.style.display = 'none';
+    wrap.style.display = 'none';
     selectedIds.clear();
     updateBulkBtn();
-    const from = document.getElementById('pa-filter-from').value || '';
-    const to = document.getElementById('pa-filter-to').value || '';
+    // range = mese corrente
+    const first = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const last = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 0);
+    const from = ymd(first);
+    const to = ymd(last);
     try {
       const r = await fetch(APPTS_URL+'?patientId='+selectedPatient.id+'&from='+from+'&to='+to);
       const data = await r.json();
       appointments = data.items || [];
-      renderAppointments();
+      renderCalendar();
     } catch(e) {
       status.textContent = 'Errore caricamento: ' + e.message;
     }
   }
 
-  function renderAppointments(){
+  function colorForStatus(s){
+    const m = STATUS_MAP[s];
+    return m ? m[1] : '#f3f4f6';
+  }
+  function textColorForStatus(s){
+    const m = STATUS_MAP[s];
+    return m ? m[2] : '#374151';
+  }
+
+  function renderCalendar(){
     const status = document.getElementById('pa-status');
-    const tableWrap = document.getElementById('pa-table-wrap');
-    const tbody = document.getElementById('pa-tbody');
-    tbody.replaceChildren();
-
-    if (!appointments.length){
-      status.style.display = 'block';
-      status.textContent = 'Nessun appuntamento trovato.';
-      tableWrap.style.display = 'none';
-      updateCounters();
-      return;
-    }
+    const wrap = document.getElementById('pa-cal-wrap');
+    const grid = document.getElementById('pa-cal-grid');
+    grid.replaceChildren();
     status.style.display = 'none';
-    tableWrap.style.display = 'block';
+    wrap.style.display = 'block';
 
+    // group appointments by day
+    const byDay = {};
     appointments.forEach(a => {
-      const tr = el('tr', { style: 'border-top:1px solid #f3f4f6;' });
-      const date = String(a.datetime || '').split(' ')[0];
-
-      const tdCheck = el('td', { style: 'padding:6px 10px;' });
-      const cb = el('input', { cls: 'pa-row-cb' });
-      cb.type = 'checkbox';
-      cb.dataset.id = String(a.id);
-      cb.checked = selectedIds.has(a.id);
-      tdCheck.appendChild(cb);
-
-      const tdDate = el('td', { text: fmtDate(a.datetime), style: 'padding:6px 10px;cursor:pointer;color:#2563eb;text-decoration:underline;', attrs: { title: 'Clic per (de)selezionare tutti del giorno' } });
-      tdDate.dataset.day = date;
-
-      const tdTime = el('td', { text: fmtTime(a.datetime) + ' (' + a.duration + 'min)', style: 'padding:6px 10px;' });
-      const tdTher = el('td', { text: a.therapist || '-', style: 'padding:6px 10px;' });
-      const tdTreat = el('td', { text: a.treatmentType || '-', style: 'padding:6px 10px;' });
-      const tdAt = el('td', { text: a.appointmentType || '-', style: 'padding:6px 10px;font-size:11px;' });
-
-      const tdStatus = el('td', { style: 'padding:6px 10px;' });
-      tdStatus.appendChild(statusBadge(a.status, a.isAdminAbsence));
-
-      const tdActions = el('td', { style: 'padding:6px 10px;font-size:11px;' });
-      const bJ = el('button', { text: 'Giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'justified' }, style: 'background:none;border:none;color:#c2410c;cursor:pointer;text-decoration:underline;margin-right:8px;font-size:11px;' });
-      const bN = el('button', { text: 'Non giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'not_justified' }, style: 'background:none;border:none;color:#b91c1c;cursor:pointer;text-decoration:underline;font-size:11px;' });
-      tdActions.appendChild(bJ);
-      tdActions.appendChild(bN);
-
-      tr.appendChild(tdCheck);
-      tr.appendChild(tdDate);
-      tr.appendChild(tdTime);
-      tr.appendChild(tdTher);
-      tr.appendChild(tdTreat);
-      tr.appendChild(tdAt);
-      tr.appendChild(tdStatus);
-      tr.appendChild(tdActions);
-      tbody.appendChild(tr);
+      const k = String(a.datetime).split(' ')[0];
+      (byDay[k] = byDay[k] || []).push(a);
     });
 
-    document.getElementById('pa-select-all').checked = false;
-    updateCounters();
+    // primo giorno mese, calcola offset (Lun=0)
+    const first = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    let offset = first.getDay() - 1; // Sun=0 -> -1, Mon=1 -> 0
+    if (offset < 0) offset = 6;
+    const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 0).getDate();
+    const totalCells = Math.ceil((offset + lastDay) / 7) * 7;
+    const today = ymd(new Date());
+
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - offset + 1;
+      const cell = el('div', { style: 'min-height:90px;padding:6px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:4px;' });
+      if (dayNum < 1 || dayNum > lastDay) {
+        cell.style.background = '#f9fafb';
+        cell.style.opacity = '0.5';
+        grid.appendChild(cell);
+        continue;
+      }
+      const cellDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNum);
+      const dayKey = ymd(cellDate);
+      cell.dataset.day = dayKey;
+      cell.style.cursor = 'pointer';
+
+      const head = el('div', { style: 'display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:' + (dayKey === today ? '#2563eb' : '#374151') + ';' });
+      head.appendChild(el('span', { text: String(dayNum) }));
+      const apts = byDay[dayKey] || [];
+      if (apts.length > 0) {
+        head.appendChild(el('span', { text: apts.length + (apts.length > 1 ? ' app.' : ' app.'), style: 'font-size:10px;font-weight:500;color:#6b7280;' }));
+      }
+      cell.appendChild(head);
+
+      apts.forEach(a => {
+        const isSel = selectedIds.has(a.id);
+        const chip = el('div', { cls: 'pa-appt-chip', style: 'padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer;background:' + colorForStatus(a.status) + ';color:' + textColorForStatus(a.status) + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;outline:' + (isSel ? '2px solid #2563eb' : 'none') + ';outline-offset:-2px;' });
+        chip.dataset.id = String(a.id);
+        const time = fmtTime(a.datetime);
+        chip.title = time + ' • ' + (a.therapist || '-') + ' • ' + (a.treatmentType || '-') + (a.isAdminAbsence ? ' [gestionale]' : '');
+        chip.textContent = time + ' ' + (a.therapist || '-').substring(0, 12);
+        cell.appendChild(chip);
+      });
+
+      grid.appendChild(cell);
+    }
     updateBulkBtn();
   }
 
