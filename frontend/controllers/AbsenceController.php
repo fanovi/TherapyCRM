@@ -42,9 +42,9 @@ class AbsenceController extends Controller
                         'roles' => ['view_absence'],
                     ],
                     [
-                        'actions' => ['patients', 'remove-patient-absence'],
+                        'actions' => ['patients', 'legacy-patients', 'remove-patient-absence'],
                         'allow' => true,
-                        'roles' => ['view_patient_absence'],
+                        'roles' => ['view_patient_absence', 'manage_patient_absence'],
                     ],
                     [
                         'actions' => [
@@ -316,6 +316,21 @@ class AbsenceController extends Controller
      * @return mixed
      */
     public function actionPatients()
+    {
+        // Unifica con la pagina di gestione assenze: la grid mostra direttamente
+        // la lista pazienti, click apre modale con dettaglio appointment + bulk.
+        $searchModel = new \frontend\models\PatientSearch();
+        $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
+        return $this->render('create-patient-absence', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Mantenuto come alias retrocompatibilita': stesso comportamento di actionPatients.
+     */
+    public function actionLegacyPatients()
     {
         $searchModel = new PatientAbsenceSearch();
 
@@ -814,12 +829,8 @@ class AbsenceController extends Controller
      */
     public function actionCreatePatientAbsence()
     {
-        $searchModel = new \frontend\models\PatientSearch();
-        $dataProvider = $searchModel->searchDataProvider(Yii::$app->request->queryParams);
-        return $this->render('create-patient-absence', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
-        ]);
+        // Unificato in actionPatients
+        return $this->redirect(['patients']);
     }
 
     /**

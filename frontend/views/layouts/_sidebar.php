@@ -465,7 +465,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/absence/patients']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients', 'absence/create-patient-absence'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients', 'absence/create-patient-absence', 'absence/legacy-patients'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
                                         Gestione assenze paziente
                                     </a>
                                 </li>
