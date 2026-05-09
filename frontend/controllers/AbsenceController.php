@@ -971,6 +971,8 @@ class AbsenceController extends Controller
                 if (in_array($appointment->status, [
                     Appointment::STATUS_CANCELLED,
                     Appointment::STATUS_COMPLETED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
                 ])) {
                     $skipped[] = ['id' => $aid, 'reason' => 'stato non modificabile (' . $appointment->status . ')'];
                     continue;
