@@ -400,7 +400,8 @@ $js = <<<JS
     tableWrap.style.display = 'block';
 
     appointments.forEach(a => {
-      const tr = el('tr', { style: 'border-top:1px solid #f3f4f6;' });
+      const isAlreadyAbsent = a.status === 'absent_justified' || a.status === 'absent_not_justified';
+      const tr = el('tr', { style: 'border-top:1px solid #f3f4f6;' + (isAlreadyAbsent ? 'opacity:0.6;background:#fafafa;' : '') });
       const date = String(a.datetime || '').split(' ')[0];
 
       const tdCheck = el('td', { style: 'padding:6px 10px;' });
@@ -408,6 +409,10 @@ $js = <<<JS
       cb.type = 'checkbox';
       cb.dataset.id = String(a.id);
       cb.checked = selectedIds.has(a.id);
+      if (isAlreadyAbsent) {
+        cb.disabled = true;
+        cb.title = 'Gia\' assente — non sovrascrivibile';
+      }
       tdCheck.appendChild(cb);
 
       const tdDate = el('td', { text: fmtDate(a.datetime), style: 'padding:6px 10px;cursor:pointer;color:#2563eb;text-decoration:underline;', attrs: { title: 'Clic per (de)selezionare tutti del giorno' } });
@@ -422,10 +427,14 @@ $js = <<<JS
       tdStatus.appendChild(statusBadge(a.status, a.isAdminAbsence));
 
       const tdActions = el('td', { style: 'padding:6px 10px;font-size:11px;' });
-      const bJ = el('button', { text: 'Giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'justified' }, style: 'background:none;border:none;color:#c2410c;cursor:pointer;text-decoration:underline;margin-right:8px;font-size:11px;' });
-      const bN = el('button', { text: 'Non giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'not_justified' }, style: 'background:none;border:none;color:#b91c1c;cursor:pointer;text-decoration:underline;font-size:11px;' });
-      tdActions.appendChild(bJ);
-      tdActions.appendChild(bN);
+      if (isAlreadyAbsent) {
+        tdActions.appendChild(el('span', { text: '—', style: 'color:#9ca3af;' }));
+      } else {
+        const bJ = el('button', { text: 'Giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'justified' }, style: 'background:none;border:none;color:#c2410c;cursor:pointer;text-decoration:underline;margin-right:8px;font-size:11px;' });
+        const bN = el('button', { text: 'Non giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'not_justified' }, style: 'background:none;border:none;color:#b91c1c;cursor:pointer;text-decoration:underline;font-size:11px;' });
+        tdActions.appendChild(bJ);
+        tdActions.appendChild(bN);
+      }
 
       tr.appendChild(tdCheck);
       tr.appendChild(tdDate);
