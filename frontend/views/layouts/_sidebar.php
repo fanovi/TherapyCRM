@@ -470,15 +470,6 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     </a>
                                 </li>
                                 <?php endif; ?>
-                                <?php if (Yii::$app->user->can('create_absence')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuova assenza terapista
-                                    </a>
-                                </li>
-                                <?php endif; ?>
                             </ul>
                         </div>
                         <!-- Dropdown Menu End -->
