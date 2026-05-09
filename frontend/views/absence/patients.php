@@ -9,7 +9,7 @@ use yii\widgets\Pjax;
 /** @var yii\data\ActiveDataProvider $dataProvider */
 /** @var array|null $therapistsList */
 
-$this->title = 'Assenze Pazienti';
+$this->title = 'Gestione assenze paziente';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 

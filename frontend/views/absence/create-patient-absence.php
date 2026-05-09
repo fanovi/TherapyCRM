@@ -10,8 +10,8 @@ use common\helpers\GridViewHelper;
 /** @var frontend\models\PatientSearch $searchModel */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 
-$this->title = 'Crea Assenze Paziente';
-$this->params['breadcrumbs'][] = ['label' => 'Assenze Pazienti', 'url' => ['patients']];
+$this->title = 'Crea assenze paziente';
+$this->params['breadcrumbs'][] = ['label' => 'Gestione assenze paziente', 'url' => ['patients']];
 $this->params['breadcrumbs'][] = $this->title;
 
 $apptsUrl = Url::to(['absence/patient-appointments-absence']);

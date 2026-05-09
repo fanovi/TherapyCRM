@@ -457,25 +457,16 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/absence/index']) ?>"
                                         class="menu-dropdown-item group <?= isSubmenuActive(['absence/index'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Assenze Terapisti
+                                        Gestione assenze terapista
                                     </a>
                                 </li>
                                 <?php endif; ?>
-                                <?php if (Yii::$app->user->can('view_patient_absence')): ?>
+                                <?php if (Yii::$app->user->can('view_patient_absence') || Yii::$app->user->can('manage_patient_absence')): ?>
                                 <li>
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/absence/patients']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Assenze Pazienti
-                                    </a>
-                                </li>
-                                <?php endif; ?>
-                                <?php if (Yii::$app->user->can('manage_patient_absence')): ?>
-                                <li>
-                                    <a
-                                        href="<?= \yii\helpers\Url::to(['/absence/create-patient-absence']) ?>"
-                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/create-patient-absence'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuova Assenza Paziente
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['absence/patients', 'absence/create-patient-absence'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Gestione assenze paziente
                                     </a>
                                 </li>
                                 <?php endif; ?>
@@ -484,7 +475,7 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     <a
                                         href="<?= \yii\helpers\Url::to(['/absence/create']) ?>"
                                         class="menu-dropdown-item group <?= isSubmenuActive(['absence/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
-                                        Nuova Assenza Terapista
+                                        Nuova assenza terapista
                                     </a>
                                 </li>
                                 <?php endif; ?>
