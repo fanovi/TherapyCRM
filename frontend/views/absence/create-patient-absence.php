@@ -15,6 +15,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
 $apptsUrl = Url::to(['absence/patient-appointments-absence']);
 $markUrl = Url::to(['absence/mark-patients-absent']);
+$revokePatientUrl = Url::to(['absence/remove-patient-absence']);
 $csrfToken = Yii::$app->request->csrfToken;
 ?>
 
@@ -117,6 +118,7 @@ $js = <<<JS
 (function(){
   const APPTS_URL = '$apptsUrl';
   const MARK_URL = '$markUrl';
+  const REVOKE_PATIENT_URL = '$revokePatientUrl';
   const CSRF_TOKEN = '$csrfToken';
 
   let selectedPatient = null;
@@ -358,6 +360,52 @@ $js = <<<JS
         const type = qm.dataset.type;
         openMarkDialog([id], type);
       }
+      const rev = e.target.closest('.pa-revoke-absence');
+      if (rev) {
+        openRevokePatientDialog(parseInt(rev.dataset.id), rev.dataset.datetime);
+      }
+    });
+  }
+
+  function openRevokePatientDialog(appointmentId, datetime){
+    const apptDate = new Date(String(datetime).replace(' ', 'T'));
+    const now = new Date();
+    const lessThanHour = (apptDate - now) < 60 * 60 * 1000;
+    const root = document.createElement('div');
+    root.style.textAlign = 'left';
+    root.appendChild(el('div', { text: 'Stai revocando l\\'assenza per l\\'appuntamento del ' + fmtDate(datetime) + '. Lo stato tornera\\' a "Programmato".', style: 'font-size:13px;color:#374151;margin-bottom:8px;' }));
+    if (lessThanHour) {
+      const w = el('div', { style: 'padding:8px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;' });
+      w.textContent = '⚠ Attenzione: manca meno di 1 ora all\\'inizio dell\\'appuntamento.';
+      root.appendChild(w);
+    }
+    Swal.fire({
+      title: 'Revoca assenza paziente',
+      html: root,
+      showCancelButton: true,
+      cancelButtonText: 'Annulla',
+      confirmButtonText: 'Conferma revoca',
+      confirmButtonColor: '#dc2626',
+    }).then(async (res) => {
+      if (!res.isConfirmed) return;
+      const fd = new URLSearchParams();
+      fd.append('_csrf-frontend', CSRF_TOKEN);
+      fd.append('id', String(appointmentId));
+      try {
+        const r = await fetch(REVOKE_PATIENT_URL, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN },
+          body: fd
+        });
+        const data = await r.json();
+        if (data.success) {
+          Swal.fire({ icon: 'success', title: 'Assenza revocata', timer: 1500, showConfirmButton: false }).then(() => loadAppointments());
+        } else {
+          Swal.fire({ icon: 'error', title: 'Errore', text: data.error || 'Operazione fallita' });
+        }
+      } catch(e) {
+        Swal.fire({ icon: 'error', title: 'Errore', text: e.message || 'Errore di rete' });
+      }
     });
   }
 
@@ -427,7 +475,8 @@ $js = <<<JS
 
       const tdActions = el('td', { style: 'padding:6px 10px;font-size:11px;' });
       if (isAlreadyAbsent) {
-        tdActions.appendChild(el('span', { text: '—', style: 'color:#9ca3af;' }));
+        const bRev = el('button', { text: 'Revoca', cls: 'pa-revoke-absence', attrs: { type: 'button' }, dataset: { id: String(a.id), datetime: a.datetime }, style: 'background:#dc2626;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer;' });
+        tdActions.appendChild(bRev);
       } else {
         const bJ = el('button', { text: 'Giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'justified' }, style: 'background:none;border:none;color:#c2410c;cursor:pointer;text-decoration:underline;margin-right:8px;font-size:11px;' });
         const bN = el('button', { text: 'Non giust.', cls: 'pa-quick-mark', attrs: { type: 'button' }, dataset: { id: String(a.id), type: 'not_justified' }, style: 'background:none;border:none;color:#b91c1c;cursor:pointer;text-decoration:underline;font-size:11px;' });

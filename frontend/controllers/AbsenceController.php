@@ -65,6 +65,7 @@ class AbsenceController extends Controller
                         'actions' => [
                             'therapist-absences-list',
                             'create-therapist-absence',
+                            'revoke-therapist-absence-day',
                         ],
                         'allow' => true,
                         'roles' => ['create_absence'],
@@ -78,6 +79,7 @@ class AbsenceController extends Controller
                     'remove-patient-absence' => ['POST'],
                     'mark-patients-absent' => ['POST'],
                     'create-therapist-absence' => ['POST'],
+                    'revoke-therapist-absence-day' => ['POST'],
                 ],
             ],
         ];
@@ -664,13 +666,8 @@ class AbsenceController extends Controller
             }
         }
 
-        // Vincolo 1 ora prima dell'inizio
-        $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
-        $now = new \DateTime();
-        $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
-        if ($now >= $oneHourBefore) {
-            return ['success' => false, 'error' => 'Non è possibile rimuovere l\'assenza a meno di 1 ora dall\'inizio dell\'appuntamento'];
-        }
+        // Nessun vincolo temporale per gestionale (admin onnipotente).
+        // Avviso "<1h" gestito lato frontend con conferma.
 
         $transaction = Yii::$app->db->beginTransaction();
 
@@ -1154,5 +1151,189 @@ class AbsenceController extends Controller
         }
 
         return ['success' => true, 'absenceId' => $absence->id];
+    }
+
+    /**
+     * Revoca un singolo giorno da un'assenza terapista (split del range).
+     * Tenta ripristino degli appointments sostituiti in quel giorno
+     * (terapista originale al posto del sostituto), notifica entrambi i
+     * terapisti coinvolti. Skip per appointments con conflitto.
+     */
+    public function actionRevokeTherapistAbsenceDay()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $body = Yii::$app->request->getBodyParams();
+        $absenceId = (int) ($body['absenceId'] ?? 0);
+        $dayDate = trim($body['dayDate'] ?? '');
+
+        if (!$absenceId || !$dayDate) {
+            return ['success' => false, 'error' => 'absenceId e dayDate richiesti'];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayDate)) {
+            return ['success' => false, 'error' => 'Formato data non valido (YYYY-MM-DD)'];
+        }
+
+        $absence = Absence::findOne($absenceId);
+        if (!$absence) return ['success' => false, 'error' => 'Assenza non trovata'];
+        if ($absence->status !== Absence::STATUS_APPROVED) {
+            return ['success' => false, 'error' => 'Solo assenze approvate possono essere revocate'];
+        }
+        if ($dayDate < $absence->start_date || $dayDate > $absence->end_date) {
+            return ['success' => false, 'error' => 'Giorno fuori dal range dell\'assenza'];
+        }
+
+        $therapistId = $absence->therapist_id;
+        $userId = Yii::$app->user->id;
+
+        $tx = Yii::$app->db->beginTransaction();
+        try {
+            // 1. Split / cancel absence
+            $start = $absence->start_date;
+            $end = $absence->end_date;
+            if ($dayDate === $start && $dayDate === $end) {
+                $absence->status = Absence::STATUS_CANCELLED;
+                if (!$absence->save(false)) throw new \Exception('Errore aggiornamento assenza');
+            } elseif ($dayDate === $start) {
+                $absence->start_date = date('Y-m-d', strtotime($dayDate . ' +1 day'));
+                if (!$absence->save(false)) throw new \Exception('Errore aggiornamento assenza');
+            } elseif ($dayDate === $end) {
+                $absence->end_date = date('Y-m-d', strtotime($dayDate . ' -1 day'));
+                if (!$absence->save(false)) throw new \Exception('Errore aggiornamento assenza');
+            } else {
+                // split: 1) original (start, dayDate-1), 2) new record (dayDate+1, end)
+                $newStart = date('Y-m-d', strtotime($dayDate . ' +1 day'));
+                $oldEnd = date('Y-m-d', strtotime($dayDate . ' -1 day'));
+
+                $clone = new Absence();
+                $clone->attributes = $absence->getAttributes(null, ['id', 'created_at', 'updated_at']);
+                $clone->start_date = $newStart;
+                $clone->end_date = $end;
+                if (!$clone->save()) throw new \Exception('Errore creazione split: ' . json_encode($clone->errors));
+
+                $absence->end_date = $oldEnd;
+                if (!$absence->save(false)) throw new \Exception('Errore split assenza');
+            }
+
+            // 2. Find appointments to restore (sostituiti che giorno con this therapist as original)
+            $dayStart = $dayDate . ' 00:00:00';
+            $dayEnd = $dayDate . ' 23:59:59';
+            $appts = Appointment::find()
+                ->where(['original_therapist_id' => $therapistId])
+                ->andWhere(['between', 'appointment_datetime', $dayStart, $dayEnd])
+                ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]])
+                ->all();
+
+            $restoredIds = [];
+            $skipped = [];
+            $substituteIdsNotified = [];
+
+            foreach ($appts as $apt) {
+                $substituteId = $apt->therapist_id;
+                $originalId = $apt->original_therapist_id;
+
+                // Conflict check: original therapist disponibile in slot?
+                $startTs = strtotime($apt->appointment_datetime);
+                $endTs = $startTs + ($apt->duration_minutes * 60);
+                $endStr = date('Y-m-d H:i:s', $endTs);
+                $startStr = date('Y-m-d H:i:s', $startTs);
+
+                $hasConflict = Appointment::find()
+                    ->where(['therapist_id' => $originalId])
+                    ->andWhere(['!=', 'id', $apt->id])
+                    ->andWhere(['<', 'appointment_datetime', $endStr])
+                    ->andWhere(['>', 'DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)', $startStr])
+                    ->andWhere(['not in', 'status', [
+                        Appointment::STATUS_CANCELLED,
+                        Appointment::STATUS_ABSENT_JUSTIFIED,
+                        Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                        Appointment::STATUS_THERAPIST_ABSENT,
+                    ]])
+                    ->exists();
+
+                if ($hasConflict) {
+                    $skipped[] = [
+                        'id' => $apt->id,
+                        'datetime' => $apt->appointment_datetime,
+                        'reason' => 'Terapista originale gia\' occupato in altro appuntamento',
+                    ];
+                    continue;
+                }
+
+                // Restore
+                $apt->therapist_id = $originalId;
+                $apt->original_therapist_id = null;
+                if (!$apt->save()) {
+                    $skipped[] = ['id' => $apt->id, 'reason' => 'Errore salvataggio: ' . json_encode($apt->errors)];
+                    continue;
+                }
+
+                // Record TherapistSubstitution inversa
+                $sub = new \common\models\TherapistSubstitution();
+                $sub->appointment_id = $apt->id;
+                $sub->original_therapist_id = $substituteId;
+                $sub->substitute_therapist_id = $originalId;
+                $sub->reason = "Ripristino dopo revoca assenza giorno {$dayDate}";
+                $sub->substituted_by = $userId;
+                $sub->substituted_at = date('Y-m-d H:i:s');
+                $sub->save(false);
+
+                $restoredIds[] = $apt->id;
+                $substituteIdsNotified[$substituteId] = true;
+            }
+
+            // 3. Notifiche (solo terapisti, no pazienti come da pattern attuale)
+            $originalTher = Therapist::findOne($therapistId);
+            if ($originalTher && count($restoredIds) > 0) {
+                \common\helpers\NotificationHelper::sendToUsers(
+                    [$originalTher->user_id],
+                    'Assenza revocata',
+                    "L'assenza del giorno {$dayDate} e' stata revocata. Sono stati ripristinati " . count($restoredIds) . " appuntamento/i a tuo nome.",
+                    \common\models\Notification::TYPE_INFO ?? 'info'
+                );
+                foreach (array_keys($substituteIdsNotified) as $subId) {
+                    $subTher = Therapist::findOne($subId);
+                    if ($subTher) {
+                        \common\helpers\NotificationHelper::sendToUsers(
+                            [$subTher->user_id],
+                            'Sostituzione annullata',
+                            "L'assenza del giorno {$dayDate} del collega e' stata revocata. Gli appuntamenti per cui eri sostituto sono stati restituiti al terapista originale.",
+                            \common\models\Notification::TYPE_INFO ?? 'info'
+                        );
+                    }
+                }
+            }
+
+            // ActivityLog
+            $log = new ActivityLog([
+                'user_id' => $userId,
+                'action' => ActivityLog::ACTION_UPDATE,
+                'entity_name' => 'Absence',
+                'entity_id' => $absenceId,
+                'old_values' => json_encode(['operation' => 'revoke_day_request', 'day' => $dayDate]),
+                'new_values' => json_encode([
+                    'operation' => 'revoke_day_completed',
+                    'day' => $dayDate,
+                    'restored_appointments' => $restoredIds,
+                    'skipped' => $skipped,
+                ]),
+                'ip_address' => Yii::$app->request->getUserIP(),
+                'user_agent' => Yii::$app->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+            $log->save(false);
+
+            $tx->commit();
+
+            return [
+                'success' => true,
+                'restored' => count($restoredIds),
+                'restoredIds' => $restoredIds,
+                'skipped' => $skipped,
+            ];
+        } catch (\Exception $e) {
+            $tx->rollBack();
+            Yii::error('Errore revoca giorno assenza: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 }

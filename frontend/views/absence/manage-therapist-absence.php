@@ -15,6 +15,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
 $listUrl = Url::to(['absence/therapist-absences-list']);
 $createUrl = Url::to(['absence/create-therapist-absence']);
+$revokeUrl = Url::to(['absence/revoke-therapist-absence-day']);
 $csrfToken = Yii::$app->request->csrfToken;
 ?>
 
@@ -128,6 +129,7 @@ $js = <<<JS
 (function(){
   const LIST_URL = '$listUrl';
   const CREATE_URL = '$createUrl';
+  const REVOKE_URL = '$revokeUrl';
   const CSRF_TOKEN = '$csrfToken';
 
   let selectedTherapist = null;
@@ -230,7 +232,7 @@ $js = <<<JS
     const table = el('table', { style: 'width:100%;font-size:13px;border-collapse:collapse;' });
     const thead = el('thead', { style: 'background:#f9fafb;position:sticky;top:0;z-index:1;' });
     const trh = el('tr');
-    ['Data inizio','Data fine','Tipo','Motivo','Stato'].forEach(h => {
+    ['Data inizio','Data fine','Tipo','Motivo','Stato','Azioni'].forEach(h => {
       trh.appendChild(el('th', { text: h, style: 'padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;' }));
     });
     thead.appendChild(trh);
@@ -347,7 +349,75 @@ $js = <<<JS
       const tdSt = el('td', { style: 'padding:6px 10px;' });
       tdSt.appendChild(statusBadge(a.status));
       tr.appendChild(tdSt);
+      const tdActions = el('td', { style: 'padding:6px 10px;' });
+      if (a.status === 'approved') {
+        const btn = el('button', { text: 'Revoca giorno...', attrs: { type: 'button' }, dataset: { absenceId: String(a.id), startDate: a.startDate, endDate: a.endDate }, cls: 'ta-revoke-btn', style: 'background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;' });
+        tdActions.appendChild(btn);
+      } else {
+        tdActions.appendChild(el('span', { text: '-', style: 'color:#9ca3af;' }));
+      }
+      tr.appendChild(tdActions);
       tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll('.ta-revoke-btn').forEach(b => {
+      b.addEventListener('click', () => openRevokeDialog(parseInt(b.dataset.absenceId), b.dataset.startDate, b.dataset.endDate));
+    });
+  }
+
+  function openRevokeDialog(absenceId, startDate, endDate){
+    const root = document.createElement('div');
+    root.style.textAlign = 'left';
+    root.appendChild(el('label', { text: 'Giorno da revocare *', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
+    const inp = document.createElement('input');
+    inp.type = 'date'; inp.id = 'ta-revoke-day';
+    inp.min = startDate; inp.max = endDate; inp.value = startDate;
+    inp.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;';
+    inp.addEventListener('click', () => { try { inp.showPicker && inp.showPicker(); } catch(e){} });
+    root.appendChild(inp);
+    root.appendChild(el('div', { text: 'Range assenza: ' + fmtDate(startDate) + ' — ' + fmtDate(endDate), style: 'font-size:11px;color:#6b7280;margin-top:4px;' }));
+    const warn = el('div', { style: 'margin-top:10px;padding:8px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;' });
+    warn.textContent = 'Gli appuntamenti del giorno con sostituto verranno restituiti al terapista originale. Notifiche inviate ai terapisti coinvolti.';
+    root.appendChild(warn);
+
+    Swal.fire({
+      title: 'Revoca giorno assenza',
+      html: root,
+      focusConfirm: false,
+      showCancelButton: true,
+      cancelButtonText: 'Annulla',
+      confirmButtonText: 'Conferma revoca',
+      confirmButtonColor: '#dc2626',
+      preConfirm: () => {
+        const v = document.getElementById('ta-revoke-day').value;
+        if (!v) { Swal.showValidationMessage('Seleziona un giorno'); return false; }
+        return v;
+      }
+    }).then(async (res) => {
+      if (!res.isConfirmed || !res.value) return;
+      const fd = new URLSearchParams();
+      fd.append('_csrf-frontend', CSRF_TOKEN);
+      fd.append('absenceId', String(absenceId));
+      fd.append('dayDate', res.value);
+      try {
+        const r = await fetch(REVOKE_URL, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN },
+          body: fd
+        });
+        const data = await r.json();
+        if (data.success) {
+          let msg = 'Revocato giorno ' + fmtDate(res.value) + '. Ripristinati ' + (data.restored || 0) + ' appuntamento/i.';
+          if (data.skipped && data.skipped.length) {
+            msg += ' ' + data.skipped.length + ' saltati per conflitti (terapista occupato).';
+          }
+          Swal.fire({ icon: 'success', title: 'Revoca completata', text: msg }).then(() => loadAbsences());
+        } else {
+          Swal.fire({ icon: 'error', title: 'Errore', text: data.error || 'Operazione fallita' });
+        }
+      } catch(e) {
+        Swal.fire({ icon: 'error', title: 'Errore', text: e.message || 'Errore di rete' });
+      }
     });
   }
 
