@@ -181,15 +181,30 @@ $js = <<<JS
     const root = document.createElement('div');
     root.style.textAlign = 'left';
 
+    // Filtri rapidi
+    const quick = el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;' });
+    const presets = [
+      ['Oggi','today'], ['Ieri','yesterday'], ['Domani','tomorrow'],
+      ['Questa settimana','this_week'], ['Settimana prossima','next_week'],
+      ['Questo mese','this_month'], ['Prossimo mese','next_month'],
+    ];
+    presets.forEach(p => {
+      const b = el('button', { text: p[0], attrs: { type: 'button' }, dataset: { preset: p[1] }, cls: 'pa-quick-preset', style: 'padding:5px 10px;background:#fff;border:1px solid #d1d5db;border-radius:9999px;font-size:12px;cursor:pointer;color:#374151;' });
+      quick.appendChild(b);
+    });
+    root.appendChild(quick);
+
     // Filtri date (date picker nativi)
     const filters = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;margin-bottom:12px;align-items:end;' });
     const fromBox = el('div');
     fromBox.appendChild(el('label', { text: 'Da', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
-    const inpFrom = el('input', { attrs: { type: 'date', id: 'pa-filter-from' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;' });
+    const inpFrom = el('input', { attrs: { type: 'date', id: 'pa-filter-from' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;' });
+    inpFrom.addEventListener('click', () => { try { inpFrom.showPicker && inpFrom.showPicker(); } catch(e){} });
     fromBox.appendChild(inpFrom);
     const toBox = el('div');
     toBox.appendChild(el('label', { text: 'A', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
-    const inpTo = el('input', { attrs: { type: 'date', id: 'pa-filter-to' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;' });
+    const inpTo = el('input', { attrs: { type: 'date', id: 'pa-filter-to' }, style: 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;' });
+    inpTo.addEventListener('click', () => { try { inpTo.showPicker && inpTo.showPicker(); } catch(e){} });
     toBox.appendChild(inpTo);
     const btnFilter = el('button', { text: 'Filtra', attrs: { type: 'button', id: 'pa-btn-filter' }, style: 'padding:6px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;' });
     const btnReset = el('button', { text: 'Reset', attrs: { type: 'button', id: 'pa-btn-reset' }, style: 'padding:6px 12px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;' });
@@ -267,12 +282,47 @@ $js = <<<JS
     return d.innerHTML;
   }
 
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+
+  function applyPreset(name){
+    const today = new Date(); today.setHours(0,0,0,0);
+    let from = null, to = null;
+    if (name === 'today') { from = today; to = today; }
+    else if (name === 'yesterday') { from = new Date(today); from.setDate(from.getDate()-1); to = new Date(from); }
+    else if (name === 'tomorrow') { from = new Date(today); from.setDate(from.getDate()+1); to = new Date(from); }
+    else if (name === 'this_week') {
+      const dow = today.getDay() || 7; // Lun=1..Dom=7
+      from = new Date(today); from.setDate(from.getDate() - (dow - 1));
+      to = new Date(from); to.setDate(to.getDate() + 6);
+    }
+    else if (name === 'next_week') {
+      const dow = today.getDay() || 7;
+      from = new Date(today); from.setDate(from.getDate() - (dow - 1) + 7);
+      to = new Date(from); to.setDate(to.getDate() + 6);
+    }
+    else if (name === 'this_month') {
+      from = new Date(today.getFullYear(), today.getMonth(), 1);
+      to = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    }
+    else if (name === 'next_month') {
+      from = new Date(today.getFullYear(), today.getMonth()+1, 1);
+      to = new Date(today.getFullYear(), today.getMonth()+2, 0);
+    }
+    if (from) document.getElementById('pa-filter-from').value = ymd(from);
+    if (to) document.getElementById('pa-filter-to').value = ymd(to);
+    loadAppointments();
+  }
+
   function wireModalHandlers(){
     document.getElementById('pa-btn-filter').addEventListener('click', loadAppointments);
     document.getElementById('pa-btn-reset').addEventListener('click', () => {
       document.getElementById('pa-filter-from').value = '';
       document.getElementById('pa-filter-to').value = '';
       loadAppointments();
+    });
+    document.querySelectorAll('.pa-quick-preset').forEach(b => {
+      b.addEventListener('click', () => applyPreset(b.dataset.preset));
     });
     document.getElementById('pa-btn-bulk').addEventListener('click', () => {
       if (selectedIds.size === 0) return;
