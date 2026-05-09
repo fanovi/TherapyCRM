@@ -368,20 +368,42 @@ $js = <<<JS
   function openRevokeDialog(absenceId, startDate, endDate){
     const root = document.createElement('div');
     root.style.textAlign = 'left';
-    root.appendChild(el('label', { text: 'Giorno da revocare *', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
-    const inp = document.createElement('input');
-    inp.type = 'date'; inp.id = 'ta-revoke-day';
-    inp.min = startDate; inp.max = endDate; inp.value = startDate;
-    inp.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;';
-    inp.addEventListener('click', () => { try { inp.showPicker && inp.showPicker(); } catch(e){} });
-    root.appendChild(inp);
+    const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' });
+    const fromBox = el('div');
+    fromBox.appendChild(el('label', { text: 'Da *', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
+    const inpFrom = document.createElement('input');
+    inpFrom.type = 'date'; inpFrom.id = 'ta-revoke-from';
+    inpFrom.min = startDate; inpFrom.max = endDate; inpFrom.value = startDate;
+    inpFrom.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;';
+    inpFrom.addEventListener('click', () => { try { inpFrom.showPicker && inpFrom.showPicker(); } catch(e){} });
+    fromBox.appendChild(inpFrom);
+    const toBox = el('div');
+    toBox.appendChild(el('label', { text: 'A *', style: 'display:block;font-size:12px;font-weight:600;margin-bottom:4px;' }));
+    const inpTo = document.createElement('input');
+    inpTo.type = 'date'; inpTo.id = 'ta-revoke-to';
+    inpTo.min = startDate; inpTo.max = endDate; inpTo.value = endDate;
+    inpTo.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;';
+    inpTo.addEventListener('click', () => { try { inpTo.showPicker && inpTo.showPicker(); } catch(e){} });
+    toBox.appendChild(inpTo);
+    grid.appendChild(fromBox); grid.appendChild(toBox);
+    root.appendChild(grid);
+
     root.appendChild(el('div', { text: 'Range assenza: ' + fmtDate(startDate) + ' — ' + fmtDate(endDate), style: 'font-size:11px;color:#6b7280;margin-top:4px;' }));
+
+    // Bottone "Tutto"
+    const btnAll = el('button', { text: 'Revoca tutto il range', attrs: { type: 'button' }, style: 'margin-top:8px;padding:5px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;font-size:11px;cursor:pointer;color:#374151;' });
+    btnAll.addEventListener('click', () => {
+      inpFrom.value = startDate;
+      inpTo.value = endDate;
+    });
+    root.appendChild(btnAll);
+
     const warn = el('div', { style: 'margin-top:10px;padding:8px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;' });
-    warn.textContent = 'Gli appuntamenti del giorno con sostituto verranno restituiti al terapista originale. Notifiche inviate ai terapisti coinvolti.';
+    warn.textContent = 'Gli appuntamenti dei giorni con sostituto verranno restituiti al terapista originale. Notifiche inviate ai terapisti coinvolti.';
     root.appendChild(warn);
 
     Swal.fire({
-      title: 'Revoca giorno assenza',
+      title: 'Revoca giorni assenza',
       html: root,
       focusConfirm: false,
       showCancelButton: true,
@@ -389,16 +411,19 @@ $js = <<<JS
       confirmButtonText: 'Conferma revoca',
       confirmButtonColor: '#dc2626',
       preConfirm: () => {
-        const v = document.getElementById('ta-revoke-day').value;
-        if (!v) { Swal.showValidationMessage('Seleziona un giorno'); return false; }
-        return v;
+        const f = document.getElementById('ta-revoke-from').value;
+        const t = document.getElementById('ta-revoke-to').value;
+        if (!f || !t) { Swal.showValidationMessage('Seleziona entrambe le date'); return false; }
+        if (f > t) { Swal.showValidationMessage('Data inizio dopo data fine'); return false; }
+        return { from: f, to: t };
       }
     }).then(async (res) => {
       if (!res.isConfirmed || !res.value) return;
       const fd = new URLSearchParams();
       fd.append('_csrf-frontend', CSRF_TOKEN);
       fd.append('absenceId', String(absenceId));
-      fd.append('dayDate', res.value);
+      fd.append('startDate', res.value.from);
+      fd.append('endDate', res.value.to);
       try {
         const r = await fetch(REVOKE_URL, {
           method: 'POST',
@@ -407,7 +432,10 @@ $js = <<<JS
         });
         const data = await r.json();
         if (data.success) {
-          let msg = 'Revocato giorno ' + fmtDate(res.value) + '. Ripristinati ' + (data.restored || 0) + ' appuntamento/i.';
+          const rangeStr = res.value.from === res.value.to
+            ? 'giorno ' + fmtDate(res.value.from)
+            : 'dal ' + fmtDate(res.value.from) + ' al ' + fmtDate(res.value.to);
+          let msg = 'Revocato ' + rangeStr + '. Ripristinati ' + (data.restored || 0) + ' appuntamento/i.';
           if (data.skipped && data.skipped.length) {
             msg += ' ' + data.skipped.length + ' saltati per conflitti (terapista occupato).';
           }
