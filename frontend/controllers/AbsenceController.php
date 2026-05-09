@@ -37,7 +37,7 @@ class AbsenceController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view', 'daily', 'daily-detail'],
+                        'actions' => ['index', 'legacy-index', 'view', 'daily', 'daily-detail'],
                         'allow' => true,
                         'roles' => ['view_absence'],
                     ],
@@ -61,6 +61,14 @@ class AbsenceController extends Controller
                         'allow' => true,
                         'roles' => ['create_absence'],
                     ],
+                    [
+                        'actions' => [
+                            'therapist-absences-list',
+                            'create-therapist-absence',
+                        ],
+                        'allow' => true,
+                        'roles' => ['create_absence'],
+                    ],
                 ],
             ],
             'verbs' => [
@@ -69,6 +77,7 @@ class AbsenceController extends Controller
                     'delete' => ['POST'],
                     'remove-patient-absence' => ['POST'],
                     'mark-patients-absent' => ['POST'],
+                    'create-therapist-absence' => ['POST'],
                 ],
             ],
         ];
@@ -137,6 +146,21 @@ class AbsenceController extends Controller
     }
 
     public function actionIndex()
+    {
+        // Vista unificata: GridView terapisti, click apre modale per gestire assenze.
+        $searchModel = new \frontend\models\TherapistSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('manage-therapist-absence', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Mantenuto per consultare la vecchia lista di assenze terapista (storico).
+     */
+    public function actionLegacyIndex()
     {
         $searchModel = new AbsenceSearch();
         $therapistsList = null;
@@ -1043,5 +1067,92 @@ class AbsenceController extends Controller
             Yii::error('Errore mark-patients-absent: ' . $e->getMessage(), __METHOD__);
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    // =========================================================================
+    // GESTIONE ASSENZE TERAPISTA (modale unificata)
+    // =========================================================================
+
+    /**
+     * AJAX: lista assenze del terapista, opzionalmente filtrata per range data.
+     */
+    public function actionTherapistAbsencesList($therapistId, $from = null, $to = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $therapistId = (int) $therapistId;
+        if ($therapistId <= 0) {
+            return ['success' => false, 'error' => 'therapistId richiesto'];
+        }
+
+        $query = Absence::find()->where(['therapist_id' => $therapistId]);
+        if ($from) {
+            $query->andWhere(['>=', 'end_date', $from]);
+        }
+        if ($to) {
+            $query->andWhere(['<=', 'start_date', $to]);
+        }
+
+        $items = [];
+        foreach ($query->orderBy(['start_date' => SORT_DESC])->all() as $a) {
+            $items[] = [
+                'id' => $a->id,
+                'startDate' => $a->start_date,
+                'endDate' => $a->end_date,
+                'type' => $a->type,
+                'typeLabel' => $a->getTypeLabel(),
+                'reason' => $a->reason,
+                'status' => $a->status,
+                'createdAt' => $a->created_at ?? null,
+            ];
+        }
+
+        return ['success' => true, 'items' => $items];
+    }
+
+    /**
+     * AJAX POST: crea una nuova assenza terapista.
+     */
+    public function actionCreateTherapistAbsence()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $body = Yii::$app->request->getBodyParams();
+
+        $therapistId = (int) ($body['therapistId'] ?? 0);
+        $startDate = trim($body['startDate'] ?? '');
+        $endDate = trim($body['endDate'] ?? '');
+        $type = trim($body['type'] ?? '');
+        $reason = trim($body['reason'] ?? '');
+
+        if (!$therapistId) return ['success' => false, 'error' => 'therapistId richiesto'];
+        if (!$startDate || !$endDate) return ['success' => false, 'error' => 'Date richieste'];
+        if ($startDate > $endDate) return ['success' => false, 'error' => 'Data inizio dopo data fine'];
+
+        $validTypes = [
+            Absence::TYPE_VACATION,
+            Absence::TYPE_SICK_LEAVE,
+            Absence::TYPE_PERSONAL,
+            Absence::TYPE_TRAINING,
+            Absence::TYPE_OTHER,
+        ];
+        if (!in_array($type, $validTypes)) {
+            return ['success' => false, 'error' => 'Tipo non valido'];
+        }
+
+        $absence = new Absence();
+        $absence->therapist_id = $therapistId;
+        $absence->start_date = $startDate;
+        $absence->end_date = $endDate;
+        $absence->type = $type;
+        $absence->reason = $reason ?: null;
+        $absence->status = Absence::STATUS_APPROVED;
+        $absence->created_by = Yii::$app->user->id;
+        $absence->approved_by = Yii::$app->user->id;
+        $absence->approved_at = date('Y-m-d H:i:s');
+
+        if (!$absence->save()) {
+            return ['success' => false, 'error' => 'Errore salvataggio: ' . json_encode($absence->errors)];
+        }
+
+        return ['success' => true, 'absenceId' => $absence->id];
     }
 }
