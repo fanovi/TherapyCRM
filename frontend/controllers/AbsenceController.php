@@ -1166,6 +1166,8 @@ class AbsenceController extends Controller
         $absenceId = (int) ($body['absenceId'] ?? 0);
         $startDate = trim($body['startDate'] ?? '');
         $endDate = trim($body['endDate'] ?? $startDate);
+        $previewOnly = !empty($body['previewOnly']);
+        $allowedAppointmentIds = $body['appointmentIds'] ?? null; // array di ID o null = tutti
 
         if (!$absenceId || !$startDate) {
             return ['success' => false, 'error' => 'absenceId e startDate richiesti'];
@@ -1188,6 +1190,64 @@ class AbsenceController extends Controller
 
         $therapistId = $absence->therapist_id;
         $userId = Yii::$app->user->id;
+
+        // PREVIEW: non modifica nulla, ritorna lista candidati al ripristino
+        if ($previewOnly) {
+            $rangeStart = $startDate . ' 00:00:00';
+            $rangeEnd = $endDate . ' 23:59:59';
+            $appts = Appointment::find()
+                ->alias('a')
+                ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
+                ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
+                ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
+                ->with(['therapist.user.profile', 'planTherapy.treatmentType', 'treatmentType', 'patient', 'planTherapy.therapeuticPlan.patient'])
+                ->where(['a.original_therapist_id' => $therapistId])
+                ->andWhere(['between', 'a.appointment_datetime', $rangeStart, $rangeEnd])
+                ->andWhere(['not in', 'a.status', [Appointment::STATUS_CANCELLED]])
+                ->orderBy(['a.appointment_datetime' => SORT_ASC])
+                ->all();
+
+            $items = [];
+            foreach ($appts as $apt) {
+                $startTs = strtotime($apt->appointment_datetime);
+                $endTs = $startTs + ($apt->duration_minutes * 60);
+                $hasConflict = Appointment::find()
+                    ->where(['therapist_id' => $apt->original_therapist_id])
+                    ->andWhere(['!=', 'id', $apt->id])
+                    ->andWhere(['<', 'appointment_datetime', date('Y-m-d H:i:s', $endTs)])
+                    ->andWhere(['>', 'DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)', date('Y-m-d H:i:s', $startTs)])
+                    ->andWhere(['not in', 'status', [
+                        Appointment::STATUS_CANCELLED,
+                        Appointment::STATUS_ABSENT_JUSTIFIED,
+                        Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                        Appointment::STATUS_THERAPIST_ABSENT,
+                    ]])
+                    ->exists();
+
+                $patient = $apt->patient;
+                if (!$patient && $apt->planTherapy && $apt->planTherapy->therapeuticPlan) {
+                    $patient = $apt->planTherapy->therapeuticPlan->patient;
+                }
+                $treatment = $apt->planTherapy && $apt->planTherapy->treatmentType
+                    ? $apt->planTherapy->treatmentType->name
+                    : ($apt->treatmentType ? $apt->treatmentType->name : null);
+                $substituteName = ($apt->therapist && $apt->therapist->user && $apt->therapist->user->profile)
+                    ? $apt->therapist->user->profile->getFullName()
+                    : '-';
+
+                $items[] = [
+                    'id' => $apt->id,
+                    'datetime' => $apt->appointment_datetime,
+                    'duration' => $apt->duration_minutes,
+                    'patient' => $patient ? $patient->getFullName() : '-',
+                    'treatment' => $treatment ?: '-',
+                    'substitute' => $substituteName,
+                    'hasConflict' => $hasConflict,
+                ];
+            }
+
+            return ['success' => true, 'preview' => true, 'items' => $items];
+        }
 
         $tx = Yii::$app->db->beginTransaction();
         try {
@@ -1224,11 +1284,16 @@ class AbsenceController extends Controller
             // 2. Find appointments to restore in tutto il range
             $rangeStart = $startDate . ' 00:00:00';
             $rangeEnd = $endDate . ' 23:59:59';
-            $appts = Appointment::find()
+            $apptsQuery = Appointment::find()
                 ->where(['original_therapist_id' => $therapistId])
                 ->andWhere(['between', 'appointment_datetime', $rangeStart, $rangeEnd])
-                ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]])
-                ->all();
+                ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]]);
+            // Se admin ha specificato un subset di IDs, filtra solo quelli
+            if (is_array($allowedAppointmentIds) && !empty($allowedAppointmentIds)) {
+                $allowedAppointmentIds = array_map('intval', $allowedAppointmentIds);
+                $apptsQuery->andWhere(['id' => $allowedAppointmentIds]);
+            }
+            $appts = $apptsQuery->all();
 
             $restoredIds = [];
             $skipped = [];
@@ -1279,7 +1344,9 @@ class AbsenceController extends Controller
                 $sub->appointment_id = $apt->id;
                 $sub->original_therapist_id = $substituteId;
                 $sub->substitute_therapist_id = $originalId;
-                $sub->reason = "Ripristino dopo revoca assenza giorno {$dayDate}";
+                $sub->reason = $startDate === $endDate
+                    ? "Ripristino dopo revoca assenza giorno {$startDate}"
+                    : "Ripristino dopo revoca assenza dal {$startDate} al {$endDate}";
                 $sub->substituted_by = $userId;
                 $sub->substituted_at = date('Y-m-d H:i:s');
                 $sub->save(false);

@@ -402,13 +402,16 @@ $js = <<<JS
     warn.textContent = 'Gli appuntamenti dei giorni con sostituto verranno restituiti al terapista originale. Notifiche inviate ai terapisti coinvolti.';
     root.appendChild(warn);
 
+    // Salvo terapista corrente per riapertura modale dopo flow
+    const savedTherapist = selectedTherapist;
+
     Swal.fire({
       title: 'Revoca giorni assenza',
       html: root,
       focusConfirm: false,
       showCancelButton: true,
       cancelButtonText: 'Annulla',
-      confirmButtonText: 'Conferma revoca',
+      confirmButtonText: 'Avanti',
       confirmButtonColor: '#dc2626',
       preConfirm: () => {
         const f = document.getElementById('ta-revoke-from').value;
@@ -418,12 +421,131 @@ $js = <<<JS
         return { from: f, to: t };
       }
     }).then(async (res) => {
-      if (!res.isConfirmed || !res.value) return;
+      if (!res.isConfirmed || !res.value) {
+        reopenTherapistModal(savedTherapist);
+        return;
+      }
+      // Step 2: preview appointments candidati
+      try {
+        const fd = new URLSearchParams();
+        fd.append('_csrf-frontend', CSRF_TOKEN);
+        fd.append('absenceId', String(absenceId));
+        fd.append('startDate', res.value.from);
+        fd.append('endDate', res.value.to);
+        fd.append('previewOnly', '1');
+        const r = await fetch(REVOKE_URL, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': CSRF_TOKEN },
+          body: fd
+        });
+        const data = await r.json();
+        if (!data.success) {
+          await Swal.fire({ icon: 'error', title: 'Errore', text: data.error || 'Operazione fallita' });
+          reopenTherapistModal(savedTherapist);
+          return;
+        }
+        openRestorePreviewDialog(absenceId, res.value.from, res.value.to, data.items || [], savedTherapist);
+      } catch(e) {
+        await Swal.fire({ icon: 'error', title: 'Errore', text: e.message || 'Errore di rete' });
+        reopenTherapistModal(savedTherapist);
+      }
+    });
+  }
+
+  function reopenTherapistModal(therapist){
+    if (!therapist) return;
+    selectedTherapist = therapist;
+    setTimeout(() => openSwalModal(), 250);
+  }
+
+  function openRestorePreviewDialog(absenceId, fromDate, toDate, items, savedTherapist){
+    const root = document.createElement('div');
+    root.style.textAlign = 'left';
+
+    const rangeStr = fromDate === toDate
+      ? 'giorno ' + fmtDate(fromDate)
+      : 'dal ' + fmtDate(fromDate) + ' al ' + fmtDate(toDate);
+    root.appendChild(el('div', { text: 'Periodo da revocare: ' + rangeStr, style: 'font-size:13px;font-weight:500;color:#1f2937;margin-bottom:10px;' }));
+
+    if (!items.length) {
+      root.appendChild(el('div', { text: 'Nessun appuntamento sostituito da ripristinare in questo periodo. Conferma per revocare l\\'assenza.', style: 'padding:10px;background:#f3f4f6;border-radius:6px;font-size:12px;color:#4b5563;' }));
+    } else {
+      root.appendChild(el('div', { text: 'Appuntamenti da ripristinare al terapista originale (deseleziona per saltare):', style: 'font-size:12px;color:#4b5563;margin-bottom:6px;' }));
+
+      // Bulk actions
+      const bulkBox = el('div', { style: 'display:flex;gap:6px;margin-bottom:8px;' });
+      const btnAll = el('button', { text: 'Seleziona tutti', attrs: { type: 'button' }, style: 'padding:4px 10px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;' });
+      const btnNone = el('button', { text: 'Deseleziona tutti', attrs: { type: 'button' }, style: 'padding:4px 10px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;font-size:11px;cursor:pointer;' });
+      bulkBox.appendChild(btnAll); bulkBox.appendChild(btnNone);
+      root.appendChild(bulkBox);
+
+      const wrap = el('div', { style: 'border:1px solid #e5e7eb;border-radius:8px;max-height:40vh;overflow:auto;' });
+      const table = el('table', { style: 'width:100%;font-size:12px;border-collapse:collapse;' });
+      const thead = el('thead', { style: 'background:#f9fafb;position:sticky;top:0;' });
+      const trh = el('tr');
+      ['','Quando','Paziente','Trattamento','Sostituto attuale','Esito'].forEach(h => {
+        trh.appendChild(el('th', { text: h, style: 'padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:#374151;text-transform:uppercase;' }));
+      });
+      thead.appendChild(trh);
+      table.appendChild(thead);
+      const tbody = el('tbody');
+      items.forEach(it => {
+        const tr = el('tr', { style: 'border-top:1px solid #f3f4f6;' + (it.hasConflict ? 'background:#fef2f2;' : '') });
+        const tdCk = el('td', { style: 'padding:6px 8px;' });
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.className = 'restore-cb';
+        cb.dataset.id = String(it.id);
+        if (!it.hasConflict) cb.checked = true; else cb.disabled = true;
+        tdCk.appendChild(cb);
+        tr.appendChild(tdCk);
+        tr.appendChild(el('td', { text: fmtDate(it.datetime) + ' ' + (it.datetime || '').split(' ')[1].substring(0,5), style: 'padding:6px 8px;' }));
+        tr.appendChild(el('td', { text: it.patient || '-', style: 'padding:6px 8px;' }));
+        tr.appendChild(el('td', { text: it.treatment || '-', style: 'padding:6px 8px;' }));
+        tr.appendChild(el('td', { text: it.substitute || '-', style: 'padding:6px 8px;' }));
+        const tdEsito = el('td', { style: 'padding:6px 8px;font-size:10px;' });
+        tdEsito.textContent = it.hasConflict ? '⚠ Originale occupato' : 'OK';
+        tdEsito.style.color = it.hasConflict ? '#b91c1c' : '#15803d';
+        tr.appendChild(tdEsito);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      root.appendChild(wrap);
+
+      btnAll.addEventListener('click', () => {
+        document.querySelectorAll('.restore-cb').forEach(cb => { if (!cb.disabled) cb.checked = true; });
+      });
+      btnNone.addEventListener('click', () => {
+        document.querySelectorAll('.restore-cb').forEach(cb => { if (!cb.disabled) cb.checked = false; });
+      });
+    }
+
+    Swal.fire({
+      title: 'Conferma ripristini',
+      html: root,
+      width: '70%',
+      showCancelButton: true,
+      cancelButtonText: 'Indietro',
+      confirmButtonText: 'Conferma revoca',
+      confirmButtonColor: '#dc2626',
+      preConfirm: () => {
+        const ids = [];
+        document.querySelectorAll('.restore-cb').forEach(cb => {
+          if (cb.checked && !cb.disabled) ids.push(parseInt(cb.dataset.id));
+        });
+        return { ids };
+      }
+    }).then(async (res) => {
+      if (!res.isConfirmed) {
+        reopenTherapistModal(savedTherapist);
+        return;
+      }
       const fd = new URLSearchParams();
       fd.append('_csrf-frontend', CSRF_TOKEN);
       fd.append('absenceId', String(absenceId));
-      fd.append('startDate', res.value.from);
-      fd.append('endDate', res.value.to);
+      fd.append('startDate', fromDate);
+      fd.append('endDate', toDate);
+      (res.value.ids || []).forEach(id => fd.append('appointmentIds[]', String(id)));
       try {
         const r = await fetch(REVOKE_URL, {
           method: 'POST',
@@ -432,20 +554,16 @@ $js = <<<JS
         });
         const data = await r.json();
         if (data.success) {
-          const rangeStr = res.value.from === res.value.to
-            ? 'giorno ' + fmtDate(res.value.from)
-            : 'dal ' + fmtDate(res.value.from) + ' al ' + fmtDate(res.value.to);
-          let msg = 'Revocato ' + rangeStr + '. Ripristinati ' + (data.restored || 0) + ' appuntamento/i.';
-          if (data.skipped && data.skipped.length) {
-            msg += ' ' + data.skipped.length + ' saltati per conflitti (terapista occupato).';
-          }
-          Swal.fire({ icon: 'success', title: 'Revoca completata', text: msg }).then(() => loadAbsences());
+          let msg = 'Revoca completata. Ripristinati ' + (data.restored || 0) + ' appuntamento/i.';
+          if (data.skipped && data.skipped.length) msg += ' ' + data.skipped.length + ' saltati.';
+          await Swal.fire({ icon: 'success', title: 'Fatto', text: msg, timer: 1800, showConfirmButton: false });
         } else {
-          Swal.fire({ icon: 'error', title: 'Errore', text: data.error || 'Operazione fallita' });
+          await Swal.fire({ icon: 'error', title: 'Errore', text: data.error || 'Operazione fallita' });
         }
       } catch(e) {
-        Swal.fire({ icon: 'error', title: 'Errore', text: e.message || 'Errore di rete' });
+        await Swal.fire({ icon: 'error', title: 'Errore', text: e.message || 'Errore di rete' });
       }
+      reopenTherapistModal(savedTherapist);
     });
   }
 
