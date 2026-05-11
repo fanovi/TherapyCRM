@@ -201,15 +201,16 @@ $this->params['breadcrumbs'][] = $this->title;
                 ],
                 'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
                 'rowOptions' => function ($model, $key, $index, $grid) {
-                    // Tonalita' pastello distinte: rosa, peach/arancione, lilla/azzurro, verde menta
+                    // Pastello su assi cromatici DIVERSI per distinzione netta:
+                    // rosa (rosso), giallo (amber), lilla (violet), verde menta.
                     $statusRowColors = [
                         RequestStatus::STATUS_INVIATA => [
                             'class' => 'border-b dark:border-gray-700 row-status-inviata',
-                            'style' => 'background-color: #fde8e8; box-shadow: inset 4px 0 0 0 #dc2626; transition: background-color 0.2s;'
+                            'style' => 'background-color: #fecaca; box-shadow: inset 4px 0 0 0 #dc2626; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_PRESA_IN_CARICO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #ffedd5; box-shadow: inset 4px 0 0 0 #ea580c; transition: background-color 0.2s;'
+                            'style' => 'background-color: #fef3c7; box-shadow: inset 4px 0 0 0 #d97706; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_STAMPATO => [
                             'class' => 'border-b dark:border-gray-700',
@@ -217,7 +218,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ],
                         RequestStatus::STATUS_CONSEGNATO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #dcfce7; box-shadow: inset 4px 0 0 0 #16a34a; transition: background-color 0.2s;'
+                            'style' => 'background-color: #bbf7d0; box-shadow: inset 4px 0 0 0 #16a34a; transition: background-color 0.2s;'
                         ],
                     ];
 
@@ -299,7 +300,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'content' => function ($model) {
                             $statusColors = [
                                 RequestStatus::STATUS_INVIATA => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
                                 RequestStatus::STATUS_STAMPATO => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
                                 RequestStatus::STATUS_CONSEGNATO => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
                             ];
@@ -456,45 +457,43 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <!-- Status Row Colors CSS -->
 <style>
-/* Hover effects for status rows (pastello piu' saturo al hover) */
-tr[style*="background-color: #fde8e8"]:hover {
-    background-color: #fbcfcf !important;
+tr[style*="background-color: #fecaca"]:hover {
+    background-color: #fca5a5 !important;
 }
-tr[style*="background-color: #ffedd5"]:hover {
-    background-color: #fed7aa !important;
+tr[style*="background-color: #fef3c7"]:hover {
+    background-color: #fde68a !important;
 }
 tr[style*="background-color: #ede9fe"]:hover {
     background-color: #ddd6fe !important;
 }
-tr[style*="background-color: #dcfce7"]:hover {
-    background-color: #bbf7d0 !important;
+tr[style*="background-color: #bbf7d0"]:hover {
+    background-color: #86efac !important;
 }
 
-/* Dark mode */
 @media (prefers-color-scheme: dark) {
-    tr[style*="background-color: #fde8e8"] {
-        background-color: rgba(127, 29, 29, 0.12) !important;
+    tr[style*="background-color: #fecaca"] {
+        background-color: rgba(127, 29, 29, 0.18) !important;
     }
-    tr[style*="background-color: #ffedd5"] {
-        background-color: rgba(154, 52, 18, 0.12) !important;
+    tr[style*="background-color: #fef3c7"] {
+        background-color: rgba(146, 64, 14, 0.18) !important;
     }
     tr[style*="background-color: #ede9fe"] {
-        background-color: rgba(76, 29, 149, 0.12) !important;
+        background-color: rgba(76, 29, 149, 0.18) !important;
     }
-    tr[style*="background-color: #dcfce7"] {
-        background-color: rgba(20, 83, 45, 0.12) !important;
+    tr[style*="background-color: #bbf7d0"] {
+        background-color: rgba(20, 83, 45, 0.18) !important;
     }
-    tr[style*="background-color: #fde8e8"]:hover {
-        background-color: rgba(127, 29, 29, 0.22) !important;
+    tr[style*="background-color: #fecaca"]:hover {
+        background-color: rgba(127, 29, 29, 0.28) !important;
     }
-    tr[style*="background-color: #ffedd5"]:hover {
-        background-color: rgba(154, 52, 18, 0.22) !important;
+    tr[style*="background-color: #fef3c7"]:hover {
+        background-color: rgba(146, 64, 14, 0.28) !important;
     }
     tr[style*="background-color: #ede9fe"]:hover {
-        background-color: rgba(76, 29, 149, 0.22) !important;
+        background-color: rgba(76, 29, 149, 0.28) !important;
     }
-    tr[style*="background-color: #dcfce7"]:hover {
-        background-color: rgba(20, 83, 45, 0.22) !important;
+    tr[style*="background-color: #bbf7d0"]:hover {
+        background-color: rgba(20, 83, 45, 0.28) !important;
     }
 }
 </style>
