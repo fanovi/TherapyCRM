@@ -15,6 +15,7 @@ use yii\widgets\Pjax;
 /* @var $typeStats array */
 /* @var $currentType string */
 /* @var $currentStatus string */
+/* @var $q string */
 
 $this->title = 'Notifiche';
 $this->params['breadcrumbs'][] = $this->title;
@@ -22,138 +23,158 @@ $this->params['breadcrumbs'][] = $this->title;
 $this->registerJsFile('@web/js/notifications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
 $this->registerJsVar('apiStatsUrl', Url::to(['notification/stats-api']));
 
-$filterChip = function (string $label, array $url, bool $active): string {
-    $base = 'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors';
-    $on = 'bg-brand-500 text-white border-brand-500';
-    $off = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700';
-    return Html::a(Html::encode($label), $url, [
-        'class' => $base . ' ' . ($active ? $on : $off),
-        'data-pjax' => '0',
-    ]);
-};
+$q = isset($q) ? $q : '';
 ?>
 
-<div class="mx-auto max-w-5xl p-4 md:p-6">
-    <!-- Breadcrumb -->
+<div class="mx-auto max-w-7xl p-4 md:p-6">
+    <!-- Header -->
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Notifiche</h2>
-        <nav>
-            <ol class="flex items-center gap-1.5">
-                <li>
-                    <a class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400" href="<?= Url::to(['/site/index']) ?>">
-                        Home
-                        <svg class="stroke-current" width="17" height="16" viewBox="0 0 17 16" fill="none">
-                            <path d="M6.0765 12.667L10.2432 8.50033L6.0765 4.33366" stroke="" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </a>
-                </li>
-                <li class="text-sm text-gray-800 dark:text-white/90">Notifiche</li>
-            </ol>
-        </nav>
-    </div>
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
+            <?= Html::encode($this->title) ?>
+        </h2>
 
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <!-- Totale -->
-        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5V8h-5l5-5 5 5h-5v9z"/>
-                    </svg>
-                </div>
-                <div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Totale</span>
-                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $totalCount ?></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Non lette -->
-        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/15">
-                    <svg class="w-4 h-4 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Non lette</span>
-                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $unreadCount ?></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Inviate -->
-        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/15">
-                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                    </svg>
-                </div>
-                <div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Inviate</span>
-                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $sentCount ?></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Non inviate -->
-        <div class="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Non inviate</span>
-                    <p class="text-lg font-bold text-gray-800 dark:text-white/90"><?= (int) $unsentCount ?></p>
-                </div>
-            </div>
+        <div class="flex items-center gap-3">
+            <button
+                id="refresh-btn"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Aggiorna
+            </button>
         </div>
     </div>
 
-    <!-- Filtri -->
-    <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] mb-6">
-        <!-- Filtri Stato -->
-        <div class="mb-3">
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase">Stato</p>
-            <div class="flex flex-wrap gap-2">
-                <?= $filterChip('Tutti', ['notification/index', 'type' => $currentType !== 'all' ? $currentType : null], $currentStatus === 'all') ?>
-                <?= $filterChip('Non lette (' . $unreadCount . ')', ['notification/index', 'status' => 'unread', 'type' => $currentType !== 'all' ? $currentType : null], $currentStatus === 'unread') ?>
-                <?= $filterChip('Lette', ['notification/index', 'status' => 'read', 'type' => $currentType !== 'all' ? $currentType : null], $currentStatus === 'read') ?>
-            </div>
-        </div>
+    <!-- Filtri/Tab orizzontali -->
+    <div class="mb-6">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Tab stato -->
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Stato:</span>
+                    <div class="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                        <?= Html::a('Tutte', ['notification/index', 'type' => $currentType !== 'all' ? $currentType : null, 'q' => $q ?: null], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' .
+                                ($currentStatus === 'all' ?
+                                    'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' :
+                                    'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
 
-        <!-- Filtri Tipo -->
-        <div>
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase">Tipo</p>
-            <div class="flex flex-wrap gap-2">
-                <?= $filterChip('Tutti', ['notification/index', 'status' => $currentStatus !== 'all' ? $currentStatus : null], $currentType === 'all') ?>
+                        <?= Html::a('Non lette' . ($unreadCount > 0 ? ' (' . $unreadCount . ')' : ''), ['notification/index', 'status' => 'unread', 'type' => $currentType !== 'all' ? $currentType : null, 'q' => $q ?: null], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' .
+                                ($currentStatus === 'unread' ?
+                                    'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm' :
+                                    'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
+
+                        <?= Html::a('Lette', ['notification/index', 'status' => 'read', 'type' => $currentType !== 'all' ? $currentType : null, 'q' => $q ?: null], [
+                            'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' .
+                                ($currentStatus === 'read' ?
+                                    'bg-white dark:bg-gray-700 text-green-600 dark:text-green-400 shadow-sm' :
+                                    'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
+                        ]) ?>
+                    </div>
+                </div>
+
+                <!-- Contatori -->
+                <div class="flex items-center space-x-3 ml-auto">
+                    <div class="flex items-center space-x-1">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Totale:</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                            <?= (int) $totalCount ?>
+                        </span>
+                    </div>
+                    <?php if ($unreadCount > 0): ?>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Non lette:</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+                                <?= (int) $unreadCount ?>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Tab tipo -->
+            <div class="mt-4 flex flex-wrap items-center gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Tipo:</span>
+                <?php
+                $chipBase = 'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors';
+                $chipOn = 'bg-brand-500 text-white border-brand-500';
+                $chipOff = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700';
+                ?>
+                <?= Html::a('Tutti', ['notification/index', 'status' => $currentStatus !== 'all' ? $currentStatus : null, 'q' => $q ?: null], [
+                    'class' => $chipBase . ' ' . ($currentType === 'all' ? $chipOn : $chipOff),
+                    'data-pjax' => '0',
+                ]) ?>
                 <?php foreach (Notification::getTypeOptions() as $typeKey => $typeLabel): ?>
-                    <?= $filterChip(
+                    <?= Html::a(
                         $typeLabel . ' (' . ($typeStats[$typeKey]['count'] ?? 0) . ')',
-                        ['notification/index', 'type' => $typeKey, 'status' => $currentStatus !== 'all' ? $currentStatus : null],
-                        $currentType === $typeKey
+                        ['notification/index', 'type' => $typeKey, 'status' => $currentStatus !== 'all' ? $currentStatus : null, 'q' => $q ?: null],
+                        [
+                            'class' => $chipBase . ' ' . ($currentType === $typeKey ? $chipOn : $chipOff),
+                            'data-pjax' => '0',
+                        ]
                     ) ?>
                 <?php endforeach; ?>
             </div>
         </div>
     </div>
 
+    <!-- Search testo -->
+    <div class="mb-4">
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 flex items-center pointer-events-none" style="padding-left: 12px;">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6z"></path>
+                </svg>
+            </div>
+            <input
+                type="search"
+                id="notif-search"
+                value="<?= Html::encode($q) ?>"
+                autocomplete="off"
+                placeholder="Cerca nel testo (min 3 caratteri)..."
+                style="padding-left: 40px; padding-right: 40px;"
+                class="w-full py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            >
+            <button
+                type="button"
+                id="notif-search-clear"
+                style="padding-right: 12px;"
+                class="absolute inset-y-0 right-0 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 <?= $q === '' ? 'hidden' : '' ?>"
+                title="Cancella ricerca">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div id="notif-search-spinner" style="right: 32px; padding-right: 8px;" class="absolute inset-y-0 hidden items-center text-gray-400">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
     <!-- Lista notifiche -->
-    <?php Pjax::begin(['id' => 'notifications-pjax', 'enablePushState' => false]); ?>
+    <?php Pjax::begin(['id' => 'notifications-pjax', 'enablePushState' => true, 'timeout' => 8000]); ?>
+
+    <?php if ($q !== ''): ?>
+        <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            Filtro attivo: "<span class="font-medium text-gray-700 dark:text-gray-300"><?= Html::encode($q) ?></span>"
+            · <?= $dataProvider->getTotalCount() ?> risultati
+        </div>
+    <?php endif; ?>
 
     <?= ListView::widget([
         'dataProvider' => $dataProvider,
         'itemOptions' => ['tag' => false],
         'itemView' => '_notification_item',
-        'layout' => '<div class="space-y-3">{items}</div><div class="mt-6">{pager}</div>',
+        'layout' => '<div class="space-y-4">{items}</div><div class="mt-6">{pager}</div>',
         'emptyText' => $this->render('_empty_state', [
             'currentType' => $currentType,
-            'currentStatus' => $currentStatus
+            'currentStatus' => $currentStatus,
         ]),
         'pager' => [
             'class' => \yii\widgets\LinkPager::class,
@@ -175,5 +196,84 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.NotificationSystem !== 'undefined') {
         window.NotificationSystem.init();
     }
+
+    document.getElementById('refresh-btn')?.addEventListener('click', function() {
+        window.location.reload();
+    });
+
+    // Search testo: debounce 350ms, min 3 char, Pjax submit
+    (function() {
+        const input = document.getElementById('notif-search');
+        const clearBtn = document.getElementById('notif-search-clear');
+        const spinner = document.getElementById('notif-search-spinner');
+        const pjaxId = 'notifications-pjax';
+        if (!input) return;
+
+        let debounceTimer = null;
+        let lastSent = input.value.trim();
+
+        function currentParams() {
+            return new URLSearchParams(window.location.search);
+        }
+
+        function buildUrl(q) {
+            const params = currentParams();
+            if (q) params.set('q', q); else params.delete('q');
+            const qs = params.toString();
+            return window.location.pathname + (qs ? '?' + qs : '');
+        }
+
+        function doSearch(q) {
+            if (q === lastSent) return;
+            lastSent = q;
+            spinner?.classList.remove('hidden');
+            spinner?.classList.add('flex');
+            if (typeof $.pjax !== 'undefined') {
+                $.pjax({
+                    url: buildUrl(q),
+                    container: '#' + pjaxId,
+                    push: true,
+                    timeout: 8000,
+                    scrollTo: false,
+                });
+            } else {
+                window.location.href = buildUrl(q);
+            }
+        }
+
+        function onInput() {
+            const v = input.value.trim();
+            clearBtn?.classList.toggle('hidden', v === '');
+            clearTimeout(debounceTimer);
+            if (v === '' || v.length >= 3) {
+                debounceTimer = setTimeout(() => doSearch(v), 350);
+            }
+        }
+
+        input.addEventListener('input', onInput);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                input.value = '';
+                onInput();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                const v = input.value.trim();
+                if (v === '' || v.length >= 3) doSearch(v);
+            }
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            input.value = '';
+            clearBtn.classList.add('hidden');
+            doSearch('');
+            input.focus();
+        });
+
+        $(document).on('pjax:end', '#' + pjaxId, function() {
+            spinner?.classList.add('hidden');
+            spinner?.classList.remove('flex');
+        });
+    })();
 });
 </script>
