@@ -12,6 +12,7 @@ use common\models\Notification;
 /* @var $unreadCount int */
 /* @var $internalCount int */
 /* @var $currentType string */
+/* @var $q string */
 
 $this->title = 'Comunicazioni';
 $this->params['breadcrumbs'][] = $this->title;
@@ -91,21 +92,21 @@ $this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mr-4">Filtra per:</span>
                     
                     <div class="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                        <?= Html::a('Tutte', ['communication/index', 'type' => 'all'], [
+                        <?= Html::a('Tutte', ['communication/index', 'type' => 'all', 'q' => $q ?: null], [
                             'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
                                        ($currentType === 'all' ? 
                                         'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 
                                         'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
                         ]) ?>
                         
-                        <?= Html::a('Non lette', ['communication/index', 'type' => 'unread'], [
+                        <?= Html::a('Non lette', ['communication/index', 'type' => 'unread', 'q' => $q ?: null], [
                             'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
                                        ($currentType === 'unread' ? 
                                         'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm' : 
                                         'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50')
                         ]) ?>
                         
-                        <?= Html::a('Sistema', ['communication/index', 'type' => 'internal_communication'], [
+                        <?= Html::a('Sistema', ['communication/index', 'type' => 'internal_communication', 'q' => $q ?: null], [
                             'class' => 'relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' . 
                                        ($currentType === 'internal_communication' ? 
                                         'bg-white dark:bg-gray-700 text-green-600 dark:text-green-400 shadow-sm' : 
@@ -143,8 +144,49 @@ $this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
         </div>
     </div>
 
+    <!-- Search testo -->
+    <div class="mb-4">
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6z"></path>
+                </svg>
+            </div>
+            <input
+                type="search"
+                id="comm-search"
+                value="<?= Html::encode($q) ?>"
+                autocomplete="off"
+                placeholder="Cerca nel testo (min 3 caratteri)..."
+                class="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            >
+            <button
+                type="button"
+                id="comm-search-clear"
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 <?= $q === '' ? 'hidden' : '' ?>"
+                title="Cancella ricerca">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div id="comm-search-spinner" class="absolute inset-y-0 right-8 pr-2 hidden items-center text-gray-400">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
     <!-- Lista Comunicazioni -->
-    <?php Pjax::begin(['id' => 'communications-pjax', 'enablePushState' => false]); ?>
+    <?php Pjax::begin(['id' => 'communications-pjax', 'enablePushState' => true, 'timeout' => 8000]); ?>
+
+    <?php if ($q !== ''): ?>
+        <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            Filtro attivo: "<span class="font-medium text-gray-700 dark:text-gray-300"><?= Html::encode($q) ?></span>"
+            · <?= $dataProvider->getTotalCount() ?> risultati
+        </div>
+    <?php endif; ?>
     
     <?= ListView::widget([
         'dataProvider' => $dataProvider,
@@ -168,14 +210,97 @@ $this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
 <!-- Script per gestione AJAX -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Inizializza il sistema di comunicazioni
     if (typeof window.CommunicationSystem !== 'undefined') {
         window.CommunicationSystem.init();
     }
-    
-    // Refresh button
+
     document.getElementById('refresh-btn')?.addEventListener('click', function() {
         window.location.reload();
     });
+
+    // Search testo: debounce 350ms, min 3 char, Pjax submit
+    (function() {
+        const input = document.getElementById('comm-search');
+        const clearBtn = document.getElementById('comm-search-clear');
+        const spinner = document.getElementById('comm-search-spinner');
+        const pjaxId = 'communications-pjax';
+        if (!input) return;
+
+        let debounceTimer = null;
+        let lastSent = input.value.trim();
+
+        function currentType() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('type') || 'all';
+        }
+
+        function buildUrl(q) {
+            const params = new URLSearchParams();
+            const type = currentType();
+            if (type && type !== 'all') params.set('type', type);
+            if (q) params.set('q', q);
+            const qs = params.toString();
+            return window.location.pathname + (qs ? '?' + qs : '');
+        }
+
+        function doSearch(q) {
+            if (q === lastSent) return;
+            lastSent = q;
+            spinner?.classList.remove('hidden');
+            spinner?.classList.add('flex');
+            if (typeof $.pjax !== 'undefined') {
+                $.pjax({
+                    url: buildUrl(q),
+                    container: '#' + pjaxId,
+                    push: true,
+                    timeout: 8000,
+                    scrollTo: false,
+                });
+            } else {
+                window.location.href = buildUrl(q);
+            }
+        }
+
+        function onInput() {
+            const v = input.value.trim();
+            clearBtn?.classList.toggle('hidden', v === '');
+            clearTimeout(debounceTimer);
+            // accetta 0 (reset filtro) o >=3 caratteri
+            if (v === '' || v.length >= 3) {
+                debounceTimer = setTimeout(() => doSearch(v), 350);
+            }
+        }
+
+        input.addEventListener('input', onInput);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                input.value = '';
+                onInput();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                const v = input.value.trim();
+                if (v === '' || v.length >= 3) doSearch(v);
+            }
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            input.value = '';
+            clearBtn.classList.add('hidden');
+            doSearch('');
+            input.focus();
+        });
+
+        // Spinner off al termine Pjax + refocus
+        $(document).on('pjax:end', '#' + pjaxId, function() {
+            spinner?.classList.add('hidden');
+            spinner?.classList.remove('flex');
+            // Restore focus mantenendo posizione caret
+            const fresh = document.getElementById('comm-search');
+            if (fresh && document.activeElement !== fresh) {
+                // niente: pjax preserva DOM esterno, l'input non viene rimpiazzato
+            }
+        });
+    })();
 });
 </script> 

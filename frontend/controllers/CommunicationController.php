@@ -53,11 +53,11 @@ class CommunicationController extends BaseController
     public function actionIndex()
     {
         $userId = Yii::$app->user->id;
-        
+
         // Query base per le comunicazioni dell'utente
         $query = Notification::find()
             ->where(['recipient_user_id' => $userId])
-            ->with(['senderUser']) // Include info mittente
+            ->with(['senderUser'])
             ->orderBy(['created_at' => SORT_DESC]);
 
         // Filtro per tipo (opzionale)
@@ -68,22 +68,31 @@ class CommunicationController extends BaseController
             } elseif ($type === 'unread') {
                 $query->andWhere(['read_at' => null]);
             }
-            // 'all' non aggiunge filtri
         }
 
-        // Configurazione provider dati
+        // Filtro testuale (min 3 caratteri, cerca su title+message)
+        $q = trim((string) Yii::$app->request->get('q', ''));
+        if (mb_strlen($q) >= 3) {
+            // Yii fa escape automatico di %, _, \ e wrappa con %...%
+            $query->andWhere([
+                'or',
+                ['like', 'title', $q],
+                ['like', 'message', $q],
+            ]);
+        } else {
+            $q = '';
+        }
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
                 'pageSize' => 15,
                 'pageParam' => 'page',
             ],
-            'sort' => [
-                'defaultOrder' => ['created_at' => SORT_DESC]
-            ]
+            'sort' => false,
         ]);
 
-        // Statistiche per header
+        // Statistiche per header (non filtrate dal testo, mostrano totali utente)
         $totalCount = Notification::findByUser($userId)->count();
         $unreadCount = Notification::findByUser($userId)->andWhere(['read_at' => null])->count();
         $internalCount = Notification::findByUser($userId)
@@ -96,6 +105,7 @@ class CommunicationController extends BaseController
             'unreadCount' => $unreadCount,
             'internalCount' => $internalCount,
             'currentType' => $type ?: 'all',
+            'q' => $q,
         ]);
     }
 
