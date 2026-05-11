@@ -640,13 +640,8 @@ class AbsenceController extends Controller
             }
         }
 
-        // Vincolo 1 ora prima dell'inizio
-        $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
-        $now = new \DateTime();
-        $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
-        if ($now >= $oneHourBefore) {
-            return ['success' => false, 'error' => 'Non è possibile rimuovere l\'assenza a meno di 1 ora dall\'inizio dell\'appuntamento'];
-        }
+        // Nessun vincolo temporale per gestionale (admin onnipotente).
+        // Avviso "<1h" gestito lato frontend con conferma.
 
         $transaction = Yii::$app->db->beginTransaction();
 
