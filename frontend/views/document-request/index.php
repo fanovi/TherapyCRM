@@ -201,22 +201,23 @@ $this->params['breadcrumbs'][] = $this->title;
                 ],
                 'headerRowOptions' => ['class' => 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'],
                 'rowOptions' => function ($model, $key, $index, $grid) {
+                    // Tonalita' pastello distinte: rosa, peach/arancione, lilla/azzurro, verde menta
                     $statusRowColors = [
                         RequestStatus::STATUS_INVIATA => [
                             'class' => 'border-b dark:border-gray-700 row-status-inviata',
-                            'style' => 'background-color: #fef2f2; box-shadow: inset 4px 0 0 0 #dc2626; transition: background-color 0.2s;'
+                            'style' => 'background-color: #fde8e8; box-shadow: inset 4px 0 0 0 #dc2626; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_PRESA_IN_CARICO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #fefce8; box-shadow: inset 4px 0 0 0 #ca8a04; transition: background-color 0.2s;'
+                            'style' => 'background-color: #ffedd5; box-shadow: inset 4px 0 0 0 #ea580c; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_STAMPATO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #eff6ff; box-shadow: inset 4px 0 0 0 #2563eb; transition: background-color 0.2s;'
+                            'style' => 'background-color: #ede9fe; box-shadow: inset 4px 0 0 0 #7c3aed; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_CONSEGNATO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #f0fdf4; box-shadow: inset 4px 0 0 0 #16a34a; transition: background-color 0.2s;'
+                            'style' => 'background-color: #dcfce7; box-shadow: inset 4px 0 0 0 #16a34a; transition: background-color 0.2s;'
                         ],
                     ];
 
@@ -298,8 +299,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'content' => function ($model) {
                             $statusColors = [
                                 RequestStatus::STATUS_INVIATA => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-                                RequestStatus::STATUS_STAMPATO => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+                                RequestStatus::STATUS_STAMPATO => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
                                 RequestStatus::STATUS_CONSEGNATO => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
                             ];
 
@@ -455,46 +456,45 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <!-- Status Row Colors CSS -->
 <style>
-/* Hover effects for status rows */
-tr[style*="background-color: #fef2f2"]:hover {
-    background-color: #fee2e2 !important;
+/* Hover effects for status rows (pastello piu' saturo al hover) */
+tr[style*="background-color: #fde8e8"]:hover {
+    background-color: #fbcfcf !important;
 }
-tr[style*="background-color: #fefce8"]:hover {
-    background-color: #fef3c7 !important;
+tr[style*="background-color: #ffedd5"]:hover {
+    background-color: #fed7aa !important;
 }
-tr[style*="background-color: #eff6ff"]:hover {
-    background-color: #dbeafe !important;
+tr[style*="background-color: #ede9fe"]:hover {
+    background-color: #ddd6fe !important;
 }
-tr[style*="background-color: #f0fdf4"]:hover {
-    background-color: #dcfce7 !important;
+tr[style*="background-color: #dcfce7"]:hover {
+    background-color: #bbf7d0 !important;
 }
 
-/* Dark mode support */
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
-    tr[style*="background-color: #fef2f2"] {
-        background-color: rgba(127, 29, 29, 0.1) !important;
+    tr[style*="background-color: #fde8e8"] {
+        background-color: rgba(127, 29, 29, 0.12) !important;
     }
-    tr[style*="background-color: #fefce8"] {
-        background-color: rgba(133, 77, 14, 0.1) !important;
+    tr[style*="background-color: #ffedd5"] {
+        background-color: rgba(154, 52, 18, 0.12) !important;
     }
-    tr[style*="background-color: #eff6ff"] {
-        background-color: rgba(30, 58, 138, 0.1) !important;
+    tr[style*="background-color: #ede9fe"] {
+        background-color: rgba(76, 29, 149, 0.12) !important;
     }
-    tr[style*="background-color: #f0fdf4"] {
-        background-color: rgba(20, 83, 45, 0.1) !important;
+    tr[style*="background-color: #dcfce7"] {
+        background-color: rgba(20, 83, 45, 0.12) !important;
     }
-    
-    tr[style*="background-color: #fef2f2"]:hover {
-        background-color: rgba(127, 29, 29, 0.2) !important;
+    tr[style*="background-color: #fde8e8"]:hover {
+        background-color: rgba(127, 29, 29, 0.22) !important;
     }
-    tr[style*="background-color: #fefce8"]:hover {
-        background-color: rgba(133, 77, 14, 0.2) !important;
+    tr[style*="background-color: #ffedd5"]:hover {
+        background-color: rgba(154, 52, 18, 0.22) !important;
     }
-    tr[style*="background-color: #eff6ff"]:hover {
-        background-color: rgba(30, 58, 138, 0.2) !important;
+    tr[style*="background-color: #ede9fe"]:hover {
+        background-color: rgba(76, 29, 149, 0.22) !important;
     }
-    tr[style*="background-color: #f0fdf4"]:hover {
-        background-color: rgba(20, 83, 45, 0.2) !important;
+    tr[style*="background-color: #dcfce7"]:hover {
+        background-color: rgba(20, 83, 45, 0.22) !important;
     }
 }
 </style>
