@@ -72,6 +72,18 @@ class NotificationController extends BaseController
             }
         }
 
+        // Filtro testuale (min 3 caratteri)
+        $q = trim((string) Yii::$app->request->get('q', ''));
+        if (mb_strlen($q) >= 3) {
+            $query->andWhere([
+                'or',
+                ['like', 'title', $q],
+                ['like', 'message', $q],
+            ]);
+        } else {
+            $q = '';
+        }
+
         // Configurazione provider dati
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -110,6 +122,7 @@ class NotificationController extends BaseController
             'typeStats' => $typeStats,
             'currentType' => $type ?: 'all',
             'currentStatus' => $status ?: 'all',
+            'q' => $q,
         ]);
     }
 
