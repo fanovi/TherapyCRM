@@ -210,7 +210,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ],
                         RequestStatus::STATUS_PRESA_IN_CARICO => [
                             'class' => 'border-b dark:border-gray-700',
-                            'style' => 'background-color: #fef3c7; box-shadow: inset 4px 0 0 0 #d97706; transition: background-color 0.2s;'
+                            'style' => 'background-color: #cffafe; box-shadow: inset 4px 0 0 0 #0891b2; transition: background-color 0.2s;'
                         ],
                         RequestStatus::STATUS_STAMPATO => [
                             'class' => 'border-b dark:border-gray-700',
@@ -300,7 +300,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         'content' => function ($model) {
                             $statusColors = [
                                 RequestStatus::STATUS_INVIATA => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+                                RequestStatus::STATUS_PRESA_IN_CARICO => 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
                                 RequestStatus::STATUS_STAMPATO => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
                                 RequestStatus::STATUS_CONSEGNATO => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
                             ];
@@ -460,8 +460,8 @@ $this->params['breadcrumbs'][] = $this->title;
 tr[style*="background-color: #fecaca"]:hover {
     background-color: #fca5a5 !important;
 }
-tr[style*="background-color: #fef3c7"]:hover {
-    background-color: #fde68a !important;
+tr[style*="background-color: #cffafe"]:hover {
+    background-color: #a5f3fc !important;
 }
 tr[style*="background-color: #ede9fe"]:hover {
     background-color: #ddd6fe !important;
@@ -474,8 +474,8 @@ tr[style*="background-color: #bbf7d0"]:hover {
     tr[style*="background-color: #fecaca"] {
         background-color: rgba(127, 29, 29, 0.18) !important;
     }
-    tr[style*="background-color: #fef3c7"] {
-        background-color: rgba(146, 64, 14, 0.18) !important;
+    tr[style*="background-color: #cffafe"] {
+        background-color: rgba(14, 116, 144, 0.18) !important;
     }
     tr[style*="background-color: #ede9fe"] {
         background-color: rgba(76, 29, 149, 0.18) !important;
@@ -486,8 +486,8 @@ tr[style*="background-color: #bbf7d0"]:hover {
     tr[style*="background-color: #fecaca"]:hover {
         background-color: rgba(127, 29, 29, 0.28) !important;
     }
-    tr[style*="background-color: #fef3c7"]:hover {
-        background-color: rgba(146, 64, 14, 0.28) !important;
+    tr[style*="background-color: #cffafe"]:hover {
+        background-color: rgba(14, 116, 144, 0.28) !important;
     }
     tr[style*="background-color: #ede9fe"]:hover {
         background-color: rgba(76, 29, 149, 0.28) !important;
