@@ -147,7 +147,7 @@ $this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
     <!-- Search testo -->
     <div class="mb-4">
         <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div class="absolute inset-y-0 left-0 flex items-center pointer-events-none" style="padding-left: 12px;">
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6z"></path>
                 </svg>
@@ -158,18 +158,20 @@ $this->registerJsVar('apiStatsUrl', Url::to(['communication/stats-api']));
                 value="<?= Html::encode($q) ?>"
                 autocomplete="off"
                 placeholder="Cerca nel testo (min 3 caratteri)..."
-                class="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+                style="padding-left: 40px; padding-right: 40px;"
+                class="w-full py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
             >
             <button
                 type="button"
                 id="comm-search-clear"
-                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 <?= $q === '' ? 'hidden' : '' ?>"
+                style="padding-right: 12px;"
+                class="absolute inset-y-0 right-0 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 <?= $q === '' ? 'hidden' : '' ?>"
                 title="Cancella ricerca">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
-            <div id="comm-search-spinner" class="absolute inset-y-0 right-8 pr-2 hidden items-center text-gray-400">
+            <div id="comm-search-spinner" style="right: 32px; padding-right: 8px;" class="absolute inset-y-0 hidden items-center text-gray-400">
                 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
