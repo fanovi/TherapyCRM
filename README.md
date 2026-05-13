@@ -22,6 +22,8 @@ npx react-native run-android
 
 ## Documentazione
 
+- **[docs/ENVIRONMENTS.md](./docs/ENVIRONMENTS.md)** — URL produzione (gruppovitolo + sanluca) e test (app-cgm) per gestionale, calendar-app e mobile.
+
 Consulta **[DOCS.md](./DOCS.md)** per la documentazione completa che include:
 
 - Architettura del sistema
