@@ -51,7 +51,7 @@ class OneSignalService extends Component
             'requestConfig' => [
                 'headers' => [
                     'Content-Type' => 'application/json',
-                    'Authorization' => 'Basic ' . $this->restApiKey,
+                    'Authorization' => 'Key ' . $this->restApiKey,
                 ],
             ],
         ]);
