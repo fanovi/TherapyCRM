@@ -1,4 +1,9 @@
 <?php
+// Carica params-local (NON committato) per chiavi ambiente-specifiche (es. OneSignal).
+$params = file_exists(__DIR__ . '/params-local.php')
+    ? require __DIR__ . '/params-local.php'
+    : [];
+
 return [
     'language' => 'it-IT',
     'aliases' => [
@@ -23,8 +28,9 @@ return [
         ],
         'oneSignal' => [
             'class' => 'common\components\OneSignalService',
-            'appId' => '8ab64a7b-8b43-41b4-8444-18922a41a7fc',
-            'restApiKey' => 'os_v2_app_rk3eu64lina3jbcedcjcuqnh7qen76st4dregdf2k4admru55qf2j5rx5amnug5rtfqv3lf5hhfceigcz5wixytp3r763suvvauumbq',
+            // Chiavi da common/config/params-local.php (non committato).
+            'appId' => $params['oneSignal']['appId'] ?? '',
+            'restApiKey' => $params['oneSignal']['restApiKey'] ?? '',
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',
