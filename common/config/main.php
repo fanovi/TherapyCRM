@@ -24,7 +24,7 @@ return [
         'oneSignal' => [
             'class' => 'common\components\OneSignalService',
             'appId' => '8ab64a7b-8b43-41b4-8444-18922a41a7fc',
-            'restApiKey' => 'os_v2_app_rk3eu64lina3jbcedcjcuqnh7r25564aooieq35roz36opkxgxpfqxxk6xfoivccemd5hf3nrnqrquhayopprr3tynqx3qesklietoy',
+            'restApiKey' => 'os_v2_app_rk3eu64lina3jbcedcjcuqnh7qen76st4dregdf2k4admru55qf2j5rx5amnug5rtfqv3lf5hhfceigcz5wixytp3r763suvvauumbq',
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',
