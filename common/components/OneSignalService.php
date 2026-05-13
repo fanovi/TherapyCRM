@@ -24,7 +24,7 @@ class OneSignalService extends Component
     /**
      * @var string OneSignal API URL
      */
-    public $apiUrl = 'https://api.onesignal.com';
+    public $apiUrl = 'https://onesignal.com/api/v1';
 
     /**
      * @var Client HTTP client
