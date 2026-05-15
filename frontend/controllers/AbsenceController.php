@@ -657,17 +657,27 @@ class AbsenceController extends Controller
             $oldStatus = $appointment->status;
 
             // Pre-check: verifica che lo slot non sia stato occupato da un altro
-            // appuntamento attivo dopo la cancellazione (stesso terapista, stessa
-            // fascia oraria con tolleranza ±5 min). Restituisce un messaggio chiaro
-            // invece di lasciare scattare la validazione del modello.
-            $start = strtotime($appointment->appointment_datetime);
-            $end = $start + ($appointment->duration_minutes * 60);
-            $hasConflict = Appointment::find()
+            // appuntamento attivo dopo la cancellazione (overlap reale: due
+            // intervalli si sovrappongono se start < otherEnd AND end > otherStart).
+            // Restituisce un messaggio chiaro invece di lasciare scattare la
+            // validazione del modello. Allineato a Appointment::validateTherapistAvailability.
+            $startStr = $appointment->appointment_datetime;
+            $endStr = date('Y-m-d H:i:s',
+                strtotime($appointment->appointment_datetime) + ($appointment->duration_minutes * 60));
+            $existingEnd = new \yii\db\Expression('DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)');
+            $conflictQuery = Appointment::find()
                 ->where(['therapist_id' => $appointment->therapist_id])
                 ->andWhere(['!=', 'id', $appointment->id])
-                ->andWhere(['between', 'appointment_datetime',
-                    date('Y-m-d H:i:s', $start - 300),
-                    date('Y-m-d H:i:s', $end + 300),
+                ->andWhere([
+                    'or',
+                    ['and',
+                        ['<=', 'appointment_datetime', $startStr],
+                        ['>',  $existingEnd, $startStr],
+                    ],
+                    ['and',
+                        ['<',  'appointment_datetime', $endStr],
+                        ['>=', 'appointment_datetime', $startStr],
+                    ],
                 ])
                 ->andWhere(['not in', 'status', [
                     Appointment::STATUS_CANCELLED,
@@ -675,8 +685,11 @@ class AbsenceController extends Controller
                     Appointment::STATUS_ABSENT_JUSTIFIED,
                     Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
                     Appointment::STATUS_THERAPIST_ABSENT,
-                ]])
-                ->exists();
+                ]]);
+            if (!empty($appointment->group_session_id)) {
+                $conflictQuery->andWhere(['!=', 'group_session_id', $appointment->group_session_id]);
+            }
+            $hasConflict = $conflictQuery->exists();
             if ($hasConflict) {
                 $transaction->rollBack();
                 return [
