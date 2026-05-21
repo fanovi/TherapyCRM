@@ -60,6 +60,7 @@ export interface Patient {
     weeklyHours: number;
     isGroup: boolean;
     notes?: string;
+    settingId?: number | null;
   }[];
 
   canCreatePrivateAppointments?: boolean; // Sempre true secondo il controller

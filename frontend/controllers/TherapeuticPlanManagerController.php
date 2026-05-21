@@ -1712,6 +1712,7 @@ class TherapeuticPlanManagerController extends Controller
                             'weeklyHours' => $planTherapy->weekly_hours,
                             'isGroup' => $planTherapy->is_group,
                             'notes' => $planTherapy->notes,
+                            'settingId' => $planTherapy->setting_id,
                         ];
                     }
 
@@ -1840,6 +1841,7 @@ class TherapeuticPlanManagerController extends Controller
                     'treatmentTypeName' => $planTherapy->treatmentType->name,
                     'therapeuticPlanId' => $therapeuticPlan->id,
                     'weeklyHours' => $planTherapy->weekly_hours,
+                    'settingId' => $planTherapy->setting_id,
                 ]
             ];
         } catch (Exception $e) {

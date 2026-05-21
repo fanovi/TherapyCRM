@@ -20,7 +20,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager";
+  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
   /**
    * Restituisce l'origin dell'app (senza /therapeutic-plan-manager).
@@ -632,6 +632,7 @@ class TherapeuticPlanManagerAPI {
     treatmentTypeName: string;
     therapeuticPlanId: number;
     weeklyHours: number;
+    settingId?: number | null;
   }> {
     const response = await fetch(
       `${this.baseURL}/get-plan-therapy-for-therapist`,

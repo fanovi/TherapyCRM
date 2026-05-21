@@ -80,8 +80,17 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       setSettings(result);
 
-      // Se c'è solo un setting, selezionalo automaticamente
-      if (result.length === 1) {
+      // Determina il setting di default dalla planTherapy del paziente
+      // (quello impostato sul trattamento del piano terapeutico).
+      const preferredSettingId = await resolvePreferredSettingId();
+
+      if (
+        preferredSettingId &&
+        result.some((s) => s.id === preferredSettingId)
+      ) {
+        setFormData((prev) => ({ ...prev, id_setting: preferredSettingId }));
+      } else if (result.length === 1) {
+        // Fallback: se c'è un solo setting disponibile, selezionalo
         setFormData((prev) => ({ ...prev, id_setting: result[0].id }));
       }
     } catch (err) {
@@ -95,6 +104,59 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       setSettingsLoading(false);
     }
   };
+
+  /**
+   * Risolve il setting di default dalla planTherapy del paziente per il
+   * terapista/trattamento corrente.
+   * - ABA + parent_training/supervisione: legge da availableTherapies
+   *   in base al treatment_type_id atteso (24 o 25)
+   * - Altrimenti: chiede al backend la planTherapy compatibile con il terapista
+   */
+  const resolvePreferredSettingId = async (): Promise<
+    number | null | undefined
+  > => {
+    if (!selectedTherapist || !patient) return undefined;
+
+    if (isABARegime && appointmentType !== "terapia") {
+      const treatmentTypeId = appointmentType === "parent_training" ? 24 : 25;
+      const matching = patient.availableTherapies?.find(
+        (t) => t.treatmentTypeId === treatmentTypeId
+      );
+      return matching?.settingId ?? undefined;
+    }
+
+    try {
+      const data = await therapyAPI.getPlanTherapyForTherapist(
+        patient.id,
+        selectedTherapist.id
+      );
+      return data.settingId ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Quando in regime ABA l'utente cambia il tipo di appuntamento
+  // (terapia/parent_training/supervisione), ri-applica il setting di default
+  // della planTherapy corrispondente.
+  useEffect(() => {
+    if (!isOpen || !isABARegime || settings.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const preferredSettingId = await resolvePreferredSettingId();
+      if (cancelled) return;
+      if (
+        preferredSettingId &&
+        settings.some((s) => s.id === preferredSettingId)
+      ) {
+        setFormData((prev) => ({ ...prev, id_setting: preferredSettingId }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentType]);
 
   const handleSubmit = async () => {
     if (!selectedTherapist || !patient) {
