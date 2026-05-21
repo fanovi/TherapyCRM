@@ -1398,17 +1398,20 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            // Get treatment type code for SUP/PT filtering
             $treatmentType = TreatmentType::findOne($treatmentTypeId);
+
+            // Sub-query: esiste un mapping specialization_treatments che lega
+            // la specializzazione del terapista al treatment_type richiesto?
+            $hasSpecMatch = (new \yii\db\Query())
+                ->from('{{%specialization_treatments}} st')
+                ->where('st.specialization_id = t.specialization_id')
+                ->andWhere(['st.treatment_type_id' => $treatmentTypeId]);
 
             $query = Therapist::find()
                 ->alias('t')
-                ->innerJoin('{{%specializations}} s', 's.id = t.specialization_id')
-                ->innerJoin('{{%specialization_treatments}} st', 'st.specialization_id = s.id')
                 ->innerJoin('{{%users}} u', 'u.id = t.user_id')
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
                 ->where(['t.is_active' => true])
-                ->andWhere(['st.treatment_type_id' => $treatmentTypeId])
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
             // Filter by capability flags per tipo trattamento.

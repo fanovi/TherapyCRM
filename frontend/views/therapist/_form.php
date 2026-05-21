@@ -230,7 +230,7 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
                                    value="1"
                                    <?= $therapist->is_aba ? 'checked' : '' ?>
                                    class="rounded border-gray-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50">
-                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">ABA</span>
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">ABA <span class="text-xs text-gray-500 dark:text-gray-400">(specializzazione RBT)</span></span>
                         </label>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Spunta se il terapista è abilitato a interventi ABA
