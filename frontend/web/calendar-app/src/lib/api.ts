@@ -626,6 +626,7 @@ class TherapeuticPlanManagerAPI {
     patientId: number,
     therapistId: number,
     appointmentId?: number,
+    treatmentTypeId?: number,
   ): Promise<{
     planTherapyId: number;
     treatmentTypeId: number;
@@ -646,6 +647,7 @@ class TherapeuticPlanManagerAPI {
           patientId,
           therapistId,
           ...(appointmentId ? { appointmentId } : {}),
+          ...(treatmentTypeId ? { treatmentTypeId } : {}),
         }),
       },
     );

@@ -1672,6 +1672,7 @@ const Index = () => {
           existingAppointmentTypes={existingSlotAppointments.map(
             (apt) => apt.appointmentType || "terapia"
           )}
+          selectedTreatmentTypeId={selectedSpecialization?.treatment_type_id}
         />
 
         <PrivateAppointmentModal

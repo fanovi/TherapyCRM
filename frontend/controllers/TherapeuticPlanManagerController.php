@@ -1762,6 +1762,10 @@ class TherapeuticPlanManagerController extends Controller
             // specializzazione del terapista, es. "terapia occupazionale" e
             // "terapia occupazionale PG").
             $appointmentId = $data['appointmentId'] ?? null;
+            // treatmentTypeId opzionale: disambigua direttamente la planTherapy
+            // quando il chiamante conosce già il tipo di trattamento (es. modale
+            // di creazione con specializzazione selezionata).
+            $explicitTreatmentTypeId = $data['treatmentTypeId'] ?? null;
 
             if (!$patientId || !$therapistId) {
                 return $this->errorResponse('Patient ID e Therapist ID sono obbligatori');
@@ -1779,11 +1783,14 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Nessun piano terapeutico trovato per questo paziente');
             }
 
-            // Se è specificato un appointmentId (flusso add-to-group), prova
-            // a recuperare il treatment_type dall'appuntamento del gruppo per
-            // disambiguare la planTherapy corretta del paziente.
+            // Determina il treatment_type_id preferenziale per disambiguare la
+            // planTherapy del paziente.
+            // - treatmentTypeId esplicito ha precedenza
+            // - altrimenti, lo ricava dall'appuntamento di gruppo se passato
             $preferredTreatmentTypeId = null;
-            if ($appointmentId) {
+            if ($explicitTreatmentTypeId) {
+                $preferredTreatmentTypeId = (int) $explicitTreatmentTypeId;
+            } elseif ($appointmentId) {
                 $groupAppointment = Appointment::find()
                     ->where(['id' => (int) $appointmentId])
                     ->with(['planTherapy'])

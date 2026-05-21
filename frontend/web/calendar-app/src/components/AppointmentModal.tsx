@@ -30,6 +30,11 @@ interface AppointmentModalProps {
   patient: Patient | null;
   isABARegime?: boolean;
   existingAppointmentTypes?: string[];
+  // treatment_type_id della terapia selezionata dal page (es. dal
+  // SpecializationTreatmentSelector). Necessario per disambiguare la
+  // planTherapy quando il paziente ne ha più con la stessa specializzazione
+  // (es. "terapia occupazionale" + "terapia occupazionale PG").
+  selectedTreatmentTypeId?: number;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -41,6 +46,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   patient,
   isABARegime = false,
   existingAppointmentTypes = [],
+  selectedTreatmentTypeId,
 }) => {
   const [formData, setFormData] = useState<AppointmentData>({
     therapyType: "",
@@ -117,18 +123,31 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   > => {
     if (!selectedTherapist || !patient) return undefined;
 
+    // Determina il treatment_type_id da usare per la lookup della planTherapy
+    let lookupTreatmentTypeId: number | undefined;
     if (isABARegime && appointmentType !== "terapia") {
-      const treatmentTypeId = appointmentType === "parent_training" ? 24 : 25;
-      const matching = patient.availableTherapies?.find(
-        (t) => t.treatmentTypeId === treatmentTypeId
-      );
-      return matching?.settingId ?? undefined;
+      lookupTreatmentTypeId = appointmentType === "parent_training" ? 24 : 25;
+    } else {
+      lookupTreatmentTypeId = selectedTreatmentTypeId;
     }
 
+    // Se conosciamo il treatment_type_id, cerca direttamente nella lista
+    // availableTherapies del paziente (già caricata, no extra fetch).
+    if (lookupTreatmentTypeId !== undefined) {
+      const matching = patient.availableTherapies?.find(
+        (t) => t.treatmentTypeId === lookupTreatmentTypeId
+      );
+      if (matching) return matching.settingId ?? undefined;
+    }
+
+    // Fallback: chiedi al backend (potrebbe non disambiguare se il paziente
+    // ha più planTherapies compatibili con la specializzazione del terapista).
     try {
       const data = await therapyAPI.getPlanTherapyForTherapist(
         patient.id,
-        selectedTherapist.id
+        selectedTherapist.id,
+        undefined,
+        lookupTreatmentTypeId
       );
       return data.settingId ?? undefined;
     } catch {
@@ -210,10 +229,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
           );
         }
       } else {
-        // Comportamento normale: usa il terapista selezionato
+        // Comportamento normale: usa il terapista selezionato.
+        // Passa selectedTreatmentTypeId per disambiguare la planTherapy
+        // quando il paziente ne ha più con la stessa specializzazione.
         planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
           patient.id,
-          selectedTherapist.id
+          selectedTherapist.id,
+          undefined,
+          selectedTreatmentTypeId
         );
       }
 
