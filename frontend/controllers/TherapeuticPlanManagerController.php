@@ -1751,6 +1751,13 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $patientId = $data['patientId'] ?? null;
             $therapistId = $data['therapistId'] ?? null;
+            // appointmentId opzionale: se valorizzato, identifica un appuntamento
+            // di gruppo esistente. La planTherapy del paziente verrà disambiguata
+            // usando lo stesso treatment_type del gruppo (evita di scegliere la
+            // planTherapy sbagliata quando il paziente ne ha più con la stessa
+            // specializzazione del terapista, es. "terapia occupazionale" e
+            // "terapia occupazionale PG").
+            $appointmentId = $data['appointmentId'] ?? null;
 
             if (!$patientId || !$therapistId) {
                 return $this->errorResponse('Patient ID e Therapist ID sono obbligatori');
@@ -1768,33 +1775,58 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Nessun piano terapeutico trovato per questo paziente');
             }
 
-            // Trova il terapista e la sua specializzazione
-            $therapist = Therapist::find()
-                ->with(['specialization.treatmentTypes'])
-                ->where(['id' => $therapistId])
-                ->one();
-
-            if (!$therapist) {
-                return $this->errorResponse('Terapista non trovato');
-            }
-
-            // Ottieni i tipi di trattamento che il terapista può gestire
-            $therapistTreatmentTypes = [];
-            if ($therapist->specialization && $therapist->specialization->treatmentTypes) {
-                foreach ($therapist->specialization->treatmentTypes as $treatmentType) {
-                    $therapistTreatmentTypes[] = $treatmentType->id;
+            // Se è specificato un appointmentId (flusso add-to-group), prova
+            // a recuperare il treatment_type dall'appuntamento del gruppo per
+            // disambiguare la planTherapy corretta del paziente.
+            $preferredTreatmentTypeId = null;
+            if ($appointmentId) {
+                $groupAppointment = Appointment::find()
+                    ->where(['id' => (int) $appointmentId])
+                    ->with(['planTherapy'])
+                    ->one();
+                if ($groupAppointment && $groupAppointment->planTherapy) {
+                    $preferredTreatmentTypeId = $groupAppointment->planTherapy->treatment_type_id;
                 }
             }
 
-            // Trova il PlanTherapy che corrisponde a uno dei tipi di trattamento del terapista
-            $planTherapy = PlanTherapy::find()
-                ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-                ->andWhere(['treatment_type_id' => $therapistTreatmentTypes])
-                ->with(['treatmentType'])
-                ->one();
+            if ($preferredTreatmentTypeId) {
+                $planTherapy = PlanTherapy::find()
+                    ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+                    ->andWhere(['treatment_type_id' => $preferredTreatmentTypeId])
+                    ->with(['treatmentType'])
+                    ->one();
 
-            if (!$planTherapy) {
-                return $this->errorResponse('Nessuna terapia compatibile trovata per questo terapista');
+                if (!$planTherapy) {
+                    return $this->errorResponse('Il paziente non ha una terapia di questo tipo nel piano');
+                }
+            } else {
+                // Fallback: scegli la prima planTherapy compatibile con la
+                // specializzazione del terapista.
+                $therapist = Therapist::find()
+                    ->with(['specialization.treatmentTypes'])
+                    ->where(['id' => $therapistId])
+                    ->one();
+
+                if (!$therapist) {
+                    return $this->errorResponse('Terapista non trovato');
+                }
+
+                $therapistTreatmentTypes = [];
+                if ($therapist->specialization && $therapist->specialization->treatmentTypes) {
+                    foreach ($therapist->specialization->treatmentTypes as $treatmentType) {
+                        $therapistTreatmentTypes[] = $treatmentType->id;
+                    }
+                }
+
+                $planTherapy = PlanTherapy::find()
+                    ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+                    ->andWhere(['treatment_type_id' => $therapistTreatmentTypes])
+                    ->with(['treatmentType'])
+                    ->one();
+
+                if (!$planTherapy) {
+                    return $this->errorResponse('Nessuna terapia compatibile trovata per questo terapista');
+                }
             }
 
             return [

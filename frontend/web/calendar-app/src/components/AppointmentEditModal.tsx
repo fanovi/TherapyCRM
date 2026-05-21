@@ -277,10 +277,14 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     try {
       setLoading(true);
 
-      // Recupera il plan therapy per il paziente corrente
+      // Recupera il plan therapy per il paziente corrente. Passa appointment.id
+      // per disambiguare la planTherapy quando il paziente ne ha più con la
+      // stessa specializzazione del terapista (es. "terapia occupazionale" e
+      // "terapia occupazionale PG").
       const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
         patient.id,
-        appointment.therapist.id
+        appointment.therapist.id,
+        appointment.id
       );
 
       // Per ABA: dispatch su endpoint ABA (mantiene appointment_type del gruppo)
@@ -353,7 +357,8 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       try {
         const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
           c.id,
-          appointment.therapist!.id
+          appointment.therapist!.id,
+          appointment.id
         );
 
         if (isABARegime) {
