@@ -3492,6 +3492,25 @@ class TherapeuticPlanManagerController extends Controller
         $weekInterval = isset($data['weekInterval']) ? (int)$data['weekInterval'] : 1; // 1 = settimanale, 2 = ogni 2 settimane
         $weekCounter = 0; // Contatore per tracciare le settimane
 
+        // Per piani ABA usiamo checkABAConflicts (come actionCreateAbaAppointment),
+        // così PT/Supervisione possono coesistere con la terapia RBT nello stesso slot.
+        $isABA = $planTherapy->therapeuticPlan
+            ? $this->isABARegime($planTherapy->therapeuticPlan)
+            : false;
+        $abaAppointmentType = null;
+        if ($isABA) {
+            switch ((int) $planTherapy->treatment_type_id) {
+                case 25:
+                    $abaAppointmentType = Appointment::TYPE_SUPERVISIONE;
+                    break;
+                case 24:
+                    $abaAppointmentType = Appointment::TYPE_PARENT_TRAINING;
+                    break;
+                default:
+                    $abaAppointmentType = Appointment::TYPE_TERAPIA;
+            }
+        }
+
         Yii::info("Generazione appuntamenti - Pattern ID: {$pattern->id}, Da: {$pattern->valid_from}, A: {$pattern->valid_to}, Giorno: {$pattern->day_of_week}, Ora: {$pattern->start_time}, Intervallo: ogni {$weekInterval} settimana/e", __METHOD__);
 
         while ($currentDate <= $endDate) {
@@ -3537,29 +3556,51 @@ class TherapeuticPlanManagerController extends Controller
                     continue;
                 }
 
-                // Verifica conflitti slot temporale paziente
+                // Verifica conflitti slot temporale paziente / tipologia trattamento.
+                // Per piani ABA si usa checkABAConflicts (stessa logica del singolo
+                // ABA): permette la coesistenza di terapia/PT/supervisione nello
+                // stesso slot, bloccando solo lo stesso appointment_type +
+                // treatment_type nello stesso giorno.
                 $patientId = $planTherapy->therapeuticPlan->patient_id;
-                $patientSlotConflict = $this->checkPatientTimeSlotConflict(
-                    $patientId,
-                    $appointmentDateTime,
-                    $pattern->duration_minutes
-                );
+                if ($isABA) {
+                    $abaConflict = $this->checkABAConflicts(
+                        $patientId,
+                        $pattern->therapist_id,
+                        $appointmentDateTime,
+                        $abaAppointmentType,
+                        $planTherapy->treatment_type_id,
+                        null,
+                        $data['groupSessionId'] ?? null
+                    );
 
-                if ($patientSlotConflict) {
-                    Yii::info("Conflitto slot temporale paziente rilevato per {$appointmentDateTime}", __METHOD__);
-                    $result['conflicts'][] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
-                    $currentDate->modify('+1 day');
-                    continue;
-                }
+                    if ($abaConflict) {
+                        Yii::info("Conflitto ABA rilevato per {$appointmentDateTime}", __METHOD__);
+                        $result['conflicts'][] = $this->formatTreatmentTypeConflictInfo($abaConflict, $currentDate->format('Y-m-d'), $startTime);
+                        $currentDate->modify('+1 day');
+                        continue;
+                    }
+                } else {
+                    $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                        $patientId,
+                        $appointmentDateTime,
+                        $pattern->duration_minutes
+                    );
 
-                // Verifica conflitti tipologia trattamento
-                $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy($pattern->plan_therapy_id, $appointmentDateTime);
+                    if ($patientSlotConflict) {
+                        Yii::info("Conflitto slot temporale paziente rilevato per {$appointmentDateTime}", __METHOD__);
+                        $result['conflicts'][] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
+                        $currentDate->modify('+1 day');
+                        continue;
+                    }
 
-                if ($treatmentConflict) {
-                    Yii::info("Conflitto tipologia trattamento rilevato per {$appointmentDateTime}", __METHOD__);
-                    $result['conflicts'][] = $this->formatTreatmentTypeConflictInfo($treatmentConflict, $currentDate->format('Y-m-d'), $startTime);
-                    $currentDate->modify('+1 day');
-                    continue;
+                    $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy($pattern->plan_therapy_id, $appointmentDateTime);
+
+                    if ($treatmentConflict) {
+                        Yii::info("Conflitto tipologia trattamento rilevato per {$appointmentDateTime}", __METHOD__);
+                        $result['conflicts'][] = $this->formatTreatmentTypeConflictInfo($treatmentConflict, $currentDate->format('Y-m-d'), $startTime);
+                        $currentDate->modify('+1 day');
+                        continue;
+                    }
                 }
 
                 // Verifica limite ore per tipologia trattamento
@@ -3593,7 +3634,7 @@ class TherapeuticPlanManagerController extends Controller
                     ? Appointment::generateGroupSessionId()
                     : null;
                 try {
-                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $occurrenceGroupSessionId);
+                    $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $occurrenceGroupSessionId, $abaAppointmentType);
                     $result['appointmentsCreated']++;
                     Yii::info("Appuntamento creato con successo: ID {$appointment->id}, DateTime: {$appointmentDateTime}", __METHOD__);
                 } catch (Exception $e) {
@@ -3618,7 +3659,7 @@ class TherapeuticPlanManagerController extends Controller
      * @return Appointment
      * @throws Exception
      */
-    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $groupSessionId = null)
+    private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $groupSessionId = null, $appointmentType = null)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
         $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
@@ -3637,6 +3678,9 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = $groupSessionId;
+        if ($appointmentType !== null) {
+            $appointment->appointment_type = $appointmentType;
+        }
 
         if ($pattern->id_setting == null && $appointment->id_setting == null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
