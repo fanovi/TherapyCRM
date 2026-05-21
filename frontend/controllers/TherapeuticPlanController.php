@@ -112,7 +112,15 @@ class TherapeuticPlanController extends BaseController
     public function actionIndex()
     {
         $searchModel = new TherapeuticPlanSearch();
-        $dataProvider = $searchModel->search($this->request->queryParams);
+
+        // Default: mostra solo piani attivi quando nessun filtro e' stato
+        // applicato dall'utente (form filtro non ancora interagito).
+        $params = $this->request->queryParams;
+        if (!isset($params['TherapeuticPlanSearch'])) {
+            $params['TherapeuticPlanSearch'] = ['status' => 'active'];
+        }
+
+        $dataProvider = $searchModel->search($params);
 
         // Get lists for filter dropdowns
         $regimes = ArrayHelper::map(Regime::find()->orderBy(['nome' => SORT_ASC])->all(), 'id', 'nome');
