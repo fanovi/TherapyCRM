@@ -1179,11 +1179,14 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
-            // Filtro ABA: se il paziente ha un piano ABA attivo, mostra solo
-            // i terapisti abilitati (is_aba=1). Richiede patientId esplicito.
-            $patientId = (int) Yii::$app->request->get('patientId', 0);
-            if ($this->patientHasActiveABAPlan($patientId)) {
-                $query->andWhere(['therapists.is_aba' => 1]);
+            // Filtro is_aba: applicato solo se la chiamata specifica un
+            // treatmentTypeId con codice RBT (la terapia ABA "vera e propria").
+            $treatmentTypeId = (int) Yii::$app->request->get('treatmentTypeId', 0);
+            if ($treatmentTypeId > 0) {
+                $treatmentType = TreatmentType::findOne($treatmentTypeId);
+                if ($treatmentType && $treatmentType->code === 'RBT') {
+                    $query->andWhere(['therapists.is_aba' => 1]);
+                }
             }
 
             $allowedIds = $this->getCoordinatorTherapistFilter();
@@ -1314,12 +1317,16 @@ class TherapeuticPlanManagerController extends Controller
                 $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
             }
 
-            // Filtro ABA: richiede patientId esplicito. Saltato esplicitamente
-            // via applyABAFilter=0 (indipendente da force/specializzazione).
-            $patientId = (int) $request->get('patientId', 0);
+            // Filtro is_aba: applicato solo se la chiamata specifica un
+            // treatmentTypeId con codice RBT (la terapia ABA "vera e propria").
+            // Saltato esplicitamente via applyABAFilter=0.
             $applyABAFilter = $request->get('applyABAFilter', '1') !== '0';
-            if ($applyABAFilter && $this->patientHasActiveABAPlan($patientId)) {
-                $therapists->andWhere(['t.is_aba' => 1]);
+            $treatmentTypeId = (int) $request->get('treatmentTypeId', 0);
+            if ($applyABAFilter && $treatmentTypeId > 0) {
+                $treatmentType = TreatmentType::findOne($treatmentTypeId);
+                if ($treatmentType && $treatmentType->code === 'RBT') {
+                    $therapists->andWhere(['t.is_aba' => 1]);
+                }
             }
 
             // Se è fornito appointmentId, escludi il terapista originale dell'appuntamento
@@ -1404,16 +1411,16 @@ class TherapeuticPlanManagerController extends Controller
                 ->andWhere(['st.treatment_type_id' => $treatmentTypeId])
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
-            // Filter by capability flags for supervision and parental training
+            // Filter by capability flags per tipo trattamento.
+            // - SUP   → terapisti con can_supervise=1
+            // - PT    → terapisti con can_parental_training=1
+            // - RBT   → terapisti con is_aba=1 (la terapia ABA "vera e propria")
+            // Altri tipi: nessun filtro di capacità.
             if ($treatmentType && $treatmentType->code === 'SUP') {
                 $query->andWhere(['t.can_supervise' => 1]);
             } elseif ($treatmentType && $treatmentType->code === 'PT') {
                 $query->andWhere(['t.can_parental_training' => 1]);
-            }
-
-            // Filtro ABA: richiede patientId esplicito in query.
-            $patientId = (int) Yii::$app->request->get('patientId', 0);
-            if ($this->patientHasActiveABAPlan($patientId)) {
+            } elseif ($treatmentType && $treatmentType->code === 'RBT') {
                 $query->andWhere(['t.is_aba' => 1]);
             }
 
@@ -5324,33 +5331,6 @@ class TherapeuticPlanManagerController extends Controller
     private function isABARegime($therapeuticPlan)
     {
         return $therapeuticPlan->regime && stripos($therapeuticPlan->regime->nome, 'ABA') !== false;
-    }
-
-    /**
-     * Verifica se il paziente ha un piano terapeutico ABA attualmente attivo.
-     * "Attivo" = oggi compreso tra start_date ed end_date e status in
-     * (active, pending, suspended). Regime ABA = nome regime contiene "ABA".
-     *
-     * @param int|null $patientId
-     * @return bool
-     */
-    private function patientHasActiveABAPlan($patientId)
-    {
-        $patientId = (int) $patientId;
-        if ($patientId <= 0) {
-            return false;
-        }
-        $today = date('Y-m-d');
-        $plan = TherapeuticPlan::find()
-            ->alias('tp')
-            ->innerJoin('{{%regime}} r', 'r.id = tp.regime_id')
-            ->where(['tp.patient_id' => $patientId])
-            ->andWhere(['tp.status' => ['active', 'pending', 'suspended']])
-            ->andWhere(['<=', 'tp.start_date', $today])
-            ->andWhere(['>=', 'tp.end_date', $today])
-            ->andWhere(['like', 'r.nome', 'ABA'])
-            ->one();
-        return $plan !== null;
     }
 
     /**
