@@ -1316,9 +1316,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                         type="checkbox"
                         onChange={async (e) => {
                           if (!e.target.checked) return;
-                          // Se ricorrente, chiedi se applicare a tutte le future
+                          // Se l'appuntamento appartiene a un pattern ricorrente,
+                          // chiedi se applicare a tutte le occorrenze future.
+                          // Usa solo patternId (la prop isRecurring potrebbe non
+                          // essere popolata in alcune risposte API).
                           if (
-                            appointment.isRecurring &&
                             appointment.patternId &&
                             onSetGroupAppointmentRecurring
                           ) {
@@ -1448,7 +1450,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             // Se l'appuntamento fa parte di un pattern ricorrente, chiedi se
             // aggiungere i pazienti solo a questa occorrenza o a tutte le
             // occorrenze future del gruppo (con eventuale estensione).
-            if (appointment.isRecurring && appointment.patternId) {
+            // Usa solo patternId (la prop isRecurring potrebbe non essere
+            // popolata in alcune risposte API).
+            if (appointment.patternId) {
               setPendingCandidates(candidates);
               setShowAddPatientCombobox(false);
               setShowRecurringChoiceDialog(true);

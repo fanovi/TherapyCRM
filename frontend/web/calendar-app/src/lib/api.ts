@@ -934,34 +934,6 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
-   * Trasforma in "gruppo" tutte le occorrenze future di un pattern ricorrente
-   * a partire dalla data dell'appuntamento. Ogni occorrenza ottiene un proprio
-   * group_session_id. Le occorrenze già di gruppo vengono saltate.
-   */
-  async setGroupAppointmentRecurring(appointmentId: number): Promise<{
-    updatedCount: number;
-    updated: Array<{
-      appointmentId: number;
-      date: string;
-      groupSessionId: string;
-    }>;
-    skipped: Array<{ date: string; time?: string; reason: string }>;
-  }> {
-    const response = await this.post<any>("set-group-appointment-recurring", {
-      appointmentId,
-    });
-
-    if (!response.success) {
-      throw new Error(
-        response.error ||
-          "Errore nell'impostazione del gruppo sulle occorrenze ricorrenti",
-      );
-    }
-
-    return response.data;
-  }
-
-  /**
    * Aggiunge un paziente a un gruppo esistente clonando l'appuntamento
    */
   async addPatientToGroup(
@@ -979,37 +951,6 @@ class TherapeuticPlanManagerAPI {
     if (!response.success) {
       throw new Error(
         response.error || "Errore nell'aggiungere il paziente al gruppo",
-      );
-    }
-
-    return response.data;
-  }
-
-  /**
-   * Aggiunge un paziente a tutte le occorrenze future di un gruppo ricorrente
-   * (a partire dalla data dell'appuntamento clickato). Se il piano terapeutico
-   * del paziente prosegue oltre la fine del pattern di gruppo, crea anche un
-   * pattern di estensione dedicato. Conflitti per singola occorrenza vengono
-   * saltati e riportati.
-   */
-  async addPatientToRecurringGroup(
-    appointmentId: number,
-    patientId: number,
-  ): Promise<{
-    existingInserted: number;
-    extensionCreated: number;
-    extensionPatternId: number | null;
-    conflicts: Array<{ date: string; time?: string; reason: string }>;
-  }> {
-    const response = await this.post<any>("add-patient-to-recurring-group", {
-      appointmentId,
-      patientId,
-    });
-
-    if (!response.success) {
-      throw new Error(
-        response.error ||
-          "Errore nell'aggiungere il paziente al gruppo ricorrente",
       );
     }
 
