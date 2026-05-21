@@ -50,10 +50,13 @@ class NotificationController extends BaseController
      */
     public function actionIndex()
     {
-        // Query base per le notifiche con mittente (inviate da utenti)
+        $userId = Yii::$app->user->id;
+
+        // Query base: solo notifiche indirizzate all'utente corrente, con mittente.
         $query = Notification::find()
-            ->where(['not', ['sender_user_id' => null]])  // Solo notifiche con mittente
-            ->with(['senderUser', 'recipientUser'])  // Include info mittente e destinatario
+            ->where(['recipient_user_id' => $userId])
+            ->andWhere(['not', ['sender_user_id' => null]])
+            ->with(['senderUser', 'recipientUser'])
             ->orderBy(['created_at' => SORT_DESC]);
 
         // Filtri opzionali
@@ -96,8 +99,10 @@ class NotificationController extends BaseController
             ]
         ]);
 
-        // Statistiche per header
-        $baseQuery = Notification::find()->where(['not', ['sender_user_id' => null]]);
+        // Statistiche per header (scoped utente corrente)
+        $baseQuery = Notification::find()
+            ->where(['recipient_user_id' => $userId])
+            ->andWhere(['not', ['sender_user_id' => null]]);
 
         $totalCount = $baseQuery->count();
         $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
@@ -152,7 +157,10 @@ class NotificationController extends BaseController
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            $baseQuery = Notification::find()->where(['not', ['sender_user_id' => null]]);
+            $userId = Yii::$app->user->id;
+            $baseQuery = Notification::find()
+                ->where(['recipient_user_id' => $userId])
+                ->andWhere(['not', ['sender_user_id' => null]]);
 
             $totalCount = $baseQuery->count();
             $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
@@ -186,7 +194,8 @@ class NotificationController extends BaseController
     {
         $model = Notification::find()
             ->where(['id' => $id])
-            ->andWhere(['not', ['sender_user_id' => null]])  // Solo notifiche con mittente
+            ->andWhere(['recipient_user_id' => Yii::$app->user->id])
+            ->andWhere(['not', ['sender_user_id' => null]])
             ->with(['senderUser', 'recipientUser'])
             ->one();
 
