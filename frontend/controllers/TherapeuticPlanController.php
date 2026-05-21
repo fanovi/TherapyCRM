@@ -402,6 +402,13 @@ class TherapeuticPlanController extends BaseController
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+
+        // Piano interrotto: read-only, niente modifiche permesse.
+        if ($model->status === 'terminated') {
+            Yii::$app->session->setFlash('warning', 'Il piano terapeutico e\' stato interrotto e non puo\' essere modificato.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
         $therapyModel = new \common\models\PlanTherapy();
 
         // Carica le terapie esistenti per l'update
@@ -427,10 +434,23 @@ class TherapeuticPlanController extends BaseController
             $error = null;
             $transaction = null;
 
+            // Stato precedente per rilevare transizione -> terminated
+            $oldStatus = $model->status;
+
             try {
                 // Carica i dati del form
                 if (!$model->load($this->request->post())) {
                     throw new \Exception('Errore nel caricamento dei dati del form.');
+                }
+
+                // Transizione a "Interrotto": richiede conferma esplicita dal client
+                // (swal). Senza flag confirmTerminate=1 il backend rifiuta.
+                $isTerminatingNow = ($oldStatus !== 'terminated' && $model->status === 'terminated');
+                if ($isTerminatingNow) {
+                    $confirmed = (string) Yii::$app->request->post('confirmTerminate') === '1';
+                    if (!$confirmed) {
+                        throw new \Exception('Per interrompere il piano è necessario confermare l\'operazione. Riprova.');
+                    }
                 }
 
                 // Verifica sovrapposizione piani PRIMA di tutto il resto
@@ -565,8 +585,50 @@ class TherapeuticPlanController extends BaseController
                     }
                 }
 
+                // Se il piano e' stato appena interrotto, cancella tutti gli
+                // appuntamenti FUTURI in stato SCHEDULED associati a qualunque
+                // plan_therapy di questo piano. Gli appuntamenti passati e quelli
+                // gia' completed/absent/cancelled/therapist_absent restano invariati.
+                $cancelledCount = 0;
+                if ($isTerminatingNow) {
+                    $planTherapyIds = \common\models\PlanTherapy::find()
+                        ->select('id')
+                        ->where(['therapeutic_plan_id' => $model->id])
+                        ->column();
+
+                    if (!empty($planTherapyIds)) {
+                        $cancelledCount = \common\models\Appointment::updateAll(
+                            ['status' => \common\models\Appointment::STATUS_CANCELLED],
+                            [
+                                'and',
+                                ['plan_therapy_id' => $planTherapyIds],
+                                ['status' => \common\models\Appointment::STATUS_SCHEDULED],
+                                ['>', 'appointment_datetime', date('Y-m-d H:i:s')],
+                            ]
+                        );
+
+                        // Chiudi anche i pattern ricorrenti ancora "validi" oltre
+                        // oggi: cosi' non rigenereranno nuovi appuntamenti.
+                        \common\models\AppointmentPattern::updateAll(
+                            ['valid_to' => date('Y-m-d')],
+                            [
+                                'and',
+                                ['plan_therapy_id' => $planTherapyIds],
+                                ['>', 'valid_to', date('Y-m-d')],
+                            ]
+                        );
+                    }
+                }
+
                 $transaction->commit();
-                Yii::$app->session->setFlash('success', 'Piano terapeutico aggiornato con successo.');
+
+                $msg = 'Piano terapeutico aggiornato con successo.';
+                if ($isTerminatingNow) {
+                    $msg .= ' ' . ($cancelledCount > 0
+                        ? "Cancellati {$cancelledCount} appuntamenti futuri."
+                        : 'Nessun appuntamento futuro da cancellare.');
+                }
+                Yii::$app->session->setFlash('success', $msg);
                 return $this->redirect(['view', 'id' => $model->id]);
             } catch (\Exception $e) {
                 if ($transaction !== null && $transaction->isActive) {

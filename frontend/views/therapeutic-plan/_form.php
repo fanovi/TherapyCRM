@@ -1090,4 +1090,54 @@ $this->registerJs('
         }
     });
 ");
+
+// Avviso prima di interrompere un piano: cancella appuntamenti futuri.
+// Solo su update (esiste model id), non su create.
+if (!$model->isNewRecord) {
+    $originalStatusJs = json_encode($model->status);
+    $this->registerJs(<<<JS
+(function() {
+    var \$form = jQuery('#therapeutic-plan-form');
+    var \$status = jQuery('#status-select');
+    if (\$form.length === 0 || \$status.length === 0) return;
+
+    var originalStatus = {$originalStatusJs};
+
+    \$form.on('beforeSubmit', function(e) {
+        var newStatus = \$status.val();
+        if (newStatus === 'terminated' && originalStatus !== 'terminated' && !\$form.data('terminate-confirmed')) {
+            Swal.fire({
+                title: 'Interrompere il piano terapeutico?',
+                html: '<div style="text-align:left;font-size:14px;">' +
+                      'Marcando il piano come <strong>Interrotto</strong>:' +
+                      '<ul style="margin-top:8px;padding-left:20px;list-style:disc;">' +
+                      '<li>Tutti gli appuntamenti <strong>futuri</strong> di questo piano verranno cancellati</li>' +
+                      '<li>Gli appuntamenti gi&agrave; passati (effettuati o saltati) verranno <strong>mantenuti</strong></li>' +
+                      '</ul></div>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'S&igrave;, interrompi',
+                cancelButtonText: 'Annulla',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                reverseButtons: true,
+                focusCancel: true,
+            }).then(function(res) {
+                if (res.isConfirmed) {
+                    // Aggiungi flag e re-submit
+                    if (\$form.find('input[name="confirmTerminate"]').length === 0) {
+                        \$form.append('<input type="hidden" name="confirmTerminate" value="1">');
+                    }
+                    \$form.data('terminate-confirmed', true);
+                    \$form.trigger('submit');
+                }
+            });
+            return false;
+        }
+        return true;
+    });
+})();
+JS
+);
+}
 ?>

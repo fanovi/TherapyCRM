@@ -58,7 +58,7 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-            <?php if (Yii::$app->user->can('update_therapeutic_plan')): ?>
+            <?php if (Yii::$app->user->can('update_therapeutic_plan') && $model->status !== 'terminated'): ?>
                 <?= Html::a(
                     '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>Modifica Piano',
                     ['update', 'id' => $model->id],
@@ -139,7 +139,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
                 Dati Piano Terapeutico
             </h3>
-            <?php if (Yii::$app->user->can('update_therapeutic_plan')): ?>
+            <?php if (Yii::$app->user->can('update_therapeutic_plan') && $model->status !== 'terminated'): ?>
                 <?= Html::a(
                     '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
                     ['update', 'id' => $model->id],
