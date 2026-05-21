@@ -6060,7 +6060,9 @@ class TherapeuticPlanManagerController extends Controller
         $extension->plan_therapy_id = $patientPlanTherapy->id;
         $extension->therapist_id = $groupPattern->therapist_id;
         $extension->day_of_week = $groupPattern->day_of_week;
-        $extension->start_time = $groupPattern->start_time;
+        // Il DB restituisce start_time in formato H:i:s ma la validazione
+        // del pattern accetta solo H:i.
+        $extension->start_time = substr((string) $groupPattern->start_time, 0, 5);
         $extension->duration_minutes = $groupPattern->duration_minutes;
         $extension->valid_from = $validFrom;
         $extension->valid_to = $patientPlanEnd;
