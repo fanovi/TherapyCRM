@@ -114,10 +114,12 @@ class TherapeuticPlanController extends BaseController
         $searchModel = new TherapeuticPlanSearch();
 
         // Default: mostra solo piani attivi quando nessun filtro e' stato
-        // applicato dall'utente (form filtro non ancora interagito).
+        // applicato dall'utente. Settiamo sia in $params (per search()) sia
+        // direttamente in $searchModel (per popolare il dropdown filtro).
         $params = $this->request->queryParams;
         if (!isset($params['TherapeuticPlanSearch'])) {
             $params['TherapeuticPlanSearch'] = ['status' => 'active'];
+            $searchModel->status = 'active';
         }
 
         $dataProvider = $searchModel->search($params);
