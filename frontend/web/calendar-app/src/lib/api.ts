@@ -986,6 +986,37 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
+   * Aggiunge un paziente a tutte le occorrenze future di un gruppo ricorrente
+   * (a partire dalla data dell'appuntamento clickato). Se il piano terapeutico
+   * del paziente prosegue oltre la fine del pattern di gruppo, crea anche un
+   * pattern di estensione dedicato. Conflitti per singola occorrenza vengono
+   * saltati e riportati.
+   */
+  async addPatientToRecurringGroup(
+    appointmentId: number,
+    patientId: number,
+  ): Promise<{
+    existingInserted: number;
+    extensionCreated: number;
+    extensionPatternId: number | null;
+    conflicts: Array<{ date: string; time?: string; reason: string }>;
+  }> {
+    const response = await this.post<any>("add-patient-to-recurring-group", {
+      appointmentId,
+      patientId,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Errore nell'aggiungere il paziente al gruppo ricorrente",
+      );
+    }
+
+    return response.data;
+  }
+
+  /**
    * Verifica se un paziente è già in un gruppo
    */
   async checkPatientInGroup(
