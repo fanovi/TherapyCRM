@@ -5706,6 +5706,298 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Aggiunge un paziente a tutte le occorrenze future di un gruppo ricorrente,
+     * a partire dalla data dell'appuntamento clickato. Se il piano terapeutico
+     * del paziente termina oltre il valid_to del pattern di gruppo, crea un
+     * nuovo pattern di estensione (solo per il paziente) fino alla fine del
+     * suo piano. Conflitti per singola occorrenza vengono saltati e riportati.
+     *
+     * Body atteso: { appointmentId: int, patientId: int }
+     */
+    public function actionAddPatientToRecurringGroup()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $data = $this->getRequestData();
+            $appointmentId = (int) ($data['appointmentId'] ?? 0);
+            $patientId = (int) ($data['patientId'] ?? 0);
+
+            if (!$appointmentId || !$patientId) {
+                return $this->errorResponse('appointmentId e patientId obbligatori');
+            }
+
+            // 1. Carica appuntamento clickato + pattern
+            $clickedAppointment = Appointment::find()
+                ->where(['id' => $appointmentId])
+                ->with(['planTherapy.therapeuticPlan.regime'])
+                ->one();
+            if (!$clickedAppointment) {
+                return $this->errorResponse('Appuntamento non trovato');
+            }
+            if (empty($clickedAppointment->group_session_id)) {
+                return $this->errorResponse('L\'appuntamento non è di gruppo');
+            }
+            if (!$clickedAppointment->pattern_id) {
+                return $this->errorResponse('L\'appuntamento non è ricorrente');
+            }
+
+            $pattern = AppointmentPattern::findOne($clickedAppointment->pattern_id);
+            if (!$pattern) {
+                return $this->errorResponse('Pattern del gruppo non trovato');
+            }
+
+            $groupPlanTherapy = $clickedAppointment->planTherapy;
+            if (!$groupPlanTherapy || !$groupPlanTherapy->therapeuticPlan) {
+                return $this->errorResponse('Piano terapeutico del gruppo non trovato');
+            }
+            $treatmentTypeId = (int) $groupPlanTherapy->treatment_type_id;
+            $isGroupABA = $this->isABARegime($groupPlanTherapy->therapeuticPlan);
+
+            // 2. Pre-flight: il paziente deve avere una PlanTherapy con lo stesso
+            // treatment_type del gruppo. Blocca prima di iniziare se manca.
+            $patient = Patient::findOne($patientId);
+            if (!$patient) {
+                return $this->errorResponse('Paziente non trovato');
+            }
+
+            $patientPlan = TherapeuticPlan::find()
+                ->where(['patient_id' => $patientId])
+                ->andWhere(['<=', 'start_date', $clickedAppointment->appointment_datetime])
+                ->andWhere(['>=', 'end_date', date('Y-m-d', strtotime($clickedAppointment->appointment_datetime))])
+                ->orderBy(['created_at' => SORT_DESC])
+                ->with('regime')
+                ->one();
+            if (!$patientPlan) {
+                return $this->errorResponse('Il paziente non ha un piano terapeutico attivo alla data dell\'appuntamento');
+            }
+            $isPatientPlanABA = $this->isABARegime($patientPlan);
+            if ($isGroupABA !== $isPatientPlanABA) {
+                return $this->errorResponse($isGroupABA
+                    ? 'Il paziente non è in regime ABA come il gruppo'
+                    : 'Il paziente è in regime ABA mentre il gruppo non lo è');
+            }
+
+            $patientPlanTherapy = PlanTherapy::find()
+                ->where(['therapeutic_plan_id' => $patientPlan->id])
+                ->andWhere(['treatment_type_id' => $treatmentTypeId])
+                ->one();
+            if (!$patientPlanTherapy) {
+                return $this->errorResponse('Il paziente non ha una terapia di questo tipo nel piano');
+            }
+
+            // 3. Recupera tutte le occorrenze del pattern dalla data clickata in avanti.
+            //    Una "occorrenza" = singolo group_session_id (anche con più pazienti).
+            $clickedDateTime = $clickedAppointment->appointment_datetime;
+            $occurrences = Appointment::find()
+                ->where(['pattern_id' => $pattern->id])
+                ->andWhere(['>=', 'appointment_datetime', $clickedDateTime])
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                ]])
+                ->andWhere(['is not', 'group_session_id', null])
+                ->orderBy(['appointment_datetime' => SORT_ASC])
+                ->all();
+
+            // Raggruppa per group_session_id (la "sessione" di gruppo di quella settimana)
+            $sessionRepresentatives = [];
+            foreach ($occurrences as $occ) {
+                if (!isset($sessionRepresentatives[$occ->group_session_id])) {
+                    $sessionRepresentatives[$occ->group_session_id] = $occ;
+                }
+            }
+
+            $conflicts = [];
+            $insertedExisting = 0;
+
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                // 4. Inserisci il paziente in ciascuna occorrenza futura
+                foreach ($sessionRepresentatives as $groupSessionId => $occ) {
+                    $occDateTime = $occ->appointment_datetime;
+                    $occDuration = $occ->duration_minutes;
+                    $occDate = date('Y-m-d', strtotime($occDateTime));
+
+                    // Paziente già presente in questa sessione?
+                    $alreadyIn = Appointment::find()
+                        ->where(['group_session_id' => $groupSessionId, 'patient_id' => $patientId])
+                        ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]])
+                        ->exists();
+                    if ($alreadyIn) {
+                        $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Paziente già presente nel gruppo'];
+                        continue;
+                    }
+
+                    // Data fuori dal piano terapeutico del paziente?
+                    if ($occDate < $patientPlan->start_date || $occDate > $patientPlan->getCalculatedEndDate()) {
+                        $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Data fuori dal piano terapeutico del paziente'];
+                        continue;
+                    }
+
+                    // Slot temporale paziente occupato altrove?
+                    $slotConflict = $this->checkPatientTimeSlotConflict($patientId, $occDateTime, $occDuration);
+                    if ($slotConflict) {
+                        $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Slot orario già occupato'];
+                        continue;
+                    }
+
+                    // Conflitti specifici (ABA o stesso trattamento stesso giorno)
+                    if ($isPatientPlanABA) {
+                        $abaConflict = $this->checkABAConflicts(
+                            $patientId,
+                            $occ->therapist_id,
+                            $occDateTime,
+                            $occ->appointment_type ?: Appointment::TYPE_TERAPIA,
+                            $treatmentTypeId,
+                            null,
+                            $groupSessionId
+                        );
+                        if ($abaConflict) {
+                            $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Conflitto ABA (stesso tipo nello stesso giorno)'];
+                            continue;
+                        }
+                    } else {
+                        $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
+                            $patientPlanTherapy->id,
+                            $occDateTime
+                        );
+                        if ($treatmentConflict) {
+                            $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Trattamento già presente nello stesso giorno'];
+                            continue;
+                        }
+                    }
+
+                    // Limite ore della PlanTherapy del paziente
+                    $hoursLimit = $this->checkPlanTherapyHoursLimit(
+                        Appointment::SOURCE_THERAPEUTIC_PLAN,
+                        $patientPlanTherapy->id,
+                        $occDateTime,
+                        $occDuration
+                    );
+                    if ($hoursLimit) {
+                        $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => $hoursLimit['message'] ?? 'Limite ore superato'];
+                        continue;
+                    }
+
+                    // Crea l'appuntamento per il paziente con lo stesso group_session_id
+                    $newApp = new Appointment();
+                    $newApp->pattern_id = $pattern->id;
+                    $newApp->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
+                    $newApp->plan_therapy_id = $patientPlanTherapy->id;
+                    $newApp->therapist_id = $occ->therapist_id;
+                    $newApp->patient_id = $patientId;
+                    $newApp->appointment_datetime = $occDateTime;
+                    $newApp->duration_minutes = $occDuration;
+                    $newApp->status = Appointment::STATUS_SCHEDULED;
+                    $newApp->group_session_id = $groupSessionId;
+                    $newApp->id_setting = $occ->id_setting ?: $patientPlanTherapy->setting_id;
+                    if ($isPatientPlanABA) {
+                        $newApp->appointment_type = $occ->appointment_type ?: Appointment::TYPE_TERAPIA;
+                    }
+                    $newApp->created_by = $this->getCurrentUserId();
+
+                    if (!$newApp->save()) {
+                        $conflicts[] = ['date' => $occDate, 'time' => date('H:i', strtotime($occDateTime)), 'reason' => 'Errore salvataggio: ' . json_encode($newApp->errors)];
+                        continue;
+                    }
+                    $insertedExisting++;
+                }
+
+                // 5. Estensione: se il piano del paziente prosegue oltre valid_to del pattern,
+                //    crea un nuovo pattern dedicato e genera le occorrenze (gruppo di 1).
+                $extensionResult = ['appointmentsCreated' => 0, 'conflicts' => [], 'patternId' => null];
+                $patientPlanEnd = $patientPlan->getCalculatedEndDate();
+                $patternValidTo = $pattern->valid_to;
+
+                if ($patientPlanEnd > $patternValidTo) {
+                    $extensionResult = $this->createPatientRecurringExtension(
+                        $pattern,
+                        $patientPlanTherapy,
+                        $patient,
+                        $patientPlanEnd,
+                        $isPatientPlanABA
+                    );
+                    foreach ($extensionResult['conflicts'] as $c) {
+                        $conflicts[] = $c;
+                    }
+                }
+
+                $transaction->commit();
+
+                return [
+                    'success' => true,
+                    'message' => 'Paziente aggiunto al gruppo ricorrente',
+                    'data' => [
+                        'existingInserted' => $insertedExisting,
+                        'extensionCreated' => $extensionResult['appointmentsCreated'],
+                        'extensionPatternId' => $extensionResult['patternId'],
+                        'conflicts' => $conflicts,
+                    ],
+                ];
+            } catch (Exception $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+        } catch (Exception $e) {
+            Yii::error('Errore actionAddPatientToRecurringGroup: ' . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Crea un pattern di estensione (solo paziente) dal giorno dopo valid_to
+     * del pattern di gruppo fino a end_date del piano del paziente, e genera
+     * le occorrenze. Ogni occorrenza ottiene un nuovo group_session_id univoco
+     * (gruppo di 1, aperto per futuri inserimenti).
+     */
+    private function createPatientRecurringExtension(
+        $groupPattern,
+        $patientPlanTherapy,
+        $patient,
+        $patientPlanEnd,
+        $isPatientPlanABA
+    ) {
+        $validFrom = (new DateTime($groupPattern->valid_to))->modify('+1 day')->format('Y-m-d');
+        // Se valid_from è già oltre la fine del piano del paziente, nessuna estensione
+        if ($validFrom > $patientPlanEnd) {
+            return ['appointmentsCreated' => 0, 'conflicts' => [], 'patternId' => null];
+        }
+
+        $extension = new AppointmentPattern();
+        $extension->plan_therapy_id = $patientPlanTherapy->id;
+        $extension->therapist_id = $groupPattern->therapist_id;
+        $extension->day_of_week = $groupPattern->day_of_week;
+        $extension->start_time = $groupPattern->start_time;
+        $extension->duration_minutes = $groupPattern->duration_minutes;
+        $extension->valid_from = $validFrom;
+        $extension->valid_to = $patientPlanEnd;
+        $extension->id_setting = $groupPattern->id_setting;
+        $extension->created_by = $this->getCurrentUserId();
+
+        if (!$extension->save()) {
+            throw new Exception('Errore creazione pattern di estensione: ' . json_encode($extension->errors));
+        }
+
+        $therapist = Therapist::findOne($groupPattern->therapist_id);
+
+        // Genera le occorrenze come gruppo: ogni settimana ottiene un nuovo
+        // group_session_id univoco (coerente con il modello esistente).
+        $result = $this->generateAppointments(
+            $extension,
+            $therapist,
+            $patientPlanTherapy,
+            $patient,
+            ['isGroup' => true, 'weekInterval' => 1]
+        );
+
+        return [
+            'appointmentsCreated' => $result['appointmentsCreated'],
+            'conflicts' => $result['conflicts'],
+            'patternId' => $extension->id,
+        ];
+    }
+
+    /**
      * Valuta tutti i motivi per cui un paziente NON puo' essere aggiunto al gruppo.
      * Ritorna array di stringhe (vuoto = eleggibile).
      */

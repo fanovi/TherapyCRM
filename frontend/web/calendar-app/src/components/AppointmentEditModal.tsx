@@ -85,6 +85,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const [isSubstitutionMode, setIsSubstitutionMode] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showAddPatientCombobox, setShowAddPatientCombobox] = useState(false);
+  // Dialog di scelta per ricorrenti: "Solo questa" vs "Tutte le future del gruppo"
+  const [showRecurringChoiceDialog, setShowRecurringChoiceDialog] =
+    useState(false);
+  const [pendingCandidates, setPendingCandidates] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
   const [formData, setFormData] = useState({
     therapistId: 0,
     date: "",
@@ -411,6 +417,60 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       );
     }
     if (successCount > 0) {
+      onAppointmentUpdate(appointment.id.toString(), { refresh: true });
+      onClose();
+    }
+  };
+
+  /**
+   * Aggiunge N candidati a tutte le occorrenze future del gruppo ricorrente
+   * (e crea l'estensione se il piano del paziente prosegue oltre).
+   */
+  const handleAddCandidatesToRecurringGroup = async (
+    candidates: Array<{ id: number; name: string }>
+  ) => {
+    if (!appointment || candidates.length === 0) return;
+
+    const errors: string[] = [];
+    let totalExisting = 0;
+    let totalExtension = 0;
+    const conflictLines: string[] = [];
+
+    for (const c of candidates) {
+      try {
+        const result = await therapyAPI.addPatientToRecurringGroup(
+          appointment.id,
+          c.id
+        );
+        totalExisting += result.existingInserted;
+        totalExtension += result.extensionCreated;
+        result.conflicts.forEach((cf) => {
+          const when = `${cf.date}${cf.time ? " " + cf.time : ""}`;
+          conflictLines.push(`${c.name} - ${when}: ${cf.reason}`);
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "errore sconosciuto";
+        errors.push(`${c.name}: ${msg}`);
+      }
+    }
+
+    const totalCreated = totalExisting + totalExtension;
+    if (totalCreated > 0) {
+      showSuccess(
+        "Pazienti aggiunti al gruppo ricorrente",
+        `${totalExisting} occorrenza/e esistenti + ${totalExtension} di estensione`
+      );
+    }
+    if (errors.length > 0) {
+      showError("Alcuni pazienti non aggiunti", errors.join(" — "));
+    }
+    if (conflictLines.length > 0) {
+      showError(
+        `${conflictLines.length} occorrenza/e saltate`,
+        conflictLines.join(" — ")
+      );
+    }
+    if (totalCreated > 0) {
       onAppointmentUpdate(appointment.id.toString(), { refresh: true });
       onClose();
     }
@@ -1372,9 +1432,82 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           onClose={() => setShowAddPatientCombobox(false)}
           appointmentId={appointment.id}
           onConfirm={async (candidates) => {
-            await handleAddCandidatesToGroup(candidates);
+            // Se l'appuntamento fa parte di un pattern ricorrente, chiedi se
+            // aggiungere i pazienti solo a questa occorrenza o a tutte le
+            // occorrenze future del gruppo (con eventuale estensione).
+            if (appointment.isRecurring && appointment.patternId) {
+              setPendingCandidates(candidates);
+              setShowAddPatientCombobox(false);
+              setShowRecurringChoiceDialog(true);
+            } else {
+              await handleAddCandidatesToGroup(candidates);
+            }
           }}
         />
+      )}
+
+      {/* Dialog di scelta per ricorrenti */}
+      {showRecurringChoiceDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+          onClick={() => {
+            setShowRecurringChoiceDialog(false);
+            setPendingCandidates([]);
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-2">
+              Appuntamento ricorrente
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Questo appuntamento fa parte di un gruppo ricorrente. Come vuoi
+              aggiungere {pendingCandidates.length} paziente/i?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                onClick={async () => {
+                  const candidates = pendingCandidates;
+                  setShowRecurringChoiceDialog(false);
+                  setPendingCandidates([]);
+                  await handleAddCandidatesToRecurringGroup(candidates);
+                }}
+              >
+                Tutte le occorrenze future del gruppo
+                <span className="block text-xs font-normal opacity-90">
+                  Estende anche oltre la fine del pattern se il piano del
+                  paziente prosegue
+                </span>
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-md text-sm font-medium"
+                onClick={async () => {
+                  const candidates = pendingCandidates;
+                  setShowRecurringChoiceDialog(false);
+                  setPendingCandidates([]);
+                  await handleAddCandidatesToGroup(candidates);
+                }}
+              >
+                Solo questa occorrenza
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm"
+                onClick={() => {
+                  setShowRecurringChoiceDialog(false);
+                  setPendingCandidates([]);
+                }}
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
