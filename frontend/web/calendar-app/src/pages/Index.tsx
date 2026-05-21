@@ -1200,6 +1200,52 @@ const Index = () => {
       );
     }
   };
+
+  // Trasforma in "gruppo" tutte le occorrenze future del pattern ricorrente
+  // a partire dall'appuntamento clickato.
+  const handleSetGroupAppointmentRecurring = async (appointmentId: number) => {
+    try {
+      const result =
+        await therapyAPI.setGroupAppointmentRecurring(appointmentId);
+
+      showSuccess(
+        "Occorrenze impostate come gruppo",
+        `${result.updatedCount} occorrenza/e aggiornate`
+      );
+
+      if (result.skipped.length > 0) {
+        showError(
+          `${result.skipped.length} occorrenza/e saltate`,
+          result.skipped
+            .map((s) => `${s.date}${s.time ? " " + s.time : ""}: ${s.reason}`)
+            .join(" — ")
+        );
+      }
+
+      // Aggiorna stato locale con i nuovi group_session_id per ogni
+      // occorrenza aggiornata.
+      const byId: Record<number, string> = {};
+      result.updated.forEach((u) => {
+        byId[u.appointmentId] = u.groupSessionId;
+      });
+      const updateApt = (a: Appointment) =>
+        byId[a.id]
+          ? { ...a, groupSessionId: byId[a.id], isGroup: true }
+          : a;
+      setAppointments((prev) => prev.map(updateApt));
+      setTherapistAppointments((prev) => prev.map(updateApt));
+
+      setIsEditModalOpen(false);
+      setSelectedAppointment(null);
+    } catch (error) {
+      showError(
+        "Errore",
+        error instanceof Error
+          ? error.message
+          : "Non è stato possibile impostare le occorrenze come gruppo"
+      );
+    }
+  };
   // Dopo handleAppointmentUpdate, aggiungi:
   const handleAddTherapyInSlot = (appointment: Appointment) => {
     const date = new Date(appointment.datetime);
@@ -1703,6 +1749,7 @@ const Index = () => {
           onAppointmentDelete={handleAppointmentDelete}
           onTherapistSubstitution={handleTherapistSubstitution}
           onSetGroupAppointment={handleSetGroupAppointment}
+          onSetGroupAppointmentRecurring={handleSetGroupAppointmentRecurring}
           isTherapistView={isTherapistView}
           showSuccess={showSuccess}
           showError={showError}

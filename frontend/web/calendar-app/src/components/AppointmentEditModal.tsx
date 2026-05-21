@@ -57,6 +57,7 @@ interface AppointmentEditModalProps {
   isABARegime?: boolean;
   patient?: Patient | null;
   onSetGroupAppointment?: (appointmentId: number) => Promise<void>;
+  onSetGroupAppointmentRecurring?: (appointmentId: number) => Promise<void>;
   // Toast functions from parent
   showSuccess?: (title: string, message?: string) => void;
   showError?: (title: string, message?: string) => void;
@@ -75,6 +76,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   isABARegime,
   patient,
   onSetGroupAppointment,
+  onSetGroupAppointmentRecurring,
   showSuccess: showSuccessProp,
   showError: showErrorProp,
 }) => {
@@ -91,6 +93,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const [pendingCandidates, setPendingCandidates] = useState<
     Array<{ id: number; name: string }>
   >([]);
+  // Dialog di scelta per "Rendi di gruppo" su appuntamento ricorrente
+  const [showSetGroupRecurringDialog, setShowSetGroupRecurringDialog] =
+    useState(false);
   const [formData, setFormData] = useState({
     therapistId: 0,
     date: "",
@@ -1310,7 +1315,15 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                       <input
                         type="checkbox"
                         onChange={async (e) => {
-                          if (e.target.checked) {
+                          if (!e.target.checked) return;
+                          // Se ricorrente, chiedi se applicare a tutte le future
+                          if (
+                            appointment.isRecurring &&
+                            appointment.patternId &&
+                            onSetGroupAppointmentRecurring
+                          ) {
+                            setShowSetGroupRecurringDialog(true);
+                          } else {
                             await onSetGroupAppointment(appointment.id);
                           }
                         }}
@@ -1444,6 +1457,63 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Dialog di scelta per "Rendi di gruppo" su ricorrente */}
+      {showSetGroupRecurringDialog && appointment && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+          onClick={() => setShowSetGroupRecurringDialog(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-2">
+              Appuntamento ricorrente
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Questo appuntamento fa parte di un pattern ricorrente. Vuoi rendere di gruppo solo questa occorrenza o tutte le future occorrenze del pattern?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                onClick={async () => {
+                  setShowSetGroupRecurringDialog(false);
+                  if (onSetGroupAppointmentRecurring) {
+                    await onSetGroupAppointmentRecurring(appointment.id);
+                  }
+                }}
+              >
+                Tutte le occorrenze future del pattern
+                <span className="block text-xs font-normal opacity-90">
+                  Ogni occorrenza riceve un proprio ID gruppo; quelle già di
+                  gruppo restano invariate
+                </span>
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-md text-sm font-medium"
+                onClick={async () => {
+                  setShowSetGroupRecurringDialog(false);
+                  if (onSetGroupAppointment) {
+                    await onSetGroupAppointment(appointment.id);
+                  }
+                }}
+              >
+                Solo questa occorrenza
+              </button>
+              <button
+                type="button"
+                className="w-full px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm"
+                onClick={() => setShowSetGroupRecurringDialog(false)}
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Dialog di scelta per ricorrenti */}

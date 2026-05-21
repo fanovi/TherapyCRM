@@ -696,6 +696,99 @@ class TherapeuticPlanManagerController extends Controller
         }
     }
 
+    /**
+     * Trasforma in "gruppo" tutte le occorrenze future di un pattern ricorrente
+     * a partire dalla data dell'appuntamento clickato. Ogni occorrenza riceve
+     * un proprio group_session_id univoco. Le occorrenze già di gruppo vengono
+     * saltate e riportate.
+     *
+     * Body atteso: { appointmentId: int }
+     */
+    public function actionSetGroupAppointmentRecurring()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            if (Yii::$app->request->isGet) {
+                throw new BadRequestHttpException('Metodo non supportato');
+            }
+
+            $data = $this->getRequestData();
+            $appointmentId = (int) ($data['appointmentId'] ?? 0);
+            if (!$appointmentId) {
+                throw new BadRequestHttpException('appointmentId è obbligatorio');
+            }
+
+            $clicked = Appointment::findOne($appointmentId);
+            if (!$clicked) {
+                throw new NotFoundHttpException('Appuntamento non trovato');
+            }
+            if (!$clicked->pattern_id) {
+                return $this->errorResponse('L\'appuntamento non è ricorrente');
+            }
+
+            $occurrences = Appointment::find()
+                ->where(['pattern_id' => $clicked->pattern_id])
+                ->andWhere(['>=', 'appointment_datetime', $clicked->appointment_datetime])
+                ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED]])
+                ->orderBy(['appointment_datetime' => SORT_ASC])
+                ->all();
+
+            $updated = [];
+            $skipped = [];
+
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                foreach ($occurrences as $occ) {
+                    $occDate = date('Y-m-d', strtotime($occ->appointment_datetime));
+                    $occTime = date('H:i', strtotime($occ->appointment_datetime));
+                    if ($occ->group_session_id) {
+                        $skipped[] = [
+                            'date' => $occDate,
+                            'time' => $occTime,
+                            'reason' => 'Già di gruppo',
+                        ];
+                        continue;
+                    }
+
+                    $occ->group_session_id = Appointment::generateGroupSessionId();
+                    if (!$occ->save()) {
+                        $skipped[] = [
+                            'date' => $occDate,
+                            'time' => $occTime,
+                            'reason' => 'Errore salvataggio: ' . json_encode($occ->errors),
+                        ];
+                        continue;
+                    }
+
+                    $updated[] = [
+                        'appointmentId' => $occ->id,
+                        'date' => $occDate,
+                        'groupSessionId' => $occ->group_session_id,
+                    ];
+                }
+
+                $transaction->commit();
+            } catch (Exception $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Occorrenze future impostate come gruppo',
+                'data' => [
+                    'updatedCount' => count($updated),
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                ],
+            ];
+        } catch (Exception $e) {
+            Yii::error('Errore actionSetGroupAppointmentRecurring: ' . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
     public function actionGetSettingsList($regimeId = 0)
     {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
