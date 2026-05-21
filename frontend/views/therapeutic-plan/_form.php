@@ -1106,13 +1106,18 @@ if (!$model->isNewRecord) {
     \$form.on('beforeSubmit', function(e) {
         var newStatus = \$status.val();
         if (newStatus === 'terminated' && originalStatus !== 'terminated' && !\$form.data('terminate-confirmed')) {
+            var termDate = jQuery('#therapeuticplan-termination-date').val();
+            var termLine = termDate
+                ? 'Tutti gli appuntamenti programmati <strong>dopo il ' + termDate + '</strong> verranno cancellati'
+                : 'Tutti gli appuntamenti programmati dopo la data di interruzione verranno cancellati';
             Swal.fire({
                 title: 'Interrompere il piano terapeutico?',
                 html: '<div style="text-align:left;font-size:14px;">' +
                       'Marcando il piano come <strong>Interrotto</strong>:' +
                       '<ul style="margin-top:8px;padding-left:20px;list-style:disc;">' +
-                      '<li>Tutti gli appuntamenti <strong>futuri</strong> di questo piano verranno cancellati</li>' +
-                      '<li>Gli appuntamenti gi&agrave; passati (effettuati o saltati) verranno <strong>mantenuti</strong></li>' +
+                      '<li>' + termLine + '</li>' +
+                      '<li>Gli appuntamenti gi&agrave; svolti, mancati o quelli antecedenti alla data di interruzione verranno <strong>mantenuti</strong></li>' +
+                      '<li>Il piano diventer&agrave; <strong>non pi&ugrave; modificabile</strong></li>' +
                       '</ul></div>',
                 icon: 'warning',
                 showCancelButton: true,

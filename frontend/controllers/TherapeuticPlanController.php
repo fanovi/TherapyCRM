@@ -586,11 +586,20 @@ class TherapeuticPlanController extends BaseController
                 }
 
                 // Se il piano e' stato appena interrotto, cancella tutti gli
-                // appuntamenti FUTURI in stato SCHEDULED associati a qualunque
-                // plan_therapy di questo piano. Gli appuntamenti passati e quelli
-                // gia' completed/absent/cancelled/therapist_absent restano invariati.
+                // appuntamenti SCHEDULED successivi alla data di interruzione
+                // (termination_date) appartenenti a qualunque plan_therapy di
+                // questo piano. Gli appuntamenti gia' completed/absent/cancelled/
+                // therapist_absent restano invariati; quelli precedenti o
+                // coincidenti con termination_date restano scheduled (l'utente
+                // potra' eventualmente segnarli come completed/absent in seguito).
                 $cancelledCount = 0;
                 if ($isTerminatingNow) {
+                    // Cutoff: termination_date se valorizzata, altrimenti oggi.
+                    $cutoffDate = !empty($model->termination_date)
+                        ? $model->termination_date
+                        : date('Y-m-d');
+                    $cutoffDateTime = $cutoffDate . ' 23:59:59';
+
                     $planTherapyIds = \common\models\PlanTherapy::find()
                         ->select('id')
                         ->where(['therapeutic_plan_id' => $model->id])
@@ -603,18 +612,18 @@ class TherapeuticPlanController extends BaseController
                                 'and',
                                 ['plan_therapy_id' => $planTherapyIds],
                                 ['status' => \common\models\Appointment::STATUS_SCHEDULED],
-                                ['>', 'appointment_datetime', date('Y-m-d H:i:s')],
+                                ['>', 'appointment_datetime', $cutoffDateTime],
                             ]
                         );
 
-                        // Chiudi anche i pattern ricorrenti ancora "validi" oltre
-                        // oggi: cosi' non rigenereranno nuovi appuntamenti.
+                        // Chiudi i pattern ricorrenti che si estendono oltre
+                        // la data di interruzione: niente nuove generazioni dopo.
                         \common\models\AppointmentPattern::updateAll(
-                            ['valid_to' => date('Y-m-d')],
+                            ['valid_to' => $cutoffDate],
                             [
                                 'and',
                                 ['plan_therapy_id' => $planTherapyIds],
-                                ['>', 'valid_to', date('Y-m-d')],
+                                ['>', 'valid_to', $cutoffDate],
                             ]
                         );
                     }
