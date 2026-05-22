@@ -181,7 +181,13 @@ $isToday = $date === date('Y-m-d');
                             'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                             'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-gray-600 dark:text-gray-300'],
                             'filterOptions' => ['class' => 'px-2 py-2'],
-                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Filtra...'],
+                            'filter' => Html::activeDropDownList($filterModel, 'specialization',
+                                $specializationOptions ?? [],
+                                [
+                                    'prompt' => 'Tutte',
+                                    'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                                ]
+                            ),
                         ],
                         [
                             'attribute' => 'status',
