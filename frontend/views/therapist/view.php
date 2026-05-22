@@ -233,9 +233,6 @@ $this->params['breadcrumbs'][] = $this->title;
                             $items[] = $model->can_parental_training
                                 ? '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-200 dark:text-indigo-900">Parental Training</span>'
                                 : '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 line-through">Parental Training</span>';
-                            $items[] = $model->is_aba
-                                ? '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-200 dark:text-emerald-900">ABA</span>'
-                                : '<span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 line-through">ABA</span>';
                             return '<div class="flex flex-wrap gap-2">' . implode('', $items) . '</div>';
                         }
                     ],
