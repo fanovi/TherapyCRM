@@ -1335,11 +1335,15 @@ class TherapeuticPlanManagerController extends Controller
             return [0];
         }
 
+        // Treatment type coperti da QUALSIASI specializzazione (tabella ponte)
+        // di uno dei terapisti del gruppo del coordinator. Prima usava la
+        // colonna legacy therapists.specialization_id che vedeva solo la primaria.
         $ids = (new \yii\db\Query())
             ->select('st.treatment_type_id')
             ->distinct()
             ->from(['st' => '{{%specialization_treatments}}'])
-            ->innerJoin(['t' => '{{%therapists}}'], 't.specialization_id = st.specialization_id')
+            ->innerJoin(['ts' => '{{%therapist_specializations}}'], 'ts.specialization_id = st.specialization_id')
+            ->innerJoin(['t' => '{{%therapists}}'], 't.id = ts.therapist_id')
             ->where(['t.id' => $therapistIds])
             ->andWhere(['t.is_active' => 1])
             ->column();
@@ -1354,7 +1358,7 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $query = Therapist::find()
                 ->where(['is_active' => 1])
-                ->with(['user.profile', 'specialization'])
+                ->with(['user.profile', 'specialization', 'specializations'])
                 ->innerJoin('users u', 'u.id = therapists.user_id')
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
                 ->orderBy(['up.last_name' => SORT_ASC]);
@@ -1385,6 +1389,11 @@ class TherapeuticPlanManagerController extends Controller
                     'email' => $therapist->user->email,
                     'specialization' => $therapist->specialization->name ?? 'Non specificata',
                     'specializationId' => $therapist->specialization_id,
+                    'specializations' => array_map(fn($s) => [
+                        'id' => (int)$s->id,
+                        'code' => $s->code,
+                        'name' => $s->name,
+                    ], $therapist->specializations),
                     'weeklyHours' => $therapist->weekly_hours_contract
                 ];
             }
@@ -1651,12 +1660,19 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $treatmentType = TreatmentType::findOne($treatmentTypeId);
 
-            // Sub-query: esiste un mapping specialization_treatments che lega
-            // la specializzazione del terapista al treatment_type richiesto?
+            // Sub-query: esiste UNA QUALSIASI specializzazione del terapista
+            // (dalla tabella ponte) che offre il treatment_type richiesto?
+            // Con N specializzazioni per terapista il match non va più sulla
+            // colonna legacy therapists.specialization_id (= solo primaria),
+            // ma su therapist_specializations.
             $hasSpecMatch = (new \yii\db\Query())
-                ->from('{{%specialization_treatments}} st')
-                ->where('st.specialization_id = t.specialization_id')
-                ->andWhere(['st.treatment_type_id' => $treatmentTypeId]);
+                ->from(['ts' => '{{%therapist_specializations}}'])
+                ->innerJoin(
+                    ['st' => '{{%specialization_treatments}}'],
+                    'st.specialization_id = ts.specialization_id'
+                )
+                ->where('ts.therapist_id = t.id')
+                ->andWhere(['st.treatment_type_id' => (int)$treatmentTypeId]);
 
             $query = Therapist::find()
                 ->alias('t')
@@ -5286,7 +5302,7 @@ class TherapeuticPlanManagerController extends Controller
 
         try {
             $therapist = Therapist::find()
-                ->with(['specialization.specializationTreatments.treatmentType'])
+                ->with(['specializations.specializationTreatments.treatmentType'])
                 ->where(['id' => $therapistId])
                 ->one();
 
@@ -5294,20 +5310,26 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Terapista non trovato');
             }
 
-            if (!$therapist->specialization) {
-                return $this->errorResponse('Specializzazione terapista non trovata');
+            $specs = $therapist->specializations;
+            if (empty($specs)) {
+                return $this->errorResponse('Nessuna specializzazione associata al terapista');
             }
 
+            // Itera su TUTTE le specializzazioni del terapista (non più solo la
+            // primary). Un treatment offerto da più spec del terapista compare
+            // in più righe — il client può decidere come visualizzarle.
             $result = [];
-            foreach ($therapist->specialization->specializationTreatments as $specializationTreatment) {
-                $result[] = [
-                    'id' => $specializationTreatment->id,
-                    'specialization_id' => $specializationTreatment->specialization_id,
-                    'treatment_type_id' => $specializationTreatment->treatment_type_id,
-                    'treatment_type_name' => $specializationTreatment->treatmentType->name,
-                    'specialization_name' => $therapist->specialization->name,
-                    'full_name' => $specializationTreatment->getFullName()
-                ];
+            foreach ($specs as $specialization) {
+                foreach ($specialization->specializationTreatments as $specializationTreatment) {
+                    $result[] = [
+                        'id' => $specializationTreatment->id,
+                        'specialization_id' => $specializationTreatment->specialization_id,
+                        'treatment_type_id' => $specializationTreatment->treatment_type_id,
+                        'treatment_type_name' => $specializationTreatment->treatmentType->name,
+                        'specialization_name' => $specialization->name,
+                        'full_name' => $specializationTreatment->getFullName()
+                    ];
+                }
             }
 
             return [

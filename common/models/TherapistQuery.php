@@ -32,25 +32,38 @@ class TherapistQuery extends ActiveQuery
     }
 
     /**
-     * Filter by specialization
+     * Filter by specialization (matching ANY of the therapist's specializations).
      *
      * @param int $specializationId
      * @return $this
      */
     public function bySpecialization($specializationId)
     {
-        return $this->andWhere(['specialization_id' => $specializationId]);
+        return $this->andWhere([
+            'EXISTS',
+            (new \yii\db\Query())
+                ->from(['ts_bs' => 'therapist_specializations'])
+                ->where('ts_bs.therapist_id = therapists.id')
+                ->andWhere(['ts_bs.specialization_id' => (int)$specializationId]),
+        ]);
     }
 
     /**
-     * Filter by multiple specializations
+     * Filter by multiple specializations (therapist has at least one of them).
      *
      * @param array $specializationIds
      * @return $this
      */
     public function bySpecializations($specializationIds)
     {
-        return $this->andWhere(['specialization_id' => $specializationIds]);
+        $ids = array_map('intval', (array)$specializationIds);
+        return $this->andWhere([
+            'EXISTS',
+            (new \yii\db\Query())
+                ->from(['ts_bss' => 'therapist_specializations'])
+                ->where('ts_bss.therapist_id = therapists.id')
+                ->andWhere(['ts_bss.specialization_id' => $ids]),
+        ]);
     }
 
     /**

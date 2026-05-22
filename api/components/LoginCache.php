@@ -90,14 +90,23 @@ class LoginCache extends Component
         
         if ($therapistData === false) {
             $therapist = Therapist::find()
-                ->with('specialization')
+                ->with(['specialization', 'specializations'])
                 ->where(['user_id' => $userId])
                 ->one();
-            
+
             if (!$therapist) {
                 return null;
             }
-            
+
+            $specializationsList = [];
+            foreach ($therapist->specializations as $s) {
+                $specializationsList[] = [
+                    'id' => (int)$s->id,
+                    'code' => $s->code,
+                    'name' => $s->name,
+                ];
+            }
+
             $therapistData = [
                 'id' => $therapist->id,
                 'user_id' => $therapist->user_id,
@@ -108,7 +117,10 @@ class LoginCache extends Component
                 'specialization' => $therapist->specialization ? [
                     'id' => $therapist->specialization->id,
                     'name' => $therapist->specialization->name
-                ] : null
+                ] : null,
+                // Lista N specializzazioni del terapista (la primary è anche
+                // riflessa nel campo "specialization" sopra per backward-compat).
+                'specializations' => $specializationsList,
             ];
             
             Yii::$app->cache->set(
