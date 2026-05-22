@@ -8,6 +8,7 @@ use common\models\AuthToken;
 use common\models\Notification;
 use common\models\Specialization;
 use common\models\Therapist;
+use common\models\TherapistSpecialization;
 use common\models\TherapistSubstitution;
 use common\models\User;
 use common\models\UserProfile;
@@ -150,6 +151,9 @@ class TherapistController extends Controller
         // Get specializations for dropdown
         $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
 
+        $selectedSpecializationIds = [];
+        $primarySpecializationId = null;
+
         if ($user->load(Yii::$app->request->post()) &&
                 $profile->load(Yii::$app->request->post()) &&
                 $therapist->load(Yii::$app->request->post())) {
@@ -165,6 +169,13 @@ class TherapistController extends Controller
             // Set requires_password_change to true for new accounts
             if ($user->hasAttribute('requires_password_change')) {
                 $user->requires_password_change = 1;
+            }
+
+            // Specializzazioni (N): leggi dai POST e imposta la primary
+            // anche su therapists.specialization_id (legacy) per soddisfare la rule.
+            [$selectedSpecializationIds, $primarySpecializationId] = $this->readPostedSpecializations();
+            if (!empty($primarySpecializationId)) {
+                $therapist->specialization_id = $primarySpecializationId;
             }
 
             // Step 1: Validate and save User first (it's independent)
@@ -211,6 +222,13 @@ class TherapistController extends Controller
 
                         if (!$therapist->save(false)) {
                             throw new \Exception('Errore nel salvare il terapista.');
+                        }
+
+                        // Sincronizza la tabella ponte therapist_specializations.
+                        try {
+                            $therapist->syncSpecializations($selectedSpecializationIds, (int)$primarySpecializationId);
+                        } catch (\Throwable $e) {
+                            throw new \Exception('Errore nelle specializzazioni: ' . $e->getMessage());
                         }
 
                         // Assign therapist role
@@ -320,6 +338,8 @@ class TherapistController extends Controller
             'profile' => $profile,
             'therapist' => $therapist,
             'specializations' => $specializations,
+            'selectedSpecializationIds' => $selectedSpecializationIds,
+            'primarySpecializationId' => $primarySpecializationId,
         ], $permissionData));
     }
 
@@ -346,9 +366,24 @@ class TherapistController extends Controller
         // Get specializations for dropdown
         $specializations = ArrayHelper::map(Specialization::find()->all(), 'id', 'name');
 
+        // Pre-popolazione del form con le specializzazioni correnti del terapista
+        $selectedSpecializationIds = $therapist->getSpecializationIds();
+        $primarySpecRow = TherapistSpecialization::find()
+            ->where(['therapist_id' => $therapist->id, 'is_primary' => 1])
+            ->one();
+        $primarySpecializationId = $primarySpecRow
+            ? (int)$primarySpecRow->specialization_id
+            : (int)$therapist->specialization_id;
+
         if ($user->load(Yii::$app->request->post()) &&
                 $profile->load(Yii::$app->request->post()) &&
                 $therapist->load(Yii::$app->request->post())) {
+
+            [$selectedSpecializationIds, $primarySpecializationId] = $this->readPostedSpecializations();
+            if (!empty($primarySpecializationId)) {
+                $therapist->specialization_id = $primarySpecializationId;
+            }
+
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 if (!$user->save()) {
@@ -370,6 +405,12 @@ class TherapistController extends Controller
 
                 if (!$therapist->save()) {
                     throw new \Exception("Errore nell'aggiornare il terapista: " . implode(', ', $therapist->getFirstErrors()));
+                }
+
+                try {
+                    $therapist->syncSpecializations($selectedSpecializationIds, (int)$primarySpecializationId);
+                } catch (\Throwable $e) {
+                    throw new \Exception('Errore nelle specializzazioni: ' . $e->getMessage());
                 }
 
                 // Sync extra permissions
@@ -396,6 +437,8 @@ class TherapistController extends Controller
             'profile' => $profile,
             'therapist' => $therapist,
             'specializations' => $specializations,
+            'selectedSpecializationIds' => $selectedSpecializationIds,
+            'primarySpecializationId' => $primarySpecializationId,
         ], $permissionData));
     }
 
@@ -519,6 +562,30 @@ class TherapistController extends Controller
                 'error' => "Errore durante l'invio delle notifiche: " . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Legge dal POST gli ID delle specializzazioni scelte e l'ID della primary.
+     * Se la primary non è tra gli ID, prende il primo ID come fallback.
+     *
+     * @return array{0:int[],1:int|null}
+     */
+    private function readPostedSpecializations(): array
+    {
+        $post = Yii::$app->request->post('Therapist', []);
+        $ids = isset($post['specialization_ids']) && is_array($post['specialization_ids'])
+            ? array_values(array_unique(array_map('intval', $post['specialization_ids'])))
+            : [];
+        $primary = isset($post['primary_specialization_id'])
+            ? (int)$post['primary_specialization_id']
+            : null;
+        if ($primary !== null && !in_array($primary, $ids, true)) {
+            $primary = !empty($ids) ? $ids[0] : null;
+        }
+        if ($primary === null && !empty($ids)) {
+            $primary = $ids[0];
+        }
+        return [$ids, $primary];
     }
 
     /**

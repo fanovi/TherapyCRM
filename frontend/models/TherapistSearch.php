@@ -130,18 +130,39 @@ class TherapistSearch extends Therapist
         $query->andFilterWhere([
             'therapists.id' => $this->id,
             'therapists.user_id' => $this->user_id,
-            'therapists.specialization_id' => $this->specialization_id,
             'therapists.weekly_hours_contract' => $this->weekly_hours_contract,
             'therapists.is_active' => $this->is_active,
             'therapists.is_internal' => $this->is_internal,
         ]);
 
+        // Filtro per specializzazione: un terapista corrisponde se ha
+        // almeno UNA delle sue specializzazioni che soddisfa il filtro
+        // (matching su tabella ponte therapist_specializations).
+        if (!empty($this->specialization_id)) {
+            $query->andWhere([
+                'EXISTS',
+                (new \yii\db\Query())
+                    ->from(['ts_filter' => 'therapist_specializations'])
+                    ->where('ts_filter.therapist_id = therapists.id')
+                    ->andWhere(['ts_filter.specialization_id' => (int)$this->specialization_id]),
+            ]);
+        }
+        if (!empty($this->specialization_name)) {
+            $query->andWhere([
+                'EXISTS',
+                (new \yii\db\Query())
+                    ->from(['ts_name' => 'therapist_specializations'])
+                    ->innerJoin(['s_name' => 'specializations'], 's_name.id = ts_name.specialization_id')
+                    ->where('ts_name.therapist_id = therapists.id')
+                    ->andWhere(['like', 's_name.name', $this->specialization_name]),
+            ]);
+        }
+
         $query
             ->andFilterWhere(['like', 'therapists.calendar_color', $this->calendar_color])
             ->andFilterWhere(['like', 'user_profiles.first_name', $this->first_name])
             ->andFilterWhere(['like', 'user_profiles.last_name', $this->last_name])
-            ->andFilterWhere(['like', 'users.email', $this->email])
-            ->andFilterWhere(['like', 'specializations.name', $this->specialization_name]);
+            ->andFilterWhere(['like', 'users.email', $this->email]);
 
         return $dataProvider;
     }

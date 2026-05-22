@@ -17,12 +17,28 @@ export interface Therapist {
   id: number;
   name: string;
   email: string;
+  /**
+   * Stringa singola usata nelle UI legacy (in pratica: nome della
+   * specializzazione filtrata o lista joined). Mantenuta per backward-compat
+   * con i componenti esistenti che leggono `therapist.specialization`.
+   */
   specialization: string;
+  /**
+   * Tutte le specializzazioni del terapista. Popolata dagli endpoint backend
+   * che hanno migrato al modello N specializzazioni per terapista.
+   */
+  specializations?: Array<{ id: number; code: string; name: string }>;
   specializationId?: number;
   weeklyHours?: number;
   color?: string;
   isAvailable?: boolean;
   unavailabilityReason?: string;
+}
+
+export interface ResolveSpecializationResponse {
+  resolved: boolean;
+  specialization?: { id: number; code: string; name: string };
+  choices?: Array<{ id: number; code: string; name: string }>;
 }
 
 export interface Patient {
@@ -125,6 +141,13 @@ export interface Appointment {
 
   // Categoria appuntamento (regular o recovery)
   appointment_category?: "regular" | "recovery";
+
+  /**
+   * ID della specializzazione storicizzata sull'appuntamento (in che veste
+   * il terapista ha erogato il trattamento). Usato dalla logica di
+   * sostituzione per filtrare i terapisti compatibili.
+   */
+  specializationId?: number;
 }
 
 export interface AppointmentData {
@@ -144,6 +167,8 @@ export interface AppointmentData {
 export interface CreateAppointmentRequest {
   planTherapyId: number;
   treatmentTypeId?: number;
+  /** Specializzazione esplicita (richiesta quando il terapista è multi-spec ambiguo). */
+  specializationId?: number;
   therapistId: number;
   appointmentDateTime: string; // YYYY-MM-DD HH:mm:ss
   durationMinutes: number;
@@ -232,6 +257,8 @@ export interface TreatmentType {
 export interface PrivateAppointmentData {
   treatmentTypeId?: number; // Opzionale nella vista terapista
   treatmentTypeName?: string; // Opzionale nella vista terapista
+  /** Specializzazione esplicita per disambiguare terapisti multi-spec. */
+  specializationId?: number;
   duration: number;
   notes?: string;
   isRecurring?: boolean;

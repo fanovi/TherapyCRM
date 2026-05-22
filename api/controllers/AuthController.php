@@ -689,7 +689,7 @@ class AuthController extends Controller
 
         // Verifica se è un terapista con eager loading della specializzazione
         $therapist = Therapist::find()
-            ->with('specialization')  // Eager loading per evitare N+1 query
+            ->with(['specialization', 'specializations'])  // Eager loading per evitare N+1 query
             ->where(['user_id' => $user->id])
             ->one();
         if ($therapist) {
@@ -714,8 +714,20 @@ class AuthController extends Controller
      */
     private function buildTherapistData(User $user, UserProfile $profile, Therapist $therapist)
     {
-        // La specializzazione è già caricata tramite eager loading
+        // La specializzazione "principale" è già caricata tramite eager loading.
+        // Mantenuta nel campo "specializzazione" (singolare) per backward-compat
+        // con l'app mobile, che legge una stringa singola.
         $specialization = $therapist->specialization;
+
+        // Lista completa (N) per i client che supportano più specializzazioni.
+        $specializzazioni = [];
+        foreach ($therapist->specializations as $spec) {
+            $specializzazioni[] = [
+                'id' => (int)$spec->id,
+                'code' => $spec->code,
+                'name' => $spec->name,
+            ];
+        }
 
         $userData = [
             'id' => $user->id,
@@ -728,6 +740,7 @@ class AuthController extends Controller
             'user_type' => 'terapista',
             'status' => $user->status === User::STATUS_ACTIVE ? 'attivo' : 'inattivo',
             'specializzazione' => $specialization ? $specialization->name : null,
+            'specializzazioni' => $specializzazioni,
             'first_login' => $user->requires_password_change  // TODO: Gestire correttamente
         ];
 

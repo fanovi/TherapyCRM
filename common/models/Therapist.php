@@ -24,6 +24,9 @@ use yii\behaviors\TimestampBehavior;
  *
  * @property User $user
  * @property Specialization $specialization
+ * @property Specialization[] $specializations
+ * @property Specialization|null $primarySpecialization
+ * @property TherapistSpecialization[] $therapistSpecializations
  */
 class Therapist extends ActiveRecord
 {
@@ -113,12 +116,129 @@ class Therapist extends ActiveRecord
     }
 
     /**
-     * Relazione con la specializzazione
+     * Relazione con la specializzazione "principale" (legacy).
+     *
+     * Punta a therapists.specialization_id, mantenuta per backward-compat
+     * con il codice che si aspetta una sola specializzazione per terapista
+     * (es. app mobile via AuthController::buildTherapistData). La sorgente
+     * autoritativa di "specializzazione principale" è la riga della tabella
+     * ponte con is_primary = 1 — vedi getPrimarySpecialization().
+     *
      * @return \yii\db\ActiveQuery
      */
     public function getSpecialization()
     {
         return $this->hasOne(Specialization::class, ['id' => 'specialization_id']);
+    }
+
+    /**
+     * Relazione 1:N con le righe della tabella ponte therapist_specializations.
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTherapistSpecializations()
+    {
+        return $this->hasMany(TherapistSpecialization::class, ['therapist_id' => 'id']);
+    }
+
+    /**
+     * Tutte le specializzazioni del terapista (N:N via therapist_specializations).
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSpecializations()
+    {
+        return $this->hasMany(Specialization::class, ['id' => 'specialization_id'])
+            ->viaTable('{{%therapist_specializations}}', ['therapist_id' => 'id']);
+    }
+
+    /**
+     * Specializzazione marcata is_primary = 1 nella tabella ponte (se presente).
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPrimarySpecialization()
+    {
+        return $this->hasOne(Specialization::class, ['id' => 'specialization_id'])
+            ->viaTable('{{%therapist_specializations}}', ['therapist_id' => 'id'], function ($q) {
+                $q->andWhere(['is_primary' => 1]);
+            });
+    }
+
+    /**
+     * @return int[] ID delle specializzazioni del terapista
+     */
+    public function getSpecializationIds()
+    {
+        return TherapistSpecialization::find()
+            ->select('specialization_id')
+            ->where(['therapist_id' => $this->id])
+            ->column();
+    }
+
+    /**
+     * @param int $specializationId
+     * @return bool true se il terapista possiede la specializzazione data
+     */
+    public function hasSpecialization($specializationId)
+    {
+        return TherapistSpecialization::find()
+            ->where([
+                'therapist_id' => $this->id,
+                'specialization_id' => (int)$specializationId,
+            ])
+            ->exists();
+    }
+
+    /**
+     * Sincronizza le specializzazioni del terapista con la lista fornita
+     * (insert/delete sulla tabella ponte) e imposta la specializzazione primaria.
+     *
+     * Aggiorna anche therapists.specialization_id (legacy) per mantenere
+     * coerente la backward-compat finché la colonna non viene rimossa.
+     *
+     * @param int[] $specializationIds
+     * @param int   $primaryId  Deve essere uno degli ID in $specializationIds
+     * @throws \yii\db\Exception se la primary non è tra gli ID forniti
+     */
+    public function syncSpecializations(array $specializationIds, int $primaryId): void
+    {
+        $specializationIds = array_values(array_unique(array_map('intval', $specializationIds)));
+        if (empty($specializationIds)) {
+            throw new \yii\db\Exception('Almeno una specializzazione è obbligatoria.');
+        }
+        if (!in_array($primaryId, $specializationIds, true)) {
+            throw new \yii\db\Exception('La specializzazione principale deve essere tra quelle selezionate.');
+        }
+
+        $db = static::getDb();
+        $tx = $db->beginTransaction();
+        try {
+            // Cancella tutte e reinserisce: semplice, e i volumi sono piccoli
+            // (poche specializzazioni per terapista).
+            $db->createCommand()
+                ->delete('{{%therapist_specializations}}', ['therapist_id' => $this->id])
+                ->execute();
+
+            foreach ($specializationIds as $specId) {
+                $db->createCommand()->insert('{{%therapist_specializations}}', [
+                    'therapist_id' => $this->id,
+                    'specialization_id' => $specId,
+                    'is_primary' => $specId === $primaryId ? 1 : null,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ])->execute();
+            }
+
+            // Allinea la colonna legacy.
+            if ((int)$this->specialization_id !== $primaryId) {
+                $db->createCommand()
+                    ->update('{{%therapists}}', ['specialization_id' => $primaryId], ['id' => $this->id])
+                    ->execute();
+                $this->specialization_id = $primaryId;
+            }
+
+            $tx->commit();
+        } catch (\Throwable $e) {
+            $tx->rollBack();
+            throw $e;
+        }
     }
 
     /**

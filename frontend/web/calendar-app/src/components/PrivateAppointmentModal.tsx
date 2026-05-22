@@ -69,6 +69,16 @@ export const PrivateAppointmentModal: React.FC<
   const [effectiveTreatmentType, setEffectiveTreatmentType] =
     useState<TreatmentType | null>(null);
 
+  // Per terapisti con N specializzazioni: serve sapere "in quale veste"
+  // sta erogando il trattamento. Se l'intersezione (spec terapista ∩
+  // spec del treatment) è univoca la deriviamo, altrimenti chiediamo.
+  const [specializationChoices, setSpecializationChoices] = useState<
+    Array<{ id: number; code: string; name: string }>
+  >([]);
+  const [selectedSpecializationId, setSelectedSpecializationId] = useState<
+    number | undefined
+  >(undefined);
+
   // Stati per settings
   const [settings, setSettings] = useState<{ id: number; nome: string }[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -168,6 +178,65 @@ export const PrivateAppointmentModal: React.FC<
     }
   }, [isOpen, treatmentType, selectedTherapist, isTherapistView]);
 
+  // Risoluzione specializzazione per appuntamenti dove il terapista può avere N spec.
+  useEffect(() => {
+    if (!isOpen || !selectedTherapist) {
+      setSpecializationChoices([]);
+      setSelectedSpecializationId(undefined);
+      return;
+    }
+
+    // Vista terapista: niente treatment a frontend → deriviamo solo dal numero
+    // di specializzazioni del terapista. Se 1 sola, è quella; se >1, picker.
+    if (isTherapistView) {
+      const specs = selectedTherapist.specializations ?? [];
+      if (specs.length === 1) {
+        setSelectedSpecializationId(specs[0].id);
+        setSpecializationChoices([]);
+      } else if (specs.length > 1) {
+        setSpecializationChoices(specs);
+        setSelectedSpecializationId(undefined);
+      } else {
+        // Nessuna info: lasciamo che il backend tenti la derivazione legacy.
+        setSpecializationChoices([]);
+        setSelectedSpecializationId(undefined);
+      }
+      return;
+    }
+
+    // Vista normale: risolvi via API usando il treatment scelto.
+    if (
+      effectiveTreatmentType &&
+      effectiveTreatmentType.id > 0
+    ) {
+      let cancelled = false;
+      therapyAPI
+        .resolveSpecialization(selectedTherapist.id, effectiveTreatmentType.id)
+        .then((result) => {
+          if (cancelled) return;
+          if (result.resolved && result.specialization) {
+            setSelectedSpecializationId(result.specialization.id);
+            setSpecializationChoices([]);
+          } else if ((result.choices?.length ?? 0) > 1) {
+            setSpecializationChoices(result.choices ?? []);
+            setSelectedSpecializationId(undefined);
+          } else {
+            // 0 choices → incompatibile: lasciamo che il backend dia l'errore preciso.
+            setSpecializationChoices([]);
+            setSelectedSpecializationId(undefined);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSpecializationChoices([]);
+          setSelectedSpecializationId(undefined);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [isOpen, selectedTherapist, effectiveTreatmentType, isTherapistView]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -191,6 +260,15 @@ export const PrivateAppointmentModal: React.FC<
       return;
     }
 
+    // Se il terapista ha più specializzazioni compatibili, è obbligatorio
+    // indicare in quale veste sta erogando il trattamento.
+    if (specializationChoices.length > 1 && !selectedSpecializationId) {
+      alert(
+        "Seleziona la specializzazione del terapista da usare per questo appuntamento.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -206,6 +284,10 @@ export const PrivateAppointmentModal: React.FC<
       if (!isTherapistView && effectiveTreatmentType) {
         appointmentData.treatmentTypeId = effectiveTreatmentType.id;
         appointmentData.treatmentTypeName = effectiveTreatmentType.name;
+      }
+
+      if (selectedSpecializationId) {
+        appointmentData.specializationId = selectedSpecializationId;
       }
 
       onConfirm(appointmentData);
@@ -295,6 +377,36 @@ export const PrivateAppointmentModal: React.FC<
               <p className="text-sm font-medium text-purple-900">
                 Tipo di trattamento: {effectiveTreatmentType.name}
               </p>
+            </div>
+          )}
+
+          {specializationChoices.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="specialization-picker">
+                Specializzazione del terapista{" "}
+                <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-gray-500">
+                Il terapista ha più specializzazioni compatibili con questo
+                trattamento. Indica in quale veste eroga l'appuntamento.
+              </p>
+              <Select
+                value={selectedSpecializationId?.toString()}
+                onValueChange={(value) =>
+                  setSelectedSpecializationId(parseInt(value))
+                }
+              >
+                <SelectTrigger id="specialization-picker">
+                  <SelectValue placeholder="Seleziona una specializzazione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {specializationChoices.map((spec) => (
+                    <SelectItem key={spec.id} value={spec.id.toString()}>
+                      {spec.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

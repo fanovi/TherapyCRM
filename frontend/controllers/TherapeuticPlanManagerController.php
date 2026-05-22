@@ -16,7 +16,10 @@ use common\models\PrivateCycle;
 use common\models\Regime;
 use common\models\Setting;
 use common\models\TherapeuticPlan;
+use common\models\Specialization;
+use common\models\SpecializationTreatment;
 use common\models\Therapist;
+use common\models\TherapistSpecialization;
 use common\models\TherapistSubstitution;
 use common\models\TreatmentType;
 use yii\filters\AccessControl;
@@ -279,13 +282,24 @@ class TherapeuticPlanManagerController extends Controller
             $patient = $this->findPatient($data['patientId']);
             $therapist = $this->findTherapist($data['therapistId']);
 
+            $explicitSpecializationId = isset($data['specializationId']) && (int)$data['specializationId'] > 0
+                ? (int)$data['specializationId']
+                : null;
+
             // Se treatmentTypeId non è fornito o è 0, lo ricavo dalla specializzazione del terapista
             if (!isset($data['treatmentTypeId']) || $data['treatmentTypeId'] == 0) {
-                $treatmentType = $this->getTreatmentTypeFromTherapist($therapist);
+                $treatmentType = $this->getTreatmentTypeFromTherapist($therapist, $explicitSpecializationId);
                 Yii::info("TreatmentType ricavato dalla specializzazione terapista: ID {$treatmentType->id}, Nome '{$treatmentType->name}'", __METHOD__);
             } else {
                 $treatmentType = $this->findTreatmentType($data['treatmentTypeId']);
             }
+
+            // Risolve la specializzazione da storicizzare sull'appuntamento.
+            $data['specializationId'] = $this->resolveAppointmentSpecialization(
+                $therapist->id,
+                $treatmentType->id,
+                $explicitSpecializationId
+            );
 
             // Verifica conflitti terapista
             $conflict = $this->checkTherapistConflict(
@@ -876,32 +890,95 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Ottiene il TreatmentType dalla specializzazione del terapista
+     * Ottiene il TreatmentType dalla specializzazione del terapista.
+     *
+     * Se $specializationId è fornito, lo usa direttamente (deve essere una
+     * specializzazione effettivamente posseduta dal terapista). Altrimenti,
+     * tenta di derivare: se il terapista ha una sola specializzazione la usa,
+     * se ne ha più di una lancia errore chiedendo di specificarla.
      *
      * @param Therapist $therapist
+     * @param int|null $specializationId Specializzazione esplicita (opzionale)
      * @return TreatmentType
      * @throws NotFoundHttpException
      */
-    private function getTreatmentTypeFromTherapist($therapist)
+    private function getTreatmentTypeFromTherapist($therapist, $specializationId = null)
     {
-        if (!$therapist->specialization_id) {
+        $specIds = $therapist->getSpecializationIds();
+        if (empty($specIds)) {
             throw new NotFoundHttpException('Terapista senza specializzazione');
         }
 
-        // Trova il primo TreatmentType associato alla specializzazione del terapista
+        if ($specializationId !== null) {
+            if (!in_array((int)$specializationId, array_map('intval', $specIds), true)) {
+                throw new NotFoundHttpException("Il terapista non possiede la specializzazione richiesta (ID {$specializationId})");
+            }
+            $resolvedSpecId = (int)$specializationId;
+        } elseif (count($specIds) === 1) {
+            $resolvedSpecId = (int)$specIds[0];
+        } else {
+            throw new BadRequestHttpException(
+                'Il terapista ha più di una specializzazione: indicare quale usare (parametro specializationId).'
+            );
+        }
+
         $treatmentType = TreatmentType::find()
             ->innerJoin('specialization_treatments st', 'st.treatment_type_id = treatment_types.id')
-            ->where(['st.specialization_id' => $therapist->specialization_id])
+            ->where(['st.specialization_id' => $resolvedSpecId])
             ->one();
 
         if (!$treatmentType) {
-            // Carica la specializzazione per il messaggio di errore
-            $specialization = \common\models\Specialization::findOne($therapist->specialization_id);
-            $specializationName = $specialization ? $specialization->name : "ID {$therapist->specialization_id}";
+            $specialization = Specialization::findOne($resolvedSpecId);
+            $specializationName = $specialization ? $specialization->name : "ID {$resolvedSpecId}";
             throw new NotFoundHttpException("Nessun tipo di trattamento trovato per la specializzazione '{$specializationName}'");
         }
 
         return $treatmentType;
+    }
+
+    /**
+     * Determina quale specializzazione associare a un appuntamento di un dato
+     * terapista per un dato treatment_type. Restituisce la specializzazione
+     * "univocamente derivabile" — ovvero l'intersezione fra le specializzazioni
+     * possedute dal terapista e quelle che offrono il treatment.
+     *
+     * @param int $therapistId
+     * @param int $treatmentTypeId
+     * @param int|null $explicit Se fornito dal client, lo usa (dopo averlo validato).
+     * @return int specialization_id
+     * @throws BadRequestHttpException se ambiguo o incompatibile
+     */
+    private function resolveAppointmentSpecialization($therapistId, $treatmentTypeId, $explicit = null)
+    {
+        $candidates = Specialization::find()
+            ->select('specializations.id')
+            ->innerJoin(['ts' => 'therapist_specializations'], 'ts.specialization_id = specializations.id')
+            ->innerJoin(['st' => 'specialization_treatments'], 'st.specialization_id = specializations.id')
+            ->where([
+                'ts.therapist_id' => (int)$therapistId,
+                'st.treatment_type_id' => (int)$treatmentTypeId,
+            ])
+            ->distinct()
+            ->column();
+
+        $candidates = array_map('intval', $candidates);
+
+        if (empty($candidates)) {
+            throw new BadRequestHttpException('Il terapista non ha nessuna specializzazione compatibile con il tipo di trattamento selezionato.');
+        }
+
+        if ($explicit !== null) {
+            if (!in_array((int)$explicit, $candidates, true)) {
+                throw new BadRequestHttpException('La specializzazione indicata non è valida per questo terapista/trattamento.');
+            }
+            return (int)$explicit;
+        }
+
+        if (count($candidates) === 1) {
+            return $candidates[0];
+        }
+
+        throw new BadRequestHttpException('Specializzazione ambigua per questo terapista e trattamento: indicarla esplicitamente (parametro specializationId).');
     }
 
     /**
@@ -930,6 +1007,9 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->patient_id = $data['patientId'];
         $appointment->therapist_id = $data['therapistId'];
         $appointment->treatment_type_id = $data['treatmentTypeId'];
+        if (isset($data['specializationId']) && (int)$data['specializationId'] > 0) {
+            $appointment->specialization_id = (int)$data['specializationId'];
+        }
         $appointment->appointment_datetime = $appointmentDateTime;
         $appointment->duration_minutes = $data['durationMinutes'];
         $appointment->notes = $data['notes'] ?? null;
@@ -1414,7 +1494,13 @@ class TherapeuticPlanManagerController extends Controller
                 ->where(['t.is_active' => true]);
 
             if (!$force) {
-                $therapists = $therapists->andWhere(['t.specialization_id' => $specializationId]);
+                $therapists = $therapists->andWhere([
+                    'EXISTS',
+                    (new \yii\db\Query())
+                        ->from(['ts_filter' => 'therapist_specializations'])
+                        ->where('ts_filter.therapist_id = t.id')
+                        ->andWhere(['ts_filter.specialization_id' => (int)$specializationId]),
+                ]);
             }
 
             // Filtro is_aba: applicato solo se la chiamata specifica un
@@ -1445,17 +1531,31 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
-            $therapists = $therapists->orderBy(['up.last_name' => SORT_ASC])->all();
+            $therapists = $therapists->with(['user.profile', 'specializations'])->orderBy(['up.last_name' => SORT_ASC])->all();
+
+            // Nome della specializzazione filtrata (se non force): è quella che
+            // l'utente sta cercando, quindi è il "ruolo" rilevante per la lista.
+            $filterSpecName = null;
+            if (!$force) {
+                $filterSpec = Specialization::findOne((int)$specializationId);
+                $filterSpecName = $filterSpec?->name;
+            }
 
             $result = [];
             foreach ($therapists as $therapist) {
                 $profile = $therapist->user->profile;
+                $specNames = array_map(fn($s) => $s->name, $therapist->specializations);
 
                 $therapistData = [
                     'id' => $therapist->id,
                     'name' => $profile->getFullName(),
                     'email' => $therapist->user->email,
-                    'specialization' => $therapist->specialization->name ?? 'Non specificata',
+                    'specialization' => $filterSpecName ?? (!empty($specNames) ? implode(', ', $specNames) : 'Non specificata'),
+                    'specializations' => array_map(fn($s) => [
+                        'id' => (int)$s->id,
+                        'code' => $s->code,
+                        'name' => $s->name,
+                    ], $therapist->specializations),
                     'weeklyHours' => $therapist->weekly_hours_contract,
                     'isAvailable' => true,
                     'unavailabilityReason' => null
@@ -1485,6 +1585,57 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error('Errore recupero terapisti per specializzazione: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Risolve quale specializzazione di un terapista usare per un dato treatment.
+     *
+     * Calcola l'intersezione fra le specializzazioni possedute dal terapista
+     * (therapist_specializations) e quelle che offrono il treatment richiesto
+     * (specialization_treatments).
+     *
+     * Risposta:
+     *  - resolved=true  + specialization {id,code,name}: intersezione di 1 elemento
+     *  - resolved=false + choices [...]                : intersezione >1, picker UI
+     *  - resolved=false + choices []                   : terapista non compatibile
+     */
+    public function actionResolveSpecialization($therapistId, $treatmentTypeId)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $therapistId = (int)$therapistId;
+        $treatmentTypeId = (int)$treatmentTypeId;
+
+        if (!$therapistId || !$treatmentTypeId) {
+            return ['success' => false, 'error' => 'Parametri mancanti.'];
+        }
+
+        $specs = Specialization::find()
+            ->innerJoin(
+                ['ts' => 'therapist_specializations'],
+                'ts.specialization_id = specializations.id'
+            )
+            ->innerJoin(
+                ['st' => 'specialization_treatments'],
+                'st.specialization_id = specializations.id'
+            )
+            ->where([
+                'ts.therapist_id' => $therapistId,
+                'st.treatment_type_id' => $treatmentTypeId,
+            ])
+            ->distinct()
+            ->all();
+
+        $choices = array_map(fn($s) => [
+            'id' => (int)$s->id,
+            'code' => $s->code,
+            'name' => $s->name,
+        ], $specs);
+
+        if (count($choices) === 1) {
+            return ['success' => true, 'data' => ['resolved' => true, 'specialization' => $choices[0]]];
+        }
+
+        return ['success' => true, 'data' => ['resolved' => false, 'choices' => $choices]];
     }
 
     /**

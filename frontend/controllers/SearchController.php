@@ -348,7 +348,8 @@ class SearchController extends Controller
         }
 
         $therapistsQuery = Therapist::find()
-            ->joinWith(['user.profile', 'specialization'])
+            ->joinWith(['user.profile'])
+            ->with(['specializations'])
             ->where(['therapists.is_active' => true])
             ->andWhere(['or',
                 ['like', 'user_profiles.first_name', $query],
@@ -365,14 +366,14 @@ class SearchController extends Controller
 
         foreach ($therapists as $therapist) {
             $profile = $therapist->user->profile;
-            $specialization = $therapist->specialization;
-            
+            $specNames = array_map(fn($s) => $s->name, $therapist->specializations);
+
             $results[] = [
                 'id' => $therapist->id,
                 'user_id' => $therapist->user_id,
                 'type' => 'therapist',
                 'name' => $profile->getFullName(),
-                'role' => 'Terapista' . ($specialization ? ' - ' . $specialization->name : ''),
+                'role' => 'Terapista' . (!empty($specNames) ? ' - ' . implode(', ', $specNames) : ''),
                 'email' => $therapist->user->email,
                 'phone' => $this->decryptPhone($profile->phone),
                 'detail_url' => $this->generateDetailUrl('therapist', $therapist->id),

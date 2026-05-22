@@ -16,6 +16,7 @@ use Ramsey\Uuid\Uuid;
  * @property int|null $plan_therapy_id
  * @property string $appointment_source
  * @property int|null $treatment_type_id
+ * @property int|null $specialization_id
  * @property int|null $private_cycle_id
  * @property int|null $patient_id
  * @property string|null $group_session_id
@@ -41,6 +42,7 @@ use Ramsey\Uuid\Uuid;
  * @property Therapist $originalTherapist
  * @property User $createdBy
  * @property Setting $setting
+ * @property Specialization $specialization
  */
 class Appointment extends ActiveRecord
 {
@@ -102,7 +104,7 @@ class Appointment extends ActiveRecord
     {
         return [
             [['therapist_id', 'appointment_datetime', 'duration_minutes', 'appointment_source', 'created_by'], 'required'],
-            [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by', 'related_appointment_id'], 'integer'],
+            [['pattern_id', 'plan_therapy_id', 'treatment_type_id', 'specialization_id', 'private_cycle_id', 'patient_id', 'therapist_id', 'duration_minutes', 'original_therapist_id', 'created_by', 'related_appointment_id'], 'integer'],
             [['group_session_id'], 'string', 'max' => 36],
             [['group_session_id'], 'match', 'pattern' => '/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', 'message' => 'Group Session ID deve essere un UUID valido', 'skipOnEmpty' => true],
             [['appointment_datetime'], 'validateAppointmentDateTime'],
@@ -129,6 +131,11 @@ class Appointment extends ActiveRecord
             [['pattern_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppointmentPattern::class, 'targetAttribute' => ['pattern_id' => 'id']],
             [['plan_therapy_id'], 'exist', 'skipOnError' => true, 'targetClass' => PlanTherapy::class, 'targetAttribute' => ['plan_therapy_id' => 'id']],
             [['treatment_type_id'], 'exist', 'skipOnError' => true, 'targetClass' => TreatmentType::class, 'targetAttribute' => ['treatment_type_id' => 'id']],
+            [['specialization_id'], 'exist', 'skipOnError' => true, 'targetClass' => Specialization::class, 'targetAttribute' => ['specialization_id' => 'id']],
+            [['specialization_id'], 'required', 'when' => function ($model) {
+                return $this->shouldValidateSpecialization();
+            }, 'message' => 'La specializzazione è obbligatoria per i nuovi appuntamenti.'],
+            [['specialization_id'], 'validateTherapistSpecializationCompatibility'],
             [['private_cycle_id'], 'exist', 'skipOnError' => true, 'targetClass' => PrivateCycle::class, 'targetAttribute' => ['private_cycle_id' => 'id']],
             [['patient_id'], 'exist', 'skipOnError' => true, 'targetClass' => Patient::class, 'targetAttribute' => ['patient_id' => 'id']],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
@@ -262,6 +269,134 @@ class Appointment extends ActiveRecord
     }
 
     /**
+     * True quando va validata la coerenza terapista ↔ specializzazione ↔ treatment.
+     *
+     * Lo storico (record già persistiti e non modificati nei campi rilevanti)
+     * non viene rivalidato per evitare di rompere appuntamenti pre-migrazione N:N.
+     */
+    public function shouldValidateSpecialization(): bool
+    {
+        if ($this->isNewRecord) {
+            return true;
+        }
+        foreach (['therapist_id', 'specialization_id', 'plan_therapy_id', 'treatment_type_id'] as $attr) {
+            if ($this->isAttributeChanged($attr, false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Auto-deriva specialization_id quando può farlo senza ambiguità, così i
+     * creatori esistenti che non sono stati ancora aggiornati al modello N
+     * specializzazioni continuano a funzionare senza modifiche.
+     */
+    public function beforeValidate()
+    {
+        if (!parent::beforeValidate()) {
+            return false;
+        }
+        $this->autoResolveSpecializationId();
+        return true;
+    }
+
+    /**
+     * Riempie specialization_id derivandolo dall'intersezione fra le
+     * specializzazioni del terapista e quelle che offrono il treatment.
+     * Imposta il valore solo se la derivazione è univoca (1 candidato);
+     * lascia il campo vuoto altrimenti, così la rule "required" scatta
+     * e il chiamante è costretto a indicarla esplicitamente.
+     */
+    private function autoResolveSpecializationId(): void
+    {
+        if (!empty($this->specialization_id)) {
+            return;
+        }
+        if (!$this->shouldValidateSpecialization()) {
+            return;
+        }
+        if (empty($this->therapist_id)) {
+            return;
+        }
+
+        $treatmentTypeId = $this->treatment_type_id;
+        if (!$treatmentTypeId && $this->plan_therapy_id) {
+            $treatmentTypeId = PlanTherapy::find()
+                ->select('treatment_type_id')
+                ->where(['id' => $this->plan_therapy_id])
+                ->scalar();
+        }
+        if (!$treatmentTypeId) {
+            return;
+        }
+
+        $candidates = (new \yii\db\Query())
+            ->select('s.id')
+            ->from(['s' => 'specializations'])
+            ->innerJoin(['ts' => 'therapist_specializations'], 'ts.specialization_id = s.id')
+            ->innerJoin(['st' => 'specialization_treatments'], 'st.specialization_id = s.id')
+            ->where([
+                'ts.therapist_id' => (int)$this->therapist_id,
+                'st.treatment_type_id' => (int)$treatmentTypeId,
+            ])
+            ->distinct()
+            ->column();
+
+        if (count($candidates) === 1) {
+            $this->specialization_id = (int)$candidates[0];
+        }
+    }
+
+    /**
+     * Verifica che la specialization scelta:
+     *  1) sia effettivamente posseduta dal terapista (therapist_specializations);
+     *  2) sia compatibile con il treatment_type richiesto (specialization_treatments).
+     *
+     * Il treatment_type viene letto da $this->treatment_type_id, oppure derivato
+     * dal piano (plan_therapies.treatment_type_id) se quel campo è vuoto.
+     */
+    public function validateTherapistSpecializationCompatibility($attribute, $params)
+    {
+        if (!$this->shouldValidateSpecialization()) {
+            return;
+        }
+        if (empty($this->$attribute) || empty($this->therapist_id)) {
+            return;
+        }
+
+        $specId = (int)$this->$attribute;
+
+        $hasSpec = TherapistSpecialization::find()
+            ->where(['therapist_id' => $this->therapist_id, 'specialization_id' => $specId])
+            ->exists();
+        if (!$hasSpec) {
+            $this->addError($attribute, 'Il terapista non possiede la specializzazione selezionata.');
+            return;
+        }
+
+        $treatmentTypeId = $this->treatment_type_id;
+        if (!$treatmentTypeId && $this->plan_therapy_id) {
+            $treatmentTypeId = PlanTherapy::find()
+                ->select('treatment_type_id')
+                ->where(['id' => $this->plan_therapy_id])
+                ->scalar();
+        }
+        if (!$treatmentTypeId) {
+            return;
+        }
+
+        $compatible = SpecializationTreatment::find()
+            ->where(['specialization_id' => $specId, 'treatment_type_id' => (int)$treatmentTypeId])
+            ->exists();
+        if (!$compatible) {
+            $this->addError($attribute, 'La specializzazione selezionata non è compatibile con il tipo di trattamento.');
+        }
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function attributeLabels()
@@ -272,6 +407,7 @@ class Appointment extends ActiveRecord
             'plan_therapy_id' => 'Piano Terapia',
             'appointment_source' => 'Origine Appuntamento',
             'treatment_type_id' => 'Tipo Trattamento',
+            'specialization_id' => 'Specializzazione',
             'private_cycle_id' => 'Ciclo Privato',
             'patient_id' => 'Paziente',
             'group_session_id' => 'ID Sessione di Gruppo',
@@ -329,6 +465,17 @@ class Appointment extends ActiveRecord
     public function getTreatmentType()
     {
         return $this->hasOne(TreatmentType::class, ['id' => 'treatment_type_id']);
+    }
+
+    /**
+     * Specializzazione storicizzata sull'appuntamento (in che "veste" il terapista
+     * sta erogando il trattamento). Riempita al momento della creazione.
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSpecialization()
+    {
+        return $this->hasOne(Specialization::class, ['id' => 'specialization_id']);
     }
 
     /**

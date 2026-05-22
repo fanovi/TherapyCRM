@@ -54,11 +54,13 @@ class Specialization extends ActiveRecord
     }
 
     /**
+     * Terapisti che possiedono questa specializzazione (N:N via tabella ponte).
      * @return \yii\db\ActiveQuery
      */
     public function getTherapists()
     {
-        return $this->hasMany(Therapist::class, ['specialization_id' => 'id']);
+        return $this->hasMany(Therapist::class, ['id' => 'therapist_id'])
+            ->viaTable('{{%therapist_specializations}}', ['specialization_id' => 'id']);
     }
 
     /**

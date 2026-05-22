@@ -8,7 +8,11 @@ use yii\widgets\ActiveForm;
 /** @var common\models\UserProfile $profile */
 /** @var common\models\Therapist $therapist */
 /** @var array $specializations */
+/** @var int[] $selectedSpecializationIds */
+/** @var int|null $primarySpecializationId */
 /** @var bool $isUpdate Indica se è in modalità modifica */
+$selectedSpecializationIds = $selectedSpecializationIds ?? [];
+$primarySpecializationId = $primarySpecializationId ?? null;
 $isUpdate = $isUpdate ?? false;
 $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
 ?>
@@ -134,10 +138,49 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
         
         <div class="px-5 pb-5 sm:px-6 sm:pb-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <?= $form->field($therapist, 'specialization_id')->dropDownList($specializations, [
-                        'prompt' => 'Seleziona specializzazione...'
-                    ])->label('Specializzazione <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Specializzazioni <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Seleziona una o più specializzazioni. Indica quella principale (usata per la backward-compat con l'app mobile).
+                    </p>
+                    <div id="therapist-specializations" class="space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-700/30">
+                        <?php foreach ($specializations as $specId => $specName): ?>
+                            <?php
+                                $isChecked = in_array((int)$specId, array_map('intval', $selectedSpecializationIds), true);
+                                $isPrimary = ((int)$primarySpecializationId) === (int)$specId;
+                            ?>
+                            <div class="flex items-center justify-between gap-3 py-1">
+                                <label class="flex items-center gap-2 flex-1 cursor-pointer">
+                                    <input type="checkbox"
+                                           name="Therapist[specialization_ids][]"
+                                           value="<?= (int)$specId ?>"
+                                           data-spec-checkbox
+                                           data-spec-id="<?= (int)$specId ?>"
+                                           <?= $isChecked ? 'checked' : '' ?>
+                                           class="rounded border-gray-300 text-brand-600">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300"><?= Html::encode($specName) ?></span>
+                                </label>
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="radio"
+                                           name="Therapist[primary_specialization_id]"
+                                           value="<?= (int)$specId ?>"
+                                           data-spec-primary
+                                           data-spec-id="<?= (int)$specId ?>"
+                                           <?= $isPrimary ? 'checked' : '' ?>
+                                           <?= $isChecked ? '' : 'disabled' ?>
+                                           class="text-brand-600">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Principale</span>
+                                </label>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if ($therapist->hasErrors('specialization_id')): ?>
+                        <div class="help-block-error">
+                            <?= Html::encode($therapist->getFirstError('specialization_id')) ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div>
@@ -346,12 +389,41 @@ $pageTitle = $isUpdate ? 'Modifica Terapista' : 'Nuovo Terapista';
 document.addEventListener('DOMContentLoaded', function() {
     // Converte automaticamente il codice fiscale in maiuscolo al rilascio del tasto
     const fiscalCodeInput = document.getElementById('fiscal-code-input');
-    
+
     if (fiscalCodeInput) {
         fiscalCodeInput.addEventListener('keyup', function() {
             const currentValue = this.value;
             this.value = currentValue.toUpperCase();
         });
     }
+
+    // Specializzazioni multi-select: abilita/disabilita il radio "primary"
+    // in base al checkbox; assicura che esista sempre un radio primary tra
+    // i checkbox selezionati.
+    (function () {
+        const container = document.getElementById('therapist-specializations');
+        if (!container) return;
+        const checkboxes = container.querySelectorAll('[data-spec-checkbox]');
+        const radioFor = (id) => container.querySelector('[data-spec-primary][data-spec-id="' + id + '"]');
+
+        function syncRadios() {
+            const checked = [];
+            checkboxes.forEach(function (cb) {
+                const radio = radioFor(cb.dataset.specId);
+                if (!radio) return;
+                radio.disabled = !cb.checked;
+                if (!cb.checked && radio.checked) radio.checked = false;
+                if (cb.checked) checked.push(cb.dataset.specId);
+            });
+            const anyPrimary = container.querySelector('[data-spec-primary]:checked');
+            if (!anyPrimary && checked.length > 0) {
+                const first = radioFor(checked[0]);
+                if (first) first.checked = true;
+            }
+        }
+
+        checkboxes.forEach(function (cb) { cb.addEventListener('change', syncRadios); });
+        syncRadios();
+    })();
 });
 </script> 

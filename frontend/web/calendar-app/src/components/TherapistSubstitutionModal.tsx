@@ -116,13 +116,22 @@ export const TherapistSubstitutionModal: React.FC<
         (t) => t.id === appointment.therapist?.id
       );
 
-      if (!originalTherapistData?.specializationId) {
+      // Filtro per specializzazione: priorità alla specializzazione storicizzata
+      // sull'appuntamento (in che veste il terapista la stava erogando), così il
+      // sostituto deve avere proprio quella specializzazione anche se l'originale
+      // ne ha più di una. Fallback alla legacy del terapista per appuntamenti
+      // pre-migrazione che non hanno specializationId valorizzato.
+      const filterSpecializationId =
+        appointment.specializationId ?? originalTherapistData?.specializationId;
+      if (!filterSpecializationId) {
         throw new Error(
-          "ID specializzazione del terapista originale non trovato"
+          "Specializzazione di riferimento non disponibile per il filtro sostituti."
         );
       }
 
-      setOriginalTherapist(originalTherapistData);
+      if (originalTherapistData) {
+        setOriginalTherapist(originalTherapistData);
+      }
 
       // Estrai data e ora dall'appuntamento per il controllo disponibilità
       const appointmentDate = new Date(appointment.datetime);
@@ -132,7 +141,7 @@ export const TherapistSubstitutionModal: React.FC<
       // Usa l'API con controllo disponibilità (il backend escluderà automaticamente il terapista originale)
       const therapistsBySpecialization =
         await therapyAPI.getTherapistsBySpecialization(
-          originalTherapistData.specializationId,
+          filterSpecializationId,
           {
             date: dateString,
             time: timeString,

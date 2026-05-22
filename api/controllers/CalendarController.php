@@ -129,7 +129,12 @@ class CalendarController extends ActiveController
                     $therapistName = trim($therapistFirstName . ' ' . $therapistLastName) ?: 'Terapista non disponibile';
                 }
 
-                if ($appointment->therapist && $appointment->therapist->specialization) {
+                // Specializzazione storicizzata sull'appuntamento (in che veste
+                // il terapista ha erogato il trattamento). Fallback alla legacy
+                // del terapista se non presente (record pre-migrazione).
+                if ($appointment->specialization) {
+                    $therapistSpecialization = $appointment->specialization->name;
+                } elseif ($appointment->therapist && $appointment->therapist->specialization) {
                     $therapistSpecialization = $appointment->therapist->specialization->name ?? null;
                 }
 
@@ -384,7 +389,7 @@ class CalendarController extends ActiveController
                 ->leftJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
                 ->leftJoin('patients p', 'p.id = COALESCE(tp.patient_id, a.patient_id)')
                 ->leftJoin('treatment_types tt', 'tt.id = COALESCE(pt.treatment_type_id, a.treatment_type_id)')
-                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile', 'setting'])
+                ->with(['planTherapy.therapeuticPlan.patient', 'planTherapy.treatmentType', 'patient', 'treatmentType', 'therapist.user.profile', 'specialization', 'setting'])
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
                 ->andWhere(['DATE(a.appointment_datetime)' => $date])
@@ -537,7 +542,8 @@ class CalendarController extends ActiveController
                 'name' => $mainAppointment->therapist->user->profile->last_name . ' ' . $mainAppointment->therapist->user->profile->first_name,
                 'first_name' => $mainAppointment->therapist->user->profile->first_name,
                 'last_name' => $mainAppointment->therapist->user->profile->last_name,
-                'specialization' => $mainAppointment->therapist->specialization->name ?? null,
+                'specialization' => $mainAppointment->specialization->name
+                    ?? ($mainAppointment->therapist->specialization->name ?? null),
             ],
             'patternId' => $mainAppointment->pattern_id,
             'isRecurring' => $mainAppointment->pattern_id !== null,
@@ -602,7 +608,8 @@ class CalendarController extends ActiveController
                 'name' => $appointment->therapist->user->profile->last_name . ' ' . $appointment->therapist->user->profile->first_name,
                 'first_name' => $appointment->therapist->user->profile->first_name,
                 'last_name' => $appointment->therapist->user->profile->last_name,
-                'specialization' => $appointment->therapist->specialization->name ?? null,
+                'specialization' => $appointment->specialization->name
+                    ?? ($appointment->therapist->specialization->name ?? null),
             ],
             'patternId' => $appointment->pattern_id,
             'isRecurring' => $appointment->pattern_id !== null,
@@ -835,7 +842,7 @@ class CalendarController extends ActiveController
             }
 
             $therapist = Therapist::find()
-                ->with(['user.profile', 'specialization'])
+                ->with(['user.profile', 'specialization', 'specializations'])
                 ->where(['id' => $therapistId])
                 ->one();
 
@@ -935,6 +942,11 @@ class CalendarController extends ActiveController
                         'email' => $therapist->user->email,
                         'phone' => $therapist->user->profile->phone,
                         'specialization' => $therapist->specialization->name ?? 'Non specificata',
+                        'specializations' => array_map(fn($s) => [
+                            'id' => (int)$s->id,
+                            'code' => $s->code,
+                            'name' => $s->name,
+                        ], $therapist->specializations),
                         'registrationDate' => $therapist->user->created_at,
                         'contractualHours' => $therapist->contractual_hours ?? 40,
                         'isActive' => $therapist->user->status === 10,
@@ -1008,7 +1020,7 @@ class CalendarController extends ActiveController
     private function getPatientAppointmentsOptimized($patientId, $date)
     {
         return Appointment::find()
-            ->with(['planTherapy.treatmentType', 'treatmentType', 'therapist.user.profile', 'therapist.specialization', 'patient'])
+            ->with(['planTherapy.treatmentType', 'treatmentType', 'therapist.user.profile', 'therapist.specialization', 'therapist.specializations', 'specialization', 'patient'])
             ->where(['patient_id' => $patientId])
             ->andWhere(['DATE(appointment_datetime)' => $date])
             ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
@@ -2482,7 +2494,7 @@ class CalendarController extends ActiveController
         try {
             // Recupera i prossimi appuntamenti del paziente (semplificato)
             $appointments = Appointment::find()
-                ->with(['therapist.user.profile', 'planTherapy.treatmentType', 'treatmentType', 'patient'])
+                ->with(['therapist.user.profile', 'planTherapy.treatmentType', 'treatmentType', 'specialization', 'patient'])
                 ->where(['patient_id' => $patientId])
                 ->andWhere(['>=', 'appointment_datetime', date('Y-m-d H:i:s')])
                 ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
@@ -2506,7 +2518,8 @@ class CalendarController extends ActiveController
                         'name' => trim($profile->last_name . ' ' . $profile->first_name),
                         'first_name' => $profile->first_name,
                         'last_name' => $profile->last_name,
-                        'specialization' => $appointment->therapist->specialization ?? null,
+                        'specialization' => $appointment->specialization->name
+                            ?? ($appointment->therapist->specialization->name ?? null),
                     ];
                 }
 

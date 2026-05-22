@@ -13,6 +13,7 @@ import {
   SpecializationTreatment,
   TherapistAbsence,
   TherapistAbsencesResponse,
+  ResolveSpecializationResponse,
 } from "@/types/therapy";
 
 /**
@@ -20,7 +21,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager"; //app.gruppovitolo.local
+  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager"; //"https://app.gruppovitolo.local/therapeutic-plan-manager"; //app.gruppovitolo.local
 
   /**
    * Restituisce l'origin dell'app (senza /therapeutic-plan-manager).
@@ -240,6 +241,34 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data || [];
+  }
+
+  /**
+   * NON RIMUOVERE — usato da PrivateAppointmentModal per decidere se la
+   * specializzazione si può derivare in automatico oppure se serve un picker.
+   *
+   * Calcola l'intersezione fra le specializzazioni possedute dal terapista
+   * e quelle che offrono il treatment. Tipico comportamento:
+   *  - resolved=true: una sola specializzazione compatibile → si usa quella
+   *  - resolved=false con choices.length > 1: terapista multi-spec ambiguo
+   *  - resolved=false con choices.length === 0: terapista non compatibile
+   */
+  async resolveSpecialization(
+    therapistId: number,
+    treatmentTypeId: number,
+  ): Promise<ResolveSpecializationResponse> {
+    const response = await this.get<APIResponse<ResolveSpecializationResponse>>(
+      "resolve-specialization",
+      { therapistId, treatmentTypeId },
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nella risoluzione della specializzazione",
+      );
+    }
+
+    return response.data || { resolved: false, choices: [] };
   }
 
   /**
@@ -697,10 +726,16 @@ class TherapeuticPlanManagerAPI {
   /**
    * Crea un appuntamento privato
    */
+  /**
+   * NON RIMUOVERE — usato da PrivateAppointmentModal e dai flussi di creazione
+   * appuntamenti privati. Accetta `specializationId` per disambiguare quando
+   * il terapista ha più specializzazioni compatibili con il treatment.
+   */
   async createPrivateAppointment(request: {
     patientId: number;
     therapistId: number;
     treatmentTypeId: number;
+    specializationId?: number;
     appointmentDateTime: string;
     durationMinutes: number;
     notes?: string;

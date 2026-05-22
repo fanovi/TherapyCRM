@@ -156,18 +156,61 @@ $this->params['breadcrumbs'][] = $this->title;
                 'template' => '<tr class="border-b border-gray-100 dark:border-gray-800"><th class="px-5 py-4 text-left font-medium text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 w-1/4">{label}</th><td class="px-5 py-4 text-gray-800 dark:text-white/90">{value}</td></tr>',
                 'attributes' => [
                     [
-                        'attribute' => 'specialization.name',
-                        'label' => 'Specializzazione',
+                        'label' => 'Specializzazioni',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            $specs = $model->specializations;
+                            if (empty($specs)) {
+                                return '<span class="text-gray-400 italic">Nessuna specializzazione</span>';
+                            }
+                            $primaryId = (int)$model->specialization_id;
+                            $hasMultiple = count($specs) > 1;
+
+                            // Principale prima, secondarie a seguire
+                            usort($specs, function ($a, $b) use ($primaryId) {
+                                $aP = ((int)$a->id) === $primaryId ? 0 : 1;
+                                $bP = ((int)$b->id) === $primaryId ? 0 : 1;
+                                if ($aP !== $bP) return $aP - $bP;
+                                return strcmp($a->name, $b->name);
+                            });
+
+                            $starSolid = '<svg class="h-3.5 w-3.5 flex-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.85-4.21 4.1.99 5.78L10 14.77l-5.2 2.73.99-5.78L1.58 7.62l5.82-.85L10 1.5z"/></svg>';
+
+                            $chips = [];
+                            foreach ($specs as $spec) {
+                                $isPrimary = ((int)$spec->id) === $primaryId;
+                                if ($isPrimary && $hasMultiple) {
+                                    $chips[] = '<span class="inline-flex items-center gap-1.5 pl-2.5 pr-3 py-1 text-sm font-semibold rounded-full bg-brand-500 text-white shadow-sm ring-1 ring-brand-600 dark:bg-brand-500 dark:text-white dark:ring-brand-400" title="Specializzazione principale">'
+                                        . $starSolid
+                                        . Html::encode($spec->name)
+                                        . '<span class="text-[10px] font-semibold uppercase tracking-wider opacity-90 ml-0.5">Principale</span>'
+                                        . '</span>';
+                                } elseif ($isPrimary) {
+                                    // Unica specializzazione: nessun "Principale" ridondante, ma palette neutra-marcata
+                                    $chips[] = '<span class="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">'
+                                        . Html::encode($spec->name)
+                                        . '</span>';
+                                } else {
+                                    $chips[] = '<span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">'
+                                        . Html::encode($spec->name)
+                                        . '</span>';
+                                }
+                            }
+                            return '<div class="flex flex-wrap items-center gap-2">' . implode('', $chips) . '</div>';
+                        }
                     ],
                     [
                         'label' => 'Trattamenti coperti',
                         'format' => 'raw',
                         'value' => function ($model) {
-                            $treatments = $model->specialization
-                                ? $model->specialization->treatmentTypes
-                                : [];
+                            $treatments = [];
+                            foreach ($model->specializations as $spec) {
+                                foreach ($spec->treatmentTypes as $tt) {
+                                    $treatments[$tt->id] = $tt; // dedup by id
+                                }
+                            }
                             if (empty($treatments)) {
-                                return '<span class="text-gray-400">Nessun trattamento associato alla specializzazione</span>';
+                                return '<span class="text-gray-400 italic">Nessun trattamento associato alle specializzazioni</span>';
                             }
                             $badges = [];
                             foreach ($treatments as $tt) {
