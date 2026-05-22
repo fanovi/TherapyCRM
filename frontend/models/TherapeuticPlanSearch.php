@@ -14,9 +14,14 @@ use common\models\TherapeuticPlan;
 class TherapeuticPlanSearch extends TherapeuticPlan
 {
     /**
-     * @var string Search term for patient name
+     * @var string Search term for patient last name (prefix match)
      */
-    public $patientName;
+    public $patientLastName;
+
+    /**
+     * @var string Search term for patient first name (prefix match)
+     */
+    public $patientFirstName;
 
     /**
      * {@inheritdoc}
@@ -25,7 +30,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
     {
         return [
             [['id', 'patient_id', 'regime_id', 'district_id', 'duration_days', 'created_by'], 'integer'],
-            [['start_date', 'end_date', 'approval_date', 'protocol_number', 'notes', 'status', 'patientName'], 'safe'],
+            [['start_date', 'end_date', 'approval_date', 'protocol_number', 'notes', 'status', 'patientLastName', 'patientFirstName'], 'safe'],
         ];
     }
 
@@ -71,9 +76,13 @@ class TherapeuticPlanSearch extends TherapeuticPlan
                     'district_id',
                     'status',
                     'created_at',
-                    'patientName' => [
+                    'patientLastName' => [
                         'asc' => ['patients.last_name' => SORT_ASC, 'patients.first_name' => SORT_ASC],
                         'desc' => ['patients.last_name' => SORT_DESC, 'patients.first_name' => SORT_DESC],
+                    ],
+                    'patientFirstName' => [
+                        'asc' => ['patients.first_name' => SORT_ASC, 'patients.last_name' => SORT_ASC],
+                        'desc' => ['patients.first_name' => SORT_DESC, 'patients.last_name' => SORT_DESC],
                     ],
                     // Pseudo-attributo: 1 se status='active', altrimenti 0. Default order DESC mostra prima gli attivi.
                     'status_priority' => [
@@ -113,17 +122,14 @@ class TherapeuticPlanSearch extends TherapeuticPlan
             $query->andFilterWhere(['therapeutic_plans.end_date' => $this->end_date]);
         }
 
-        // Patient name filter: match per prefisso su first_name/last_name e su
-        // entrambe le composizioni "cognome nome" / "nome cognome".
-        if (!empty($this->patientName)) {
-            $prefix = addcslashes($this->patientName, '%_\\') . '%';
-            $query->andWhere([
-                'or',
-                ['like', 'patients.first_name', $prefix, false],
-                ['like', 'patients.last_name', $prefix, false],
-                ['like', "CONCAT(patients.first_name, ' ', patients.last_name)", $prefix, false],
-                ['like', "CONCAT(patients.last_name, ' ', patients.first_name)", $prefix, false],
-            ]);
+        // Patient filters: match per prefisso, cognome e nome indipendenti (AND)
+        if (!empty($this->patientLastName)) {
+            $prefix = addcslashes($this->patientLastName, '%_\\') . '%';
+            $query->andWhere(['like', 'patients.last_name', $prefix, false]);
+        }
+        if (!empty($this->patientFirstName)) {
+            $prefix = addcslashes($this->patientFirstName, '%_\\') . '%';
+            $query->andWhere(['like', 'patients.first_name', $prefix, false]);
         }
 
         return $dataProvider;

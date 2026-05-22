@@ -94,18 +94,33 @@ $this->params['breadcrumbs'][] = $this->title;
                         'options' => ['style' => 'width: 140px;'],
                     ],
                     [
-                        'attribute' => 'patientName',
-                        'label' => 'Paziente',
+                        'attribute' => 'patientLastName',
+                        'label' => 'Cognome',
                         'value' => function ($model) {
-                            return $model->patient ? $model->patient->fullName : 'N/A';
+                            return $model->patient ? $model->patient->last_name : 'N/A';
                         },
                         'headerOptions' => ['class' => 'px-4 py-3'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Paziente...'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Cognome...'],
                         'content' => function ($model) {
-                            $patientName = $model->patient ? $model->patient->fullName : 'N/A';
-                            return '<div class="text-sm font-medium text-gray-900 dark:text-white">' . Html::encode($patientName) . '</div>';
+                            $val = $model->patient ? $model->patient->last_name : 'N/A';
+                            return '<div class="text-sm font-medium text-gray-900 dark:text-white">' . Html::encode($val) . '</div>';
+                        }
+                    ],
+                    [
+                        'attribute' => 'patientFirstName',
+                        'label' => 'Nome',
+                        'value' => function ($model) {
+                            return $model->patient ? $model->patient->first_name : 'N/A';
+                        },
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'placeholder' => 'Nome...'],
+                        'content' => function ($model) {
+                            $val = $model->patient ? $model->patient->first_name : 'N/A';
+                            return '<div class="text-sm text-gray-700 dark:text-gray-300">' . Html::encode($val) . '</div>';
                         }
                     ],
                     [
