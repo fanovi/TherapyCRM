@@ -68,7 +68,7 @@ class PatientSearch extends Patient
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
-                'pageSize' => 20,
+                'pageSize' => 50,
             ],
             'sort' => [
                 'attributes' => [
