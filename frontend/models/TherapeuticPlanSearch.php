@@ -113,14 +113,16 @@ class TherapeuticPlanSearch extends TherapeuticPlan
             $query->andFilterWhere(['therapeutic_plans.end_date' => $this->end_date]);
         }
 
-        // Patient name filter (search in both first_name and last_name)
+        // Patient name filter: match per prefisso su first_name/last_name e su
+        // entrambe le composizioni "cognome nome" / "nome cognome".
         if (!empty($this->patientName)) {
+            $prefix = addcslashes($this->patientName, '%_\\') . '%';
             $query->andWhere([
                 'or',
-                ['like', 'patients.first_name', $this->patientName],
-                ['like', 'patients.last_name', $this->patientName],
-                ['like', "CONCAT(patients.first_name, ' ', patients.last_name)", $this->patientName],
-                ['like', "CONCAT(patients.last_name, ' ', patients.first_name)", $this->patientName],
+                ['like', 'patients.first_name', $prefix, false],
+                ['like', 'patients.last_name', $prefix, false],
+                ['like', "CONCAT(patients.first_name, ' ', patients.last_name)", $prefix, false],
+                ['like', "CONCAT(patients.last_name, ' ', patients.first_name)", $prefix, false],
             ]);
         }
 
