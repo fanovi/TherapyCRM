@@ -14,6 +14,7 @@ use yii\helpers\Url;
 /* @var $therapistOptions array */
 /* @var $patientOptions array */
 /* @var $treatmentOptions array */
+/* @var $settingOptions array */
 
 $this->title = 'Statistiche Assenze';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
@@ -30,9 +31,10 @@ $byTreatmentType = $byTreatmentType ?? [];
 $topAbsentees = $topAbsentees ?? ['therapists' => [], 'patients' => []];
 
 // Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) || 
-                    !empty($searchModel->absenceSource) || !empty($searchModel->isJustified) || 
-                    !empty($searchModel->therapistId) || !empty($searchModel->treatmentTypeId);
+$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
+                    !empty($searchModel->absenceSource) || !empty($searchModel->isJustified) ||
+                    !empty($searchModel->therapistId) || !empty($searchModel->treatmentTypeId) ||
+                    !empty($searchModel->settingId);
 
 // Determina il periodo visualizzato
 $periodText = 'Periodo: ';
@@ -154,6 +156,12 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                         ['' => 'Tutti i trattamenti'] + $treatmentOptions,
                         ['class' => 'form-control']
                     )->label('Tipo trattamento') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'settingId')->dropDownList(
+                        ['' => 'Tutti i setting'] + $settingOptions,
+                        ['class' => 'form-control']
+                    )->label('Setting') ?>
                 </div>
             </div>
         </div>

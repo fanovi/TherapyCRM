@@ -144,6 +144,7 @@ class StatisticsController extends BaseController
             $therapistOptions = $this->getTherapistOptions();
             $patientOptions = $this->getPatientOptions();
             $treatmentOptions = $this->getTreatmentOptions();
+            $settingOptions = $this->getSettingOptions();
 
             return $this->render('absences', [
                 'searchModel' => $searchModel,
@@ -155,6 +156,7 @@ class StatisticsController extends BaseController
                 'therapistOptions' => $therapistOptions,
                 'patientOptions' => $patientOptions,
                 'treatmentOptions' => $treatmentOptions,
+                'settingOptions' => $settingOptions,
             ]);
         } catch (\Exception $e) {
             Yii::error("Errore pagina assenze: " . $e->getMessage());
@@ -220,6 +222,9 @@ class StatisticsController extends BaseController
         }
         if ($searchModel->treatmentTypeId) {
             $filters['treatmentTypeId'] = $searchModel->treatmentTypeId;
+        }
+        if ($searchModel->settingId) {
+            $filters['settingId'] = $searchModel->settingId;
         }
         if ($searchModel->absenceSource) {
             $filters['absenceSource'] = $searchModel->absenceSource;
@@ -862,6 +867,15 @@ class StatisticsController extends BaseController
     {
         return ArrayHelper::map(
             \common\models\Regime::find()->orderBy('nome')->all(),
+            'id',
+            'nome'
+        );
+    }
+
+    protected function getSettingOptions()
+    {
+        return ArrayHelper::map(
+            \common\models\Setting::find()->orderBy('nome')->all(),
             'id',
             'nome'
         );

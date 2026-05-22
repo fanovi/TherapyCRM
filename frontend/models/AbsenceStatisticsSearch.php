@@ -17,6 +17,7 @@ class AbsenceStatisticsSearch extends Model
     public $therapistId;
     public $patientId;
     public $treatmentTypeId;
+    public $settingId;
     public $absenceSource; // 'therapist' o 'patient'
     public $isJustified;
     public $absenceTypeFlag; // 'direct', 'substitution', 'patient'
@@ -28,7 +29,7 @@ class AbsenceStatisticsSearch extends Model
     {
         return [
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
-            [['therapistId', 'patientId', 'treatmentTypeId'], 'integer'],
+            [['therapistId', 'patientId', 'treatmentTypeId', 'settingId'], 'integer'],
             [['absenceSource', 'absenceTypeFlag'], 'string'],
             [['isJustified'], 'boolean'],
         ];
@@ -45,6 +46,7 @@ class AbsenceStatisticsSearch extends Model
             'therapistId' => 'Terapista',
             'patientId' => 'Paziente',
             'treatmentTypeId' => 'Tipo trattamento',
+            'settingId' => 'Setting',
             'absenceSource' => 'Chi è assente',
             'isJustified' => 'Giustificata',
             'absenceTypeFlag' => 'Tipo assenza',
@@ -64,6 +66,7 @@ class AbsenceStatisticsSearch extends Model
         if ($this->therapistId) $filters['therapistId'] = $this->therapistId;
         if ($this->patientId) $filters['patientId'] = $this->patientId;
         if ($this->treatmentTypeId) $filters['treatmentTypeId'] = $this->treatmentTypeId;
+        if ($this->settingId) $filters['settingId'] = $this->settingId;
         if ($this->absenceSource) $filters['absenceSource'] = $this->absenceSource;
         if ($this->isJustified !== null) $filters['isJustified'] = $this->isJustified;
         

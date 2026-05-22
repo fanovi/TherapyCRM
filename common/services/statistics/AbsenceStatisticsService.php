@@ -39,6 +39,7 @@ class AbsenceStatisticsService
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
+                'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'), // Assenze terapisti considerate giustificate
                 'has_recovery' => new Expression("CASE WHEN ar.id IS NOT NULL THEN 'SI' ELSE 'NO' END"),
@@ -49,7 +50,7 @@ class AbsenceStatisticsService
             ->from(['a' => 'appointments'])
             ->innerJoin(
                 ['ab' => 'absences'],
-                'a.therapist_id = ab.therapist_id 
+                'a.therapist_id = ab.therapist_id
                 AND DATE(a.appointment_datetime) BETWEEN ab.start_date AND ab.end_date
                 AND ab.status = "approved"'
             )
@@ -84,6 +85,7 @@ class AbsenceStatisticsService
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
+                'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'),
                 'has_recovery' => new Expression("CASE WHEN ar.id IS NOT NULL THEN 'SI' ELSE 'NO' END"),
@@ -129,7 +131,8 @@ class AbsenceStatisticsService
                 'treatment_type_id' => new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id)'),
                 'treatment_name' => 'tt.name',
                 'treatment_code' => 'tt.code',
-                'absence_reason' => new Expression("CASE 
+                'setting_id' => 'a.id_setting',
+                'absence_reason' => new Expression("CASE
                     WHEN a.status = 'absent_justified' THEN 'Giustificata'
                     ELSE 'Non giustificata'
                 END"),
@@ -191,6 +194,11 @@ class AbsenceStatisticsService
         // Filtro tipo trattamento
         if (!empty($filters['treatmentTypeId'])) {
             $query->andWhere(['treatment_type_id' => $filters['treatmentTypeId']]);
+        }
+
+        // Filtro setting (Domiciliare, Ambulatorio, ecc.)
+        if (!empty($filters['settingId'])) {
+            $query->andWhere(['setting_id' => $filters['settingId']]);
         }
 
         // Filtro tipo assenza (therapist/patient)
@@ -425,6 +433,9 @@ class AbsenceStatisticsService
                 ] // Appuntamenti con piano terapeutico
             ]);
         }
+        if (!empty($filters['settingId'])) {
+            $appointmentsQuery->andWhere(['id_setting' => $filters['settingId']]);
+        }
 
         $appointmentData = $appointmentsQuery->one();
         $totalAppointments = $appointmentData['total_appointments'] ?? 0;
@@ -530,6 +541,9 @@ class AbsenceStatisticsService
         }
         if ($searchModel->treatmentTypeId) {
             $filters['treatmentTypeId'] = $searchModel->treatmentTypeId;
+        }
+        if ($searchModel->settingId) {
+            $filters['settingId'] = $searchModel->settingId;
         }
         if ($searchModel->absenceSource) {
             $filters['absenceSource'] = $searchModel->absenceSource;
