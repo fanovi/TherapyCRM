@@ -161,10 +161,15 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $this->validateSingleAppointmentFields($data);
 
+            $isRecovery = isset($data['appointmentCategory'])
+                && $data['appointmentCategory'] === Appointment::CATEGORY_RECOVERY;
+
             // Verifica entità correlate
             $planTherapy = $this->findPlanTherapy($data['planTherapyId']);
             $this->validateTherapeuticPlan($planTherapy->therapeuticPlan);
-            $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
+            if (!$isRecovery) {
+                $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
+            }
             $therapist = $this->findTherapist($data['therapistId']);
 
             $this->validateTherapist($data);
@@ -202,34 +207,36 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
-            // Verifica conflitti tipologia trattamento
-            $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
-                $data['planTherapyId'],
-                $data['appointmentDateTime']
-            );
+            if (!$isRecovery) {
+                // Verifica conflitti tipologia trattamento
+                $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
+                    $data['planTherapyId'],
+                    $data['appointmentDateTime']
+                );
 
-            if ($treatmentConflict) {
-                return [
-                    'success' => false,
-                    'error' => 'Conflitto tipologia trattamento rilevato',
-                    'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
-                ];
-            }
+                if ($treatmentConflict) {
+                    return [
+                        'success' => false,
+                        'error' => 'Conflitto tipologia trattamento rilevato',
+                        'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
+                    ];
+                }
 
-            // Verifica limite ore per tipologia trattamento
-            $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
-                Appointment::SOURCE_THERAPEUTIC_PLAN,
-                $data['planTherapyId'],
-                $data['appointmentDateTime'],
-                $data['durationMinutes']
-            );
+                // Verifica limite ore per tipologia trattamento
+                $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                    Appointment::SOURCE_THERAPEUTIC_PLAN,
+                    $data['planTherapyId'],
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes']
+                );
 
-            if ($hoursLimitCheck) {
-                return [
-                    'success' => false,
-                    'error' => $hoursLimitCheck['message'],
-                    'code' => $hoursLimitCheck['code']
-                ];
+                if ($hoursLimitCheck) {
+                    return [
+                        'success' => false,
+                        'error' => $hoursLimitCheck['message'],
+                        'code' => $hoursLimitCheck['code']
+                    ];
+                }
             }
 
             // Crea appuntamento
@@ -3869,8 +3876,13 @@ class TherapeuticPlanManagerController extends Controller
             throw new Exception("Formato data/ora non valido: {$appointmentDateTime}");
         }
 
-        // Validazione data rispetto al piano terapeutico
-        $this->validateStartDate($appointmentDateTime, $data['planTherapyId']);
+        $isRecovery = isset($data['appointmentCategory'])
+            && $data['appointmentCategory'] === Appointment::CATEGORY_RECOVERY;
+
+        if (!$isRecovery) {
+            // Validazione data rispetto al piano terapeutico
+            $this->validateStartDate($appointmentDateTime, $data['planTherapyId']);
+        }
 
         $appointment = new Appointment();
         $appointment->plan_therapy_id = $data['planTherapyId'];
@@ -3881,6 +3893,9 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->duration_minutes = $data['durationMinutes'];
         $appointment->notes = $data['notes'] ?? null;
         $appointment->status = Appointment::STATUS_SCHEDULED;  // Imposta status di default
+        $appointment->appointment_category = $isRecovery
+            ? Appointment::CATEGORY_RECOVERY
+            : Appointment::CATEGORY_REGULAR;
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
 
@@ -5168,23 +5183,28 @@ class TherapeuticPlanManagerController extends Controller
             $this->validateABAAppointmentFields($data);
             $this->validateTherapist($data);
 
-            // Validazione data rispetto al piano terapeutico
-            $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
+            $isRecovery = isset($data['appointmentCategory'])
+                && $data['appointmentCategory'] === Appointment::CATEGORY_RECOVERY;
 
-            // Verifica limite ore per tipologia trattamento TEST ABA
-            $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
-                Appointment::SOURCE_THERAPEUTIC_PLAN,
-                $data['planTherapyId'],
-                $data['appointmentDateTime'],
-                $data['durationMinutes']
-            );
+            if (!$isRecovery) {
+                // Validazione data rispetto al piano terapeutico
+                $this->validateStartDate($data['appointmentDateTime'], $data['planTherapyId']);
 
-            if ($hoursLimitCheck) {
-                return [
-                    'success' => false,
-                    'error' => $hoursLimitCheck['message'],
-                    'code' => $hoursLimitCheck['code']
-                ];
+                // Verifica limite ore per tipologia trattamento TEST ABA
+                $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
+                    Appointment::SOURCE_THERAPEUTIC_PLAN,
+                    $data['planTherapyId'],
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes']
+                );
+
+                if ($hoursLimitCheck) {
+                    return [
+                        'success' => false,
+                        'error' => $hoursLimitCheck['message'],
+                        'code' => $hoursLimitCheck['code']
+                    ];
+                }
             }
 
             $treatmentTypeId = $data['treatmentTypeId'];
@@ -5265,6 +5285,9 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->appointment_type = $appointmentType;
             $appointment->notes = $data['notes'] ?? null;
             $appointment->status = Appointment::STATUS_SCHEDULED;
+            $appointment->appointment_category = $isRecovery
+                ? Appointment::CATEGORY_RECOVERY
+                : Appointment::CATEGORY_REGULAR;
             $appointment->created_by = $this->getCurrentUserId();
             $appointment->id_setting = $data['id_setting'] ?? 1;
             $appointment->group_session_id = $groupSessionId;

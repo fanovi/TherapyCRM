@@ -739,6 +739,7 @@ const Index = () => {
             notes: appointmentData.notes,
             isGroup: appointmentData.isGroup,
             id_setting: appointmentData.id_setting,
+            appointmentCategory: appointmentData.appointment_category,
           };
 
           result = await therapyAPI.createABAAppointment(request);
@@ -752,6 +753,7 @@ const Index = () => {
             notes: appointmentData.notes,
             isGroup: appointmentData.isGroup,
             id_setting: appointmentData.id_setting,
+            appointmentCategory: appointmentData.appointment_category,
           };
 
           const singleResult = await therapyAPI.createAppointment(request);

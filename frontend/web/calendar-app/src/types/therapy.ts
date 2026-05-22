@@ -137,6 +137,7 @@ export interface AppointmentData {
   appointmentType?: "terapia" | "parent_training" | "supervisione";
   isGroup?: boolean;
   id_setting?: number;
+  appointment_category?: "regular" | "recovery";
 }
 
 // Tipi per le richieste API
@@ -149,6 +150,7 @@ export interface CreateAppointmentRequest {
   notes?: string;
   isGroup?: boolean;
   id_setting?: number;
+  appointmentCategory?: "regular" | "recovery";
 }
 
 export interface CreatePatternRequest {

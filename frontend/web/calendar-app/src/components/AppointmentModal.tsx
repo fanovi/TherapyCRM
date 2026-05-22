@@ -56,6 +56,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     recurringInterval: 1, // Default: settimanale
     isGroup: false, // Aggiunto campo per appuntamento di gruppo
     id_setting: undefined,
+    appointment_category: "regular",
   });
 
   const [appointmentType, setAppointmentType] = useState<
@@ -278,6 +279,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         recurringInterval: 1,
         isGroup: false,
         id_setting: undefined,
+        appointment_category: "regular",
       });
     } catch (error) {
       // console.error("❌ Errore nel recupero piano terapia:", error);
@@ -302,6 +304,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
       recurringInterval: 1,
       isGroup: false,
       id_setting: undefined,
+      appointment_category: "regular",
     });
   };
 
@@ -454,6 +457,29 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </div>
                 )}
               </>
+            )}
+
+            {/* Checkbox Recupero — solo per appuntamenti non ricorrenti
+                (i pattern non gestiscono la categoria recovery) */}
+            {!formData.isRecurring && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="recovery"
+                  checked={formData.appointment_category === "recovery"}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      appointment_category: checked ? "recovery" : "regular",
+                    })
+                  }
+                />
+                <Label
+                  htmlFor="recovery"
+                  className="text-sm font-normal flex items-center gap-2"
+                >
+                  Appuntamento di recupero
+                </Label>
+              </div>
             )}
           </div>
 
