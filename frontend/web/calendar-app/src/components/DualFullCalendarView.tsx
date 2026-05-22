@@ -115,6 +115,8 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         appointment.groupSessionId !== null &&
         appointment.groupSessionId !== undefined;
 
+      const isRecovery = appointment.appointment_category === "recovery";
+
       // console.log("isGroupSession", isGroupSession);
 
       // Determina se l'appuntamento permette click (scheduled o therapist_absent)
@@ -149,7 +151,9 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         appointment.therapist?.name ||
         appointment.patient?.name ||
         "Appuntamento";
-      const title = isGroupSession ? `👥 Gruppo ${baseTitle}` : baseTitle;
+      const groupPrefix = isGroupSession ? `👥 Gruppo ` : "";
+      const recoveryPrefix = isRecovery ? `🔁 ` : "";
+      const title = `${recoveryPrefix}${groupPrefix}${baseTitle}`;
 
       return {
         id: appointment.id.toString(),
@@ -184,6 +188,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           isPrivate: appointment.isPrivate,
           isGroupSession: isGroupSession, // Aggiungi flag per gruppo
           groupSessionId: appointment.groupSessionId,
+          isRecovery: isRecovery,
         },
       };
     });

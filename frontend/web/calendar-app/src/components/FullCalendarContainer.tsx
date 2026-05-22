@@ -245,6 +245,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             appointment.groupSessionId !== null &&
             appointment.groupSessionId !== undefined;
 
+          const isRecovery = appointment.appointment_category === "recovery";
+
           const typeAbbr =
             typeAbbreviations[appointment.appointmentType || "terapia"];
           const baseTitle =
@@ -284,6 +286,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               isEditable: isEditable, // Passa questa info per il modal
               isGroupSession: appointment.isGroup,
               groupSessionId: appointment.groupSessionId,
+              isRecovery: isRecovery,
             },
           };
         }
@@ -666,6 +669,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           <div className="font-semibold truncate flex items-center gap-1">
             {isPrivate && <span className="text-purple-200">🔒</span>}
             {props.isGroupSession && <span className="text-blue-500">👥</span>}
+            {props.isRecovery && (
+              <span className="text-amber-300" title="Appuntamento di recupero">
+                🔁
+              </span>
+            )}
             {eventInfo.event.title}
             {props.appointmentType === "parent_training" && " (PT)"}
             {props.appointmentType === "supervisione" && " (S)"}
@@ -686,7 +694,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       >
         <div className="font-semibold truncate flex items-center gap-1">
           {isPrivate && <span>🔒</span>}
-
+          {props.isRecovery && (
+            <span title="Appuntamento di recupero">🔁</span>
+          )}
           {eventInfo.event.title}
           {!isEditable && <span>✓</span>}
         </div>

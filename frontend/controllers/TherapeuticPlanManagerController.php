@@ -1713,6 +1713,7 @@ class TherapeuticPlanManagerController extends Controller
                 'groupPatients' => $groupPatients,  // AGGIUNTO: ora include i pazienti del gruppo
                 'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                 'id_setting' => $appointment->id_setting,
+                'appointment_category' => $appointment->appointment_category ?? NULL,
             ];
 
             return [
@@ -2168,6 +2169,7 @@ class TherapeuticPlanManagerController extends Controller
                     'groupSessionId' => $appointment->group_session_id,
                     'groupPatients' => $groupPatients,
                     'category' => $appointment->appointment_category ?? NULL,
+                    'appointment_category' => $appointment->appointment_category ?? NULL,
                     'appointmentType' => $appointment->appointment_type,
                 ];
             }
@@ -2258,6 +2260,7 @@ class TherapeuticPlanManagerController extends Controller
                     'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                     'id_setting' => $appointment->id_setting,
                     'groupSessionId' => $appointment->group_session_id,
+                    'appointment_category' => $appointment->appointment_category ?? NULL,
                     'appointmentType' => $appointment->appointment_type,
                 ];
             }
