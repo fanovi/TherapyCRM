@@ -249,12 +249,10 @@ class AbsenceController extends Controller
             ],
         ]);
 
-        // Tutte le specializzazioni da DB (anche se senza terapisti attivi visibili)
-        $specializationNames = \common\models\Specialization::find()
-            ->select('name')
-            ->orderBy(['name' => SORT_ASC])
-            ->column();
-        $specializationOptions = array_combine($specializationNames, $specializationNames);
+        // Lista distinta delle specializzazioni presenti nelle righe (per dropdown filtro)
+        $specializationOptions = array_filter(array_unique(ArrayHelper::getColumn($rows, 'specialization')));
+        sort($specializationOptions);
+        $specializationOptions = array_combine($specializationOptions, $specializationOptions);
 
         return $this->render('daily', [
             'dataProvider' => $dataProvider,
