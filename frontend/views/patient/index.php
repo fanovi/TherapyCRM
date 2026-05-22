@@ -22,6 +22,27 @@ $districts = District::getDropdownData();
 $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification']));
 $patientNotifMtime = @filemtime(Yii::getAlias('@webroot/js/patient-notifications.js')) ?: time();
 $this->registerJsFile('@web/js/patient-notifications.js?v=' . $patientNotifMtime, ['depends' => [\yii\web\JqueryAsset::class]]);
+
+// Errore eliminazione paziente -> Swal modale, senza redirect a dettaglio.
+if (Yii::$app->session->hasFlash('patient_delete_error')) {
+    $err = Yii::$app->session->getFlash('patient_delete_error');
+    $title = is_array($err) ? ($err['title'] ?? 'Errore') : 'Errore';
+    $html  = is_array($err) ? ($err['html']  ?? '') : (string) $err;
+    $titleJs = json_encode($title);
+    $htmlJs  = json_encode($html);
+    $this->registerJs(<<<JS
+if (typeof Swal !== 'undefined') {
+    Swal.fire({
+        icon: 'error',
+        title: {$titleJs},
+        html: {$htmlJs},
+        confirmButtonText: 'Ok',
+        confirmButtonColor: '#dc2626'
+    });
+}
+JS
+, \yii\web\View::POS_END, 'patient-delete-error-swal');
+}
 ?>
 
 <div class="mx-auto max-w-7xl p-4 md:p-6">

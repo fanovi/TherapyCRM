@@ -755,6 +755,8 @@ class PatientController extends Controller
             ->where(['patient_id' => $patient->id])
             ->count();
 
+        $patientName = trim(($patient->last_name ?? '') . ' ' . ($patient->first_name ?? ''));
+
         if ($appointmentsCount > 0 || $plansCount > 0) {
             $parts = [];
             if ($appointmentsCount > 0) {
@@ -763,11 +765,11 @@ class PatientController extends Controller
             if ($plansCount > 0) {
                 $parts[] = $plansCount . ' piano/i terapeutico/i';
             }
-            Yii::$app->session->setFlash(
-                'error',
-                'Impossibile eliminare il paziente: sono collegati ' . implode(' e ', $parts) . '. Rimuovili prima di procedere.'
-            );
-            return $this->redirect(['view', 'id' => $patient->id]);
+            Yii::$app->session->setFlash('patient_delete_error', [
+                'title' => 'Impossibile eliminare ' . $patientName,
+                'html'  => 'Il paziente ha ' . implode(' e ', $parts) . ' collegati. Rimuovili prima di procedere.',
+            ]);
+            return $this->redirect(['index']);
         }
 
         try {
@@ -775,17 +777,22 @@ class PatientController extends Controller
                 Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
                 return $this->redirect(['index']);
             }
-            Yii::$app->session->setFlash('error', "Errore nell'eliminare il paziente.");
+            Yii::$app->session->setFlash('patient_delete_error', [
+                'title' => 'Errore',
+                'html'  => "Errore nell'eliminare il paziente.",
+            ]);
         } catch (\yii\db\IntegrityException $e) {
             Yii::error('Integrity error delete patient: ' . $e->getMessage(), __METHOD__);
-            Yii::$app->session->setFlash(
-                'error',
-                'Impossibile eliminare il paziente: esistono dati collegati (appuntamenti, piani, account, ecc.). Rimuovili prima di procedere.'
-            );
-            return $this->redirect(['view', 'id' => $patient->id]);
+            Yii::$app->session->setFlash('patient_delete_error', [
+                'title' => 'Impossibile eliminare ' . $patientName,
+                'html'  => 'Esistono dati collegati (appuntamenti, piani, account, ecc.). Rimuovili prima di procedere.',
+            ]);
         } catch (\Exception $e) {
             Yii::error('Errore delete patient: ' . $e->getMessage(), __METHOD__);
-            Yii::$app->session->setFlash('error', 'Errore inatteso: ' . $e->getMessage());
+            Yii::$app->session->setFlash('patient_delete_error', [
+                'title' => 'Errore inatteso',
+                'html'  => htmlspecialchars($e->getMessage()),
+            ]);
         }
 
         return $this->redirect(['index']);

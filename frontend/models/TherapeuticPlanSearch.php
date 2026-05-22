@@ -54,7 +54,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
-                'pageSize' => 20,
+                'pageSize' => 50,
             ],
             'sort' => [
                 'defaultOrder' => [
