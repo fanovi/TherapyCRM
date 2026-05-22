@@ -450,7 +450,7 @@ if (typeof Chart !== 'undefined') {
         <div class="stats-grid">
             <div class="stat-box">
                 <div class="stat-value blue"><?= number_format($totalPatients) ?></div>
-                <div class="stat-label">Pazienti Totali</div>
+                <div class="stat-label">Pazienti Attivi</div>
                 <?php if ($patientsGrowthPercentage != 0): ?>
                     <div class="stat-change <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
                         <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>%

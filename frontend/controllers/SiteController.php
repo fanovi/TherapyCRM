@@ -96,9 +96,12 @@ class SiteController extends BaseController
      */
     public function actionIndex()
     {
-        // Statistiche pazienti
-        // "Pazienti Totali" = solo pazienti con almeno un appuntamento (qualsiasi status),
-        // sia privato (a.patient_id) sia da piano terapeutico (tp.patient_id via plan_therapies).
+        // Statistiche pazienti attivi
+        // "Pazienti Attivi" = pazienti con almeno un appuntamento (qualsiasi status),
+        // sia privato (ap.patient_id) sia da piano (tp.patient_id via plan_therapies).
+        // La % di crescita confronta "nuovi pazienti attivi" del mese corrente vs mese
+        // precedente: un paziente e' "nuovo attivo nel mese X" se il suo primo
+        // appuntamento (MIN su entrambi i path) cade in X.
         $patientsTable = Patient::tableName();
         $totalPatients = Patient::find()
             ->andWhere(['EXISTS', (new \yii\db\Query())
@@ -110,11 +113,35 @@ class SiteController extends BaseController
                 ))
             ])
             ->count();
-        $newPatientsThisMonth = Patient::find()
-            ->where(['>=', 'created_at', date('Y-m-01 00:00:00')])
+
+        // Subquery: per ogni paziente, data del primo appuntamento (UNION dei due path).
+        $firstApptSql = "
+            SELECT patient_id, MIN(appointment_datetime) AS first_appt FROM (
+                SELECT ap.patient_id, ap.appointment_datetime
+                FROM {{%appointments}} ap
+                WHERE ap.patient_id IS NOT NULL
+                UNION ALL
+                SELECT tp.patient_id, ap.appointment_datetime
+                FROM {{%appointments}} ap
+                INNER JOIN {{%plan_therapies}} pt ON pt.id = ap.plan_therapy_id
+                INNER JOIN {{%therapeutic_plans}} tp ON tp.id = pt.therapeutic_plan_id
+                WHERE tp.patient_id IS NOT NULL
+            ) X
+            GROUP BY patient_id
+        ";
+
+        $thisMonthStart = date('Y-m-01 00:00:00');
+        $thisMonthEnd = date('Y-m-t 23:59:59');
+        $lastMonthStart = date('Y-m-01 00:00:00', strtotime('-1 month'));
+        $lastMonthEnd = date('Y-m-t 23:59:59', strtotime('-1 month'));
+
+        $newPatientsThisMonth = (int) (new \yii\db\Query())
+            ->from(new \yii\db\Expression("({$firstApptSql}) AS fa"))
+            ->where(['between', 'fa.first_appt', $thisMonthStart, $thisMonthEnd])
             ->count();
-        $lastMonthPatients = Patient::find()
-            ->where(['between', 'created_at', date('Y-m-01 00:00:00', strtotime('-1 month')), date('Y-m-t 23:59:59', strtotime('-1 month'))])
+        $lastMonthPatients = (int) (new \yii\db\Query())
+            ->from(new \yii\db\Expression("({$firstApptSql}) AS fa"))
+            ->where(['between', 'fa.first_appt', $lastMonthStart, $lastMonthEnd])
             ->count();
         $patientsGrowthPercentage = $lastMonthPatients > 0 ? round((($newPatientsThisMonth - $lastMonthPatients) / $lastMonthPatients) * 100, 2) : 0;
 
