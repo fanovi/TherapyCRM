@@ -1363,13 +1363,25 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('user_profiles up', 'up.user_id = u.id')
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
-            // Filtro is_aba: applicato solo se la chiamata specifica un
-            // treatmentTypeId con codice RBT (la terapia ABA "vera e propria").
+            // Filtro ABA: applicato solo se la chiamata specifica un
+            // treatmentTypeId con codice RBT. Un terapista è abilitato all'ABA
+            // se ha il flag legacy is_aba=1 OPPURE se ha la specializzazione ABA
+            // nella tabella ponte (il modo "canonico" dopo il passaggio a N spec).
             $treatmentTypeId = (int) Yii::$app->request->get('treatmentTypeId', 0);
             if ($treatmentTypeId > 0) {
                 $treatmentType = TreatmentType::findOne($treatmentTypeId);
                 if ($treatmentType && $treatmentType->code === 'RBT') {
-                    $query->andWhere(['therapists.is_aba' => 1]);
+                    $query->andWhere([
+                        'or',
+                        ['therapists.is_aba' => 1],
+                        ['exists',
+                            (new \yii\db\Query())
+                                ->from(['ts_aba' => '{{%therapist_specializations}}'])
+                                ->innerJoin(['s_aba' => '{{%specializations}}'], 's_aba.id = ts_aba.specialization_id')
+                                ->where('ts_aba.therapist_id = therapists.id')
+                                ->andWhere(['s_aba.code' => 'ABA']),
+                        ],
+                    ]);
                 }
             }
 
@@ -1512,15 +1524,27 @@ class TherapeuticPlanManagerController extends Controller
                 ]);
             }
 
-            // Filtro is_aba: applicato solo se la chiamata specifica un
-            // treatmentTypeId con codice RBT (la terapia ABA "vera e propria").
+            // Filtro ABA: applicato solo se la chiamata specifica un
+            // treatmentTypeId con codice RBT. Un terapista è abilitato all'ABA
+            // se ha il flag legacy is_aba=1 OPPURE se ha la specializzazione ABA
+            // nella tabella ponte (il modo "canonico" dopo il passaggio a N spec).
             // Saltato esplicitamente via applyABAFilter=0.
             $applyABAFilter = $request->get('applyABAFilter', '1') !== '0';
             $treatmentTypeId = (int) $request->get('treatmentTypeId', 0);
             if ($applyABAFilter && $treatmentTypeId > 0) {
                 $treatmentType = TreatmentType::findOne($treatmentTypeId);
                 if ($treatmentType && $treatmentType->code === 'RBT') {
-                    $therapists->andWhere(['t.is_aba' => 1]);
+                    $therapists->andWhere([
+                        'or',
+                        ['t.is_aba' => 1],
+                        ['exists',
+                            (new \yii\db\Query())
+                                ->from(['ts_aba' => '{{%therapist_specializations}}'])
+                                ->innerJoin(['s_aba' => '{{%specializations}}'], 's_aba.id = ts_aba.specialization_id')
+                                ->where('ts_aba.therapist_id = t.id')
+                                ->andWhere(['s_aba.code' => 'ABA']),
+                        ],
+                    ]);
                 }
             }
 
@@ -1685,14 +1709,25 @@ class TherapeuticPlanManagerController extends Controller
             // Filter by capability flags per tipo trattamento.
             // - SUP   → terapisti con can_supervise=1
             // - PT    → terapisti con can_parental_training=1
-            // - RBT   → terapisti con is_aba=1 (la terapia ABA "vera e propria")
+            // - RBT   → terapisti abilitati ABA: flag is_aba=1 OPPURE
+            //          possessori della specializzazione ABA (tabella ponte).
             // Altri tipi: nessun filtro di capacità.
             if ($treatmentType && $treatmentType->code === 'SUP') {
                 $query->andWhere(['t.can_supervise' => 1]);
             } elseif ($treatmentType && $treatmentType->code === 'PT') {
                 $query->andWhere(['t.can_parental_training' => 1]);
             } elseif ($treatmentType && $treatmentType->code === 'RBT') {
-                $query->andWhere(['t.is_aba' => 1]);
+                $query->andWhere([
+                    'or',
+                    ['t.is_aba' => 1],
+                    ['exists',
+                        (new \yii\db\Query())
+                            ->from(['ts_aba' => '{{%therapist_specializations}}'])
+                            ->innerJoin(['s_aba' => '{{%specializations}}'], 's_aba.id = ts_aba.specialization_id')
+                            ->where('ts_aba.therapist_id = t.id')
+                            ->andWhere(['s_aba.code' => 'ABA']),
+                    ],
+                ]);
             }
 
             $allowedIds = $this->getCoordinatorTherapistFilter();
