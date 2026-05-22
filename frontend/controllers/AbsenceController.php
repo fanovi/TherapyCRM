@@ -985,6 +985,17 @@ class AbsenceController extends Controller
         $userId = Yii::$app->user->id;
         $userLabel = 'Admin ID ' . $userId;
 
+        // Etichetta umana per "inserita da" (nelle notifiche).
+        $user = Yii::$app->user->identity;
+        $insertedBy = 'Operatore';
+        if ($user && $user->profile) {
+            $insertedBy = 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name;
+        }
+
+        // Appointment "successo" da notificare dopo il commit (per non inviare
+        // notifiche in caso di rollback della transazione).
+        $notifyAppointmentIds = [];
+
         $transaction = Yii::$app->db->beginTransaction();
         try {
             foreach ($appointmentIds as $aid) {
@@ -1043,10 +1054,26 @@ class AbsenceController extends Controller
                 ]);
                 $log->save(false);
 
+                $notifyAppointmentIds[] = (int) $appointment->id;
                 $updated++;
             }
 
             $transaction->commit();
+
+            // Notifiche post-commit: manager, terapista, paziente (+familiari).
+            foreach ($notifyAppointmentIds as $appointmentId) {
+                $appointment = Appointment::findOne($appointmentId);
+                if ($appointment) {
+                    $this->sendCreateAbsenceNotifications(
+                        $appointment,
+                        $absenceType,
+                        $reason,
+                        $notes,
+                        $insertedBy
+                    );
+                }
+            }
+
             return [
                 'success' => true,
                 'updated' => $updated,
@@ -1056,6 +1083,73 @@ class AbsenceController extends Controller
             $transaction->rollBack();
             Yii::error('Errore mark-patients-absent: ' . $e->getMessage(), __METHOD__);
             return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Invia notifiche per assenza paziente creata da gestionale.
+     * Mirror di sendRemoveAbsenceNotifications.
+     */
+    private function sendCreateAbsenceNotifications($appointment, $absenceType, $reason, $notes, $insertedBy)
+    {
+        try {
+            $patient = $appointment->getActualPatient();
+            $therapist = $appointment->therapist;
+            $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
+
+            $patientName = $patient ? $patient->getFullName() : 'Paziente non disponibile';
+            $therapistName = ($therapist && $therapist->user && $therapist->user->profile)
+                ? ($therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name)
+                : 'Terapista non disponibile';
+            $appointmentDate = $appointmentDateTime->format('d/m/Y');
+            $appointmentTime = $appointmentDateTime->format('H:i');
+            $absenceLabel = $absenceType === 'justified' ? 'giustificata' : 'non giustificata';
+
+            $extraNotes = $notes !== '' ? "\nNote: {$notes}" : '';
+
+            $data = [
+                'appointment_id' => $appointment->id,
+                'absence_type' => $absenceType,
+                'reason' => $reason,
+                'inserted_by' => $insertedBy,
+                'type' => 'absence_created',
+            ];
+
+            // Manager
+            NotificationHelper::sendToManagers(
+                'Assenza Paziente Inserita dal Gestionale',
+                "Inserita assenza {$absenceLabel} per l'appuntamento del {$appointmentDate} alle {$appointmentTime}.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nMotivo: {$reason}{$extraNotes}\nInserita da: {$insertedBy}",
+                Notification::TYPE_INFO,
+                $data,
+                true
+            );
+
+            // Terapista
+            if ($therapist) {
+                NotificationHelper::sendToUsers(
+                    [$therapist->user_id],
+                    'Assenza Paziente Segnalata',
+                    "Il paziente {$patientName} risulta assente ({$absenceLabel}) per l'appuntamento del {$appointmentDate} alle {$appointmentTime}.\nMotivo: {$reason}{$extraNotes}\nInserita da: {$insertedBy}",
+                    Notification::TYPE_INFO,
+                    $data
+                );
+            }
+
+            // Paziente: self + familiari con autorita' parentale.
+            if ($patient) {
+                $patientUserIds = \common\models\AccountPatient::getNotifiableUserIdsForPatient($patient->id);
+                if (!empty($patientUserIds)) {
+                    NotificationHelper::sendToUsers(
+                        $patientUserIds,
+                        'Assenza Registrata',
+                        "L'appuntamento del {$appointmentDate} alle {$appointmentTime} con il terapista {$therapistName} è stato registrato come assenza {$absenceLabel}.\nMotivo: {$reason}",
+                        Notification::TYPE_INFO,
+                        $data
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error("Errore invio notifiche creazione assenza: " . $e->getMessage(), __METHOD__);
         }
     }
 }
