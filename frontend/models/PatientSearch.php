@@ -111,9 +111,15 @@ class PatientSearch extends Patient
             'born_in_italy' => $this->born_in_italy,
         ]);
 
-        $query->andFilterWhere(['like', 'first_name', $this->first_name])
-            ->andFilterWhere(['like', 'last_name', $this->last_name])
-            ->andFilterWhere(['like', 'fiscal_code', $this->fiscal_code])
+        // first_name e last_name: match per prefisso (LIKE 'q%') anziche' contains.
+        if (!empty($this->first_name)) {
+            $query->andWhere(['like', 'first_name', addcslashes($this->first_name, '%_\\') . '%', false]);
+        }
+        if (!empty($this->last_name)) {
+            $query->andWhere(['like', 'last_name', addcslashes($this->last_name, '%_\\') . '%', false]);
+        }
+
+        $query->andFilterWhere(['like', 'fiscal_code', $this->fiscal_code])
             ->andFilterWhere(['like', 'notes', $this->notes])
             ->andFilterWhere(['like', 'birth_city', $this->birth_city])
             ->andFilterWhere(['like', 'birth_province_name', $this->birth_province_name])
