@@ -823,6 +823,7 @@ class TherapeuticPlanController extends BaseController
                     . ($patient->birth_date ? ' - ' . date('d/m/Y', strtotime($patient->birth_date)) : '')
                     . ')',
                     'fiscal_code' => $patient->fiscal_code,
+                    'birth_date_it' => $patient->birth_date ? date('d/m/Y', strtotime($patient->birth_date)) : '',
                     'full_name' => $patient->fullName
                 ]]];
             }
@@ -862,6 +863,7 @@ class TherapeuticPlanController extends BaseController
                     . ($patient->birth_date ? ' - ' . date('d/m/Y', strtotime($patient->birth_date)) : '')
                     . ')',
                 'fiscal_code' => $patient->fiscal_code,
+                'birth_date_it' => $patient->birth_date ? date('d/m/Y', strtotime($patient->birth_date)) : '',
                 'full_name' => $patient->fullName
             ];
         }
