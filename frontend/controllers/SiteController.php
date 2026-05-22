@@ -97,7 +97,19 @@ class SiteController extends BaseController
     public function actionIndex()
     {
         // Statistiche pazienti
-        $totalPatients = Patient::find()->count();
+        // "Pazienti Totali" = solo pazienti con almeno un appuntamento (qualsiasi status),
+        // sia privato (a.patient_id) sia da piano terapeutico (tp.patient_id via plan_therapies).
+        $patientsTable = Patient::tableName();
+        $totalPatients = Patient::find()
+            ->andWhere(['EXISTS', (new \yii\db\Query())
+                ->from(['ap' => '{{%appointments}}'])
+                ->leftJoin(['pt' => '{{%plan_therapies}}'], 'pt.id = ap.plan_therapy_id')
+                ->leftJoin(['tp' => '{{%therapeutic_plans}}'], 'tp.id = pt.therapeutic_plan_id')
+                ->where(new \yii\db\Expression(
+                    "ap.patient_id = {$patientsTable}.id OR tp.patient_id = {$patientsTable}.id"
+                ))
+            ])
+            ->count();
         $newPatientsThisMonth = Patient::find()
             ->where(['>=', 'created_at', date('Y-m-01 00:00:00')])
             ->count();
