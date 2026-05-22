@@ -747,10 +747,45 @@ class PatientController extends Controller
 
         $patient = $this->findModel($id);
 
-        if ($patient->delete()) {
-            Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
-        } else {
+        // Pre-check entita' collegate per messaggio chiaro all'utente.
+        $appointmentsCount = \common\models\Appointment::find()
+            ->where(['patient_id' => $patient->id])
+            ->count();
+        $plansCount = \common\models\TherapeuticPlan::find()
+            ->where(['patient_id' => $patient->id])
+            ->count();
+
+        if ($appointmentsCount > 0 || $plansCount > 0) {
+            $parts = [];
+            if ($appointmentsCount > 0) {
+                $parts[] = $appointmentsCount . ' appuntament' . ($appointmentsCount === 1 ? 'o' : 'i');
+            }
+            if ($plansCount > 0) {
+                $parts[] = $plansCount . ' piano/i terapeutico/i';
+            }
+            Yii::$app->session->setFlash(
+                'error',
+                'Impossibile eliminare il paziente: sono collegati ' . implode(' e ', $parts) . '. Rimuovili prima di procedere.'
+            );
+            return $this->redirect(['view', 'id' => $patient->id]);
+        }
+
+        try {
+            if ($patient->delete()) {
+                Yii::$app->session->setFlash('success', 'Paziente eliminato con successo.');
+                return $this->redirect(['index']);
+            }
             Yii::$app->session->setFlash('error', "Errore nell'eliminare il paziente.");
+        } catch (\yii\db\IntegrityException $e) {
+            Yii::error('Integrity error delete patient: ' . $e->getMessage(), __METHOD__);
+            Yii::$app->session->setFlash(
+                'error',
+                'Impossibile eliminare il paziente: esistono dati collegati (appuntamenti, piani, account, ecc.). Rimuovili prima di procedere.'
+            );
+            return $this->redirect(['view', 'id' => $patient->id]);
+        } catch (\Exception $e) {
+            Yii::error('Errore delete patient: ' . $e->getMessage(), __METHOD__);
+            Yii::$app->session->setFlash('error', 'Errore inatteso: ' . $e->getMessage());
         }
 
         return $this->redirect(['index']);
