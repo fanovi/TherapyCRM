@@ -25,6 +25,14 @@ class PatientSearch extends Patient
     public $therapist_ids;
 
     /**
+     * Filtro UI: se truthy, mostra solo pazienti con almeno un appuntamento
+     * privato (anche passato, escludendo cancellati).
+     *
+     * @var string|int|null
+     */
+    public $has_private_appointment;
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
@@ -38,6 +46,7 @@ class PatientSearch extends Patient
                 'phone_number'
             ], 'safe'],
             [['therapist_ids'], 'safe'],
+            [['has_private_appointment'], 'safe'],
         ];
     }
 
@@ -101,6 +110,17 @@ class PatientSearch extends Patient
             } else {
                 $query->andWhere(['id' => $allowedPatientIds]);
             }
+        }
+
+        // Filtro: solo pazienti con almeno un appuntamento privato (anche passato),
+        // escludendo i cancellati per coerenza con patientIdsForTherapists().
+        if (!empty($this->has_private_appointment)) {
+            $existsSub = (new \yii\db\Query())
+                ->from(['ap_priv' => '{{%appointments}}'])
+                ->where('ap_priv.patient_id = ' . Patient::tableName() . '.id')
+                ->andWhere(['ap_priv.appointment_source' => \common\models\Appointment::SOURCE_PRIVATE])
+                ->andWhere(['!=', 'ap_priv.status', \common\models\Appointment::STATUS_CANCELLED]);
+            $query->andWhere(['EXISTS', $existsSub]);
         }
 
         // grid filtering conditions

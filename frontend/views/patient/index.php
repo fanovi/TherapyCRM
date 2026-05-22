@@ -23,6 +23,32 @@ $this->registerJsVar('sendNotificationUrl', Url::to(['patient/send-notification'
 $patientNotifMtime = @filemtime(Yii::getAlias('@webroot/js/patient-notifications.js')) ?: time();
 $this->registerJsFile('@web/js/patient-notifications.js?v=' . $patientNotifMtime, ['depends' => [\yii\web\JqueryAsset::class]]);
 
+// Toggle filtro "Solo con appuntamenti privati" -> pjax reload preservando altri filtri.
+$this->registerJs(<<<JS
+(function() {
+    var checkbox = document.getElementById('filter-has-private');
+    if (!checkbox) return;
+    checkbox.addEventListener('change', function() {
+        var url = new URL(window.location.href);
+        if (this.checked) {
+            url.searchParams.set('PatientSearch[has_private_appointment]', '1');
+        } else {
+            url.searchParams.delete('PatientSearch[has_private_appointment]');
+        }
+        url.searchParams.delete('page');
+        if (typeof jQuery !== 'undefined' && jQuery.pjax) {
+            jQuery.pjax.reload({container: '#patients-pjax', url: url.toString(), timeout: 5000});
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', url.toString());
+            }
+        } else {
+            window.location.href = url.toString();
+        }
+    });
+})();
+JS
+, \yii\web\View::POS_END, 'filter-has-private-toggle');
+
 // Errore eliminazione paziente -> Swal modale, senza redirect a dettaglio.
 if (Yii::$app->session->hasFlash('patient_delete_error')) {
     $err = Yii::$app->session->getFlash('patient_delete_error');
@@ -88,7 +114,7 @@ JS
     <!-- Content Start -->
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 sm:py-5">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
                         Lista Pazienti
@@ -97,12 +123,22 @@ JS
                         Gestisci tutti i pazienti del sistema. Seleziona i pazienti per inviare notifiche.
                     </p>
                 </div>
-                <div class="flex items-center">
-                    <input type="checkbox" id="select-all-patients" 
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="select-all-patients" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                        Seleziona tutto
-                    </label>
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filter-has-private"
+                               <?= !empty($searchModel->has_private_appointment) ? 'checked' : '' ?>
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="filter-has-private" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            Solo con appuntamenti privati
+                        </label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="select-all-patients"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="select-all-patients" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            Seleziona tutto
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
