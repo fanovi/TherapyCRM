@@ -1505,6 +1505,7 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('{{%users}} u', 'u.id = t.user_id')
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
                 ->where(['t.is_active' => true])
+                ->andWhere(['exists', $hasSpecMatch])
                 ->orderBy(['up.last_name' => SORT_ASC]);
 
             // Filter by capability flags per tipo trattamento.
