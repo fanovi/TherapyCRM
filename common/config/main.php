@@ -31,6 +31,9 @@ return [
             // Chiavi da common/config/params-local.php (non committato).
             'appId' => $params['oneSignal']['appId'] ?? '',
             'restApiKey' => $params['oneSignal']['restApiKey'] ?? '',
+            // Su server test settare a false in params-local.php per evitare
+            // push verso device produzione (collisione user_id se app condivisa).
+            'enabled' => $params['oneSignal']['enabled'] ?? true,
         ],
         'notificationService' => [
             'class' => 'common\components\NotificationService',

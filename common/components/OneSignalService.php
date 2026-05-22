@@ -27,6 +27,15 @@ class OneSignalService extends Component
     public $apiUrl = 'https://onesignal.com/api/v1';
 
     /**
+     * @var bool Se false, salta tutte le chiamate a OneSignal (no push reali).
+     * Le notifiche vengono solo persistite a DB. Utile su ambienti test che
+     * condividono la stessa app OneSignal della produzione: evita di mandare
+     * push a device reali con user_id collidenti.
+     * Configurabile via common/config/params-local.php (non versionato).
+     */
+    public $enabled = true;
+
+    /**
      * @var Client HTTP client
      */
     private $_httpClient;
@@ -37,11 +46,18 @@ class OneSignalService extends Component
     public function init()
     {
         parent::init();
-        
+
+        // Se disabilitato (es. server test), nessuna validazione chiavi ne'
+        // setup HTTP client: tutte le send saranno no-op.
+        if (!$this->enabled) {
+            Yii::info('OneSignal disabilitato (enabled=false): push verranno saltati.', __METHOD__);
+            return;
+        }
+
         if (empty($this->appId)) {
             throw new \InvalidArgumentException('OneSignal App ID is required');
         }
-        
+
         if (empty($this->restApiKey)) {
             throw new \InvalidArgumentException('OneSignal REST API Key is required');
         }
@@ -70,6 +86,10 @@ class OneSignalService extends Component
      */
     public function sendToUsers($userIds, $title, $message, $data = [], $options = [])
     {
+        if (!$this->enabled) {
+            Yii::info('OneSignal skip sendToUsers (disabled). user_ids=' . json_encode($userIds), __METHOD__);
+            return ['skipped' => true, 'reason' => 'onesignal_disabled', 'recipients' => 0];
+        }
         // Normalizza userIds in array
         if (!is_array($userIds)) {
             $userIds = [$userIds];
@@ -140,6 +160,10 @@ class OneSignalService extends Component
      */
     public function sendToLoggedOutUsers($title, $message, $data = [], $options = [])
     {
+        if (!$this->enabled) {
+            Yii::info('OneSignal skip sendToLoggedOutUsers (disabled).', __METHOD__);
+            return ['skipped' => true, 'reason' => 'onesignal_disabled', 'recipients' => 0];
+        }
         $payload = array_merge([
             'app_id' => $this->appId,
             'filters' => [
@@ -190,6 +214,10 @@ class OneSignalService extends Component
      */
     public function sendToAll($title, $message, $data = [], $options = [])
     {
+        if (!$this->enabled) {
+            Yii::info('OneSignal skip sendToAll (disabled).', __METHOD__);
+            return ['skipped' => true, 'reason' => 'onesignal_disabled', 'recipients' => 0];
+        }
         $payload = array_merge([
             'app_id' => $this->appId,
             'included_segments' => ['All'],
