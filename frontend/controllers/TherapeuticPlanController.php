@@ -819,7 +819,9 @@ class TherapeuticPlanController extends BaseController
             if ($patient) {
                 return ['results' => [[
                     'id' => $patient->id,
-                    'text' => $patient->fullName . ' (' . $patient->fiscal_code . ')',
+                    'text' => $patient->fullName . ' (' . $patient->fiscal_code
+                    . ($patient->birth_date ? ' - ' . date('d/m/Y', strtotime($patient->birth_date)) : '')
+                    . ')',
                     'fiscal_code' => $patient->fiscal_code,
                     'full_name' => $patient->fullName
                 ]]];
@@ -856,7 +858,9 @@ class TherapeuticPlanController extends BaseController
         foreach ($patients as $patient) {
             $results[] = [
                 'id' => $patient->id,
-                'text' => $patient->fullName . ' (' . $patient->fiscal_code . ')',
+                'text' => $patient->fullName . ' (' . $patient->fiscal_code
+                    . ($patient->birth_date ? ' - ' . date('d/m/Y', strtotime($patient->birth_date)) : '')
+                    . ')',
                 'fiscal_code' => $patient->fiscal_code,
                 'full_name' => $patient->fullName
             ];
