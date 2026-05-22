@@ -879,7 +879,9 @@ $this->registerJs('
             \$.each(results, function(index, patient) {
                 html += '<div class=\"px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0 patient-result\" data-patient-id=\"' + patient.id + '\" data-patient-name=\"' + patient.full_name + '\" data-patient-cf=\"' + patient.fiscal_code + '\">';
                 html += '<div class=\"font-medium text-gray-900 dark:text-white\">' + patient.full_name + '</div>';
-                html += '<div class=\"text-sm text-gray-500 dark:text-gray-400\">' + patient.fiscal_code + '</div>';
+                var meta = patient.fiscal_code;
+                if (patient.birth_date_it) { meta += ' &middot; ' + patient.birth_date_it; }
+                html += '<div class=\"text-sm text-gray-500 dark:text-gray-400\">' + meta + '</div>';
                 html += '</div>';
             });
         }

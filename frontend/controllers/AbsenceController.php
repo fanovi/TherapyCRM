@@ -249,6 +249,11 @@ class AbsenceController extends Controller
             ],
         ]);
 
+        // Lista distinta delle specializzazioni presenti nelle righe (per dropdown filtro)
+        $specializationOptions = array_filter(array_unique(ArrayHelper::getColumn($rows, 'specialization')));
+        sort($specializationOptions);
+        $specializationOptions = array_combine($specializationOptions, $specializationOptions);
+
         return $this->render('daily', [
             'dataProvider' => $dataProvider,
             'filterModel' => $filterModel,
@@ -257,6 +262,7 @@ class AbsenceController extends Controller
             'presentCount' => count($rows) - count($absences),
             'date' => $date,
             'groupName' => $groupName,
+            'specializationOptions' => $specializationOptions,
         ]);
     }
 
