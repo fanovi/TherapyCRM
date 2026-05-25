@@ -110,6 +110,21 @@ $this->params['breadcrumbs'][] = $this->title;
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
+                        'label' => 'Orario',
+                        'format' => 'raw',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[110px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap text-sm'],
+                        'value' => function ($model) {
+                            if (!$model->isHourly()) {
+                                return '<span class="text-gray-400">Tutto il giorno</span>';
+                            }
+                            return '<span class="font-medium">'
+                                . substr($model->start_time, 0, 5)
+                                . ' - ' . substr($model->end_time, 0, 5)
+                                . '</span>';
+                        },
+                    ],
+                    [
                         'attribute' => 'type',
                         'label' => 'Tipo',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],

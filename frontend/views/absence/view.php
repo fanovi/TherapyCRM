@@ -72,6 +72,19 @@ $this->params['breadcrumbs'][] = $therapistName;
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
+                        'label' => 'Orario',
+                        'format' => 'raw',
+                        'value' => function ($model) {
+                            if (!$model->isHourly()) {
+                                return '<span class="text-gray-500">Tutto il giorno</span>';
+                            }
+                            return '<span class="font-medium">'
+                                . substr($model->start_time, 0, 5)
+                                . ' - ' . substr($model->end_time, 0, 5)
+                                . '</span>';
+                        },
+                    ],
+                    [
                         'label' => 'Durata',
                         'value' => function($model) {
                             return $model->getDurationDays() . ' giorni';
