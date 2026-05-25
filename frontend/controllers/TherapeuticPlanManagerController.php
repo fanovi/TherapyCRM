@@ -2037,10 +2037,11 @@ class TherapeuticPlanManagerController extends Controller
 
     /**
      * Risolve il piano terapeutico "corrente" per il paziente:
-     * - se $requestedPlanId e' valorizzato e corrisponde a un piano attivo
-     *   IN QUESTO MOMENTO del paziente, ritorna quello;
-     * - altrimenti ritorna il piano attivo piu' recente per created_at DESC
-     *   (tie-breaker id ASC).
+     * - se $requestedPlanId e' valorizzato e corrisponde a un piano del paziente
+     *   con status='active' (anche futuro), ritorna quello: rispetta la scelta
+     *   esplicita dell'operatore dal selettore multi-piano del calendario;
+     * - altrimenti ritorna il piano attivo IN QUESTO MOMENTO piu' recente per
+     *   created_at DESC (tie-breaker id ASC).
      *
      * @param int $patientId
      * @param int|string|null $requestedPlanId
@@ -2049,16 +2050,18 @@ class TherapeuticPlanManagerController extends Controller
     private function resolveActivePatientPlan($patientId, $requestedPlanId)
     {
         if ($requestedPlanId) {
+            // Match sui piani 'active' del paziente senza filtro di date:
+            // l'operatore puo' avere scelto un piano futuro per programmare
+            // appuntamenti in anticipo.
             $plan = TherapeuticPlan::find()
                 ->byPatient($patientId)
-                ->activeAtDate()
+                ->active()
                 ->andWhere(['id' => (int) $requestedPlanId])
                 ->with(['regime'])
                 ->one();
             if ($plan) {
                 return $plan;
             }
-            // planId richiesto non valido/non attivo: log e fallback al default
             Yii::info("planId={$requestedPlanId} non valido per paziente {$patientId}, fallback al piano piu' recente", __METHOD__);
         }
 
