@@ -2004,11 +2004,16 @@ class TherapeuticPlanManagerController extends Controller
                 throw new NotFoundHttpException('Paziente non trovato');
             }
 
+            // I piani da mostrare nel selettore: tutti quelli con status='active'
+            // a prescindere dalle date. I piani di un paziente non si accavallano
+            // mai (uno termina, l'altro inizia), quindi l'operatore puo' vedere
+            // ed eventualmente scegliere anche un piano futuro per programmare
+            // appuntamenti in anticipo.
             $plans = TherapeuticPlan::find()
                 ->byPatient($patient->id)
-                ->activeAtDate()
+                ->active()
                 ->with(['regime'])
-                ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+                ->orderBy(['start_date' => SORT_ASC, 'id' => SORT_ASC])
                 ->all();
 
             $items = [];

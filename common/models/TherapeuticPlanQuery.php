@@ -40,6 +40,11 @@ class TherapeuticPlanQuery extends ActiveQuery
      * anche se hanno end_date futura, e piani 'active' che non sono ancora
      * iniziati o sono gia' scaduti.
      *
+     * Per il selettore multi-piano del calendario usare invece il scope
+     * active(): un paziente puo' avere piu' piani con status='active' (uno
+     * corrente, uno futuro) e l'operatore deve poterli scegliere tutti per
+     * programmare appuntamenti anche in anticipo.
+     *
      * @param string|null $date Data Y-m-d. Null = oggi.
      * @return $this
      */

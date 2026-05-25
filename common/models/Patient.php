@@ -415,9 +415,14 @@ class Patient extends ActiveRecord
     }
 
     /**
-     * Tutti i piani terapeutici attivi IN QUESTO MOMENTO per il paziente.
-     * Utile quando il paziente ha piu' piani attivi sovrapposti e il chiamante
-     * deve mostrare un selettore o iterare su tutti.
+     * Tutti i piani terapeutici con status='active' per il paziente,
+     * indipendentemente dalle date. Utile per il selettore multi-piano del
+     * calendario: i piani di un paziente non si accavallano mai sulle date
+     * (uno termina e l'altro inizia), quindi l'operatore puo' vedere anche
+     * piani futuri non ancora iniziati per programmare appuntamenti in anticipo.
+     *
+     * Per la sola lista dei piani validi IN QUESTO MOMENTO usare invece
+     * getActiveTherapeuticPlan() o filtrare con activeAtDate().
      *
      * @return TherapeuticPlan[]
      */
@@ -425,8 +430,8 @@ class Patient extends ActiveRecord
     {
         return TherapeuticPlan::find()
             ->byPatient($this->id)
-            ->activeAtDate()
-            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+            ->active()
+            ->orderBy(['start_date' => SORT_ASC, 'id' => SORT_ASC])
             ->all();
     }
 
