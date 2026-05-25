@@ -57,7 +57,7 @@ class AbsenceController extends Controller
                         'roles' => ['manage_patient_absence'],
                     ],
                     [
-                        'actions' => ['create', 'update', 'delete', 'check-appointments'],
+                        'actions' => ['create', 'update', 'delete', 'check-appointments', 'ajax-save', 'ajax-get'],
                         'allow' => true,
                         'roles' => ['create_absence'],
                     ],
@@ -69,7 +69,95 @@ class AbsenceController extends Controller
                     'delete' => ['POST'],
                     'remove-patient-absence' => ['POST'],
                     'mark-patients-absent' => ['POST'],
+                    'ajax-save' => ['POST'],
+                    'ajax-get' => ['GET'],
                 ],
+            ],
+        ];
+    }
+
+    /**
+     * Salva (create o update) un'Absence via AJAX e ritorna JSON.
+     * Usato dalla modale Swal su /absence/index per evitare il redirect a
+     * /absence/create e /absence/update.
+     *
+     * POST params: tutti i campi del model (therapist_id, start_date, end_date,
+     * start_time, end_time, type, notes, id opzionale per update).
+     *
+     * @return array
+     */
+    public function actionAjaxSave()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $id = Yii::$app->request->post('Absence')['id'] ?? Yii::$app->request->post('id');
+        $model = $id ? $this->findModel((int) $id) : new Absence();
+
+        $isNew = $model->isNewRecord;
+        if ($isNew) {
+            $model->created_by = Yii::$app->user->id;
+            $model->status = Absence::STATUS_APPROVED;
+        }
+
+        // Coordinator: scope sui terapisti del proprio gruppo
+        $coordinatorTherapistIds = $this->isCoordinatorOnly()
+            ? $this->getCoordinatorTherapistIds()
+            : null;
+
+        if (!$model->load(Yii::$app->request->post())) {
+            return ['success' => false, 'error' => 'Nessun dato ricevuto'];
+        }
+
+        if ($coordinatorTherapistIds !== null && !in_array($model->therapist_id, $coordinatorTherapistIds)) {
+            return ['success' => false, 'error' => 'Non puoi gestire assenze per terapisti fuori dal tuo gruppo'];
+        }
+
+        $model->reason = $this->getReasonLabel($model->type);
+
+        if (!$model->save()) {
+            return [
+                'success' => false,
+                'error' => 'Validazione fallita',
+                'errors' => $model->getErrors(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => $isNew ? 'Assenza creata' : 'Assenza aggiornata',
+            'data' => [
+                'id' => $model->id,
+            ],
+        ];
+    }
+
+    /**
+     * Ritorna i dati di un'Absence in JSON per pre-popolare la modale di edit.
+     * @return array
+     */
+    public function actionAjaxGet($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $model = $this->findModel((int) $id);
+
+        if ($this->isCoordinatorOnly()) {
+            $coordinatorTherapistIds = $this->getCoordinatorTherapistIds();
+            if (!in_array($model->therapist_id, $coordinatorTherapistIds)) {
+                return ['success' => false, 'error' => 'Non autorizzato'];
+            }
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'id' => $model->id,
+                'therapist_id' => $model->therapist_id,
+                'start_date' => $model->start_date,
+                'end_date' => $model->end_date,
+                'start_time' => $model->start_time ? substr($model->start_time, 0, 5) : null,
+                'end_time' => $model->end_time ? substr($model->end_time, 0, 5) : null,
+                'type' => $model->type,
+                'notes' => $model->notes,
             ],
         ];
     }
