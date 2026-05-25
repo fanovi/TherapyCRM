@@ -577,6 +577,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
               onViewChange={handleViewChange}
               onNavigate={handleUnifiedNavigate}
               onVisibleRangeChange={handleTherapistVisibleRangeChange}
+              therapistAbsences={therapistAbsences}
               externalEvents={therapistEvents}
               onRef={(ref) => {
                 therapistCalendarRef.current = ref;

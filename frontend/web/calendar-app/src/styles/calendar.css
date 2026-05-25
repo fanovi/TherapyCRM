@@ -5,41 +5,43 @@
   font-weight: bold;
 }
 
-/* Assenze full-day (display: background): pattern a strisce diagonali piu'
-   visibile + label centrale per evidenziare che il giorno e' bloccato. */
-.fc-event.absence-fullday.fc-bg-event,
+/* Assenze full-day: blocco evidente in cima alla giornata (allDay slot).
+   Pattern a strisce diagonali + bordo marcato per renderlo subito
+   riconoscibile come "non disponibile". */
 .fc-event.absence-fullday {
-  opacity: 0.4 !important;
+  opacity: 1 !important;
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(255, 255, 255, 0.18),
-    rgba(255, 255, 255, 0.18) 8px,
-    transparent 8px,
-    transparent 16px
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.25) 6px,
+    transparent 6px,
+    transparent 12px
   ) !important;
-  position: relative;
+  padding: 2px 6px;
+  font-weight: 700;
+  cursor: not-allowed;
 }
 
-/* Sui background event mostriamo comunque il titolo (FullCalendar di default
-   lo nasconde). Aggiungiamo un blocco centrato semitrasparente con la causale. */
-.fc-event.absence-fullday.fc-bg-event::before {
-  content: attr(title);
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  right: 4px;
-  padding: 2px 6px;
-  font-size: 11px;
+.fc-event.absence-fullday .fc-event-title,
+.fc-event.absence-fullday .fc-event-time {
+  color: #fff !important;
   font-weight: 700;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 4px;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-  z-index: 2;
+}
+
+/* Day-cell in timegrid: applica un tint di sfondo molto leggero alle
+   colonne del giorno bloccato per rinforzare la percezione visiva. */
+.fc-day.absence-day-bg {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(239, 68, 68, 0.05),
+    rgba(239, 68, 68, 0.05) 8px,
+    transparent 8px,
+    transparent 16px
+  );
 }
 
 /* Assenze orarie: blocco solido con bordo evidente, in primo piano. */

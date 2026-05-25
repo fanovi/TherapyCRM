@@ -413,17 +413,20 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       };
     }
 
-    // Assenze full-day: background + tag visivo evidente sulla giornata.
+    // Assenze full-day: render come allDay block visibile in alto (banner),
+    // NON come background (FullCalendar nasconde titolo sui bg events e il
+    // colore di sfondo da solo non era abbastanza evidente). Il blocco
+    // colorato in cima a ogni giornata fa capire chiaramente che il
+    // terapista non e' disponibile.
     return {
       id: `absence-${absence.id}`,
-      title: `🚫 ${typeLabel}${absence.reason ? ": " + absence.reason : ""}`,
+      title: `🚫 ${typeLabel}${absence.reason ? " · " + absence.reason : ""}`,
       start: absence.start_date,
       end: displayEndDate.toISOString().split("T")[0],
       allDay: true,
       backgroundColor: color,
       borderColor: color,
       textColor: "#FFFFFF",
-      display: "background",
       classNames: ["absence-event", "absence-fullday", cssClassType],
       extendedProps: {
         isAbsence: true,
