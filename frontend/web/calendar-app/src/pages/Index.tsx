@@ -1519,13 +1519,44 @@ const Index = () => {
                   <p className="text-sm text-gray-600">
                     {patient.email}
                     {patient.fiscalCode && ` • ${patient.fiscalCode}`}
-                    {patient.therapeuticPlan &&
-                      patient.therapeuticPlan.regime &&
-                      patient.therapeuticPlan.regime.nome && (
-                        <span className="font-medium">
-                          {" • "}Regime: {patient.therapeuticPlan.regime.nome}
-                        </span>
-                      )}
+                    {patient.therapeuticPlan && (
+                      <>
+                        {" • "}
+                        <a
+                          href={`${therapyAPI.getAppOrigin()}/therapeutic-plan/view?id=${patient.therapeuticPlan.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          title="Apri il piano terapeutico"
+                        >
+                          Piano #{patient.therapeuticPlan.id}
+                        </a>
+                        {patient.therapeuticPlan.protocolNumber && (
+                          <span className="font-medium">
+                            {" • "}Protocollo:{" "}
+                            {patient.therapeuticPlan.protocolNumber}
+                          </span>
+                        )}
+                        {patient.therapeuticPlan.regime?.nome && (
+                          <span className="font-medium">
+                            {" • "}Regime: {patient.therapeuticPlan.regime.nome}
+                          </span>
+                        )}
+                        {patient.therapeuticPlan.startDate &&
+                          patient.therapeuticPlan.endDate && (
+                            <>
+                              {" • "}
+                              {new Date(
+                                patient.therapeuticPlan.startDate,
+                              ).toLocaleDateString("it-IT")}
+                              {" → "}
+                              {new Date(
+                                patient.therapeuticPlan.endDate,
+                              ).toLocaleDateString("it-IT")}
+                            </>
+                          )}
+                      </>
+                    )}
                   </p>
                 </div>
               ) : null}

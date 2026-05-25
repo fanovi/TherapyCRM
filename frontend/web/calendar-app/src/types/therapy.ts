@@ -50,6 +50,7 @@ export interface Patient {
   hasActiveTherapeuticPlans?: boolean;
   therapeuticPlan?: {
     id: number;
+    protocolNumber?: string | null;
     startDate: string;
     endDate: string;
     durationDays: number;

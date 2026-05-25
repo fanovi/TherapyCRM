@@ -1980,6 +1980,7 @@ class TherapeuticPlanManagerController extends Controller
                 $responseData['therapeuticPlan'] = [
                     'id' => $therapeuticPlan->id,
                     'status' => $therapeuticPlan->status,
+                    'protocolNumber' => $therapeuticPlan->protocol_number,
                     'startDate' => $therapeuticPlan->start_date,
                     'endDate' => $therapeuticPlan->getCalculatedEndDate(),
                     'durationDays' => $therapeuticPlan->duration_days,
