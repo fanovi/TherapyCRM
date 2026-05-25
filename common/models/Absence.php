@@ -13,6 +13,8 @@ use yii\behaviors\TimestampBehavior;
  * @property int $therapist_id
  * @property string $start_date
  * @property string $end_date
+ * @property string|null $start_time HH:MM:SS, null = tutto il giorno
+ * @property string|null $end_time HH:MM:SS, null = tutto il giorno
  * @property string $type
  * @property string|null $reason
  * @property string $status
@@ -80,6 +82,8 @@ class Absence extends ActiveRecord
             [['therapist_id', 'start_date', 'end_date', 'type', 'created_by'], 'required'],
             [['therapist_id', 'approved_by', 'created_by'], 'integer'],
             [['start_date', 'end_date'], 'date', 'format' => 'php:Y-m-d'],
+            [['start_time', 'end_time'], 'time', 'format' => 'php:H:i:s'],
+            [['start_time', 'end_time'], 'default', 'value' => null],
             [['approved_at'], 'datetime', 'format' => 'php:Y-m-d H:i:s'],
             [['reason', 'notes'], 'string'],
             [['type'], 'string', 'max' => 20],
@@ -87,10 +91,48 @@ class Absence extends ActiveRecord
             [['type'], 'in', 'range' => [self::TYPE_VACATION, self::TYPE_SICK_LEAVE, self::TYPE_PERSONAL, self::TYPE_TRAINING, self::TYPE_OTHER]],
             [['status'], 'in', 'range' => [self::STATUS_PENDING, self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELLED]],
             [['end_date'], 'validateEndDate'],
+            [['start_time'], 'validateHourly'],
             [['therapist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Therapist::class, 'targetAttribute' => ['therapist_id' => 'id']],
             [['approved_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['approved_by' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
         ];
+    }
+
+    /**
+     * Valida i campi start_time / end_time. Regole:
+     *  - entrambi NULL: assenza tutto il giorno (default, sempre valido)
+     *  - entrambi valorizzati: assenza oraria. Requisiti:
+     *      a) start_date == end_date (single-day)
+     *      b) start_time < end_time
+     *  - solo uno valorizzato: invalido.
+     */
+    public function validateHourly($attribute, $params)
+    {
+        $hasStart = !empty($this->start_time);
+        $hasEnd = !empty($this->end_time);
+
+        if (!$hasStart && !$hasEnd) {
+            return;
+        }
+        if ($hasStart xor $hasEnd) {
+            $this->addError('start_time', 'Per un\'assenza oraria sono richiesti sia l\'orario di inizio che quello di fine.');
+            return;
+        }
+        if ($this->start_date !== $this->end_date) {
+            $this->addError('start_time', 'Un\'assenza oraria deve essere su un singolo giorno (data inizio = data fine).');
+            return;
+        }
+        if ($this->start_time >= $this->end_time) {
+            $this->addError('end_time', 'L\'orario di fine deve essere successivo all\'orario di inizio.');
+        }
+    }
+
+    /**
+     * @return bool true se l'assenza ha un range orario (non e' full-day).
+     */
+    public function isHourly()
+    {
+        return !empty($this->start_time) && !empty($this->end_time);
     }
 
     /**
@@ -115,6 +157,8 @@ class Absence extends ActiveRecord
             'therapist_id' => 'Terapista',
             'start_date' => 'Data Inizio',
             'end_date' => 'Data Fine',
+            'start_time' => 'Ora Inizio',
+            'end_time' => 'Ora Fine',
             'type' => 'Tipo',
             'reason' => 'Motivo',
             'status' => 'Stato',

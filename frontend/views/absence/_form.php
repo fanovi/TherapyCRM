@@ -151,6 +151,38 @@ $this->registerJsFile('https://cdn.jsdelivr.net/npm/daterangepicker/daterangepic
                     <div id="duration-info" class="mt-2 text-sm text-gray-600 dark:text-gray-400"></div>
                 </div>
 
+                <!-- Toggle: tutto il giorno vs orario -->
+                <div class="sm:col-span-2">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox"
+                               id="all-day-toggle"
+                               <?= $model->isHourly() ? '' : 'checked' ?>
+                               class="rounded border-gray-300 text-brand-500 focus:ring-brand-500">
+                        <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Tutto il giorno
+                        </span>
+                    </label>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Disattivare per specificare un range orario (solo per assenze in un singolo giorno).
+                    </p>
+                </div>
+
+                <!-- Campi orario (visibili solo se "tutto il giorno" e' OFF) -->
+                <div id="hourly-fields" class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 <?= $model->isHourly() ? '' : 'hidden' ?>">
+                    <div>
+                        <?= $form->field($model, 'start_time')->input('time', [
+                            'id' => 'start-time',
+                            'step' => 300,
+                        ])->label('Ora Inizio <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                    </div>
+                    <div>
+                        <?= $form->field($model, 'end_time')->input('time', [
+                            'id' => 'end-time',
+                            'step' => 300,
+                        ])->label('Ora Fine <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                    </div>
+                </div>
+
                 <div>
                     <?= $form->field($model, 'type')->dropDownList(\common\models\Absence::getTypeLabels(), [
                         'prompt' => 'Seleziona tipo...'
@@ -392,17 +424,70 @@ if ($('#therapist-select').val() && $('#start-date').val() && $('#end-date').val
     checkAppointments();
 }
 
+// Helper Swal coerente con il resto del progetto.
+function showFormError(message) {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Dati mancanti o non validi',
+            text: message,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#3b82f6',
+        });
+    } else {
+        alert(message);
+    }
+}
+
 // Validazione form
 $('#absence-form').on('beforeSubmit', function() {
     const startDate = $('#start-date').val();
     const endDate = $('#end-date').val();
-    
+
     if (!startDate || !endDate) {
-        alert('Seleziona il periodo di assenza');
+        showFormError('Seleziona il periodo di assenza.');
         return false;
     }
-    
+
+    // Validazione assenza oraria
+    if (!$('#all-day-toggle').is(':checked')) {
+        if (startDate !== endDate) {
+            showFormError('Un\'assenza oraria deve essere su un singolo giorno.');
+            return false;
+        }
+        const st = $('#start-time').val();
+        const et = $('#end-time').val();
+        if (!st || !et) {
+            showFormError('Specifica orario di inizio e di fine.');
+            return false;
+        }
+        if (st >= et) {
+            showFormError('L\'orario di fine deve essere successivo a quello di inizio.');
+            return false;
+        }
+    }
+
     return true;
+});
+
+// Toggle tutto il giorno: mostra/nasconde i campi orario.
+// Disattivato => forza single-day (end allineata a start).
+$('#all-day-toggle').on('change', function() {
+    var allDay = $(this).is(':checked');
+    if (allDay) {
+        $('#hourly-fields').addClass('hidden');
+        $('#start-time').val('');
+        $('#end-time').val('');
+    } else {
+        $('#hourly-fields').removeClass('hidden');
+        // Forza single-day allineando end al start
+        var picker = $('#date-range-picker').data('daterangepicker');
+        if (picker) {
+            picker.setEndDate(picker.startDate);
+            $('#end-date').val(picker.startDate.format('YYYY-MM-DD'));
+            $('#date-range-picker').val(picker.startDate.format('DD/MM/YYYY'));
+        }
+    }
 });
 ", \yii\web\View::POS_READY);
 
