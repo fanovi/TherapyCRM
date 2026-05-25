@@ -90,28 +90,8 @@
   z-index: 1;
 }
 
-/* Colori per tipo (allineati ai valori del model Absence::getTypeLabels). */
-.fc-event.absence-vacation {
-  background-color: #f59e0b !important;
-  border-color: #d97706 !important;
-}
-
-.fc-event.absence-sick-leave {
-  background-color: #ef4444 !important;
-  border-color: #b91c1c !important;
-}
-
-.fc-event.absence-personal {
-  background-color: #0ea5e9 !important;
-  border-color: #0369a1 !important;
-}
-
-.fc-event.absence-training {
-  background-color: #8b5cf6 !important;
-  border-color: #6d28d9 !important;
-}
-
-.fc-event.absence-other {
+/* Colore unico grigio per tutte le assenze terapista (qualsiasi tipo). */
+.fc-event.absence-event {
   background-color: #6b7280 !important;
   border-color: #374151 !important;
 }
