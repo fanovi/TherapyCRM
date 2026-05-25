@@ -22,7 +22,7 @@ import {
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager"; //"https://app-cgm.badil.it/therapeutic-plan-manager"; //app-cgm.badil.it
+  private baseURL = "https://app-cgm.badil.it/therapeutic-plan-manager";
 
   /**
    * Restituisce l'origin dell'app (senza /therapeutic-plan-manager).
