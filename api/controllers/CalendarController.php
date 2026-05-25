@@ -1358,20 +1358,31 @@ class CalendarController extends ActiveController
                 $managerMessage .= "\nNote: {$notes}";
             }
 
+            $managerData = [
+                'appointment_id' => $appointment->id,
+                'patient_id' => $patient->id,
+                'therapist_id' => $therapist->id,
+                'cancellation_reason' => $reason,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
+                'type' => 'appointment_cancellation'
+            ];
+
             NotificationHelper::sendToManagers(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
-                [
-                    'appointment_id' => $appointment->id,
-                    'patient_id' => $patient->id,
-                    'therapist_id' => $therapist->id,
-                    'cancellation_reason' => $reason,
-                    'appointment_date' => $appointmentDate,
-                    'appointment_time' => $appointmentTime,
-                    'type' => 'appointment_cancellation'
-                ],
+                $managerData,
                 true
+            );
+
+            // Notifica ai coordinatori dei gruppi del terapista (stesso contenuto dei manager)
+            NotificationHelper::sendToTherapistCoordinators(
+                $therapist->id,
+                $managerTitle,
+                $managerMessage,
+                Notification::TYPE_INFO,
+                $managerData
             );
 
             // Notifica al terapista
@@ -1437,21 +1448,32 @@ class CalendarController extends ActiveController
                 $managerMessage .= "\nNote: {$notes}";
             }
 
+            $managerData = [
+                'appointment_id' => $appointment->id,
+                'patient_id' => $patient->id,
+                'therapist_id' => $therapist->id,
+                'absence_type' => $absenceType,
+                'absence_reason' => $reason,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
+                'type' => 'patient_absence_reported'
+            ];
+
             NotificationHelper::sendToManagers(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
-                [
-                    'appointment_id' => $appointment->id,
-                    'patient_id' => $patient->id,
-                    'therapist_id' => $therapist->id,
-                    'absence_type' => $absenceType,
-                    'absence_reason' => $reason,
-                    'appointment_date' => $appointmentDate,
-                    'appointment_time' => $appointmentTime,
-                    'type' => 'patient_absence_reported'
-                ],
+                $managerData,
                 true
+            );
+
+            // Notifica ai coordinatori dei gruppi del terapista (stesso contenuto dei manager)
+            NotificationHelper::sendToTherapistCoordinators(
+                $therapist->id,
+                $managerTitle,
+                $managerMessage,
+                Notification::TYPE_INFO,
+                $managerData
             );
 
             // Notifica al paziente (trova l'utente associato al paziente)
@@ -1702,21 +1724,34 @@ class CalendarController extends ActiveController
                 $managerMessage .= "\nNote: {$notes}";
             }
 
+            $managerData = [
+                'appointment_id' => $appointment->id,
+                'patient_id' => $patient ? $patient->id : null,
+                'therapist_id' => $therapist ? $therapist->id : null,
+                'removed_by' => $removedBy,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
+                'type' => 'absence_removed'
+            ];
+
             NotificationHelper::sendToManagers(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
-                [
-                    'appointment_id' => $appointment->id,
-                    'patient_id' => $patient ? $patient->id : null,
-                    'therapist_id' => $therapist ? $therapist->id : null,
-                    'removed_by' => $removedBy,
-                    'appointment_date' => $appointmentDate,
-                    'appointment_time' => $appointmentTime,
-                    'type' => 'absence_removed'
-                ],
+                $managerData,
                 true
             );
+
+            // Notifica ai coordinatori dei gruppi del terapista (stesso contenuto dei manager)
+            if ($therapist) {
+                NotificationHelper::sendToTherapistCoordinators(
+                    $therapist->id,
+                    $managerTitle,
+                    $managerMessage,
+                    Notification::TYPE_INFO,
+                    $managerData
+                );
+            }
 
             // Notifica al terapista
             if ($therapist) {

@@ -120,6 +120,58 @@ class NotificationHelper
     }
 
     /**
+     * Restituisce gli user_id dei coordinatori dei gruppi attivi a cui appartiene un terapista.
+     *
+     * Replica il pattern di TherapistController::actionMyGroup (invertito):
+     * therapist -> group_therapists (assigned_to IS NULL) -> coordinator_groups (is_active)
+     * -> coordinator_user_id. Gestisce correttamente il caso multi-gruppo (uno stesso
+     * coordinatore a capo di piu' gruppi che includono lo stesso terapista produce
+     * un solo destinatario grazie a DISTINCT).
+     *
+     * @param int $therapistId
+     * @return int[]
+     */
+    public static function findCoordinatorUserIdsForTherapist($therapistId)
+    {
+        $therapistId = (int)$therapistId;
+        if ($therapistId <= 0) {
+            return [];
+        }
+
+        $rows = (new \yii\db\Query())
+            ->select('cg.coordinator_user_id')
+            ->distinct()
+            ->from(['gt' => '{{%group_therapists}}'])
+            ->innerJoin(['cg' => '{{%coordinator_groups}}'], 'cg.id = gt.group_id')
+            ->where(['gt.therapist_id' => $therapistId])
+            ->andWhere(['gt.assigned_to' => null])
+            ->andWhere(['cg.is_active' => 1])
+            ->column();
+
+        return array_values(array_unique(array_map('intval', $rows)));
+    }
+
+    /**
+     * Notifica i coordinatori del terapista coinvolto in un evento, replicando
+     * titolo/messaggio/data di una notifica gia' inviata ai manager.
+     *
+     * @param int $therapistId
+     * @param string $title
+     * @param string $message
+     * @param string $type
+     * @param array $data
+     * @return array
+     */
+    public static function sendToTherapistCoordinators($therapistId, $title, $message, $type = Notification::TYPE_INFO, $data = [])
+    {
+        $userIds = static::findCoordinatorUserIdsForTherapist($therapistId);
+        if (empty($userIds)) {
+            return ['success' => true, 'notifications_created' => 0];
+        }
+        return static::sendToUsers($userIds, $title, $message, $type, $data, false);
+    }
+
+    /**
      * Invia una notifica programmata utilizzando un template
      *
      * @param string $templateCode Codice del template

@@ -856,17 +856,32 @@ class AbsenceController extends Controller
             $appointmentTime = $appointmentDateTime->format('H:i');
 
             // Notifica al manager
+            $managerTitle = 'Assenza Rimossa dal Gestionale';
+            $managerMessage = "L'assenza per l'appuntamento del {$appointmentDate} alle {$appointmentTime} è stata rimossa.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nRimossa da: {$removedBy}";
+            $managerData = [
+                'appointment_id' => $appointment->id,
+                'removed_by' => $removedBy,
+                'type' => 'absence_removed'
+            ];
+
             NotificationHelper::sendToManagers(
-                'Assenza Rimossa dal Gestionale',
-                "L'assenza per l'appuntamento del {$appointmentDate} alle {$appointmentTime} è stata rimossa.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nRimossa da: {$removedBy}",
+                $managerTitle,
+                $managerMessage,
                 Notification::TYPE_INFO,
-                [
-                    'appointment_id' => $appointment->id,
-                    'removed_by' => $removedBy,
-                    'type' => 'absence_removed'
-                ],
+                $managerData,
                 true
             );
+
+            // Notifica ai coordinatori dei gruppi del terapista (stesso contenuto dei manager)
+            if ($therapist) {
+                NotificationHelper::sendToTherapistCoordinators(
+                    $therapist->id,
+                    $managerTitle,
+                    $managerMessage,
+                    Notification::TYPE_INFO,
+                    $managerData
+                );
+            }
 
             // Notifica al terapista
             if ($therapist) {
@@ -1204,13 +1219,27 @@ class AbsenceController extends Controller
             ];
 
             // Manager
+            $managerTitle = 'Assenza Paziente Inserita dal Gestionale';
+            $managerMessage = "Inserita assenza {$absenceLabel} per l'appuntamento del {$appointmentDate} alle {$appointmentTime}.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nMotivo: {$reason}{$extraNotes}\nInserita da: {$insertedBy}";
+
             NotificationHelper::sendToManagers(
-                'Assenza Paziente Inserita dal Gestionale',
-                "Inserita assenza {$absenceLabel} per l'appuntamento del {$appointmentDate} alle {$appointmentTime}.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nMotivo: {$reason}{$extraNotes}\nInserita da: {$insertedBy}",
+                $managerTitle,
+                $managerMessage,
                 Notification::TYPE_INFO,
                 $data,
                 true
             );
+
+            // Notifica ai coordinatori dei gruppi del terapista (stesso contenuto dei manager)
+            if ($therapist) {
+                NotificationHelper::sendToTherapistCoordinators(
+                    $therapist->id,
+                    $managerTitle,
+                    $managerMessage,
+                    Notification::TYPE_INFO,
+                    $data
+                );
+            }
 
             // Terapista
             if ($therapist) {
