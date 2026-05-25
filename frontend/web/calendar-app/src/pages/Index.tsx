@@ -115,25 +115,59 @@ const Index = () => {
     timestamp: number;
   } | null>(null);
 
-  // Funzione helper per verificare se una data è bloccata per assenza
+  // Mappa label dei tipi di assenza (deve restare allineata coi valori del
+  // model PHP Absence::getTypeLabels()).
+  const ABSENCE_TYPE_LABELS: Record<string, string> = {
+    vacation: "Ferie",
+    sick_leave: "Congedo Malattia",
+    personal: "Personale",
+    training: "Formazione",
+    other: "Altro",
+  };
+
+  // Verifica se una assenza (approvata) copre lo slot date+time del paziente.
+  // - Per assenze full-day (start_time/end_time null): copre tutta la giornata.
+  // - Per assenze orarie (entrambi i time valorizzati): copre solo lo slot
+  //   orario specifico nel singolo giorno dell'assenza.
+  const absenceCoversSlot = (
+    absence: TherapistAbsence,
+    dateString: string,
+    timeHHMM?: string
+  ): boolean => {
+    if (absence.status !== "approved") return false;
+    if (dateString < absence.start_date || dateString > absence.end_date) return false;
+    const hourly = !!absence.start_time && !!absence.end_time;
+    if (!hourly) return true;
+    if (!timeHHMM) return true; // senza orario, considera la data come bloccata
+    const slot = timeHHMM.length >= 5 ? timeHHMM.substring(0, 5) : timeHHMM;
+    const start = absence.start_time!.substring(0, 5);
+    const end = absence.end_time!.substring(0, 5);
+    return slot >= start && slot < end;
+  };
+
+  // Funzione helper per verificare se una data è bloccata da assenza.
+  // Comportamento: blocca solo se esiste un'assenza full-day che copre la
+  // data. Le assenze orarie NON bloccano l'intera giornata - devono essere
+  // controllate slot-per-slot via isSlotBlocked.
   const isDateBlocked = (date: Date): boolean => {
-    if (!selectedTherapist || therapistAbsences.length === 0) {
-      return false;
-    }
-
+    if (!selectedTherapist || therapistAbsences.length === 0) return false;
     const dateString = date.toISOString().split("T")[0];
+    return therapistAbsences.some((absence) =>
+      absence.status === "approved" &&
+      !(absence.start_time && absence.end_time) &&
+      dateString >= absence.start_date &&
+      dateString <= absence.end_date
+    );
+  };
 
-    return therapistAbsences.some((absence) => {
-      // Considera solo le assenze approvate
-      if (absence.status !== "approved") {
-        return false;
-      }
-
-      const startDate = absence.start_date;
-      const endDate = absence.end_date;
-
-      return dateString >= startDate && dateString <= endDate;
-    });
+  // Verifica se uno slot orario specifico e' bloccato (data + ora).
+  // Copre sia assenze full-day che orarie.
+  const isSlotBlocked = (date: Date, timeHHMM: string): boolean => {
+    if (!selectedTherapist || therapistAbsences.length === 0) return false;
+    const dateString = date.toISOString().split("T")[0];
+    return therapistAbsences.some((absence) =>
+      absenceCoversSlot(absence, dateString, timeHHMM)
+    );
   };
 
   // Vista terapista: non ci sono selezioni da gestire, solo visualizzazione
@@ -1099,32 +1133,26 @@ const Index = () => {
       return;
     }
 
-    // Verifica se la data è bloccata per assenza del terapista
-    if (isDateBlocked(date)) {
-      const blockedAbsence = therapistAbsences.find((absence) => {
-        const dateString = date.toISOString().split("T")[0];
-        return (
-          absence.status === "approved" &&
-          dateString >= absence.start_date &&
-          dateString <= absence.end_date
-        );
-      });
+    // Verifica se lo slot (data + orario) e' bloccato da una assenza
+    // (full-day o oraria). isDateBlocked solo per la giornata intera; per
+    // gli slot uso isSlotBlocked che considera anche start_time/end_time.
+    if (isSlotBlocked(date, time)) {
+      const dateString = date.toISOString().split("T")[0];
+      const blockedAbsence = therapistAbsences.find((absence) =>
+        absenceCoversSlot(absence, dateString, time)
+      );
 
       if (blockedAbsence) {
-        const absenceTypeLabels = {
-          vacation: "Ferie",
-          sick: "Malattia",
-          training: "Formazione",
-          other: "Altro",
-        };
+        const typeLabel = ABSENCE_TYPE_LABELS[blockedAbsence.type] || blockedAbsence.type;
+        const hourly = !!blockedAbsence.start_time && !!blockedAbsence.end_time;
+        const orarioMsg = hourly
+          ? ` dalle ${blockedAbsence.start_time!.substring(0, 5)} alle ${blockedAbsence.end_time!.substring(0, 5)}`
+          : "";
+        const reasonMsg = blockedAbsence.reason ? ` (${blockedAbsence.reason})` : "";
 
         showError(
-          "Data non disponibile",
-          `Il terapista ${
-            selectedTherapist?.name
-          } è assente in questa data per: ${
-            absenceTypeLabels[blockedAbsence.type]
-          } (${blockedAbsence.reason}). Non è possibile creare appuntamenti.`
+          "Slot non disponibile",
+          `Il terapista ${selectedTherapist?.name} è assente in questa data${orarioMsg} per: ${typeLabel}${reasonMsg}. Non è possibile creare appuntamenti.`
         );
       }
       return;

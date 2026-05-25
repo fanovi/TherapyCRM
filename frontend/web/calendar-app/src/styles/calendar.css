@@ -1,8 +1,62 @@
 /* Stili personalizzati per il calendario - Assenze Terapista */
 
 .absence-event {
-  opacity: 0.7;
+  opacity: 0.9;
   font-weight: bold;
+}
+
+/* Assenze full-day (display: background): pattern a strisce diagonali piu'
+   visibile + label centrale per evidenziare che il giorno e' bloccato. */
+.fc-event.absence-fullday.fc-bg-event,
+.fc-event.absence-fullday {
+  opacity: 0.4 !important;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.18) 8px,
+    transparent 8px,
+    transparent 16px
+  ) !important;
+  position: relative;
+}
+
+/* Sui background event mostriamo comunque il titolo (FullCalendar di default
+   lo nasconde). Aggiungiamo un blocco centrato semitrasparente con la causale. */
+.fc-event.absence-fullday.fc-bg-event::before {
+  content: attr(title);
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Assenze orarie: blocco solido con bordo evidente, in primo piano. */
+.fc-event.absence-hourly {
+  opacity: 0.95 !important;
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  font-weight: 700;
+  z-index: 3;
+}
+
+.fc-event.absence-hourly .fc-event-title,
+.fc-event.absence-hourly .fc-event-time {
+  font-weight: 700;
+  color: #fff;
 }
 
 /* Stile per celle con sfondo di assenza */
@@ -34,28 +88,30 @@
   z-index: 1;
 }
 
-/* Stile per eventi di assenza di tipo vacation */
+/* Colori per tipo (allineati ai valori del model Absence::getTypeLabels). */
 .fc-event.absence-vacation {
   background-color: #f59e0b !important;
-  border-color: #f59e0b !important;
+  border-color: #d97706 !important;
 }
 
-/* Stile per eventi di assenza di tipo sick */
-.fc-event.absence-sick {
+.fc-event.absence-sick-leave {
   background-color: #ef4444 !important;
-  border-color: #ef4444 !important;
+  border-color: #b91c1c !important;
 }
 
-/* Stile per eventi di assenza di tipo training */
+.fc-event.absence-personal {
+  background-color: #0ea5e9 !important;
+  border-color: #0369a1 !important;
+}
+
 .fc-event.absence-training {
   background-color: #8b5cf6 !important;
-  border-color: #8b5cf6 !important;
+  border-color: #6d28d9 !important;
 }
 
-/* Stile per eventi di assenza di tipo other */
 .fc-event.absence-other {
   background-color: #6b7280 !important;
-  border-color: #6b7280 !important;
+  border-color: #374151 !important;
 }
 
 /* Tooltip per assenze */

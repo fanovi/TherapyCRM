@@ -364,33 +364,70 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const displayEndDate = new Date(endDate);
     displayEndDate.setDate(displayEndDate.getDate() + 1);
 
-    const absenceTypeLabels = {
+    const absenceTypeLabels: Record<string, string> = {
       vacation: "Ferie",
-      sick: "Malattia",
+      sick_leave: "Congedo Malattia",
+      personal: "Personale",
       training: "Formazione",
       other: "Altro",
     };
 
-    const absenceColors = {
+    const absenceColors: Record<string, string> = {
       vacation: "#F59E0B", // Ambra
-      sick: "#EF4444", // Rosso
+      sick_leave: "#EF4444", // Rosso
+      personal: "#0EA5E9", // Azzurro
       training: "#8B5CF6", // Viola
       other: "#6B7280", // Grigio
     };
 
+    const typeLabel = absenceTypeLabels[absence.type] || absence.type;
+    const color = absenceColors[absence.type] || "#6B7280";
+    const isHourly = !!absence.start_time && !!absence.end_time;
+    const cssClassType = `absence-${absence.type.replace(/_/g, "-")}`;
+
+    // Assenze orarie: event timed (solo nello slot orario) per non bloccare
+    // visivamente l'intera giornata. Render come EVENTO normale (display:auto)
+    // cosi' appare come blocco evidente nel calendario timegrid.
+    if (isHourly) {
+      const startISO = `${absence.start_date}T${absence.start_time}`;
+      const endISO = `${absence.start_date}T${absence.end_time}`;
+      const timeRange = `${absence.start_time!.substring(0, 5)}-${absence.end_time!.substring(0, 5)}`;
+      return {
+        id: `absence-${absence.id}`,
+        title: `🚫 ${typeLabel} ${timeRange}${absence.reason ? " · " + absence.reason : ""}`,
+        start: startISO,
+        end: endISO,
+        allDay: false,
+        backgroundColor: color,
+        borderColor: color,
+        textColor: "#FFFFFF",
+        classNames: ["absence-event", "absence-hourly", cssClassType],
+        extendedProps: {
+          isAbsence: true,
+          isHourlyAbsence: true,
+          absenceType: absence.type,
+          absenceReason: absence.reason,
+          absenceStatus: absence.status,
+          absenceTimeRange: timeRange,
+        },
+      };
+    }
+
+    // Assenze full-day: background + tag visivo evidente sulla giornata.
     return {
       id: `absence-${absence.id}`,
-      title: `🚫 ${absenceTypeLabels[absence.type]}: ${absence.reason}`,
+      title: `🚫 ${typeLabel}${absence.reason ? ": " + absence.reason : ""}`,
       start: absence.start_date,
       end: displayEndDate.toISOString().split("T")[0],
       allDay: true,
-      backgroundColor: absenceColors[absence.type],
-      borderColor: absenceColors[absence.type],
+      backgroundColor: color,
+      borderColor: color,
       textColor: "#FFFFFF",
-      display: "background", // Visualizza come sfondo
-      classNames: ["absence-event", `absence-${absence.type}`],
+      display: "background",
+      classNames: ["absence-event", "absence-fullday", cssClassType],
       extendedProps: {
         isAbsence: true,
+        isHourlyAbsence: false,
         absenceType: absence.type,
         absenceReason: absence.reason,
         absenceStatus: absence.status,
@@ -496,47 +533,53 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       return;
     }
 
-    // Verifica se la data selezionata cade durante un'assenza del terapista
+    // Verifica se lo slot (data + range orario) cade durante una assenza.
+    // Per assenze full-day blocca tutto il giorno; per assenze orarie blocca
+    // solo se c'e' overlap col range dell'assenza nel singolo giorno.
     const checkDate = selectInfo.start;
     const selectedDateStr = checkDate.toISOString().split("T")[0];
+    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
+    const slotStartHHMM = pad(selectInfo.start.getHours()) + ":" + pad(selectInfo.start.getMinutes());
+    const slotEndHHMM = pad(selectInfo.end.getHours()) + ":" + pad(selectInfo.end.getMinutes());
 
-    const isDuringAbsence = therapistAbsences.some((absence) => {
+    const ABSENCE_TYPE_LABELS: Record<string, string> = {
+      vacation: "Ferie",
+      sick_leave: "Congedo Malattia",
+      personal: "Personale",
+      training: "Formazione",
+      other: "Altro",
+    };
+
+    const absenceOverlapsSlot = (absence: TherapistAbsence) => {
       if (absence.status !== "approved") return false;
-      return (
-        selectedDateStr >= absence.start_date &&
-        selectedDateStr <= absence.end_date
-      );
-    });
+      if (selectedDateStr < absence.start_date || selectedDateStr > absence.end_date) return false;
+      const hourly = !!absence.start_time && !!absence.end_time;
+      if (!hourly) return true;
+      const absStart = absence.start_time!.substring(0, 5);
+      const absEnd = absence.end_time!.substring(0, 5);
+      // overlap: slot.start < abs.end AND abs.start < slot.end
+      return slotStartHHMM < absEnd && absStart < slotEndHHMM;
+    };
 
-    if (isDuringAbsence && therapistId) {
-      const blockedAbsence = therapistAbsences.find((absence) => {
-        return (
-          absence.status === "approved" &&
-          selectedDateStr >= absence.start_date &&
-          selectedDateStr <= absence.end_date
-        );
+    const blockedAbsence = therapistAbsences.find(absenceOverlapsSlot);
+
+    if (blockedAbsence && therapistId) {
+      const typeLabel = ABSENCE_TYPE_LABELS[blockedAbsence.type] || blockedAbsence.type;
+      const hourly = !!blockedAbsence.start_time && !!blockedAbsence.end_time;
+      const orarioMsg = hourly
+        ? ` dalle ${blockedAbsence.start_time!.substring(0, 5)} alle ${blockedAbsence.end_time!.substring(0, 5)}`
+        : "";
+      const reasonMsg = blockedAbsence.reason ? ` (${blockedAbsence.reason})` : "";
+
+      toast({
+        title: hourly ? "Slot non disponibile" : "Data non disponibile",
+        description: `Il terapista è assente${orarioMsg} per: ${typeLabel}${reasonMsg}. Non è possibile creare appuntamenti.`,
+        variant: "destructive",
       });
 
-      if (blockedAbsence) {
-        const absenceTypeLabels = {
-          vacation: "Ferie",
-          sick: "Malattia",
-          training: "Formazione",
-          other: "Altro",
-        };
-
-        toast({
-          title: "Data non disponibile",
-          description: `Il terapista è assente in questa data per: ${
-            absenceTypeLabels[blockedAbsence.type]
-          } (${blockedAbsence.reason}). Non è possibile creare appuntamenti.`,
-          variant: "destructive",
-        });
-
-        const calendarApi = calendarRef.current?.getApi();
-        calendarApi?.unselect();
-        return;
-      }
+      const calendarApi = calendarRef.current?.getApi();
+      calendarApi?.unselect();
+      return;
     }
 
     // Verifica se c'è già un evento in questo slot

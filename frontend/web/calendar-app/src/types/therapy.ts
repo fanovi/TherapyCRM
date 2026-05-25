@@ -307,7 +307,14 @@ export interface TherapistAbsence {
   therapist_id: number;
   start_date: string;
   end_date: string;
-  type: "vacation" | "sick" | "training" | "other";
+  /**
+   * Orario HH:MM:SS opzionali. Quando entrambi valorizzati l'assenza e'
+   * oraria su singolo giorno (start_date == end_date); altrimenti e'
+   * full-day.
+   */
+  start_time?: string | null;
+  end_time?: string | null;
+  type: "vacation" | "sick_leave" | "personal" | "training" | "other";
   reason: string;
   status: "pending" | "approved" | "rejected";
   approved_by?: number;
