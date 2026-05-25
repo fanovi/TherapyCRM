@@ -145,13 +145,21 @@ const Index = () => {
     return slot >= start && slot < end;
   };
 
+  // Formatta una Date in stringa Y-m-d usando la timezone LOCALE.
+  // toISOString() usa UTC e in CEST (UTC+2) sfora di -1 giorno: una
+  // mezzanotte locale del 25/05 diventa 23:00 UTC del 24/05.
+  const toLocalDateString = (date: Date): string => {
+    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
+    return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+  };
+
   // Funzione helper per verificare se una data è bloccata da assenza.
   // Comportamento: blocca solo se esiste un'assenza full-day che copre la
   // data. Le assenze orarie NON bloccano l'intera giornata - devono essere
   // controllate slot-per-slot via isSlotBlocked.
   const isDateBlocked = (date: Date): boolean => {
     if (!selectedTherapist || therapistAbsences.length === 0) return false;
-    const dateString = date.toISOString().split("T")[0];
+    const dateString = toLocalDateString(date);
     return therapistAbsences.some((absence) =>
       absence.status === "approved" &&
       !(absence.start_time && absence.end_time) &&
@@ -164,7 +172,7 @@ const Index = () => {
   // Copre sia assenze full-day che orarie.
   const isSlotBlocked = (date: Date, timeHHMM: string): boolean => {
     if (!selectedTherapist || therapistAbsences.length === 0) return false;
-    const dateString = date.toISOString().split("T")[0];
+    const dateString = toLocalDateString(date);
     return therapistAbsences.some((absence) =>
       absenceCoversSlot(absence, dateString, timeHHMM)
     );
@@ -1137,7 +1145,7 @@ const Index = () => {
     // (full-day o oraria). isDateBlocked solo per la giornata intera; per
     // gli slot uso isSlotBlocked che considera anche start_time/end_time.
     if (isSlotBlocked(date, time)) {
-      const dateString = date.toISOString().split("T")[0];
+      const dateString = toLocalDateString(date);
       const blockedAbsence = therapistAbsences.find((absence) =>
         absenceCoversSlot(absence, dateString, time)
       );

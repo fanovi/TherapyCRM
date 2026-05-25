@@ -357,12 +357,19 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
   // Crea eventi per le assenze del terapista
   const absenceEvents = therapistAbsences.map((absence) => {
-    const startDate = new Date(`${absence.start_date}T00:00:00`);
-    const endDate = new Date(`${absence.end_date}T23:59:59`);
-
-    // Aggiungi un giorno alla data di fine per la visualizzazione corretta in FullCalendar
-    const displayEndDate = new Date(endDate);
-    displayEndDate.setDate(displayEndDate.getDate() + 1);
+    // FullCalendar end-date e' esclusivo: per una assenza che termina il
+    // 25/05 (inclusivo) dobbiamo passare 26/05 come end.
+    // Calcolo in LOCALE per evitare off-by-one timezone (CEST UTC+2).
+    const padN = (n: number) => (n < 10 ? "0" + n : String(n));
+    const endParts = absence.end_date.split("-");
+    const endLocal = new Date(
+      parseInt(endParts[0], 10),
+      parseInt(endParts[1], 10) - 1,
+      parseInt(endParts[2], 10)
+    );
+    endLocal.setDate(endLocal.getDate() + 1);
+    const displayEndDateStr =
+      endLocal.getFullYear() + "-" + padN(endLocal.getMonth() + 1) + "-" + padN(endLocal.getDate());
 
     const absenceTypeLabels: Record<string, string> = {
       vacation: "Ferie",
@@ -418,7 +425,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       id: `absence-${absence.id}`,
       title: `🚫 ${typeLabel}${absence.reason ? " · " + absence.reason : ""}`,
       start: absence.start_date,
-      end: displayEndDate.toISOString().split("T")[0],
+      end: displayEndDateStr,
       allDay: true,
       backgroundColor: color,
       borderColor: color,
@@ -541,9 +548,11 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     // Verifica se lo slot (data + range orario) cade durante una assenza.
     // Per assenze full-day blocca tutto il giorno; per assenze orarie blocca
     // solo se c'e' overlap col range dell'assenza nel singolo giorno.
+    // NB: data LOCALE (non toISOString) per evitare off-by-one in CEST.
     const checkDate = selectInfo.start;
-    const selectedDateStr = checkDate.toISOString().split("T")[0];
     const pad = (n: number) => (n < 10 ? "0" + n : String(n));
+    const selectedDateStr =
+      checkDate.getFullYear() + "-" + pad(checkDate.getMonth() + 1) + "-" + pad(checkDate.getDate());
     const slotStartHHMM = pad(selectInfo.start.getHours()) + ":" + pad(selectInfo.start.getMinutes());
     const slotEndHHMM = pad(selectInfo.end.getHours()) + ":" + pad(selectInfo.end.getMinutes());
 
@@ -903,8 +912,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           // Colora l'intera colonna del giorno per assenze full-day:
           // shading evidente che invade tutti gli slot orari, non solo il
           // banner allDay in cima.
+          // NB: usiamo la data LOCALE (non toISOString che e' UTC) per
+          // evitare off-by-one in timezone est di Greenwich (CEST UTC+2).
           dayCellClassNames={(arg) => {
-            const dateStr = arg.date.toISOString().split("T")[0];
+            const d = arg.date;
+            const pad = (n: number) => (n < 10 ? "0" + n : String(n));
+            const dateStr = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
             const blocked = therapistAbsences.some((a) =>
               a.status === "approved" &&
               !(a.start_time && a.end_time) &&
