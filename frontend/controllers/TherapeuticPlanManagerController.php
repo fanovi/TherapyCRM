@@ -1434,6 +1434,7 @@ class TherapeuticPlanManagerController extends Controller
             // Trova il piano terapeutico attivo più recente
             $therapeuticPlan = TherapeuticPlan::find()
                 ->where(['patient_id' => $patientId])
+                ->andWhere(['status' => 'active'])
                 ->andWhere(['<=', 'start_date', date('Y-m-d')])
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
                 ->orderBy(['created_at' => SORT_DESC])
@@ -4661,6 +4662,7 @@ class TherapeuticPlanManagerController extends Controller
             // Trova il piano terapeutico attivo del paziente
             $therapeuticPlan = TherapeuticPlan::find()
                 ->where(['patient_id' => $patientId])
+                ->andWhere(['status' => 'active'])
                 ->andWhere(['<=', 'start_date', date('Y-m-d')])
                 ->andWhere(['>=', 'end_date', date('Y-m-d')])
                 ->orderBy(['created_at' => SORT_DESC])
@@ -5300,6 +5302,7 @@ class TherapeuticPlanManagerController extends Controller
                 // Verifica se ha piani terapeutici attivi
                 $hasActiveTherapeuticPlans = TherapeuticPlan::find()
                     ->where(['patient_id' => $patient->id])
+                    ->andWhere(['status' => 'active'])
                     ->andWhere(['<=', 'start_date', date('Y-m-d')])
                     ->andWhere(['>=', 'end_date', date('Y-m-d')])
                     ->exists();
@@ -6089,29 +6092,40 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Paziente non trovato');
             }
 
-            $patientPlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patientId])
-                ->andWhere(['<=', 'start_date', $clickedAppointment->appointment_datetime])
-                ->andWhere(['>=', 'end_date', date('Y-m-d', strtotime($clickedAppointment->appointment_datetime))])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->with('regime')
+            // Cerca direttamente la PlanTherapy del paziente con il treatment_type
+            // del gruppo, in QUALSIASI piano attivo che copre la data dell'appuntamento.
+            // Gestisce il caso multi-piano (piu' piani attivi sovrapposti) e filtra
+            // i piani non attivi (terminated/expired/suspended/completed) che hanno
+            // ancora end_date >= oggi.
+            $appointmentDateOnly = date('Y-m-d', strtotime($clickedAppointment->appointment_datetime));
+            $patientPlanTherapy = PlanTherapy::find()
+                ->alias('pt')
+                ->innerJoinWith(['therapeuticPlan tp'], false)
+                ->where(['tp.patient_id' => $patientId])
+                ->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', $clickedAppointment->appointment_datetime])
+                ->andWhere(['>=', 'tp.end_date', $appointmentDateOnly])
+                ->andWhere(['pt.treatment_type_id' => $treatmentTypeId])
                 ->one();
-            if (!$patientPlan) {
-                return $this->errorResponse('Il paziente non ha un piano terapeutico attivo alla data dell\'appuntamento');
+
+            if (!$patientPlanTherapy) {
+                $hasActivePlan = TherapeuticPlan::find()
+                    ->where(['patient_id' => $patientId])
+                    ->andWhere(['status' => 'active'])
+                    ->andWhere(['<=', 'start_date', $clickedAppointment->appointment_datetime])
+                    ->andWhere(['>=', 'end_date', $appointmentDateOnly])
+                    ->exists();
+                return $this->errorResponse($hasActivePlan
+                    ? 'Il paziente non ha una terapia di questo tipo nel piano'
+                    : 'Il paziente non ha un piano terapeutico attivo alla data dell\'appuntamento');
             }
+
+            $patientPlan = $patientPlanTherapy->therapeuticPlan;
             $isPatientPlanABA = $this->isABARegime($patientPlan);
             if ($isGroupABA !== $isPatientPlanABA) {
                 return $this->errorResponse($isGroupABA
                     ? 'Il paziente non è in regime ABA come il gruppo'
                     : 'Il paziente è in regime ABA mentre il gruppo non lo è');
-            }
-
-            $patientPlanTherapy = PlanTherapy::find()
-                ->where(['therapeutic_plan_id' => $patientPlan->id])
-                ->andWhere(['treatment_type_id' => $treatmentTypeId])
-                ->one();
-            if (!$patientPlanTherapy) {
-                return $this->errorResponse('Il paziente non ha una terapia di questo tipo nel piano');
             }
 
             // 3. Recupera tutte le occorrenze del pattern dalla data clickata in avanti.
@@ -6344,29 +6358,37 @@ class TherapeuticPlanManagerController extends Controller
         $reasons = [];
         $appointmentDate = (new DateTime($datetime))->format('Y-m-d');
 
-        // 1. Piano terapeutico attivo nella data appuntamento
-        $therapeuticPlan = TherapeuticPlan::find()
-            ->where(['patient_id' => $patient->id])
-            ->andWhere(['<=', 'start_date', $appointmentDate])
-            ->andWhere(['>=', 'end_date', $appointmentDate])
-            ->with('regime')
-            ->one();
-
-        if (!$therapeuticPlan) {
-            $reasons[] = 'Nessun piano terapeutico attivo';
-            return $reasons;
-        }
-
-        // 2. Plan therapy specifica per il treatment_type del gruppo
+        // 1+2. Cerca direttamente la PlanTherapy del paziente con treatment_type
+        // del gruppo dentro QUALSIASI piano attivo che copre la data dell'appuntamento.
+        // Evita il bug "pesca un piano arbitrario": il paziente puo' avere piu' piani
+        // attivi sovrapposti (es. multi-specializzazione) e solo uno contiene la
+        // terapia richiesta. Inoltre filtra status='active' per escludere piani
+        // interrotti/scaduti/sospesi/completati che hanno ancora end_date >= oggi.
         $planTherapy = PlanTherapy::find()
-            ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-            ->andWhere(['treatment_type_id' => $treatmentTypeId])
+            ->alias('pt')
+            ->innerJoinWith(['therapeuticPlan tp'], false)
+            ->where(['tp.patient_id' => $patient->id])
+            ->andWhere(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', $appointmentDate])
+            ->andWhere(['>=', 'tp.end_date', $appointmentDate])
+            ->andWhere(['pt.treatment_type_id' => $treatmentTypeId])
             ->one();
 
         if (!$planTherapy) {
-            $reasons[] = 'Nessuna terapia di questo tipo nel piano';
+            // Disambigua il motivo: nessun piano attivo vs piano attivo senza tt giusto.
+            $hasActivePlan = TherapeuticPlan::find()
+                ->where(['patient_id' => $patient->id])
+                ->andWhere(['status' => 'active'])
+                ->andWhere(['<=', 'start_date', $appointmentDate])
+                ->andWhere(['>=', 'end_date', $appointmentDate])
+                ->exists();
+            $reasons[] = $hasActivePlan
+                ? 'Nessuna terapia di questo tipo nel piano'
+                : 'Nessun piano terapeutico attivo';
             return $reasons;
         }
+
+        $therapeuticPlan = $planTherapy->therapeuticPlan;
 
         // 3. Regime ABA omogeneo
         $isPatientPlanABA = $this->isABARegime($therapeuticPlan);
