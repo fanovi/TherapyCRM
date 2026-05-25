@@ -5863,7 +5863,13 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         // 2. Verifica stesso tipo appuntamento + stesso treatment_type nello stesso giorno
-        // (terapie diverse della stessa specializzazione sono ammesse)
+        // (terapie diverse della stessa specializzazione sono ammesse).
+        // Eccezione ABA: per appointment_type "terapia" sono ammesse piu' sessioni
+        // stesso giorno stesso treatment (es. sessioni intensive RBT).
+        if ($appointmentType === Appointment::TYPE_TERAPIA) {
+            return null;
+        }
+
         $query = Appointment::find()
             ->alias('a')
             ->leftJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
