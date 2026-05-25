@@ -848,7 +848,7 @@ class TherapeuticPlanController extends BaseController
                     ['like', 'first_name', $q],
                     ['like', 'last_name', $q],
                     ['like', 'fiscal_code', $q],
-                    ['like', new \yii\db\Expression("CONCAT(first_name, ' ', last_name)"), $q],
+                    ['like', "CONCAT(first_name, ' ', last_name)", $q]
                 ])
                 ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])
                 ->limit(20)
