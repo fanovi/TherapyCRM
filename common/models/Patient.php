@@ -396,17 +396,38 @@ class Patient extends ActiveRecord
     }
 
     /**
-     * Gets active therapeutic plan for this patient
+     * Piano terapeutico attivo IN QUESTO MOMENTO per il paziente:
+     * status='active' AND start_date <= oggi AND end_date >= oggi.
+     *
+     * Se il paziente ha piu' piani attivi sovrapposti, ritorna il piu' recente
+     * per created_at DESC (tie-breaker id ASC). I consumatori che hanno bisogno
+     * della lista completa devono usare getActiveTherapeuticPlans().
      *
      * @return TherapeuticPlan|null
      */
     public function getActiveTherapeuticPlan()
     {
-        return $this
-            ->getTherapeuticPlans()
-            ->where(['>=', 'end_date', date('Y-m-d')])
-            ->orderBy(['created_at' => SORT_DESC])
+        return TherapeuticPlan::find()
+            ->byPatient($this->id)
+            ->activeAtDate()
+            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
             ->one();
+    }
+
+    /**
+     * Tutti i piani terapeutici attivi IN QUESTO MOMENTO per il paziente.
+     * Utile quando il paziente ha piu' piani attivi sovrapposti e il chiamante
+     * deve mostrare un selettore o iterare su tutti.
+     *
+     * @return TherapeuticPlan[]
+     */
+    public function getActiveTherapeuticPlans()
+    {
+        return TherapeuticPlan::find()
+            ->byPatient($this->id)
+            ->activeAtDate()
+            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+            ->all();
     }
 
     /**
