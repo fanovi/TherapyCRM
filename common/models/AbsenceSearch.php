@@ -119,6 +119,7 @@ class AbsenceSearch extends Absence
         return ArrayHelper::map(
             \common\models\Therapist::find()
                 ->joinWith('user.profile')
+                ->where(['therapists.is_active' => 1])
                 ->orderBy('user_profiles.last_name, user_profiles.first_name')
                 ->all(),
             'id',
