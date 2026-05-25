@@ -372,16 +372,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       other: "Altro",
     };
 
-    const absenceColors: Record<string, string> = {
-      vacation: "#F59E0B", // Ambra
-      sick_leave: "#EF4444", // Rosso
-      personal: "#0EA5E9", // Azzurro
-      training: "#8B5CF6", // Viola
-      other: "#6B7280", // Grigio
-    };
+    // Colore unico "grigio topo" per tutte le assenze: sobrio, non
+    // confondibile con gli appuntamenti colorati per terapista.
+    const ABSENCE_COLOR = "#6B7280";
 
     const typeLabel = absenceTypeLabels[absence.type] || absence.type;
-    const color = absenceColors[absence.type] || "#6B7280";
+    const color = ABSENCE_COLOR;
     const isHourly = !!absence.start_time && !!absence.end_time;
     const cssClassType = `absence-${absence.type.replace(/_/g, "-")}`;
 
@@ -486,6 +482,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
     const props = event.extendedProps;
+
+    // Le assenze terapista non sono appuntamenti: il click non deve aprire
+    // alcun modal di modifica appuntamento.
+    if (props.isAbsence) {
+      return;
+    }
 
     // Se abbiamo onAppointmentClick, usa quello per aprire il modal di modifica
     if (onAppointmentClick) {
