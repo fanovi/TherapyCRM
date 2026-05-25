@@ -1218,30 +1218,21 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Paziente non trovato');
             }
 
-            // Trova il piano terapeutico attivo più recente.
-            // Solo i piani con status='active' sono utilizzabili dal calendario:
-            // suspended/draft/pending/terminated/expired/completed non permettono
-            // la creazione o la modifica di appuntamenti collegati al piano.
-            $therapeuticPlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patientId])
-                ->andWhere(['<=', 'start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'end_date', date('Y-m-d')])
-                ->andWhere(['status' => 'active'])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->one();
-
-            if (!$therapeuticPlan) {
-                return $this->errorResponse('Nessun piano terapeutico attivo trovato per questo paziente');
-            }
-
-            // Trova il piano terapia correlato
+            // Piano attivo IN QUESTO MOMENTO. Se il paziente ha piu' piani attivi
+            // sovrapposti o piu' planTherapy nello stesso piano, viene ritornata
+            // la prima per (tp.created_at DESC, pt.id ASC). Per disambiguare per
+            // treatment_type usare actionGetPlanTherapyForTherapist.
             $planTherapy = PlanTherapy::find()
-                ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+                ->forActivePatientPlan($patientId)
+                ->with(['therapeuticPlan'])
+                ->orderBy(['tp.created_at' => SORT_DESC, 'pt.id' => SORT_ASC])
                 ->one();
 
             if (!$planTherapy) {
-                return $this->errorResponse('Piano terapia non trovato');
+                return $this->errorResponse('Nessun piano terapeutico attivo trovato per questo paziente');
             }
+
+            $therapeuticPlan = $planTherapy->therapeuticPlan;
 
             return [
                 'success' => true,
@@ -1431,12 +1422,10 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            // Trova il piano terapeutico attivo più recente
+            // Piano attivo IN QUESTO MOMENTO
             $therapeuticPlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patientId])
-                ->andWhere(['status' => 'active'])
-                ->andWhere(['<=', 'start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                ->byPatient($patientId)
+                ->activeAtDate()
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
 
@@ -1964,12 +1953,11 @@ class TherapeuticPlanManagerController extends Controller
                 'canCreatePrivateAppointments' => true  // Sempre true, tutti possono creare appuntamenti privati
             ];
 
-            // Cerca il piano terapeutico attivo più recente con il regime
+            // Piano attivo IN QUESTO MOMENTO (status='active' + valido oggi).
             $therapeuticPlan = TherapeuticPlan::find()
-                ->with(['regime'])  // Aggiungi questa riga
-                ->where(['patient_id' => $patient->id])
-                // ->andWhere(['<=', 'start_date', date('Y-m-d')]) //TODO: rimuovere questa riga
-                ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                ->byPatient($patient->id)
+                ->activeAtDate()
+                ->with(['regime'])
                 ->orderBy(['created_at' => SORT_DESC])
                 ->one();
 
@@ -2077,18 +2065,6 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Patient ID e Therapist ID sono obbligatori');
             }
 
-            // Trova il piano terapeutico del paziente (include anche quelli che iniziano nel futuro)
-            $therapeuticPlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patientId])
-                // Rimosso controllo start_date per permettere piani futuri
-                ->andWhere(['>=', 'end_date', date('Y-m-d')])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->one();
-
-            if (!$therapeuticPlan) {
-                return $this->errorResponse('Nessun piano terapeutico trovato per questo paziente');
-            }
-
             // Determina il treatment_type_id preferenziale per disambiguare la
             // planTherapy del paziente.
             // - treatmentTypeId esplicito ha precedenza
@@ -2106,21 +2082,32 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            // Cerca planTherapy in QUALSIASI piano del paziente attivo IN QUESTO
+            // MOMENTO (status='active' + valido oggi). Filtra poi per treatment_type:
+            // - preferito (esplicito o dedotto dall'appuntamento di gruppo), oppure
+            // - compatibile con le specializzazioni del terapista.
+            $baseQuery = PlanTherapy::find()
+                ->forActivePatientPlan($patientId)
+                ->with(['treatmentType', 'therapeuticPlan'])
+                ->orderBy(['tp.created_at' => SORT_DESC]);
+
             if ($preferredTreatmentTypeId) {
-                $planTherapy = PlanTherapy::find()
-                    ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-                    ->andWhere(['treatment_type_id' => $preferredTreatmentTypeId])
-                    ->with(['treatmentType'])
+                $planTherapy = (clone $baseQuery)
+                    ->andWhere(['pt.treatment_type_id' => $preferredTreatmentTypeId])
                     ->one();
 
                 if (!$planTherapy) {
-                    return $this->errorResponse('Il paziente non ha una terapia di questo tipo nel piano');
+                    $hasActivePlan = TherapeuticPlan::find()
+                        ->byPatient($patientId)
+                        ->activeAtDate()
+                        ->exists();
+                    return $this->errorResponse($hasActivePlan
+                        ? 'Il paziente non ha una terapia di questo tipo nel piano'
+                        : 'Nessun piano terapeutico attivo per questo paziente');
                 }
             } else {
-                // Fallback: scegli la prima planTherapy compatibile con la
-                // specializzazione del terapista.
                 $therapist = Therapist::find()
-                    ->with(['specialization.treatmentTypes'])
+                    ->with(['specializations.treatmentTypes'])
                     ->where(['id' => $therapistId])
                     ->one();
 
@@ -2128,23 +2115,27 @@ class TherapeuticPlanManagerController extends Controller
                     return $this->errorResponse('Terapista non trovato');
                 }
 
-                $therapistTreatmentTypes = [];
-                if ($therapist->specialization && $therapist->specialization->treatmentTypes) {
-                    foreach ($therapist->specialization->treatmentTypes as $treatmentType) {
-                        $therapistTreatmentTypes[] = $treatmentType->id;
-                    }
+                $therapistTreatmentTypes = $this->collectTherapistTreatmentTypeIds($therapist);
+                if (empty($therapistTreatmentTypes)) {
+                    return $this->errorResponse('Nessuna terapia compatibile trovata per questo terapista');
                 }
 
-                $planTherapy = PlanTherapy::find()
-                    ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-                    ->andWhere(['treatment_type_id' => $therapistTreatmentTypes])
-                    ->with(['treatmentType'])
+                $planTherapy = (clone $baseQuery)
+                    ->andWhere(['in', 'pt.treatment_type_id', $therapistTreatmentTypes])
                     ->one();
 
                 if (!$planTherapy) {
-                    return $this->errorResponse('Nessuna terapia compatibile trovata per questo terapista');
+                    $hasActivePlan = TherapeuticPlan::find()
+                        ->byPatient($patientId)
+                        ->activeAtDate()
+                        ->exists();
+                    return $this->errorResponse($hasActivePlan
+                        ? 'Nessuna terapia compatibile trovata per questo terapista nel piano del paziente'
+                        : 'Nessun piano terapeutico attivo per questo paziente');
                 }
             }
+
+            $therapeuticPlan = $planTherapy->therapeuticPlan;
 
             return [
                 'success' => true,
@@ -4660,23 +4651,8 @@ class TherapeuticPlanManagerController extends Controller
     private function getPlanTherapyForPatientAndTherapist($patientId, $therapistId)
     {
         try {
-            // Trova il piano terapeutico attivo del paziente
-            $therapeuticPlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patientId])
-                ->andWhere(['status' => 'active'])
-                ->andWhere(['<=', 'start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'end_date', date('Y-m-d')])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->one();
-
-            if (!$therapeuticPlan) {
-                Yii::warning("Nessun piano terapeutico attivo per paziente {$patientId}", __METHOD__);
-                return null;
-            }
-
-            // Trova il terapista e la sua specializzazione
             $therapist = Therapist::find()
-                ->with(['specialization.treatmentTypes'])
+                ->with(['specializations.treatmentTypes'])
                 ->where(['id' => $therapistId])
                 ->one();
 
@@ -4685,19 +4661,20 @@ class TherapeuticPlanManagerController extends Controller
                 return null;
             }
 
-            // Ottieni i tipi di trattamento che il terapista può gestire
-            $therapistTreatmentTypes = [];
-            if ($therapist->specialization && $therapist->specialization->treatmentTypes) {
-                foreach ($therapist->specialization->treatmentTypes as $treatmentType) {
-                    $therapistTreatmentTypes[] = $treatmentType->id;
-                }
+            $therapistTreatmentTypes = $this->collectTherapistTreatmentTypeIds($therapist);
+            if (empty($therapistTreatmentTypes)) {
+                Yii::warning("Terapista {$therapistId} senza treatment types", __METHOD__);
+                return null;
             }
 
-            // Trova il PlanTherapy che corrisponde a uno dei tipi di trattamento del terapista
+            // Cerca planTherapy compatibile col terapista in QUALSIASI piano del
+            // paziente attivo IN QUESTO MOMENTO. Gestisce multi-piano: il paziente
+            // puo' avere piu' piani attivi sovrapposti con treatment_type diversi.
             $planTherapy = PlanTherapy::find()
-                ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-                ->andWhere(['in', 'treatment_type_id', $therapistTreatmentTypes])
-                ->with(['treatmentType'])
+                ->forActivePatientPlan($patientId)
+                ->andWhere(['in', 'pt.treatment_type_id', $therapistTreatmentTypes])
+                ->with(['treatmentType', 'therapeuticPlan'])
+                ->orderBy(['tp.created_at' => SORT_DESC])
                 ->one();
 
             if (!$planTherapy) {
@@ -4709,13 +4686,36 @@ class TherapeuticPlanManagerController extends Controller
                 'planTherapyId' => $planTherapy->id,
                 'treatmentTypeId' => $planTherapy->treatment_type_id,
                 'treatmentTypeName' => $planTherapy->treatmentType->name,
-                'therapeuticPlanId' => $therapeuticPlan->id,
+                'therapeuticPlanId' => $planTherapy->therapeutic_plan_id,
                 'weeklyHours' => $planTherapy->weekly_hours
             ];
         } catch (Exception $e) {
             Yii::error('Errore in getPlanTherapyForPatientAndTherapist: ' . $e->getMessage(), __METHOD__);
             return null;
         }
+    }
+
+    /**
+     * Raccoglie tutti i treatment_type_id che il terapista puo' gestire,
+     * unendo i treatment delle sue specializzazioni (deduplica per id).
+     *
+     * @param Therapist $therapist Deve essere caricato con relazione
+     *                             ['specializations.treatmentTypes'].
+     * @return int[]
+     */
+    private function collectTherapistTreatmentTypeIds($therapist)
+    {
+        $ids = [];
+        if ($therapist && $therapist->specializations) {
+            foreach ($therapist->specializations as $specialization) {
+                if ($specialization->treatmentTypes) {
+                    foreach ($specialization->treatmentTypes as $treatmentType) {
+                        $ids[$treatmentType->id] = (int) $treatmentType->id;
+                    }
+                }
+            }
+        }
+        return array_values($ids);
     }
 
     /**
@@ -5300,12 +5300,9 @@ class TherapeuticPlanManagerController extends Controller
                     $email = $linkedUsers[0]->email;
                 }
 
-                // Verifica se ha piani terapeutici attivi
                 $hasActiveTherapeuticPlans = TherapeuticPlan::find()
-                    ->where(['patient_id' => $patient->id])
-                    ->andWhere(['status' => 'active'])
-                    ->andWhere(['<=', 'start_date', date('Y-m-d')])
-                    ->andWhere(['>=', 'end_date', date('Y-m-d')])
+                    ->byPatient($patient->id)
+                    ->activeAtDate()
                     ->exists();
 
                 $result[] = [
@@ -6093,28 +6090,18 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Paziente non trovato');
             }
 
-            // Cerca direttamente la PlanTherapy del paziente con il treatment_type
-            // del gruppo, in QUALSIASI piano attivo che copre la data dell'appuntamento.
-            // Gestisce il caso multi-piano (piu' piani attivi sovrapposti) e filtra
-            // i piani non attivi (terminated/expired/suspended/completed) che hanno
-            // ancora end_date >= oggi.
+            // PlanTherapy del paziente col treatment_type del gruppo in QUALSIASI
+            // piano attivo che copre la data dell'appuntamento. Gestisce multi-piano.
             $appointmentDateOnly = date('Y-m-d', strtotime($clickedAppointment->appointment_datetime));
             $patientPlanTherapy = PlanTherapy::find()
-                ->alias('pt')
-                ->innerJoinWith(['therapeuticPlan tp'], false)
-                ->where(['tp.patient_id' => $patientId])
-                ->andWhere(['tp.status' => 'active'])
-                ->andWhere(['<=', 'tp.start_date', $clickedAppointment->appointment_datetime])
-                ->andWhere(['>=', 'tp.end_date', $appointmentDateOnly])
+                ->forActivePatientPlan($patientId, $appointmentDateOnly)
                 ->andWhere(['pt.treatment_type_id' => $treatmentTypeId])
                 ->one();
 
             if (!$patientPlanTherapy) {
                 $hasActivePlan = TherapeuticPlan::find()
-                    ->where(['patient_id' => $patientId])
-                    ->andWhere(['status' => 'active'])
-                    ->andWhere(['<=', 'start_date', $clickedAppointment->appointment_datetime])
-                    ->andWhere(['>=', 'end_date', $appointmentDateOnly])
+                    ->byPatient($patientId)
+                    ->activeAtDate($appointmentDateOnly)
                     ->exists();
                 return $this->errorResponse($hasActivePlan
                     ? 'Il paziente non ha una terapia di questo tipo nel piano'
@@ -6359,29 +6346,19 @@ class TherapeuticPlanManagerController extends Controller
         $reasons = [];
         $appointmentDate = (new DateTime($datetime))->format('Y-m-d');
 
-        // 1+2. Cerca direttamente la PlanTherapy del paziente con treatment_type
-        // del gruppo dentro QUALSIASI piano attivo che copre la data dell'appuntamento.
-        // Evita il bug "pesca un piano arbitrario": il paziente puo' avere piu' piani
-        // attivi sovrapposti (es. multi-specializzazione) e solo uno contiene la
-        // terapia richiesta. Inoltre filtra status='active' per escludere piani
-        // interrotti/scaduti/sospesi/completati che hanno ancora end_date >= oggi.
+        // 1+2. PlanTherapy del paziente col treatment_type del gruppo in QUALSIASI
+        // piano attivo che copre la data dell'appuntamento. Evita il bug
+        // "piano arbitrario": il paziente puo' avere piu' piani attivi sovrapposti
+        // (multi-specializzazione) e solo uno contiene la terapia richiesta.
         $planTherapy = PlanTherapy::find()
-            ->alias('pt')
-            ->innerJoinWith(['therapeuticPlan tp'], false)
-            ->where(['tp.patient_id' => $patient->id])
-            ->andWhere(['tp.status' => 'active'])
-            ->andWhere(['<=', 'tp.start_date', $appointmentDate])
-            ->andWhere(['>=', 'tp.end_date', $appointmentDate])
+            ->forActivePatientPlan($patient->id, $appointmentDate)
             ->andWhere(['pt.treatment_type_id' => $treatmentTypeId])
             ->one();
 
         if (!$planTherapy) {
-            // Disambigua il motivo: nessun piano attivo vs piano attivo senza tt giusto.
             $hasActivePlan = TherapeuticPlan::find()
-                ->where(['patient_id' => $patient->id])
-                ->andWhere(['status' => 'active'])
-                ->andWhere(['<=', 'start_date', $appointmentDate])
-                ->andWhere(['>=', 'end_date', $appointmentDate])
+                ->byPatient($patient->id)
+                ->activeAtDate($appointmentDate)
                 ->exists();
             $reasons[] = $hasActivePlan
                 ? 'Nessuna terapia di questo tipo nel piano'

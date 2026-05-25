@@ -235,4 +235,36 @@ class PlanTherapyQuery extends ActiveQuery
         return $this->joinWith('therapeuticPlan')
                ->andWhere(['therapeutic_plans.patient_id' => $patientId]);
     }
+
+    /**
+     * Filter PlanTherapy belonging to a TherapeuticPlan that is active AND
+     * valid at the given date for the given patient.
+     *
+     * Equivalente a:
+     *   PlanTherapy::find()
+     *     ->alias('pt')
+     *     ->innerJoinWith(['therapeuticPlan tp'], false)
+     *     ->where(['tp.patient_id' => $patientId])
+     *     ->andWhere(['tp.status' => 'active'])
+     *     ->andWhere(['<=', 'tp.start_date', $date])
+     *     ->andWhere(['>=', 'tp.end_date', $date]);
+     *
+     * Pensato per gestire il caso multi-piano: il paziente puo' avere piu' piani
+     * attivi sovrapposti, ognuno con treatment_type diversi. Concatena
+     * ->andWhere(['pt.treatment_type_id' => $tt]) per disambiguare.
+     *
+     * @param int $patientId
+     * @param string|null $date Data Y-m-d. Null = oggi.
+     * @return $this
+     */
+    public function forActivePatientPlan($patientId, $date = null)
+    {
+        $date = $date ?: date('Y-m-d');
+        return $this->alias('pt')
+            ->innerJoinWith(['therapeuticPlan tp'], false)
+            ->andWhere(['tp.patient_id' => $patientId])
+            ->andWhere(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
+            ->andWhere(['<=', 'tp.start_date', $date])
+            ->andWhere(['>=', 'tp.end_date', $date]);
+    }
 } 

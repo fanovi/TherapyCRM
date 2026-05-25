@@ -37,6 +37,17 @@ use Yii;
  */
 class TherapeuticPlan extends ActiveRecord
 {
+    // Valori validi per la colonna `status`. Devono restare allineati col rule
+    // 'in' in rules() (linea ~113). Usate dagli scope di TherapeuticPlanQuery
+    // e dai controller per evitare typo su string letterali.
+    const STATUS_DRAFT      = 'draft';
+    const STATUS_PENDING    = 'pending';
+    const STATUS_ACTIVE     = 'active';
+    const STATUS_SUSPENDED  = 'suspended';
+    const STATUS_COMPLETED  = 'completed';
+    const STATUS_TERMINATED = 'terminated';
+    const STATUS_EXPIRED    = 'expired';
+
     /**
      * @var array temporary storage for therapies during validation
      */
@@ -100,23 +111,31 @@ class TherapeuticPlan extends ActiveRecord
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
             [['status'], 'string'],
-            // Default 'active'; se data fine già passata -> 'expired'.
+            // Default STATUS_ACTIVE; se data fine già passata -> STATUS_EXPIRED.
             [['status'], 'default', 'value' => function ($model) {
                 if ($model->start_date && $model->duration_days) {
                     $endDate = date('Y-m-d', strtotime($model->start_date . ' + ' . ($model->duration_days - 1) . ' days'));
                     if ($endDate < date('Y-m-d')) {
-                        return 'expired';
+                        return self::STATUS_EXPIRED;
                     }
                 }
-                return 'active';
+                return self::STATUS_ACTIVE;
             }],
-            [['status'], 'in', 'range' => ['draft', 'pending', 'active', 'suspended', 'completed', 'terminated', 'expired']],
+            [['status'], 'in', 'range' => [
+                self::STATUS_DRAFT,
+                self::STATUS_PENDING,
+                self::STATUS_ACTIVE,
+                self::STATUS_SUSPENDED,
+                self::STATUS_COMPLETED,
+                self::STATUS_TERMINATED,
+                self::STATUS_EXPIRED,
+            ]],
             [['suspension_date'], 'date', 'format' => 'php:Y-m-d'],
             [['suspension_reason'], 'string'],
             [['suspension_date', 'suspension_reason'], 'default', 'value' => null],
             // Validazione: suspension_date e suspension_reason solo se status = suspended
             ['suspension_date', 'required', 'when' => function($model) {
-                return $model->status === 'suspended';
+                return $model->status === self::STATUS_SUSPENDED;
             }, 'whenClient' => "function (attribute, value) {
                 return $('#status').val() === 'suspended';
             }"],
@@ -125,7 +144,7 @@ class TherapeuticPlan extends ActiveRecord
             [['termination_date', 'termination_reason'], 'default', 'value' => null],
             // Validazione: termination_date e termination_reason solo se status = terminated
             ['termination_date', 'required', 'when' => function($model) {
-                return $model->status === 'terminated';
+                return $model->status === self::STATUS_TERMINATED;
             }, 'whenClient' => "function (attribute, value) {
                 return $('#status').val() === 'terminated';
             }"],
@@ -485,7 +504,7 @@ class TherapeuticPlan extends ActiveRecord
      */
     public function isActive()
     {
-        return $this->status === 'active';
+        return $this->status === self::STATUS_ACTIVE;
     }
 
     /**
@@ -494,7 +513,7 @@ class TherapeuticPlan extends ActiveRecord
      */
     public function isSuspended()
     {
-        return $this->status === 'suspended';
+        return $this->status === self::STATUS_SUSPENDED;
     }
 
     /**
@@ -504,13 +523,13 @@ class TherapeuticPlan extends ActiveRecord
     public function getStatusLabel()
     {
         $labels = [
-            'draft' => '<span class="badge badge-secondary">Bozza</span>',
-            'pending' => '<span class="badge badge-info">In Attesa</span>',
-            'active' => '<span class="badge badge-success">Attivo</span>',
-            'suspended' => '<span class="badge badge-warning">Sospeso</span>',
-            'completed' => '<span class="badge badge-primary">Completato</span>',
-            'terminated' => '<span class="badge badge-danger">Interrotto</span>',
-            'expired' => '<span class="badge badge-dark">Scaduto</span>',
+            self::STATUS_DRAFT      => '<span class="badge badge-secondary">Bozza</span>',
+            self::STATUS_PENDING    => '<span class="badge badge-info">In Attesa</span>',
+            self::STATUS_ACTIVE     => '<span class="badge badge-success">Attivo</span>',
+            self::STATUS_SUSPENDED  => '<span class="badge badge-warning">Sospeso</span>',
+            self::STATUS_COMPLETED  => '<span class="badge badge-primary">Completato</span>',
+            self::STATUS_TERMINATED => '<span class="badge badge-danger">Interrotto</span>',
+            self::STATUS_EXPIRED    => '<span class="badge badge-dark">Scaduto</span>',
         ];
         return $labels[$this->status] ?? $this->status;
     }

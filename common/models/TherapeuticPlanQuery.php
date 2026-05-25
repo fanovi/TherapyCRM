@@ -33,6 +33,25 @@ class TherapeuticPlanQuery extends ActiveQuery
     }
 
     /**
+     * Filter plans that are active AND valid at the given date:
+     * status='active' AND start_date <= $date AND end_date >= $date.
+     *
+     * Esclude piani in stato terminated/expired/suspended/completed/draft/pending
+     * anche se hanno end_date futura, e piani 'active' che non sono ancora
+     * iniziati o sono gia' scaduti.
+     *
+     * @param string|null $date Data Y-m-d. Null = oggi.
+     * @return $this
+     */
+    public function activeAtDate($date = null)
+    {
+        $date = $date ?: date('Y-m-d');
+        return $this->andWhere(['status' => TherapeuticPlan::STATUS_ACTIVE])
+            ->andWhere(['<=', 'start_date', $date])
+            ->andWhere(['>=', 'end_date', $date]);
+    }
+
+    /**
      * Filter draft plans
      *
      * @return $this
