@@ -3919,7 +3919,7 @@ class TherapeuticPlanManagerController extends Controller
 
         if ($fromDate < $planStart || $toDate > $planEnd) {
             throw new BadRequestHttpException('Le date del pattern devono essere comprese nel periodo del piano terapeutico ('
-                . $plan->start_date . ' - ' . $plan->getCalculatedEndDate() . ')');
+                . $planStart->format('d/m/Y') . ' - ' . $planEnd->format('d/m/Y') . ')');
         }
 
         Yii::info("Validazione date pattern completata - Pattern: {$validFrom} - {$validTo}, Piano: {$plan->start_date} - {$plan->getCalculatedEndDate()}", __METHOD__);
