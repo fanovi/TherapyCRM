@@ -32,16 +32,26 @@
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
-/* Day-cell in timegrid: applica un tint di sfondo molto leggero alle
-   colonne del giorno bloccato per rinforzare la percezione visiva. */
-.fc-day.absence-day-bg {
+/* Day-cell in timegrid: shading evidente sull'intera colonna del giorno
+   bloccato (full-day absence). Applicato sia ai cell del corpo che agli
+   slot orari, cosi' tutta la colonna appare "barrata". */
+.fc-day.absence-day-bg,
+.fc-timegrid-col.absence-day-bg,
+.fc-daygrid-day.absence-day-bg {
   background: repeating-linear-gradient(
     -45deg,
-    rgba(239, 68, 68, 0.05),
-    rgba(239, 68, 68, 0.05) 8px,
-    transparent 8px,
-    transparent 16px
-  );
+    rgba(107, 114, 128, 0.18),
+    rgba(107, 114, 128, 0.18) 10px,
+    rgba(107, 114, 128, 0.08) 10px,
+    rgba(107, 114, 128, 0.08) 20px
+  ) !important;
+  cursor: not-allowed !important;
+}
+
+/* Header del giorno bloccato leggermente piu' scuro per coerenza visiva. */
+.fc-col-header-cell.absence-day-bg {
+  background: rgba(107, 114, 128, 0.15) !important;
+  font-weight: 700;
 }
 
 /* Assenze orarie: blocco solido con bordo evidente, in primo piano. */

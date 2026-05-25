@@ -900,6 +900,19 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           // Stili personalizzati
           dayHeaderClassNames="bg-gray-50 font-medium text-gray-700 py-2"
           eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"
+          // Colora l'intera colonna del giorno per assenze full-day:
+          // shading evidente che invade tutti gli slot orari, non solo il
+          // banner allDay in cima.
+          dayCellClassNames={(arg) => {
+            const dateStr = arg.date.toISOString().split("T")[0];
+            const blocked = therapistAbsences.some((a) =>
+              a.status === "approved" &&
+              !(a.start_time && a.end_time) &&
+              dateStr >= a.start_date &&
+              dateStr <= a.end_date
+            );
+            return blocked ? ["absence-day-bg"] : [];
+          }}
           datesSet={(dateInfo) => {
             // Notifica la navigazione se definita
             if (onNavigate) {
