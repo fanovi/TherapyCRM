@@ -591,24 +591,34 @@ const Index = () => {
 
   // Quando l'utente cambia piano dal selettore, ricarica i dati paziente
   // scopati a quel piano (planTherapy / availableTherapies del nuovo piano)
-  // e resetta le selezioni a cascata dipendenti dal piano (specializzazione
-  // + treatment + treatmentType): la spec selezionata potrebbe non esistere
-  // nel nuovo piano e causare modali con dati incoerenti.
-  // selectedTherapist NON e' resettato (i terapisti sono capability-based,
-  // indipendenti dal piano del paziente).
+  // e resetta le selezioni a cascata dipendenti dal piano: specializzazione,
+  // treatment, treatmentType E terapista.
+  //
+  // Il reset esplicito del terapista evita una race condition con
+  // l'useEffect [patient, selectedTherapist] che chiama
+  // checkPlanTherapyCompatibility: senza reset, dopo setPatient il vecchio
+  // terapista viene re-validato sul nuovo piano e produce un errore
+  // ("Nessuna terapia compatibile") che forzava la Modalita' Privata.
+  //
+  // Il terapista e' capability-based, ma in calendario e' SEMPRE legato a
+  // una specializzazione del piano scelto, quindi cambiare piano richiede
+  // di riselezionare anche il terapista.
   const handleSelectPlan = async (newPlanId: number) => {
     if (!patient?.id || newPlanId === selectedPlanId) return;
     setIsSwitchingPlan(true);
     try {
-      const updatedPatient = await therapyAPI.getPatient(patient.id, newPlanId);
-      setPatient(updatedPatient);
-      setSelectedPlanId(newPlanId);
-
-      // Reset selezioni dipendenti dal piano. Non resettiamo il terapista
-      // (capability-based) ne' la vista privata.
+      // Reset PRIMA del setPatient: evita che l'useEffect di compatibilita'
+      // si triggeri col vecchio terapista + nuovo piano.
       setSelectedSpecialization(null);
       setSelectedTreatment(null);
       setSelectedTreatmentType(null);
+      setSelectedTherapist(null);
+      setCanCreateNormalAppointments(true);
+      setPlanTherapyCheckMessage(null);
+
+      const updatedPatient = await therapyAPI.getPatient(patient.id, newPlanId);
+      setPatient(updatedPatient);
+      setSelectedPlanId(newPlanId);
 
       showInfo(`Piano #${newPlanId} selezionato`);
     } catch (err) {

@@ -2205,8 +2205,13 @@ class TherapeuticPlanManagerController extends Controller
             // da planId. Filtra poi per treatment_type:
             // - preferito (esplicito o dedotto dall'appuntamento di gruppo), oppure
             // - compatibile con le specializzazioni del terapista.
+            //
+            // Quando planId e' esplicito, rilassa il filtro date (includeFuture):
+            // l'operatore puo' aver scelto dal selettore multi-piano un piano
+            // futuro (status='active' ma start_date > oggi) per programmare
+            // appuntamenti in anticipo.
             $baseQuery = PlanTherapy::find()
-                ->forActivePatientPlan($patientId)
+                ->forActivePatientPlan($patientId, null, !empty($explicitPlanId))
                 ->with(['treatmentType', 'therapeuticPlan'])
                 ->orderBy(['tp.created_at' => SORT_DESC]);
 
@@ -2220,6 +2225,9 @@ class TherapeuticPlanManagerController extends Controller
                     ->one();
 
                 if (!$planTherapy) {
+                    if ($explicitPlanId) {
+                        return $this->errorResponse('Il piano selezionato non contiene una terapia di questo tipo');
+                    }
                     $hasActivePlan = TherapeuticPlan::find()
                         ->byPatient($patientId)
                         ->activeAtDate()
@@ -2248,6 +2256,9 @@ class TherapeuticPlanManagerController extends Controller
                     ->one();
 
                 if (!$planTherapy) {
+                    if ($explicitPlanId) {
+                        return $this->errorResponse('Il piano selezionato non contiene terapie compatibili con questo terapista');
+                    }
                     $hasActivePlan = TherapeuticPlan::find()
                         ->byPatient($patientId)
                         ->activeAtDate()

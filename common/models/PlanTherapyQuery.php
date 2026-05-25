@@ -257,14 +257,17 @@ class PlanTherapyQuery extends ActiveQuery
      * @param string|null $date Data Y-m-d. Null = oggi.
      * @return $this
      */
-    public function forActivePatientPlan($patientId, $date = null)
+    public function forActivePatientPlan($patientId, $date = null, $includeFuture = false)
     {
         $date = $date ?: date('Y-m-d');
-        return $this->alias('pt')
+        $q = $this->alias('pt')
             ->innerJoinWith(['therapeuticPlan tp'], false)
             ->andWhere(['tp.patient_id' => $patientId])
-            ->andWhere(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
-            ->andWhere(['<=', 'tp.start_date', $date])
-            ->andWhere(['>=', 'tp.end_date', $date]);
+            ->andWhere(['tp.status' => TherapeuticPlan::STATUS_ACTIVE]);
+        if (!$includeFuture) {
+            $q->andWhere(['<=', 'tp.start_date', $date])
+              ->andWhere(['>=', 'tp.end_date', $date]);
+        }
+        return $q;
     }
 } 
