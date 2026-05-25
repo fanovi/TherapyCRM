@@ -1920,7 +1920,14 @@ class TherapeuticPlanManagerController extends Controller
 
     /**
      * Ottiene i dati anagrafici di un paziente con tutte le terapie disponibili
+     * del piano selezionato (o del piano attivo piu' recente se non specificato).
      *
+     * Query param opzionale `planId`: se passato e corrisponde a un piano attivo
+     * IN QUESTO MOMENTO del paziente, viene usato come piano corrente. Permette
+     * al frontend di scopare la risposta a uno specifico piano quando il paziente
+     * ne ha piu' di uno attivo sovrapposto.
+     *
+     * @param int $id
      * @return array
      */
     public function actionGetPatient($id)
@@ -1937,7 +1944,6 @@ class TherapeuticPlanManagerController extends Controller
                 throw new NotFoundHttpException('Paziente non trovato');
             }
 
-            // Ottieni l'email dal primo utente collegato (se presente)
             $email = null;
             if (!empty($patient->linkedUsers)) {
                 $email = $patient->linkedUsers[0]->email;
@@ -1950,79 +1956,21 @@ class TherapeuticPlanManagerController extends Controller
                 'fiscalCode' => $patient->fiscal_code,
                 'email' => $email,
                 'hasActiveTherapeuticPlans' => false,
-                'canCreatePrivateAppointments' => true  // Sempre true, tutti possono creare appuntamenti privati
+                'canCreatePrivateAppointments' => true
             ];
 
-            // Piano attivo IN QUESTO MOMENTO (status='active' + valido oggi).
-            $therapeuticPlan = TherapeuticPlan::find()
-                ->byPatient($patient->id)
-                ->activeAtDate()
-                ->with(['regime'])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->one();
+            // planId opzionale: se passato, scopa la risposta a quel piano specifico
+            // (purche' sia attivo IN QUESTO MOMENTO per il paziente).
+            $requestedPlanId = Yii::$app->request->get('planId');
+            $therapeuticPlan = $this->resolveActivePatientPlan($patient->id, $requestedPlanId);
 
             if ($therapeuticPlan) {
+                $payload = $this->formatTherapeuticPlanPayload($therapeuticPlan);
                 $responseData['hasActiveTherapeuticPlans'] = true;
-
-                // Aggiungi questa sezione per includere i dati del regime
-                $responseData['therapeuticPlan'] = [
-                    'id' => $therapeuticPlan->id,
-                    'status' => $therapeuticPlan->status,
-                    'protocolNumber' => $therapeuticPlan->protocol_number,
-                    'startDate' => $therapeuticPlan->start_date,
-                    'endDate' => $therapeuticPlan->getCalculatedEndDate(),
-                    'durationDays' => $therapeuticPlan->duration_days,
-                    'regime' => null,
-                ];
-
-                // Includi i dati del regime se presente
-                if (
-                    $therapeuticPlan->regime &&
-                    isset($therapeuticPlan->regime->id) &&
-                    isset($therapeuticPlan->regime->nome)
-                ) {
-                    $responseData['therapeuticPlan']['regime'] = [
-                        'id' => $therapeuticPlan->regime->id,
-                        'nome' => $therapeuticPlan->regime->nome,
-                        'descrizione' => $therapeuticPlan->regime->descrizione ?? '',
-                        'conteggio_ore' => $therapeuticPlan->regime->conteggio_ore ?? ''
-                    ];
-                }
-
-                // Trova TUTTE le terapie correlate al piano terapeutico
-                $planTherapies = PlanTherapy::find()
-                    ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
-                    ->with(['treatmentType'])
-                    ->all();
-
-                if (!empty($planTherapies)) {
-                    // Prepara i dati delle terapie
-                    $therapiesData = [];
-                    foreach ($planTherapies as $planTherapy) {
-                        $therapiesData[] = [
-                            'planTherapyId' => $planTherapy->id,
-                            'treatmentTypeId' => $planTherapy->treatment_type_id,
-                            'treatmentTypeName' => $planTherapy->treatmentType->name,
-                            'weeklyHours' => $planTherapy->weekly_hours,
-                            'isGroup' => $planTherapy->is_group,
-                            'notes' => $planTherapy->notes,
-                            'settingId' => $planTherapy->setting_id,
-                        ];
-                    }
-
-                    // Per backward compatibility, usa la prima terapia come default
-                    $defaultPlanTherapy = $planTherapies[0];
-
-                    $responseData['planTherapy'] = [
-                        'planTherapyId' => $defaultPlanTherapy->id,
-                        'therapeuticPlanId' => $therapeuticPlan->id,
-                        'startDate' => $therapeuticPlan->start_date,
-                        'endDate' => $therapeuticPlan->getCalculatedEndDate(),
-                        'durationDays' => $therapeuticPlan->duration_days,
-                        'weeklyHours' => $defaultPlanTherapy->weekly_hours,
-                        'notes' => $therapeuticPlan->notes,
-                    ];
-                    $responseData['availableTherapies'] = $therapiesData;
+                $responseData['therapeuticPlan']   = $payload['therapeuticPlan'];
+                if (isset($payload['planTherapy'])) {
+                    $responseData['planTherapy']       = $payload['planTherapy'];
+                    $responseData['availableTherapies'] = $payload['availableTherapies'];
                 }
             }
 
@@ -2034,6 +1982,164 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error('Errore recupero paziente: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Ritorna tutti i piani terapeutici attivi IN QUESTO MOMENTO per il paziente.
+     * Permette al frontend di mostrare un selettore quando il paziente ha piu'
+     * piani attivi sovrapposti. Ogni piano include il blocco completo di dati
+     * (piano + planTherapies + regime) cosi' che il frontend possa swappare il
+     * contesto senza ulteriori roundtrip.
+     *
+     * @param int $id
+     * @return array
+     */
+    public function actionGetActivePatientPlans($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $patient = Patient::findOne($id);
+            if (!$patient) {
+                throw new NotFoundHttpException('Paziente non trovato');
+            }
+
+            $plans = TherapeuticPlan::find()
+                ->byPatient($patient->id)
+                ->activeAtDate()
+                ->with(['regime'])
+                ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+                ->all();
+
+            $items = [];
+            foreach ($plans as $plan) {
+                $items[] = $this->formatTherapeuticPlanPayload($plan);
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'patientId' => $patient->id,
+                    'count' => count($items),
+                    'plans' => $items,
+                ],
+            ];
+        } catch (Exception $e) {
+            Yii::error('Errore recupero piani attivi paziente: ' . $e->getMessage(), __METHOD__);
+            return $this->errorResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * Risolve il piano terapeutico "corrente" per il paziente:
+     * - se $requestedPlanId e' valorizzato e corrisponde a un piano attivo
+     *   IN QUESTO MOMENTO del paziente, ritorna quello;
+     * - altrimenti ritorna il piano attivo piu' recente per created_at DESC
+     *   (tie-breaker id ASC).
+     *
+     * @param int $patientId
+     * @param int|string|null $requestedPlanId
+     * @return TherapeuticPlan|null
+     */
+    private function resolveActivePatientPlan($patientId, $requestedPlanId)
+    {
+        if ($requestedPlanId) {
+            $plan = TherapeuticPlan::find()
+                ->byPatient($patientId)
+                ->activeAtDate()
+                ->andWhere(['id' => (int) $requestedPlanId])
+                ->with(['regime'])
+                ->one();
+            if ($plan) {
+                return $plan;
+            }
+            // planId richiesto non valido/non attivo: log e fallback al default
+            Yii::info("planId={$requestedPlanId} non valido per paziente {$patientId}, fallback al piano piu' recente", __METHOD__);
+        }
+
+        return TherapeuticPlan::find()
+            ->byPatient($patientId)
+            ->activeAtDate()
+            ->with(['regime'])
+            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+            ->one();
+    }
+
+    /**
+     * Formatta un TherapeuticPlan + planTherapies + regime in un blocco
+     * pronto per la risposta API. Estratto per essere riusato da
+     * actionGetPatient e actionGetActivePatientPlans.
+     *
+     * Struttura ritornata:
+     *   [
+     *     'therapeuticPlan'    => [...],
+     *     'planTherapy'        => [...] // backward-compat: prima terapia
+     *     'availableTherapies' => [...]
+     *   ]
+     *
+     * @param TherapeuticPlan $therapeuticPlan
+     * @return array
+     */
+    private function formatTherapeuticPlanPayload($therapeuticPlan)
+    {
+        $payload = [
+            'therapeuticPlan' => [
+                'id' => $therapeuticPlan->id,
+                'status' => $therapeuticPlan->status,
+                'protocolNumber' => $therapeuticPlan->protocol_number,
+                'startDate' => $therapeuticPlan->start_date,
+                'endDate' => $therapeuticPlan->getCalculatedEndDate(),
+                'durationDays' => $therapeuticPlan->duration_days,
+                'regime' => null,
+            ],
+        ];
+
+        if (
+            $therapeuticPlan->regime &&
+            isset($therapeuticPlan->regime->id) &&
+            isset($therapeuticPlan->regime->nome)
+        ) {
+            $payload['therapeuticPlan']['regime'] = [
+                'id' => $therapeuticPlan->regime->id,
+                'nome' => $therapeuticPlan->regime->nome,
+                'descrizione' => $therapeuticPlan->regime->descrizione ?? '',
+                'conteggio_ore' => $therapeuticPlan->regime->conteggio_ore ?? '',
+            ];
+        }
+
+        $planTherapies = PlanTherapy::find()
+            ->where(['therapeutic_plan_id' => $therapeuticPlan->id])
+            ->with(['treatmentType'])
+            ->all();
+
+        if (!empty($planTherapies)) {
+            $therapiesData = [];
+            foreach ($planTherapies as $planTherapy) {
+                $therapiesData[] = [
+                    'planTherapyId' => $planTherapy->id,
+                    'treatmentTypeId' => $planTherapy->treatment_type_id,
+                    'treatmentTypeName' => $planTherapy->treatmentType->name,
+                    'weeklyHours' => $planTherapy->weekly_hours,
+                    'isGroup' => $planTherapy->is_group,
+                    'notes' => $planTherapy->notes,
+                    'settingId' => $planTherapy->setting_id,
+                ];
+            }
+
+            $defaultPlanTherapy = $planTherapies[0];
+            $payload['planTherapy'] = [
+                'planTherapyId' => $defaultPlanTherapy->id,
+                'therapeuticPlanId' => $therapeuticPlan->id,
+                'startDate' => $therapeuticPlan->start_date,
+                'endDate' => $therapeuticPlan->getCalculatedEndDate(),
+                'durationDays' => $therapeuticPlan->duration_days,
+                'weeklyHours' => $defaultPlanTherapy->weekly_hours,
+                'notes' => $therapeuticPlan->notes,
+            ];
+            $payload['availableTherapies'] = $therapiesData;
+        }
+
+        return $payload;
     }
 
     /**
@@ -2060,6 +2166,10 @@ class TherapeuticPlanManagerController extends Controller
             // quando il chiamante conosce già il tipo di trattamento (es. modale
             // di creazione con specializzazione selezionata).
             $explicitTreatmentTypeId = $data['treatmentTypeId'] ?? null;
+            // planId opzionale: se passato, restringe la ricerca a quel piano
+            // specifico (selettore multi-piano lato calendario). Se non passato,
+            // cerca in QUALSIASI piano attivo del paziente.
+            $explicitPlanId = $data['planId'] ?? null;
 
             if (!$patientId || !$therapistId) {
                 return $this->errorResponse('Patient ID e Therapist ID sono obbligatori');
@@ -2083,13 +2193,18 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Cerca planTherapy in QUALSIASI piano del paziente attivo IN QUESTO
-            // MOMENTO (status='active' + valido oggi). Filtra poi per treatment_type:
+            // MOMENTO (status='active' + valido oggi), o nel piano specificato
+            // da planId. Filtra poi per treatment_type:
             // - preferito (esplicito o dedotto dall'appuntamento di gruppo), oppure
             // - compatibile con le specializzazioni del terapista.
             $baseQuery = PlanTherapy::find()
                 ->forActivePatientPlan($patientId)
                 ->with(['treatmentType', 'therapeuticPlan'])
                 ->orderBy(['tp.created_at' => SORT_DESC]);
+
+            if ($explicitPlanId) {
+                $baseQuery->andWhere(['tp.id' => (int) $explicitPlanId]);
+            }
 
             if ($preferredTreatmentTypeId) {
                 $planTherapy = (clone $baseQuery)

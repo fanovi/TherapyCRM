@@ -14,6 +14,7 @@ import {
   TherapistAbsence,
   TherapistAbsencesResponse,
   ResolveSpecializationResponse,
+  ActivePatientPlan,
 } from "@/types/therapy";
 
 /**
@@ -309,12 +310,15 @@ class TherapeuticPlanManagerAPI {
   }
 
   /**
-   * Ottiene i dati anagrafici di un paziente
+   * Ottiene i dati anagrafici di un paziente.
+   * Se planId e' passato, scopa la risposta al piano specificato (purche'
+   * sia attivo IN QUESTO MOMENTO per il paziente); altrimenti il backend
+   * sceglie il piano attivo piu' recente.
    */
-  async getPatient(patientId: number): Promise<Patient> {
-    const response = await this.get<APIResponse<Patient>>("get-patient", {
-      id: patientId,
-    });
+  async getPatient(patientId: number, planId?: number): Promise<Patient> {
+    const params: Record<string, number> = { id: patientId };
+    if (planId) params.planId = planId;
+    const response = await this.get<APIResponse<Patient>>("get-patient", params);
 
     if (!response.success) {
       const error = new Error(
@@ -332,6 +336,31 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data;
+  }
+
+  /**
+   * Ritorna tutti i piani terapeutici attivi IN QUESTO MOMENTO del paziente.
+   * Usato per popolare il selettore multi-piano sul calendario quando il
+   * paziente ha piu' piani attivi sovrapposti.
+   */
+  async getActivePatientPlans(patientId: number): Promise<{
+    patientId: number;
+    count: number;
+    plans: ActivePatientPlan[];
+  }> {
+    const response = await this.get<APIResponse<{
+      patientId: number;
+      count: number;
+      plans: ActivePatientPlan[];
+    }>>("get-active-patient-plans", { id: patientId });
+
+    if (!response.success) {
+      throw new Error(
+        response.error || "Errore nel caricamento piani attivi paziente",
+      );
+    }
+
+    return response.data || { patientId, count: 0, plans: [] };
   }
 
   // === GESTIONE APPUNTAMENTI - LETTURA ===
@@ -655,12 +684,15 @@ class TherapeuticPlanManagerAPI {
     patientId: number,
     therapistId: number,
     appointmentId?: number,
+    treatmentTypeId?: number,
+    planId?: number,
   ): Promise<{
     planTherapyId: number;
     treatmentTypeId: number;
     treatmentTypeName: string;
     therapeuticPlanId: number;
     weeklyHours: number;
+    settingId?: number;
   }> {
     const response = await fetch(
       `${this.baseURL}/get-plan-therapy-for-therapist`,
@@ -674,6 +706,8 @@ class TherapeuticPlanManagerAPI {
           patientId,
           therapistId,
           ...(appointmentId ? { appointmentId } : {}),
+          ...(treatmentTypeId ? { treatmentTypeId } : {}),
+          ...(planId ? { planId } : {}),
         }),
       },
     );

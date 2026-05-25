@@ -148,7 +148,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         patient.id,
         selectedTherapist.id,
         undefined,
-        lookupTreatmentTypeId
+        lookupTreatmentTypeId,
+        patient.planTherapy?.therapeuticPlanId
       );
       return data.settingId ?? undefined;
     } catch {
@@ -233,11 +234,13 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
         // Comportamento normale: usa il terapista selezionato.
         // Passa selectedTreatmentTypeId per disambiguare la planTherapy
         // quando il paziente ne ha più con la stessa specializzazione.
+        // planId scopa la ricerca al piano selezionato dal selettore multi-piano.
         planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
           patient.id,
           selectedTherapist.id,
           undefined,
-          selectedTreatmentTypeId
+          selectedTreatmentTypeId,
+          patient.planTherapy?.therapeuticPlanId
         );
       }
 

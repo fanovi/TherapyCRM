@@ -41,6 +41,51 @@ export interface ResolveSpecializationResponse {
   choices?: Array<{ id: number; code: string; name: string }>;
 }
 
+export interface AvailableTherapy {
+  planTherapyId: number;
+  treatmentTypeId: number;
+  treatmentTypeName: string;
+  weeklyHours: number;
+  isGroup: boolean;
+  notes?: string;
+  settingId?: number | null;
+}
+
+export interface TherapeuticPlanSummary {
+  id: number;
+  status?: string;
+  protocolNumber?: string | null;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  regime?: {
+    id: number;
+    nome: string;
+    descrizione: string;
+    conteggio_ore: string;
+  };
+}
+
+export interface DefaultPlanTherapy {
+  planTherapyId: number;
+  therapeuticPlanId: number;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  weeklyHours: number;
+  notes?: string;
+}
+
+/**
+ * Blocco completo di un piano terapeutico attivo, riusato sia dalla risposta
+ * di get-patient (campo singolo) sia da get-active-patient-plans (array).
+ */
+export interface ActivePatientPlan {
+  therapeuticPlan: TherapeuticPlanSummary;
+  planTherapy?: DefaultPlanTherapy;
+  availableTherapies?: AvailableTherapy[];
+}
+
 export interface Patient {
   id: number;
   name: string;
@@ -48,37 +93,9 @@ export interface Patient {
   fiscalCode?: string;
   email?: string;
   hasActiveTherapeuticPlans?: boolean;
-  therapeuticPlan?: {
-    id: number;
-    protocolNumber?: string | null;
-    startDate: string;
-    endDate: string;
-    durationDays: number;
-    regime?: {
-      id: number;
-      nome: string;
-      descrizione: string;
-      conteggio_ore: string;
-    };
-  };
-  planTherapy?: {
-    planTherapyId: number;
-    therapeuticPlanId: number;
-    startDate: string;
-    endDate: string;
-    durationDays: number;
-    weeklyHours: number;
-    notes?: string;
-  };
-  availableTherapies?: {
-    planTherapyId: number;
-    treatmentTypeId: number;
-    treatmentTypeName: string;
-    weeklyHours: number;
-    isGroup: boolean;
-    notes?: string;
-    settingId?: number | null;
-  }[];
+  therapeuticPlan?: TherapeuticPlanSummary;
+  planTherapy?: DefaultPlanTherapy;
+  availableTherapies?: AvailableTherapy[];
 
   canCreatePrivateAppointments?: boolean; // Sempre true secondo il controller
 }

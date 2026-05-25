@@ -18,6 +18,7 @@ import {
   Specialization,
   SpecializationTreatment,
   TherapistAbsence,
+  ActivePatientPlan,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
@@ -77,6 +78,13 @@ const Index = () => {
   const [planTherapyCheckMessage, setPlanTherapyCheckMessage] = useState<
     string | null
   >(null);
+
+  // Multi-piano: tutti i piani attivi del paziente + piano correntemente
+  // selezionato per il calendario. Se il paziente ha piu' di un piano attivo
+  // sovrapposto, viene mostrato un selettore in header (vedi PlanSelector).
+  const [activePatientPlans, setActivePatientPlans] = useState<ActivePatientPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [isSwitchingPlan, setIsSwitchingPlan] = useState(false);
 
   // Stati per modalità ABA
   const [isABARegime, setIsABARegime] = useState(false);
@@ -387,7 +395,13 @@ const Index = () => {
     therapist: Therapist
   ) => {
     try {
-      await therapyAPI.getPlanTherapyForTherapist(patient.id, therapist.id);
+      await therapyAPI.getPlanTherapyForTherapist(
+        patient.id,
+        therapist.id,
+        undefined,
+        undefined,
+        patient.planTherapy?.therapeuticPlanId
+      );
       setCanCreateNormalAppointments(true);
 
       setPlanTherapyCheckMessage(null);
@@ -536,6 +550,64 @@ const Index = () => {
       setIsABARegime(false);
     }
   }, [patient?.therapeuticPlan?.regime]);
+
+  // Carica tutti i piani attivi del paziente quando l'id paziente cambia,
+  // per popolare il selettore multi-piano. Pre-seleziona il piano gia' usato
+  // dalla risposta di get-patient (oppure il primo se non corrisponde).
+  useEffect(() => {
+    const loadActivePlans = async () => {
+      if (!patient?.id) {
+        setActivePatientPlans([]);
+        setSelectedPlanId(null);
+        return;
+      }
+
+      try {
+        const res = await therapyAPI.getActivePatientPlans(patient.id);
+        setActivePatientPlans(res.plans);
+
+        // Imposta selectedPlanId la PRIMA volta che carichiamo i piani per
+        // questo paziente (selectedPlanId == null), oppure quando l'id corrente
+        // non e' piu' tra quelli attivi. Evita di sovrascrivere una scelta
+        // fatta dall'utente quando ricarichiamo i piani per refresh.
+        setSelectedPlanId((prev) => {
+          if (prev && res.plans.some((p) => p.therapeuticPlan.id === prev)) {
+            return prev;
+          }
+          const currentPlanId = patient.therapeuticPlan?.id;
+          if (currentPlanId && res.plans.some((p) => p.therapeuticPlan.id === currentPlanId)) {
+            return currentPlanId;
+          }
+          return res.plans[0]?.therapeuticPlan.id ?? null;
+        });
+      } catch (err) {
+        console.error("Errore caricamento piani attivi paziente:", err);
+        setActivePatientPlans([]);
+      }
+    };
+
+    loadActivePlans();
+  }, [patient?.id]);
+
+  // Quando l'utente cambia piano dal selettore, ricarica i dati paziente
+  // scopati a quel piano (planTherapy / availableTherapies del nuovo piano).
+  const handleSelectPlan = async (newPlanId: number) => {
+    if (!patient?.id || newPlanId === selectedPlanId) return;
+    setIsSwitchingPlan(true);
+    try {
+      const updatedPatient = await therapyAPI.getPatient(patient.id, newPlanId);
+      setPatient(updatedPatient);
+      setSelectedPlanId(newPlanId);
+      showInfo(`Piano #${newPlanId} selezionato`);
+    } catch (err) {
+      console.error("Errore cambio piano:", err);
+      showError(
+        err instanceof Error ? err.message : "Errore nel cambio piano terapeutico"
+      );
+    } finally {
+      setIsSwitchingPlan(false);
+    }
+  };
 
   useEffect(() => {
     const loadTherapistAppointments = async () => {
@@ -1558,6 +1630,46 @@ const Index = () => {
                       </>
                     )}
                   </p>
+                  {/* Selettore multi-piano: visibile solo se il paziente ha
+                      piu' di un piano attivo IN QUESTO MOMENTO. La scelta vale
+                      per l'intera sessione del calendario (tutti i modal usano
+                      il piano selezionato). */}
+                  {activePatientPlans.length > 1 && (
+                    <div className="mt-2 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                      <span className="text-sm font-medium text-amber-800">
+                        Piano in lavorazione:
+                      </span>
+                      <select
+                        value={selectedPlanId ?? ""}
+                        onChange={(e) => handleSelectPlan(parseInt(e.target.value, 10))}
+                        disabled={isSwitchingPlan}
+                        className="rounded border border-amber-300 bg-white px-2 py-1 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50"
+                      >
+                        {activePatientPlans.map((p) => {
+                          const tp = p.therapeuticPlan;
+                          const start = tp.startDate
+                            ? new Date(tp.startDate).toLocaleDateString("it-IT")
+                            : "";
+                          const end = tp.endDate
+                            ? new Date(tp.endDate).toLocaleDateString("it-IT")
+                            : "";
+                          const regime = tp.regime?.nome ? ` • ${tp.regime.nome}` : "";
+                          const proto = tp.protocolNumber ? ` • Prot. ${tp.protocolNumber}` : "";
+                          return (
+                            <option key={tp.id} value={tp.id}>
+                              {`Piano #${tp.id}${regime}${proto} • ${start} → ${end}`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {isSwitchingPlan && (
+                        <Loader2 className="h-4 w-4 animate-spin text-amber-700" />
+                      )}
+                      <span className="text-xs text-amber-700">
+                        ({activePatientPlans.length} piani attivi)
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
