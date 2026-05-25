@@ -69,12 +69,20 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  // Carica settings quando il modale si apre
+  // Carica settings quando il modale si apre. Dipende anche da
+  // patient.therapeuticPlan.id (oltre al regime): se l'operatore cambia piano
+  // dal selettore multi-piano e il nuovo piano ha STESSO regime ma diverse
+  // planTherapies/setting, la dependency su regime.id non basta a triggerare
+  // il refresh.
   useEffect(() => {
     if (isOpen) {
       loadSettings();
     }
-  }, [isOpen, patient?.therapeuticPlan?.regime?.id]);
+  }, [
+    isOpen,
+    patient?.therapeuticPlan?.id,
+    patient?.therapeuticPlan?.regime?.id,
+  ]);
 
   const loadSettings = async () => {
     try {

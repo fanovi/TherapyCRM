@@ -1412,7 +1412,11 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Ottiene le specializzazioni disponibili per un paziente basate sul suo piano terapeutico
+     * Ottiene le specializzazioni disponibili per un paziente basate sul suo
+     * piano terapeutico. Accetta query param opzionale `planId` per scopare la
+     * lookup a uno specifico piano del paziente (selettore multi-piano del
+     * calendario). Se non passato, usa il piano attivo IN QUESTO MOMENTO piu'
+     * recente.
      *
      * @param int $patientId
      * @return array
@@ -1422,12 +1426,8 @@ class TherapeuticPlanManagerController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         try {
-            // Piano attivo IN QUESTO MOMENTO
-            $therapeuticPlan = TherapeuticPlan::find()
-                ->byPatient($patientId)
-                ->activeAtDate()
-                ->orderBy(['created_at' => SORT_DESC])
-                ->one();
+            $requestedPlanId = Yii::$app->request->get('planId');
+            $therapeuticPlan = $this->resolveActivePatientPlan($patientId, $requestedPlanId);
 
             if (!$therapeuticPlan) {
                 return $this->errorResponse('Nessun piano terapeutico attivo trovato');

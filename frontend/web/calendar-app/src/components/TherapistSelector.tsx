@@ -44,7 +44,10 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
   >([]);
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
 
-  // Carica le specializzazioni o i tipi di trattamento
+  // Carica le specializzazioni o i tipi di trattamento.
+  // Dipende da planId: quando l'operatore cambia piano dal selettore
+  // multi-piano in Index, le specializzazioni devono essere ricaricate per
+  // quel piano (le spec disponibili variano tra piani diversi del paziente).
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -75,7 +78,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
     };
 
     loadData();
-  }, [patientId, isPrivateMode]);
+  }, [patientId, isPrivateMode, planId]);
 
   // Carica i terapisti
   useEffect(() => {

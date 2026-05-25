@@ -590,7 +590,12 @@ const Index = () => {
   }, [patient?.id]);
 
   // Quando l'utente cambia piano dal selettore, ricarica i dati paziente
-  // scopati a quel piano (planTherapy / availableTherapies del nuovo piano).
+  // scopati a quel piano (planTherapy / availableTherapies del nuovo piano)
+  // e resetta le selezioni a cascata dipendenti dal piano (specializzazione
+  // + treatment + treatmentType): la spec selezionata potrebbe non esistere
+  // nel nuovo piano e causare modali con dati incoerenti.
+  // selectedTherapist NON e' resettato (i terapisti sono capability-based,
+  // indipendenti dal piano del paziente).
   const handleSelectPlan = async (newPlanId: number) => {
     if (!patient?.id || newPlanId === selectedPlanId) return;
     setIsSwitchingPlan(true);
@@ -598,6 +603,13 @@ const Index = () => {
       const updatedPatient = await therapyAPI.getPatient(patient.id, newPlanId);
       setPatient(updatedPatient);
       setSelectedPlanId(newPlanId);
+
+      // Reset selezioni dipendenti dal piano. Non resettiamo il terapista
+      // (capability-based) ne' la vista privata.
+      setSelectedSpecialization(null);
+      setSelectedTreatment(null);
+      setSelectedTreatmentType(null);
+
       showInfo(`Piano #${newPlanId} selezionato`);
     } catch (err) {
       console.error("Errore cambio piano:", err);
