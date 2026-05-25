@@ -845,11 +845,11 @@ class TherapeuticPlanController extends BaseController
             $patients = Patient::find()
                 ->where([
                     'or',
-                    ['like', 'first_name', $q],
-                    ['like', 'last_name', $q],
-                    ['like', 'fiscal_code', $q],
-                    ['like', "CONCAT(first_name, ' ', last_name)", $q],
-                    ['like', "CONCAT(last_name, ' ', first_name)", $q]
+                    ['like', 'first_name', $q . '%', false],
+                    ['like', 'last_name', $q . '%', false],
+                    ['like', 'fiscal_code', $q . '%', false],
+                    ['like', "CONCAT(first_name, ' ', last_name)", $q . '%', false],
+                    ['like', "CONCAT(last_name, ' ', first_name)", $q . '%', false]
                 ])
                 ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC])
                 ->limit(20)
