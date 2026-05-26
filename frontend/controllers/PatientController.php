@@ -282,6 +282,37 @@ class PatientController extends Controller
     }
 
     /**
+     * Carica un account "paziente/familiare" dato il suo user id.
+     *
+     * Storicamente l'account veniva identificato dal ruolo `patient_family`
+     * in `auth_assignment`. In produzione esistono pero' account collegati a
+     * un paziente (riga in `account_patients`) ma privi di quella
+     * assegnazione di ruolo: gli assegnamenti RBAC qui sono per-utente e non
+     * sempre includono il ruolo. La pagina `create-credentials` li elenca
+     * (filtra su `account_patients`, non sul ruolo) ed espone un link
+     * "Modifica" che, puntando a un edit-account vincolato al ruolo, falliva
+     * con un 404 "Account non trovato".
+     *
+     * Consideriamo quindi account valido chi ha il ruolo `patient_family`
+     * OPPURE almeno un collegamento in `account_patients`.
+     *
+     * @param int|string $id
+     * @return User|null
+     */
+    private function findPatientAccount($id)
+    {
+        $user = User::findOne($id);
+        if (!$user) {
+            return null;
+        }
+
+        $hasRole = Yii::$app->authManager->getAssignment('patient_family', $user->id) !== null;
+        $hasLink = AccountPatient::find()->where(['user_id' => $user->id])->exists();
+
+        return ($hasRole || $hasLink) ? $user : null;
+    }
+
+    /**
      * Views a single account with linked patients
      */
     public function actionViewAccount($id)
@@ -290,10 +321,7 @@ class PatientController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare gli account.');
         }
 
-        $user = User::find()
-            ->joinWith(['authAssignments'])
-            ->where(['users.id' => $id, 'auth_assignment.item_name' => 'patient_family'])
-            ->one();
+        $user = $this->findPatientAccount($id);
 
         if (!$user) {
             throw new NotFoundHttpException('Account non trovato.');
@@ -329,10 +357,7 @@ class PatientController extends Controller
             throw new ForbiddenHttpException('Non hai i permessi per modificare gli account.');
         }
 
-        $user = User::find()
-            ->joinWith(['authAssignments'])
-            ->where(['users.id' => $id, 'auth_assignment.item_name' => 'patient_family'])
-            ->one();
+        $user = $this->findPatientAccount($id);
 
         if (!$user) {
             throw new NotFoundHttpException('Account non trovato.');
