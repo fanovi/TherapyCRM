@@ -7,7 +7,9 @@ return [
     'user.passwordResetTokenExpire' => 3600,
     'user.passwordMinLength' => 8,
     'user.passwordMaxLength' => 20,
-    'frontendUrl' => 'http://localhost/TherapyCRM/frontend/web',
+    // 'frontendUrl' è specifico per ambiente: va definita nel common/config/params-local.php
+    // di OGNI server (pubblico = https://app.sanlucacentromedico.it ; interno = URL interno).
+    // Usata da: AuthController (link reset password) e dalle mail dei reclami.
     // Configurazione Activity Log
     'activityLog' => [
         // Entità considerate critiche (inviano notifiche)
