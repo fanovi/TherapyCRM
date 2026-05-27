@@ -2041,7 +2041,9 @@ class TherapeuticPlanManagerController extends Controller
      *   con status='active' (anche futuro), ritorna quello: rispetta la scelta
      *   esplicita dell'operatore dal selettore multi-piano del calendario;
      * - altrimenti ritorna il piano attivo IN QUESTO MOMENTO piu' recente per
-     *   created_at DESC (tie-breaker id ASC).
+     *   created_at DESC (tie-breaker id ASC);
+     * - se non c'e' nessun piano in corso oggi ma ne esiste uno futuro
+     *   (status='active', start_date > oggi), ritorna il piano futuro piu' vicino.
      *
      * @param int $patientId
      * @param int|string|null $requestedPlanId
@@ -2065,11 +2067,28 @@ class TherapeuticPlanManagerController extends Controller
             Yii::info("planId={$requestedPlanId} non valido per paziente {$patientId}, fallback al piano piu' recente", __METHOD__);
         }
 
-        return TherapeuticPlan::find()
+        // Nessun planId esplicito: preferisci il piano valido OGGI (piu' recente
+        // per created_at, tie-breaker id ASC).
+        $currentPlan = TherapeuticPlan::find()
             ->byPatient($patientId)
             ->activeAtDate()
             ->with(['regime'])
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_ASC])
+            ->one();
+        if ($currentPlan) {
+            return $currentPlan;
+        }
+
+        // Nessun piano in corso oggi: ripiega sul piano futuro piu' vicino
+        // (status='active', start_date > oggi). Cosi' per un paziente che ha solo
+        // un piano che inizia in futuro le terapie compaiono lo stesso e l'operatore
+        // puo' programmare appuntamenti in anticipo.
+        return TherapeuticPlan::find()
+            ->byPatient($patientId)
+            ->active()
+            ->andWhere(['>', 'start_date', date('Y-m-d')])
+            ->with(['regime'])
+            ->orderBy(['start_date' => SORT_ASC, 'id' => SORT_ASC])
             ->one();
     }
 
@@ -5434,9 +5453,13 @@ class TherapeuticPlanManagerController extends Controller
                     $email = $linkedUsers[0]->email;
                 }
 
+                // Tutti i piani con status='active', anche quelli con start_date
+                // futura: l'operatore deve poter aprire il flusso piano e
+                // programmare appuntamenti in anticipo. Coerente con
+                // actionGetActivePatientPlans (selettore multi-piano del calendario).
                 $hasActiveTherapeuticPlans = TherapeuticPlan::find()
                     ->byPatient($patient->id)
-                    ->activeAtDate()
+                    ->active()
                     ->exists();
 
                 $result[] = [
