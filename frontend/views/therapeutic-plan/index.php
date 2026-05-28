@@ -299,7 +299,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 );
                             },
                             'calendar-link' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('manage_calendar'))
+                                if (!(Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')))
                                     return '';
                                 $url = ['calendar/' . $model->patient_id];
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

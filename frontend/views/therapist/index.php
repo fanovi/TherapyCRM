@@ -317,7 +317,7 @@ $this->registerJsFile($therapistNotifJs . '?v=' . $therapistNotifMtime, ['depend
                                 }
                             },
                             'calendar-link' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('manage_calendar'))
+                                if (!(Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')))
                                     return '';
                                 $url = ['calendar/therapist/' . $model->id];
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
