@@ -24,11 +24,35 @@ use yii\db\ActiveRecord;
 class BiometricDevice extends ActiveRecord
 {
     /**
+     * Token biometrico in chiaro, valorizzato SOLO al momento della
+     * registrazione per poterlo restituire al client. NON viene mai persistito:
+     * sul DB si salva esclusivamente l'hash (vedi hashToken()).
+     *
+     * @var string|null
+     */
+    public $rawToken;
+
+    /**
      * {@inheritdoc}
      */
     public static function tableName()
     {
         return '{{%biometric_device}}';
+    }
+
+    /**
+     * Calcola l'hash con cui il token biometrico viene memorizzato a riposo.
+     * Il token è ad alta entropia (128 caratteri random) quindi SHA-256 senza
+     * salt è sufficiente: niente rischio rainbow-table/brute-force, lookup
+     * deterministico. Deve restare allineato a SHA2(token, 256) usato in
+     * migrazione lato DB.
+     *
+     * @param string $token Token in chiaro
+     * @return string Hash esadecimale (64 caratteri)
+     */
+    public static function hashToken($token)
+    {
+        return hash('sha256', (string) $token);
     }
 
     /**
@@ -108,9 +132,11 @@ class BiometricDevice extends ActiveRecord
             }
         }
 
+        $rawToken = Yii::$app->security->generateRandomString(128);
+
         $device = new static();
         $device->user_id = $userId;
-        $device->biometric_token = Yii::$app->security->generateRandomString(128);
+        $device->biometric_token = static::hashToken($rawToken);
         $device->device_name = $deviceName;
         $device->platform = $platform;
         $device->is_active = 1;
@@ -119,7 +145,14 @@ class BiometricDevice extends ActiveRecord
         $device->last_used_at = time();
         $device->expires_at = time() + ($expiryDays * 86400);
 
-        return $device->save() ? $device : null;
+        if (!$device->save()) {
+            return null;
+        }
+
+        // Espone il token in chiaro al chiamante (sul DB resta solo l'hash).
+        $device->rawToken = $rawToken;
+
+        return $device;
     }
 
     /**
@@ -137,7 +170,7 @@ class BiometricDevice extends ActiveRecord
         }
 
         $device = static::findOne([
-            'biometric_token' => $biometricToken,
+            'biometric_token' => static::hashToken($biometricToken),
             'is_active' => 1,
         ]);
 
@@ -176,7 +209,7 @@ class BiometricDevice extends ActiveRecord
     public static function incrementFailedAttempts($biometricToken)
     {
         $device = static::findOne([
-            'biometric_token' => $biometricToken,
+            'biometric_token' => static::hashToken($biometricToken),
             'is_active' => 1,
         ]);
 
@@ -215,7 +248,7 @@ class BiometricDevice extends ActiveRecord
     {
         return static::updateAll(
             ['is_active' => 0],
-            ['user_id' => $userId, 'biometric_token' => $biometricToken, 'is_active' => 1]
+            ['user_id' => $userId, 'biometric_token' => static::hashToken($biometricToken), 'is_active' => 1]
         ) > 0;
     }
 

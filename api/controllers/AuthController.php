@@ -2760,7 +2760,8 @@ Questa email è stata inviata automaticamente. Non rispondere a questo messaggio
             'success' => true,
             'message' => 'Dispositivo biometrico registrato con successo',
             'data' => [
-                'biometric_token' => $device->biometric_token,
+                // Token in chiaro: restituito SOLO qui, sul DB resta l'hash.
+                'biometric_token' => $device->rawToken,
                 'expires_at' => $device->expires_at,
             ]
         ];
