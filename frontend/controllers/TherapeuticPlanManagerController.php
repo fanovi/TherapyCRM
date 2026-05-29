@@ -5064,15 +5064,19 @@ class TherapeuticPlanManagerController extends Controller
                         $currentAppointment->therapist_id = $newTherapistId;
                         $currentAppointment->status = Appointment::STATUS_SCHEDULED;
 
-                        if (!$currentAppointment->save()) {
-                            throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
-                        }
-
-                        // Fonde in gruppo eventuali appuntamenti pre-esistenti del nuovo terapista
+                        // Fonde in gruppo eventuali appuntamenti pre-esistenti del nuovo
+                        // terapista PRIMA del save: assegnando il group_session_id condiviso
+                        // la regola validateTherapistAvailability esclude quegli appuntamenti
+                        // dal controllo di sovrapposizione (doppio paziente nello stesso slot),
+                        // consentendo la "forzatura" verso un terapista già impegnato.
                         $this->mergeIntoExistingTherapistGroup(
                             $currentAppointment,
                             $newTherapistConflicts[$currentAppointment->id] ?? []
                         );
+
+                        if (!$currentAppointment->save()) {
+                            throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
+                        }
 
                         $substitutedCount++;
                         $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -5110,15 +5114,19 @@ class TherapeuticPlanManagerController extends Controller
                     $currentAppointment->therapist_id = $newTherapistId;
                     $currentAppointment->status = Appointment::STATUS_SCHEDULED;
 
-                    if (!$currentAppointment->save()) {
-                        throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
-                    }
-
-                    // Fonde in un gruppo eventuali appuntamenti pre-esistenti del nuovo terapista nello stesso slot
+                    // Fonde in un gruppo eventuali appuntamenti pre-esistenti del nuovo
+                    // terapista nello stesso slot PRIMA del save: il group_session_id
+                    // condiviso fa sì che validateTherapistAvailability escluda quegli
+                    // appuntamenti dal controllo di sovrapposizione, permettendo la
+                    // "forzatura" con doppio paziente verso un terapista già impegnato.
                     $this->mergeIntoExistingTherapistGroup(
                         $currentAppointment,
                         $newTherapistConflicts[$currentAppointment->id] ?? []
                     );
+
+                    if (!$currentAppointment->save()) {
+                        throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
+                    }
 
                     // Crea o aggiorna il record di sostituzione
                     $substitution = TherapistSubstitution::findOne(['appointment_id' => $currentAppointment->id]);
