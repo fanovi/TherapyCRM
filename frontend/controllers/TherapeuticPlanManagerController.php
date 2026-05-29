@@ -5063,6 +5063,9 @@ class TherapeuticPlanManagerController extends Controller
                         // Aggiorna solo l'appuntamento con il nuovo terapista
                         $currentAppointment->therapist_id = $newTherapistId;
                         $currentAppointment->status = Appointment::STATUS_SCHEDULED;
+                        // Sostituzione forzata: il sostituto può avere una specializzazione
+                        // diversa da quella dell'appuntamento (filtro spec disattivato in UI).
+                        $currentAppointment->skipSpecializationCompatibilityValidation = true;
 
                         // Fonde in gruppo eventuali appuntamenti pre-esistenti del nuovo
                         // terapista PRIMA del save: assegnando il group_session_id condiviso
@@ -5113,6 +5116,9 @@ class TherapeuticPlanManagerController extends Controller
                     // Aggiorna l'appuntamento con il nuovo terapista
                     $currentAppointment->therapist_id = $newTherapistId;
                     $currentAppointment->status = Appointment::STATUS_SCHEDULED;
+                    // Sostituzione forzata: il sostituto può avere una specializzazione
+                    // diversa da quella dell'appuntamento (filtro spec disattivato in UI).
+                    $currentAppointment->skipSpecializationCompatibilityValidation = true;
 
                     // Fonde in un gruppo eventuali appuntamenti pre-esistenti del nuovo
                     // terapista nello stesso slot PRIMA del save: il group_session_id

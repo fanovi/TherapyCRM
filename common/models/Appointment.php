@@ -68,6 +68,18 @@ class Appointment extends ActiveRecord
     const SOURCE_PRIVATE = 'private';
 
     /**
+     * Flag runtime (non persistito): quando true salta la validazione di
+     * compatibilità terapista ↔ specializzazione. Usato dalla sostituzione
+     * terapista "forzata", in cui l'operatore sceglie consapevolmente un
+     * sostituto di un'altra specializzazione (filtro disattivato in UI).
+     * L'appuntamento mantiene la specialization_id originale (la "veste" in
+     * cui era erogato), il sostituto la copre comunque.
+     *
+     * @var bool
+     */
+    public $skipSpecializationCompatibilityValidation = false;
+
+    /**
      * {@inheritdoc}
      */
     public static function tableName()
@@ -403,6 +415,9 @@ class Appointment extends ActiveRecord
      */
     public function validateTherapistSpecializationCompatibility($attribute, $params)
     {
+        if ($this->skipSpecializationCompatibilityValidation) {
+            return;
+        }
         if (!$this->shouldValidateSpecialization()) {
             return;
         }
