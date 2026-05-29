@@ -347,7 +347,50 @@ class Appointment extends ActiveRecord
 
         if (count($candidates) === 1) {
             $this->specialization_id = (int)$candidates[0];
+            return;
         }
+
+        // Più candidati: il terapista possiede più specializzazioni che offrono
+        // questo trattamento. È il caso tipico dei trattamenti trasversali come
+        // Supervisione e Parent Training, offerti da tutte le specializzazioni:
+        // l'intersezione coincide con tutte le specializzazioni del terapista e
+        // la derivazione univoca fallisce, bloccando la creazione. In questo
+        // scenario ripieghiamo sulla specializzazione PRINCIPALE del terapista,
+        // se è tra i candidati, così l'attribuzione resta deterministica senza
+        // costringere il frontend (che non invia specialization_id) a sceglierla.
+        if (count($candidates) > 1) {
+            $primaryId = $this->resolveTherapistPrimarySpecializationId();
+            if ($primaryId && in_array($primaryId, array_map('intval', $candidates), true)) {
+                $this->specialization_id = $primaryId;
+            }
+        }
+    }
+
+    /**
+     * Specializzazione "principale" del terapista corrente, in modo
+     * deterministico: prima la riga ponte therapist_specializations con
+     * is_primary = 1, poi il campo legacy therapists.specialization_id.
+     */
+    private function resolveTherapistPrimarySpecializationId(): ?int
+    {
+        if (empty($this->therapist_id)) {
+            return null;
+        }
+
+        $primary = TherapistSpecialization::find()
+            ->select('specialization_id')
+            ->where(['therapist_id' => (int)$this->therapist_id, 'is_primary' => 1])
+            ->scalar();
+        if ($primary) {
+            return (int)$primary;
+        }
+
+        $legacy = Therapist::find()
+            ->select('specialization_id')
+            ->where(['id' => (int)$this->therapist_id])
+            ->scalar();
+
+        return $legacy ? (int)$legacy : null;
     }
 
     /**
