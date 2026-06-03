@@ -25,9 +25,15 @@ use yii\helpers\Url;
 $this->title = 'Dashboard';
 $this->params['breadcrumbs'][] = $this->title;
 
-// Registra Chart.js per i grafici
-$this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerCssFile('@web/css/statistics.css');
+// Le statistiche in dashboard sono visibili solo a chi ha il permesso view_statistics.
+// La dashboard resta accessibile a tutti, ma i riquadri statistici vengono nascosti.
+$canViewStatistics = Yii::$app->user->can('view_statistics');
+
+// Registra Chart.js per i grafici (solo se l'utente vede le statistiche)
+if ($canViewStatistics) {
+    $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
+    $this->registerCssFile('@web/css/statistics.css');
+}
 
 // Calcola percentuale completamento appuntamenti
 $appointmentCompletionRate = $totalAppointmentsToday > 0
@@ -252,7 +258,8 @@ $appointmentCompletionRate = $totalAppointmentsToday > 0
 </style>
 
 <?php
-// Javascript per i grafici
+// Javascript per i grafici (solo se l'utente vede le statistiche)
+if ($canViewStatistics) {
 $this->registerJs('
 // Configurazione globale per Chart.js
 Chart.defaults.font.size = 12;
@@ -442,8 +449,10 @@ if (typeof Chart !== 'undefined') {
     }, 1000);
 }
 ", \yii\web\View::POS_READY);
+}
 ?>
 
+    <?php if ($canViewStatistics): ?>
     <!-- 1. Riepilogo principale -->
     <div class="summary-card">
         <h3>Riepilogo Generale</h3>
@@ -561,6 +570,12 @@ if (typeof Chart !== 'undefined') {
             </div>
         </div>
     </div>
+    <?php else: ?>
+    <div class="summary-card">
+        <h3>Benvenuto</h3>
+        <p class="text-gray">Usa il menu laterale per accedere alle sezioni a cui sei abilitato.</p>
+    </div>
+    <?php endif; ?>
 
 
     <?php /* TODO */ if (false): ?>

@@ -168,8 +168,14 @@ class PermissionInfo
 
             // ==== Assenze ====
             'create_absence' => [
-                'title' => 'Registrare assenze',
-                'description' => "Permette di registrare un'assenza paziente o terapista."
+                'title' => 'Registrare assenze terapista',
+                'description' => "Permette di registrare un'assenza del terapista (ferie, malattia, formazione, ecc.).\n\n"
+                    . "Non abilita l'inserimento delle assenze dei pazienti: per quelle serve 'manage_patient_absence'."
+            ],
+            'manage_patient_absence' => [
+                'title' => 'Registrare assenze paziente',
+                'description' => "Permette di inserire e gestire le assenze dei pazienti da gestionale (marcatura degli appuntamenti come assenza giustificata/non giustificata).\n\n"
+                    . "E' distinto da 'create_absence': la segreteria puo' avere questo permesso senza poter registrare le assenze dei terapisti."
             ],
             'view_absence' => [
                 'title' => 'Visualizzare assenze',

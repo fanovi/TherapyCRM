@@ -254,6 +254,7 @@ class RolesController extends Controller
             'manage_absence_recovery' => 'Assenze',
             'view_absence_statistics' => 'Assenze',
             'view_patient_absence' => 'Assenze',
+            'manage_patient_absence' => 'Assenze',
             'manage_notification_templates' => 'Notifiche',
             'send_notifications' => 'Notifiche',
             'manage_documents' => 'Documenti',
