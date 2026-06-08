@@ -328,7 +328,15 @@ class TreatmentStatisticsService
                 'tt.name as treatment_name',
                 'COUNT(DISTINCT a.id) as appointment_count',
                 'COUNT(DISTINCT tp.patient_id) as patient_count',
-                'SUM(a.duration_minutes) as total_minutes'
+                // Le sessioni di gruppo condividono group_session_id: la durata dello
+                // slot va contata UNA volta sola (riga con id minimo del gruppo),
+                // altrimenti la stessa ora viene sommata per ogni paziente del gruppo.
+                // I conteggi appuntamenti/pazienti restano invariati.
+                'total_minutes' => new Expression(
+                    "SUM(CASE WHEN a.group_session_id IS NULL THEN a.duration_minutes "
+                    . "WHEN a.id = (SELECT MIN(a2.id) FROM appointments a2 WHERE a2.group_session_id = a.group_session_id) "
+                    . "THEN a.duration_minutes ELSE 0 END)"
+                )
             ])
             ->from('therapists t')
             ->innerJoin('users u', 't.user_id = u.id')

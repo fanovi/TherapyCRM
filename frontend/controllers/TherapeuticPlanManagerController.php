@@ -2845,8 +2845,20 @@ class TherapeuticPlanManagerController extends Controller
             $data['durationMinutes'] != $appointment->duration_minutes ||
             $data['therapistId'] != $appointment->therapist_id
         ) {
+            // Uno spostamento che NON aumenta il carico settimanale non va mai
+            // bloccato dal limite ore: riposizionare un appuntamento esistente
+            // dentro la stessa settimana, con lo stesso terapista e durata non
+            // superiore, lascia invariato il monte ore di quella settimana.
+            // Bloccarlo impedirebbe di riorganizzare l'agenda di un terapista
+            // gia' a contratto pieno (o oltre), che e' proprio il caso segnalato.
+            $sameTherapist = (int)$data['therapistId'] === (int)$appointment->therapist_id;
+            $sameWeek = $this->weekStartOf($data['appointmentDateTime'])
+                === $this->weekStartOf($appointment->appointment_datetime);
+            $notLonger = (int)$data['durationMinutes'] <= (int)$appointment->duration_minutes;
+            $increasesWeeklyLoad = !($sameTherapist && $sameWeek && $notLonger);
+
             $therapist = Therapist::findOne($data['therapistId']);
-            if ($therapist && $therapist->weekly_hours_contract > 0) {
+            if ($increasesWeeklyLoad && $therapist && $therapist->weekly_hours_contract > 0) {
                 $weeklyLimitInfo = $this->checkWeeklyLimit(
                     $therapist,
                     $data['appointmentDateTime'],
@@ -3710,11 +3722,23 @@ class TherapeuticPlanManagerController extends Controller
                 ])
                 ->all();
 
-            // Calcola ore totali
+            // Calcola ore totali.
+            // Le sessioni di gruppo (incluse quelle nate da una sostituzione forzata,
+            // che fonde piu' pazienti nello stesso slot) hanno piu' appuntamenti che
+            // condividono lo stesso group_session_id: vanno contate UNA sola volta,
+            // altrimenti le ore risultano gonfiate sommando lo stesso slot piu' volte.
             $totalMinutes = 0;
             $appointmentCount = 0;
+            $countedGroups = [];
 
             foreach ($appointments as $appointment) {
+                $groupId = $appointment->group_session_id;
+                if ($groupId !== null) {
+                    if (isset($countedGroups[$groupId])) {
+                        continue; // slot di gruppo gia' conteggiato
+                    }
+                    $countedGroups[$groupId] = true;
+                }
                 $totalMinutes += $appointment->duration_minutes;
                 $appointmentCount++;
             }
@@ -4664,6 +4688,24 @@ class TherapeuticPlanManagerController extends Controller
      * @param int $durationMinutes
      * @return array|null
      */
+    /**
+     * Restituisce la data (Y-m-d) del lunedi' della settimana che contiene
+     * la data/ora passata. Usato per capire se uno spostamento resta o no
+     * nella stessa settimana ai fini del limite ore.
+     *
+     * @param string $datetime
+     * @return string
+     */
+    private function weekStartOf($datetime)
+    {
+        $d = new DateTime($datetime);
+        $daysToSubtract = ((int)$d->format('N')) - 1; // 1 = lunedi', 7 = domenica
+        if ($daysToSubtract > 0) {
+            $d->modify("-{$daysToSubtract} days");
+        }
+        return $d->format('Y-m-d');
+    }
+
     private function checkWeeklyLimit($therapist, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
@@ -4712,7 +4754,19 @@ class TherapeuticPlanManagerController extends Controller
             $query->andWhere(['!=', 'id', $excludeAppointmentId]);
         }
 
-        $totalMinutes = $query->sum('duration_minutes') ?: 0;
+        // Le sessioni di gruppo condividono group_session_id: la durata dello slot
+        // va contata UNA volta sola (riga con id minimo del gruppo, escluso pero'
+        // l'eventuale appuntamento gia' scorporato), altrimenti la stessa ora viene
+        // sommata per ogni paziente del gruppo gonfiando le ore gia' assegnate.
+        $minIdSub = "SELECT MIN(a2.id) FROM appointments a2 "
+            . "WHERE a2.group_session_id = appointments.group_session_id";
+        if ($excludeAppointmentId) {
+            $minIdSub .= " AND a2.id != " . (int)$excludeAppointmentId;
+        }
+        $totalMinutes = $query->sum(new \yii\db\Expression(
+            "CASE WHEN group_session_id IS NULL THEN duration_minutes "
+            . "WHEN id = ({$minIdSub}) THEN duration_minutes ELSE 0 END"
+        )) ?: 0;
 
         return $totalMinutes / 60;
     }

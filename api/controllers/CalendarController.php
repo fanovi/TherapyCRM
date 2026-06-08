@@ -747,12 +747,20 @@ class CalendarController extends ActiveController
                 ->andWhere(['status' => Appointment::STATUS_COMPLETED])
                 ->count();
 
-            // Ore lavorate questa settimana
+            // Ore lavorate questa settimana.
+            // Le sessioni di gruppo (anche da sostituzione forzata) condividono lo
+            // stesso group_session_id: la durata dello slot va contata UNA volta sola
+            // (sulla riga con id minimo del gruppo), altrimenti la stessa ora viene
+            // sommata per ogni paziente del gruppo gonfiando il monte ore.
             $weeklyHours = Appointment::find()
                 ->where(['therapist_id' => $therapistId])
                 ->andWhere(['between', 'DATE(appointment_datetime)', $weekStart, $weekEnd])
                 ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-                ->sum('duration_minutes');
+                ->sum(new \yii\db\Expression(
+                    "CASE WHEN group_session_id IS NULL THEN duration_minutes "
+                    . "WHEN id = (SELECT MIN(a2.id) FROM appointments a2 WHERE a2.group_session_id = appointments.group_session_id) "
+                    . "THEN duration_minutes ELSE 0 END"
+                ));
             $weeklyHours = round(($weeklyHours ?? 0) / 60, 1);
 
             // Prossimi 3 appuntamenti
@@ -880,12 +888,19 @@ class CalendarController extends ActiveController
                 ->select('DISTINCT COALESCE(tp.patient_id, a.patient_id) as patient_id')
                 ->count();
 
-            // Ore totali lavorate questo mese
+            // Ore totali lavorate questo mese.
+            // Le sessioni di gruppo condividono group_session_id: la durata dello slot
+            // va contata UNA volta sola (riga con id minimo del gruppo), altrimenti la
+            // stessa ora viene sommata per ogni paziente del gruppo.
             $monthlyHours = Appointment::find()
                 ->where(['therapist_id' => $therapistId])
                 ->andWhere(['like', 'appointment_datetime', $thisMonth])
                 ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-                ->sum('duration_minutes');
+                ->sum(new \yii\db\Expression(
+                    "CASE WHEN group_session_id IS NULL THEN duration_minutes "
+                    . "WHEN id = (SELECT MIN(a2.id) FROM appointments a2 WHERE a2.group_session_id = appointments.group_session_id) "
+                    . "THEN duration_minutes ELSE 0 END"
+                ));
             $monthlyHours = round(($monthlyHours ?? 0) / 60, 1);
 
             // Prossimo appuntamento
@@ -2334,11 +2349,23 @@ class CalendarController extends ActiveController
                 ])
                 ->all();
 
-            // Calcola ore totali
+            // Calcola ore totali.
+            // Le sessioni di gruppo (incluse quelle nate da una sostituzione forzata,
+            // che fonde piu' pazienti nello stesso slot) hanno piu' appuntamenti che
+            // condividono lo stesso group_session_id: vanno contate UNA sola volta,
+            // altrimenti le ore risultano gonfiate sommando lo stesso slot piu' volte.
             $totalMinutes = 0;
             $appointmentCount = 0;
+            $countedGroups = [];
 
             foreach ($appointments as $appointment) {
+                $groupId = $appointment->group_session_id;
+                if ($groupId !== null) {
+                    if (isset($countedGroups[$groupId])) {
+                        continue; // slot di gruppo gia' conteggiato
+                    }
+                    $countedGroups[$groupId] = true;
+                }
                 $totalMinutes += $appointment->duration_minutes;
                 $appointmentCount++;
             }
@@ -2382,6 +2409,16 @@ class CalendarController extends ActiveController
                 throw new BadRequestHttpException('Utente non associato a nessun terapista');
             }
 
+            // Un appuntamento "in sostituzione" appartiene al terapista ORIGINALE,
+            // non al sostituto: va escluso sia dalla lista pazienti del sostituto sia
+            // dai suoi conteggi, altrimenti un paziente coperto una tantum risulterebbe
+            // un suo paziente regolare. "Non sostituzione" = nessun terapista originale
+            // oppure originale coincidente con quello attuale (es. dopo un ripristino).
+            $notSubstitution = ['or',
+                ['a.original_therapist_id' => null],
+                new \yii\db\Expression('a.original_therapist_id = a.therapist_id'),
+            ];
+
             // Recupera pazienti attivi (con appuntamenti negli ultimi 30 giorni)
             $patients = Patient::find()
                 ->alias('p')
@@ -2393,6 +2430,7 @@ class CalendarController extends ActiveController
                 ->where(['a.therapist_id' => $therapistId])
                 ->andWhere(['>=', 'DATE(a.appointment_datetime)', date('Y-m-d', strtotime('-30 days'))])
                 ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                ->andWhere($notSubstitution)
                 ->groupBy('p.id')
                 ->orderBy('p.last_name ASC, p.first_name ASC')
                 ->all();
@@ -2411,6 +2449,7 @@ class CalendarController extends ActiveController
                         ['tp.patient_id' => $patient->id]
                     ])
                     ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->andWhere($notSubstitution)
                     ->count();
 
                 // Ultimo appuntamento (solo appuntamenti passati)
@@ -2426,6 +2465,7 @@ class CalendarController extends ActiveController
                     ])
                     ->andWhere(['<', 'a.appointment_datetime', date('Y-m-d H:i:s')])
                     ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->andWhere($notSubstitution)
                     ->orderBy('a.appointment_datetime DESC')
                     ->one();
 
@@ -2442,6 +2482,7 @@ class CalendarController extends ActiveController
                     ])
                     ->andWhere(['>=', 'a.appointment_datetime', date('Y-m-d H:i:s')])
                     ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                    ->andWhere($notSubstitution)
                     ->orderBy('a.appointment_datetime ASC')
                     ->one();
 
