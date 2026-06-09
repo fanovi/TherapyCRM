@@ -194,37 +194,69 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
-            // Verifica conflitti slot temporale paziente
+            // Verifica conflitti slot temporale paziente / tipologia trattamento.
+            // Per piani ABA si usa checkABAConflicts (stessa logica del singolo
+            // ABA e del pattern): permette la coesistenza di terapia/PT/supervisione
+            // nello stesso slot con terapisti diversi, bloccando solo lo stesso
+            // appointment_type + treatment_type nello stesso giorno.
             $patientId = $planTherapy->therapeuticPlan->patient_id;
-            $patientSlotConflict = $this->checkPatientTimeSlotConflict(
-                $patientId,
-                $data['appointmentDateTime'],
-                $data['durationMinutes']
-            );
+            $isABA = $this->isABARegime($planTherapy->therapeuticPlan);
+            $appointmentType = $isABA
+                ? $this->resolveAbaAppointmentType($planTherapy->treatment_type_id)
+                : null;
 
-            if ($patientSlotConflict) {
-                return [
-                    'success' => false,
-                    'error' => 'Slot paziente già occupato',
-                    'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
-                ];
-            }
-
-            if (!$isRecovery) {
-                // Verifica conflitti tipologia trattamento
-                $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
-                    $data['planTherapyId'],
-                    $data['appointmentDateTime']
+            if ($isABA) {
+                $abaConflict = $this->checkABAConflicts(
+                    $patientId,
+                    $data['therapistId'],
+                    $data['appointmentDateTime'],
+                    $appointmentType,
+                    $planTherapy->treatment_type_id,
+                    null,
+                    $data['groupSessionId'] ?? null,
+                    $data['durationMinutes']
                 );
 
-                if ($treatmentConflict) {
+                if ($abaConflict) {
                     return [
                         'success' => false,
-                        'error' => 'Conflitto tipologia trattamento rilevato',
-                        'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
+                        'error' => 'Conflitto rilevato',
+                        'conflict' => $this->formatABAConflictInfo($abaConflict)
+                    ];
+                }
+            } else {
+                $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                    $patientId,
+                    $data['appointmentDateTime'],
+                    $data['durationMinutes']
+                );
+
+                if ($patientSlotConflict) {
+                    return [
+                        'success' => false,
+                        'error' => 'Slot paziente già occupato',
+                        'conflict' => $this->formatPatientSlotConflictInfo($patientSlotConflict)
                     ];
                 }
 
+                if (!$isRecovery) {
+                    // Verifica conflitti tipologia trattamento
+                    $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
+                        $data['planTherapyId'],
+                        $data['appointmentDateTime']
+                    );
+
+                    if ($treatmentConflict) {
+                        return [
+                            'success' => false,
+                            'error' => 'Conflitto tipologia trattamento rilevato',
+                            'conflict' => $this->formatTreatmentTypeConflictInfo($treatmentConflict)
+                        ];
+                    }
+                }
+            }
+
+            if (!$isRecovery) {
                 // Verifica limite ore per tipologia trattamento
                 $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
                     Appointment::SOURCE_THERAPEUTIC_PLAN,
@@ -243,7 +275,7 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             // Crea appuntamento
-            $appointment = $this->createSingleAppointment($data, $planTherapy, $patientId);
+            $appointment = $this->createSingleAppointment($data, $planTherapy, $patientId, $appointmentType);
 
             // Verifica limite settimanale
             $weeklyLimitInfo = $this->checkWeeklyLimit($therapist, $data['appointmentDateTime'], $data['durationMinutes']);
@@ -2753,7 +2785,8 @@ class TherapeuticPlanManagerController extends Controller
                     $appointment->appointment_type,
                     $appointment->planTherapy->treatment_type_id,
                     $appointment->id,
-                    $appointment->group_session_id
+                    $appointment->group_session_id,
+                    $data['durationMinutes']
                 );
 
                 if ($abaConflict) {
@@ -3386,34 +3419,62 @@ class TherapeuticPlanManagerController extends Controller
                         continue;
                     }
 
-                    // Verifica conflitti slot temporale paziente
+                    // Verifica conflitti slot temporale paziente / tipologia trattamento.
+                    // Per piani ABA si usa checkABAConflicts (coesistenza
+                    // terapia/PT/supervisione nello stesso slot con terapisti diversi).
                     $patientId = $appointment->planTherapy->therapeuticPlan->patient_id;
-                    $patientSlotConflict = $this->checkPatientTimeSlotConflict(
-                        $patientId,
-                        $newDateTime,
-                        $data['durationMinutes'],
-                        $appointment->id
-                    );
+                    $therapeuticPlan = $appointment->planTherapy
+                        ? $appointment->planTherapy->therapeuticPlan
+                        : null;
 
-                    if ($patientSlotConflict) {
-                        $errors[] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
-                        continue;
-                    }
-
-                    // Verifica conflitti tipologia trattamento
-                    $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
-                        $appointment->plan_therapy_id,
-                        $newDateTime,
-                        $appointment->id
-                    );
-
-                    if ($treatmentConflict) {
-                        $errors[] = $this->formatTreatmentTypeConflictInfo(
-                            $treatmentConflict,
-                            $appointmentDate->format('Y-m-d'),
-                            $data['startTime']
+                    if ($therapeuticPlan && $this->isABARegime($therapeuticPlan)) {
+                        $abaConflict = $this->checkABAConflicts(
+                            $patientId,
+                            $data['therapistId'],
+                            $newDateTime,
+                            $appointment->appointment_type ?: Appointment::TYPE_TERAPIA,
+                            $appointment->planTherapy->treatment_type_id,
+                            $appointment->id,
+                            $appointment->group_session_id,
+                            $data['durationMinutes']
                         );
-                        continue;
+
+                        if ($abaConflict) {
+                            $errors[] = $this->formatTreatmentTypeConflictInfo(
+                                $abaConflict,
+                                $appointmentDate->format('Y-m-d'),
+                                $data['startTime']
+                            );
+                            continue;
+                        }
+                    } else {
+                        $patientSlotConflict = $this->checkPatientTimeSlotConflict(
+                            $patientId,
+                            $newDateTime,
+                            $data['durationMinutes'],
+                            $appointment->id
+                        );
+
+                        if ($patientSlotConflict) {
+                            $errors[] = $this->formatPatientSlotConflictInfo($patientSlotConflict);
+                            continue;
+                        }
+
+                        // Verifica conflitti tipologia trattamento
+                        $treatmentConflict = $this->checkSameTreatmentTypeConflictByPlanTherapy(
+                            $appointment->plan_therapy_id,
+                            $newDateTime,
+                            $appointment->id
+                        );
+
+                        if ($treatmentConflict) {
+                            $errors[] = $this->formatTreatmentTypeConflictInfo(
+                                $treatmentConflict,
+                                $appointmentDate->format('Y-m-d'),
+                                $data['startTime']
+                            );
+                            continue;
+                        }
                     }
 
                     // Verifica limite ore per tipologia trattamento
@@ -4097,7 +4158,8 @@ class TherapeuticPlanManagerController extends Controller
                         $abaAppointmentType,
                         $planTherapy->treatment_type_id,
                         null,
-                        $data['groupSessionId'] ?? null
+                        $data['groupSessionId'] ?? null,
+                        $pattern->duration_minutes
                     );
 
                     if ($abaConflict) {
@@ -4236,7 +4298,7 @@ class TherapeuticPlanManagerController extends Controller
      * @return Appointment
      * @throws Exception
      */
-    private function createSingleAppointment($data, $planTherapy, $patientId)
+    private function createSingleAppointment($data, $planTherapy, $patientId, $appointmentType = null)
     {
         if (!$patientId) {
             throw new Exception('Paziente non trovato');
@@ -4273,6 +4335,12 @@ class TherapeuticPlanManagerController extends Controller
             : Appointment::CATEGORY_REGULAR;
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
+
+        // Per i piani ABA imposta l'appointment_type derivato dal treatment_type
+        // (PT/supervisione/terapia); altrimenti resta il default del model (terapia).
+        if ($appointmentType !== null) {
+            $appointment->appointment_type = $appointmentType;
+        }
 
         // Aggiorna id_setting - mantieni esistente se non specificato
         if (isset($data['id_setting']) && $data['id_setting'] !== null) {
@@ -5701,7 +5769,8 @@ class TherapeuticPlanManagerController extends Controller
                 $appointmentType,
                 $planTherapy->treatment_type_id,
                 null,
-                $groupSessionId
+                $groupSessionId,
+                $data['durationMinutes']
             );
 
             if ($conflict) {
@@ -5932,9 +6001,28 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Mappa il treatment_type del piano sull'appointment_type ABA corrispondente.
+     * (24 = Parent Training, 25 = Supervisione, qualsiasi altro = terapia/RBT)
+     *
+     * @param int $treatmentTypeId
+     * @return string
+     */
+    private function resolveAbaAppointmentType($treatmentTypeId)
+    {
+        switch ((int) $treatmentTypeId) {
+            case 25:
+                return Appointment::TYPE_SUPERVISIONE;
+            case 24:
+                return Appointment::TYPE_PARENT_TRAINING;
+            default:
+                return Appointment::TYPE_TERAPIA;
+        }
+    }
+
+    /**
      * Verifica conflitti specifici per modalità ABA
      */
-    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId, $excludeAppointmentId = null, $groupSessionId = null)
+    private function checkABAConflicts($patientId, $therapistId, $appointmentDateTime, $appointmentType, $treatmentTypeId, $excludeAppointmentId = null, $groupSessionId = null, $durationMinutes = 60)
     {
         $appointmentDate = new DateTime($appointmentDateTime);
         $dateStart = $appointmentDate->format('Y-m-d 00:00:00');
@@ -5944,7 +6032,7 @@ class TherapeuticPlanManagerController extends Controller
         $therapistConflict = $this->checkTherapistConflict(
             $therapistId,
             $appointmentDateTime,
-            60,  // assumiamo durata standard, puoi passarla come parametro
+            $durationMinutes,
             $excludeAppointmentId,
             $groupSessionId
         );
@@ -6607,14 +6695,19 @@ class TherapeuticPlanManagerController extends Controller
                 : 'Paziente in regime ABA (gruppo non ABA)';
         }
 
-        // 4. Slot temporale paziente non occupato
-        $slotConflict = $this->checkPatientTimeSlotConflict(
-            $patient->id,
-            $datetime,
-            $duration
-        );
-        if ($slotConflict) {
-            $reasons[] = 'Slot orario gia\' occupato da altro appuntamento';
+        // 4. Slot temporale paziente non occupato.
+        // Per i gruppi ABA con paziente ABA la coesistenza terapia/PT/supervisione
+        // nello stesso slot e' ammessa: il conflitto reale e' gestito dal check ABA
+        // al punto 5. Il blocco generico si applica solo ai casi non-ABA.
+        if (!($isPatientPlanABA && $isGroupABA)) {
+            $slotConflict = $this->checkPatientTimeSlotConflict(
+                $patient->id,
+                $datetime,
+                $duration
+            );
+            if ($slotConflict) {
+                $reasons[] = 'Slot orario gia\' occupato da altro appuntamento';
+            }
         }
 
         // 5. ABA: conflitto stesso appointment_type+treatment_type stesso giorno
