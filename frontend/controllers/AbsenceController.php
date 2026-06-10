@@ -864,7 +864,7 @@ class AbsenceController extends Controller
                 'type' => 'absence_removed'
             ];
 
-            NotificationHelper::sendToManagers(
+            NotificationHelper::sendToManagement(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
@@ -1222,7 +1222,7 @@ class AbsenceController extends Controller
             $managerTitle = 'Assenza Paziente Inserita dal Gestionale';
             $managerMessage = "Inserita assenza {$absenceLabel} per l'appuntamento del {$appointmentDate} alle {$appointmentTime}.\nPaziente: {$patientName}\nTerapista: {$therapistName}\nMotivo: {$reason}{$extraNotes}\nInserita da: {$insertedBy}";
 
-            NotificationHelper::sendToManagers(
+            NotificationHelper::sendToManagement(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,

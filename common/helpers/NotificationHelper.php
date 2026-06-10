@@ -120,6 +120,37 @@ class NotificationHelper
     }
 
     /**
+     * Invia una notifica a tutta la direzione: manager e amministratori.
+     *
+     * Necessario perche' authManager->getUserIdsByRole() restituisce solo gli
+     * utenti con assegnazione diretta del ruolo e il ruolo 'admin' non eredita
+     * 'manager': sendToManagers() da solo escluderebbe gli amministratori.
+     *
+     * @param string $title
+     * @param string $message
+     * @param string $type
+     * @param array $data
+     * @param bool $skipPush Se true, non invia notifiche push
+     * @return array
+     */
+    public static function sendToManagement($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
+    {
+        $userIds = array_values(array_unique(array_merge(
+            static::getUserIdsByRole('manager'),
+            static::getUserIdsByRole('admin')
+        )));
+
+        if (empty($userIds)) {
+            return [
+                'success' => false,
+                'error' => "Nessun utente trovato con i ruoli 'manager' o 'admin'"
+            ];
+        }
+
+        return static::sendToUsers($userIds, $title, $message, $type, $data, $skipPush);
+    }
+
+    /**
      * Restituisce gli user_id dei coordinatori dei gruppi attivi a cui appartiene un terapista.
      *
      * Replica il pattern di TherapistController::actionMyGroup (invertito):

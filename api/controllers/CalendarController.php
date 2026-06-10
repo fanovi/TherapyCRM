@@ -1383,7 +1383,7 @@ class CalendarController extends ActiveController
                 'type' => 'appointment_cancellation'
             ];
 
-            NotificationHelper::sendToManagers(
+            NotificationHelper::sendToManagement(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
@@ -1474,7 +1474,7 @@ class CalendarController extends ActiveController
                 'type' => 'patient_absence_reported'
             ];
 
-            NotificationHelper::sendToManagers(
+            NotificationHelper::sendToManagement(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
@@ -1749,7 +1749,7 @@ class CalendarController extends ActiveController
                 'type' => 'absence_removed'
             ];
 
-            NotificationHelper::sendToManagers(
+            NotificationHelper::sendToManagement(
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
