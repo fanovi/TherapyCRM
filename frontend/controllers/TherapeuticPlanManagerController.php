@@ -5171,6 +5171,12 @@ class TherapeuticPlanManagerController extends Controller
                 $substitutedAppointmentIds = [];
                 $originalTherapistId = $appointment->therapist_id;
 
+                // Riassegnazione: l'appuntamento e' gia' stato sostituito in precedenza,
+                // quindi il terapista corrente e' un sostituto PRESENTE. In questo caso
+                // non va registrata nessuna assenza a suo carico (ticket #296).
+                $isReassignment = $appointment->original_therapist_id !== null
+                    || TherapistSubstitution::find()->where(['appointment_id' => $appointment->id])->exists();
+
                 // Pre-fetch eventuali appuntamenti del nuovo terapista negli stessi slot.
                 // Servono per fondere automaticamente in un gruppo quando l'utente
                 // seleziona un sostituto che ha gia' altri appuntamenti.
@@ -5209,8 +5215,15 @@ class TherapeuticPlanManagerController extends Controller
                     }
 
                     // LOGICA ORIGINALE: Solo se dontRegisterAbsence è false
-                    // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista
-                    if ($currentAppointment->status === Appointment::STATUS_SCHEDULED && $substitutedCount === 0) {
+                    // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista.
+                    // L'assenza NON va creata se (ticket #296):
+                    //  - e' una riassegnazione: il terapista corrente e' un sostituto presente;
+                    //  - esiste gia' un'assenza approvata dal gestionale che copre l'appuntamento.
+                    if (!$isReassignment
+                        && $currentAppointment->status === Appointment::STATUS_SCHEDULED
+                        && $substitutedCount === 0
+                        && !$this->therapistHasRegisteredAbsence($currentAppointment)
+                    ) {
                         // Crea l'assenza solo per il primo appuntamento del gruppo
                         $absence = new Absence();
                         $absence->therapist_id = $currentAppointment->therapist_id;
@@ -5281,13 +5294,15 @@ class TherapeuticPlanManagerController extends Controller
                 $transaction->commit();
 
                 try {
+                    // In caso di riassegnazione usa il wording "riassegnato" (nessuna
+                    // assenza registrata a carico del sostituto presente).
                     $this->sendSubstitutionNotifications(
                         $appointmentsToSubstitute,
                         $originalTherapistId,
                         $newTherapistId,
                         $reason,
                         $isGroupSubstitution,
-                        (bool)$dontRegisterAbsence
+                        (bool)$dontRegisterAbsence || $isReassignment
                     );
                 } catch (\Exception $e) {
                     Yii::error('Errore invio notifiche sostituzione: ' . $e->getMessage(), __METHOD__);
@@ -5308,7 +5323,7 @@ class TherapeuticPlanManagerController extends Controller
                         'newTherapistId' => $newTherapistId,
                         'substitutedCount' => $substitutedCount,
                         'isGroupSubstitution' => $isGroupSubstitution,
-                        'absenceRegistered' => !$dontRegisterAbsence
+                        'absenceRegistered' => !$dontRegisterAbsence && !$isReassignment
                     ]
                 ];
             } catch (Exception $e) {
@@ -5333,6 +5348,34 @@ class TherapeuticPlanManagerController extends Controller
      * @param bool $dontRegisterAbsence
      * @return void
      */
+    /**
+     * Verifica se il terapista dell'appuntamento ha gia' un'assenza approvata
+     * (registrata dal gestionale) che copre la data/ora dell'appuntamento.
+     * Usato per evitare di rigenerare assenze duplicate in fase di sostituzione (ticket #296).
+     *
+     * @param Appointment $appointment
+     * @return bool
+     */
+    private function therapistHasRegisteredAbsence($appointment)
+    {
+        $timestamp = strtotime($appointment->appointment_datetime);
+        $date = date('Y-m-d', $timestamp);
+        $time = date('H:i:s', $timestamp);
+
+        return Absence::find()
+            ->where(['therapist_id' => $appointment->therapist_id])
+            ->andWhere(['status' => Absence::STATUS_APPROVED])
+            ->andWhere(['<=', 'start_date', $date])
+            ->andWhere(['>=', 'end_date', $date])
+            ->andWhere(['or',
+                // Assenza tutto il giorno
+                ['start_time' => null],
+                // Assenza oraria che copre l'orario dell'appuntamento
+                ['and', ['<=', 'start_time', $time], ['>', 'end_time', $time]],
+            ])
+            ->exists();
+    }
+
     private function sendSubstitutionNotifications(
         array $appointments,
         $originalTherapistId,
