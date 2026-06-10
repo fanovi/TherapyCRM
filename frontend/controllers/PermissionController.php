@@ -152,7 +152,7 @@ class PermissionController extends Controller
             return ['status' => 'error', 'message' => 'Non è possibile modificare i permessi di Super Admin.'];
         }
 
-        $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications', 'view_statistics'];
+        $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications'];
         if (in_array($permissionName, $systemPermissions)) {
             return ['status' => 'error', 'message' => 'I permessi di accesso sistema non possono essere modificati da questa interfaccia.'];
         }
@@ -280,7 +280,7 @@ class PermissionController extends Controller
             'app_login' => 'Accesso Sistema',
             'manage_system' => 'Accesso Sistema',
             'manage_notifications' => 'Accesso Sistema',
-            'view_statistics' => 'Accesso Sistema',
+            'view_statistics' => 'Report',
             'manage_districts' => 'Configurazione',
             'manage_settings' => 'Configurazione',
             'manage_permissions' => 'Configurazione',

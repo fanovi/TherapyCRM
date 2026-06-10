@@ -227,7 +227,7 @@ class RolesController extends Controller
             'app_login' => 'Accesso Sistema',
             'manage_system' => 'Accesso Sistema',
             'manage_notifications' => 'Accesso Sistema',
-            'view_statistics' => 'Accesso Sistema',
+            'view_statistics' => 'Report',
             'manage_districts' => 'Configurazione',
             'manage_settings' => 'Configurazione',
             'view_reports' => 'Report',

@@ -156,7 +156,7 @@ $this->title = 'Ruolo: ' . $roleLabel;
 
     <!-- Permissions by Category -->
     <?php
-    $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications', 'view_statistics'];
+    $systemPermissions = ['platform_login', 'app_login', 'manage_system', 'manage_notifications'];
     $colorIndex = 0;
     ?>
     <?php foreach ($groupedPermissions as $category => $permissions): ?>
