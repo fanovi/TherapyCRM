@@ -289,6 +289,8 @@ export interface TherapistSubstitutionRequest {
   newTherapistId: number;
   reason?: string;
   dontRegisterAbsence?: boolean;
+  /** Se false su appuntamento di gruppo, sostituisce solo il paziente selezionato (default true) */
+  applyToGroup?: boolean;
 }
 
 export interface TherapistSubstitutionResponse {

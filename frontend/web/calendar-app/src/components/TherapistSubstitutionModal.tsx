@@ -46,19 +46,36 @@ interface TherapistSubstitutionModalProps {
     newTherapistId: number;
     reason?: string;
     dontRegisterAbsence?: boolean;
+    applyToGroup?: boolean;
   }) => void;
   appointment: Appointment | null;
   therapists: Therapist[];
   isABARegime?: boolean;
+  /** Se false su appuntamento di gruppo, sostituisce solo il paziente selezionato (default true) */
+  applyToGroup?: boolean;
 }
 
 export const TherapistSubstitutionModal: React.FC<
   TherapistSubstitutionModalProps
-> = ({ isOpen, onClose, onConfirm, appointment, therapists, isABARegime }) => {
+> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  appointment,
+  therapists,
+  isABARegime,
+  applyToGroup = true,
+}) => {
   const isGroupAppointment =
     appointment?.groupSessionId !== null &&
+    appointment?.groupSessionId !== undefined &&
     appointment?.groupPatients &&
     appointment.groupPatients.length > 1;
+  // Sostituzione di un singolo paziente estratto da un gruppo
+  const isSingleFromGroup =
+    appointment?.groupSessionId !== null &&
+    appointment?.groupSessionId !== undefined &&
+    !applyToGroup;
   const [selectedTherapistId, setSelectedTherapistId] = useState<string>("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -191,6 +208,7 @@ export const TherapistSubstitutionModal: React.FC<
         newTherapistId: parseInt(selectedTherapistId),
         reason: reason.trim() || undefined,
         dontRegisterAbsence: dontRegisterAbsence, // 🔥 NUOVO
+        applyToGroup: applyToGroup,
       });
 
       // Se la sostituzione è andata a buon fine, chiama anche il callback per aggiornare la UI
@@ -199,6 +217,7 @@ export const TherapistSubstitutionModal: React.FC<
         newTherapistId: parseInt(selectedTherapistId),
         reason: reason.trim() || undefined,
         dontRegisterAbsence: dontRegisterAbsence, // 🔥 NUOVO
+        applyToGroup: applyToGroup,
       });
 
       onClose();
@@ -223,9 +242,14 @@ export const TherapistSubstitutionModal: React.FC<
           <DialogTitle className="flex items-center gap-2">
             <UserX className="h-5 w-5 text-purple-600" />
             Sostituzione Terapista
-            {isGroupAppointment && (
+            {isGroupAppointment && applyToGroup && (
               <span className="text-sm font-normal text-blue-600">
                 (Gruppo - {appointment.groupPatients?.length} pazienti)
+              </span>
+            )}
+            {isSingleFromGroup && (
+              <span className="text-sm font-normal text-blue-600">
+                (Solo paziente selezionato)
               </span>
             )}
             {appointment.status === "therapist_absent" && (
@@ -241,7 +265,7 @@ export const TherapistSubstitutionModal: React.FC<
 
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
             <div className="space-y-1 text-sm text-purple-700">
-              {isGroupAppointment ? (
+              {isGroupAppointment && applyToGroup ? (
                 <>
                   <p>
                     <strong>Appuntamento di gruppo:</strong>{" "}
@@ -289,7 +313,7 @@ export const TherapistSubstitutionModal: React.FC<
             </div>
           </div>
 
-          {isGroupAppointment && (
+          {isGroupAppointment && applyToGroup && (
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -298,6 +322,23 @@ export const TherapistSubstitutionModal: React.FC<
                     La sostituzione verrà applicata a tutti i{" "}
                     {appointment.groupPatients?.length} pazienti del gruppo
                     contemporaneamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isSingleFromGroup && (
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="text-xs mt-1">
+                    Verrà spostato <strong>solo</strong>{" "}
+                    {appointment.patient?.name || "il paziente selezionato"} sul
+                    terapista prescelto. Gli altri pazienti del gruppo restano
+                    con il terapista attuale e non verrà registrata alcuna
+                    assenza.
                   </p>
                 </div>
               </div>
@@ -497,22 +538,26 @@ export const TherapistSubstitutionModal: React.FC<
                     rows={3}
                   />
                 </div>
-                {/* 🔥 NUOVO: Checkbox per non registrare assenza */}
-                <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                  <Checkbox
-                    id="dont-register-absence"
-                    checked={dontRegisterAbsence}
-                    onCheckedChange={(checked) =>
-                      setDontRegisterAbsence(checked === true)
-                    }
-                  />
-                  <Label
-                    htmlFor="dont-register-absence"
-                    className="text-sm text-blue-800 cursor-pointer"
-                  >
-                    Non registrare assenza del terapista originale
-                  </Label>
-                </div>
+                {/* 🔥 NUOVO: Checkbox per non registrare assenza
+                    (nascosta per sostituzione singolo paziente da gruppo:
+                    il backend non registra mai l'assenza in quel caso) */}
+                {!isSingleFromGroup && (
+                  <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <Checkbox
+                      id="dont-register-absence"
+                      checked={dontRegisterAbsence}
+                      onCheckedChange={(checked) =>
+                        setDontRegisterAbsence(checked === true)
+                      }
+                    />
+                    <Label
+                      htmlFor="dont-register-absence"
+                      className="text-sm text-blue-800 cursor-pointer"
+                    >
+                      Non registrare assenza del terapista originale
+                    </Label>
+                  </div>
+                )}
 
                 {/* Pulsanti */}
                 <div className="flex gap-3 pt-4">

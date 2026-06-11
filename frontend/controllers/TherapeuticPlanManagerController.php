@@ -3630,6 +3630,12 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            // Cancellazione singola da un gruppo: se resta un solo appuntamento
+            // attivo, il gruppo non esiste piu' (ticket #296).
+            if (!$isGroupDeletion && $appointment->group_session_id !== null) {
+                $this->dissolveGroupIfSingleMember($appointment->group_session_id);
+            }
+
             $message = $isGroupDeletion
                 ? "Cancellati {$deletedCount} appuntamenti del gruppo con successo"
                 : ($appointment->group_session_id !== null
@@ -5117,6 +5123,9 @@ class TherapeuticPlanManagerController extends Controller
             $newTherapistId = $data['newTherapistId'] ?? null;
             $reason = $data['reason'] ?? null;
             $dontRegisterAbsence = $data['dontRegisterAbsence'] ?? false;
+            // Ticket #296: se false su un appuntamento di gruppo, viene sostituito
+            // SOLO il paziente selezionato (default true = comportamento storico).
+            $applyToGroup = $data['applyToGroup'] ?? true;
 
             Yii::info('Dati ricevuti per sostituzione terapista: ' . json_encode($data), __METHOD__);
 
@@ -5130,11 +5139,16 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->errorResponse('Appuntamento non trovato');
             }
 
-            // Se è un appuntamento di gruppo, trova tutti gli appuntamenti del gruppo
+            // Se è un appuntamento di gruppo e l'azione va applicata a tutto il
+            // gruppo, trova tutti gli appuntamenti del gruppo
             $appointmentsToSubstitute = [];
             $isGroupSubstitution = false;
+            // Sostituzione di un singolo paziente estratto da un gruppo: il
+            // terapista originale resta presente con gli altri pazienti.
+            $isSingleFromGroup = $appointment->group_session_id !== null && !$applyToGroup;
+            $oldGroupSessionId = $appointment->group_session_id;
 
-            if ($appointment->group_session_id !== null) {
+            if ($appointment->group_session_id !== null && $applyToGroup) {
                 $isGroupSubstitution = true;
                 $appointmentsToSubstitute = Appointment::find()
                     ->where(['group_session_id' => $appointment->group_session_id])
@@ -5144,6 +5158,9 @@ class TherapeuticPlanManagerController extends Controller
                 Yii::info("Sostituzione di gruppo rilevata - Group Session ID: {$appointment->group_session_id}, Appuntamenti da sostituire: " . count($appointmentsToSubstitute), __METHOD__);
             } else {
                 $appointmentsToSubstitute = [$appointment];
+                if ($isSingleFromGroup) {
+                    Yii::info("Sostituzione singolo paziente da gruppo - Group Session ID: {$appointment->group_session_id}, Appuntamento: {$appointment->id}", __METHOD__);
+                }
             }
 
             // Verifica che tutti gli appuntamenti siano in uno stato che permette la sostituzione
@@ -5186,6 +5203,14 @@ class TherapeuticPlanManagerController extends Controller
                 );
 
                 foreach ($appointmentsToSubstitute as $currentAppointment) {
+                    // Sostituzione singolo paziente da gruppo: l'appuntamento esce
+                    // dal gruppo del terapista originale (gli altri restano con lui).
+                    // mergeIntoExistingTherapistGroup puo' poi assegnargli il gruppo
+                    // del nuovo terapista se quest'ultimo e' gia' occupato nello slot.
+                    if ($isSingleFromGroup) {
+                        $currentAppointment->group_session_id = null;
+                    }
+
                     // Se dontRegisterAbsence è true, fai solo il cambio semplice
                     if ($dontRegisterAbsence) {
                         // Aggiorna solo l'appuntamento con il nuovo terapista
@@ -5218,8 +5243,11 @@ class TherapeuticPlanManagerController extends Controller
                     // Se l'appuntamento era in status 'scheduled', crea un record Absence per tracciare l'assenza del terapista.
                     // L'assenza NON va creata se (ticket #296):
                     //  - e' una riassegnazione: il terapista corrente e' un sostituto presente;
+                    //  - e' la sostituzione di un singolo paziente da un gruppo: il
+                    //    terapista originale resta presente con gli altri pazienti;
                     //  - esiste gia' un'assenza approvata dal gestionale che copre l'appuntamento.
                     if (!$isReassignment
+                        && !$isSingleFromGroup
                         && $currentAppointment->status === Appointment::STATUS_SCHEDULED
                         && $substitutedCount === 0
                         && !$this->therapistHasRegisteredAbsence($currentAppointment)
@@ -5291,18 +5319,25 @@ class TherapeuticPlanManagerController extends Controller
                     $substitutedAppointmentIds[] = $currentAppointment->id;
                 }
 
+                // Se il vecchio gruppo e' rimasto con un solo appuntamento attivo,
+                // non e' piu' un gruppo: rimuovi il group_session_id dal superstite.
+                if ($isSingleFromGroup && $oldGroupSessionId !== null) {
+                    $this->dissolveGroupIfSingleMember($oldGroupSessionId);
+                }
+
                 $transaction->commit();
 
                 try {
-                    // In caso di riassegnazione usa il wording "riassegnato" (nessuna
-                    // assenza registrata a carico del sostituto presente).
+                    // In caso di riassegnazione o di singolo paziente spostato da un
+                    // gruppo usa il wording "riassegnato" (nessuna assenza registrata
+                    // a carico del terapista originale, che resta presente).
                     $this->sendSubstitutionNotifications(
                         $appointmentsToSubstitute,
                         $originalTherapistId,
                         $newTherapistId,
                         $reason,
                         $isGroupSubstitution,
-                        (bool)$dontRegisterAbsence || $isReassignment
+                        (bool)$dontRegisterAbsence || $isReassignment || $isSingleFromGroup
                     );
                 } catch (\Exception $e) {
                     Yii::error('Errore invio notifiche sostituzione: ' . $e->getMessage(), __METHOD__);
@@ -5323,7 +5358,7 @@ class TherapeuticPlanManagerController extends Controller
                         'newTherapistId' => $newTherapistId,
                         'substitutedCount' => $substitutedCount,
                         'isGroupSubstitution' => $isGroupSubstitution,
-                        'absenceRegistered' => !$dontRegisterAbsence && !$isReassignment
+                        'absenceRegistered' => !$dontRegisterAbsence && !$isReassignment && !$isSingleFromGroup
                     ]
                 ];
             } catch (Exception $e) {
@@ -5348,6 +5383,31 @@ class TherapeuticPlanManagerController extends Controller
      * @param bool $dontRegisterAbsence
      * @return void
      */
+    /**
+     * Se un gruppo e' rimasto con un solo appuntamento attivo (non cancellato),
+     * non e' piu' un gruppo: azzera il group_session_id sul superstite, cosi'
+     * il calendario non lo mostra piu' come appuntamento di gruppo (ticket #296).
+     *
+     * @param string|int $groupSessionId
+     */
+    private function dissolveGroupIfSingleMember($groupSessionId)
+    {
+        $activeMembers = Appointment::find()
+            ->where(['group_session_id' => $groupSessionId])
+            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->all();
+
+        if (count($activeMembers) === 1) {
+            $survivor = $activeMembers[0];
+            $survivor->group_session_id = null;
+            if (!$survivor->save(false)) {
+                Yii::warning("Impossibile rimuovere group_session_id dall'appuntamento superstite {$survivor->id}", __METHOD__);
+            } else {
+                Yii::info("Gruppo {$groupSessionId} dissolto: rimasto solo l'appuntamento {$survivor->id}", __METHOD__);
+            }
+        }
+    }
+
     /**
      * Verifica se il terapista dell'appuntamento ha gia' un'assenza approvata
      * (registrata dal gestionale) che copre la data/ora dell'appuntamento.
