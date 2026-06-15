@@ -150,6 +150,22 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     ],
                     [
+                        'label' => 'Motivazione',
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[220px]'],
+                        'contentOptions' => ['class' => 'px-4 py-4'],
+                        'format' => 'raw',
+                        'content' => function($model) {
+                            if (empty($model->notes)) {
+                                return '<span class="text-gray-400">-</span>';
+                            }
+                            $full = Html::encode($model->notes);
+                            $short = mb_strlen($model->notes) > 90
+                                ? Html::encode(mb_substr($model->notes, 0, 90)) . '…'
+                                : $full;
+                            return '<span title="' . $full . '" class="cursor-help text-sm text-gray-700 dark:text-gray-300">' . $short . '</span>';
+                        }
+                    ],
+                    [
                         'label' => 'Azioni',
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
