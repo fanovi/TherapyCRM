@@ -6292,14 +6292,27 @@ class TherapeuticPlanManagerController extends Controller
         if ($excludeAppointmentId) {
             $query->andWhere(['!=', 'id', $excludeAppointmentId]);
         }
-        Yii::error('Query: ' . $query->createCommand()->rawSql, __METHOD__);
         $minutiAssegnati = $query->sum('duration_minutes') ?: 0;
-        Yii::error("Minuti assegnati: {$minutiAssegnati}", __METHOD__);
+
         // 4. Converti weekly_hours in minuti per il confronto
         $minutiMassimi = $planTherapy->weekly_hours * 60;
 
         // 5. Verifica se con il nuovo appuntamento si supera il limite
         if (($minutiAssegnati + $durationMinutes) > $minutiMassimi) {
+            // Spostamento (excludeAppointmentId fornito): se l'appuntamento era nello stesso
+            // periodo, lo spostamento non aggiunge ore nette. Permettiamo se la nuova durata
+            // non supera quella vecchia (il totale del periodo non peggiora).
+            if ($excludeAppointmentId) {
+                $excluded = Appointment::findOne($excludeAppointmentId);
+                if ($excluded) {
+                    $isSamePeriod = $excluded->appointment_datetime >= $periodoInizio->format('Y-m-d H:i:s')
+                        && $excluded->appointment_datetime <= $periodoFine->format('Y-m-d H:i:s');
+                    if ($isSamePeriod && $durationMinutes <= (int) $excluded->duration_minutes) {
+                        return null;
+                    }
+                }
+            }
+
             $oreAssegnate = number_format($minutiAssegnati / 60, 1);
             $oreMassime = number_format($planTherapy->weekly_hours, 1);
             $nuoveOre = number_format($durationMinutes / 60, 1);
