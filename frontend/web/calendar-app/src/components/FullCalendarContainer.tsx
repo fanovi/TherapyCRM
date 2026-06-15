@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
 import { Appointment, TherapistAbsence } from "@/types/therapy";
-import { getTreatmentColor } from "@/lib/treatmentColors";
+import { getEventBaseColor, lightenColor } from "@/lib/treatmentColors";
 import moment from "moment";
 import "../styles/calendar.css";
 
@@ -264,7 +264,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             end: endTime.toISOString(),
             backgroundColor,
             borderColor: getStatusColor(appointment.status),
-            textColor: "#ffffff",
+            textColor: "#000000",
             // Disabilita drag & drop per appuntamenti non scheduled
             editable: isEditable,
             // Aggiungi classe CSS personalizzata per styling
@@ -272,6 +272,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             extendedProps: {
               patient_name: appointment.patient?.name || "N/A",
               therapist_name: appointment.therapist?.name || "N/A",
+              therapist_color: appointment.therapist?.color || null,
               patient_id: appointment.patient?.id,
               therapist_id: appointment.therapist?.id,
               status: appointment.status,
@@ -636,9 +637,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           title,
           start: selectInfo.start,
           end: selectInfo.end,
-          backgroundColor: "#3B82F6",
+          backgroundColor: "#DBEAFE",
           borderColor: "#3B82F6",
-          textColor: "#ffffff",
+          textColor: "#000000",
         };
         setEvents((prev) => [...prev, newEvent]);
       }
@@ -698,25 +699,33 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   // Personalizza rendering eventi
   const eventContent = (eventInfo: any) => {
     const props = eventInfo.event.extendedProps;
+
+    // Le assenze (blocchi grigi) usano il rendering di default di FullCalendar.
+    if (props.isAbsence) {
+      return true;
+    }
+
     const isPrivate = props.isPrivate || props.appointmentSource === "private";
     const isEditable = props.isEditable !== false;
     const treatmentType = props.type || "Non specificato";
 
-    // console.log("props", props);
-
-    // Ottieni il colore basato sul tipo di trattamento
-    const treatmentColor = getTreatmentColor(treatmentType);
+    // Colore base: colore calendario del terapista (se impostato dal
+    // gestionale), fallback sul colore del tipo di trattamento.
+    // Sfondo schiarito + testo nero (richiesta direzione).
+    const baseColor = getEventBaseColor(props.therapist_color, treatmentType);
 
     // Imposta il colore dell'evento solo se l'elemento DOM esiste
     if (eventInfo.el) {
-      eventInfo.el.style.backgroundColor = treatmentColor;
-      eventInfo.el.style.borderColor = treatmentColor;
+      eventInfo.el.style.backgroundColor = lightenColor(baseColor);
+      eventInfo.el.style.borderColor = baseColor;
+      eventInfo.el.style.borderLeftWidth = "4px";
+      eventInfo.el.style.color = "#000000";
     }
 
     if (currentView === "timeGridDay" || currentView === "timeGridWeek") {
       return (
         <div
-          className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}
+          className={`p-1 text-sm text-black ${!isEditable ? "opacity-60" : ""}`}
           title={`${treatmentType}\nPaziente: ${
             props.patient_name
           }\nTerapista: ${props.therapist_name}\nDurata: ${props.duration} min${
@@ -724,10 +733,10 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           }`}
         >
           <div className="font-semibold truncate flex items-center gap-1">
-            {isPrivate && <span className="text-purple-200">🔒</span>}
-            {props.isGroupSession && <span className="text-blue-500">👥</span>}
+            {isPrivate && <span>🔒</span>}
+            {props.isGroupSession && <span className="text-blue-700">👥</span>}
             {props.isRecovery && (
-              <span className="text-amber-300" title="Appuntamento di recupero">
+              <span className="text-amber-700" title="Appuntamento di recupero">
                 🔁
               </span>
             )}
@@ -736,7 +745,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
             {props.appointmentType === "supervisione" && " (S)"}
             {!isEditable && <span className="text-xs">✓</span>}
           </div>
-          <div className="truncate opacity-90 text-[10px]">{treatmentType}</div>
+          <div className="truncate opacity-90 text-xs">{treatmentType}</div>
           {props.patient_name && (
             <div className="truncate opacity-80">{props.patient_name}</div>
           )}
@@ -746,7 +755,7 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
 
     return (
       <div
-        className={`p-1 text-xs ${!isEditable ? "opacity-60" : ""}`}
+        className={`p-1 text-sm text-black ${!isEditable ? "opacity-60" : ""}`}
         title={`${treatmentType}\nPaziente: ${props.patient_name}\nDurata: ${props.duration} min`}
       >
         <div className="font-semibold truncate flex items-center gap-1">
@@ -874,11 +883,22 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           eventContent={eventContent}
           eventDidMount={(info: any) => {
             const props = info.event.extendedProps;
-            const treatmentType = props.type || "Non specificato";
-            const treatmentColor = getTreatmentColor(treatmentType);
 
-            info.el.style.backgroundColor = treatmentColor;
-            info.el.style.borderColor = treatmentColor;
+            // Le assenze (blocchi viola) mantengono il proprio stile.
+            if (props.isAbsence) {
+              return;
+            }
+
+            const treatmentType = props.type || "Non specificato";
+            const baseColor = getEventBaseColor(
+              props.therapist_color,
+              treatmentType
+            );
+
+            info.el.style.backgroundColor = lightenColor(baseColor);
+            info.el.style.borderColor = baseColor;
+            info.el.style.borderLeftWidth = "4px";
+            info.el.style.color = "#000000";
           }}
           eventDrop={handleEventDrop}
           dayMaxEvents={true}
@@ -903,9 +923,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           allDaySlot={false}
           nowIndicator={true}
           eventDisplay="block"
-          eventBackgroundColor="#3B82F6"
+          eventBackgroundColor="#DBEAFE"
           eventBorderColor="#3B82F6"
-          eventTextColor="#ffffff"
+          eventTextColor="#000000"
           // Stili personalizzati
           dayHeaderClassNames="bg-gray-50 font-medium text-gray-700 py-2"
           eventClassNames="cursor-pointer hover:opacity-80 transition-opacity"

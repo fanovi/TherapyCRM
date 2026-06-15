@@ -1429,7 +1429,8 @@ class TherapeuticPlanManagerController extends Controller
                         'code' => $s->code,
                         'name' => $s->name,
                     ], $therapist->specializations),
-                    'weeklyHours' => $therapist->weekly_hours_contract
+                    'weeklyHours' => $therapist->weekly_hours_contract,
+                    'color' => $therapist->calendar_color
                 ];
             }
 
@@ -1927,7 +1928,8 @@ class TherapeuticPlanManagerController extends Controller
                 ],
                 'therapist' => [
                     'id' => $therapist->id,
-                    'name' => $profile->getFullName()
+                    'name' => $profile->getFullName(),
+                    'color' => $therapist->calendar_color
                 ],
                 'patternId' => $appointment->pattern_id,
                 'isRecurring' => $appointment->pattern_id !== null,
@@ -2540,7 +2542,8 @@ class TherapeuticPlanManagerController extends Controller
                     ],
                     'therapist' => [
                         'id' => $therapist->id,
-                        'name' => $profile->getFullName()
+                        'name' => $profile->getFullName(),
+                        'color' => $therapist->calendar_color
                     ],
                     'patternId' => $appointment->pattern_id,
                     'isRecurring' => $appointment->pattern_id !== null,
@@ -2627,7 +2630,8 @@ class TherapeuticPlanManagerController extends Controller
                     'treatmentType' => $treatmentType ? $treatmentType->name : 'Non specificato',
                     'therapist' => [
                         'id' => $therapist->id,
-                        'name' => $profile->getFullName()
+                        'name' => $profile->getFullName(),
+                        'color' => $therapist->calendar_color
                     ],
                     'patient' => [
                         'id' => $patient->id,

@@ -135,6 +135,8 @@ export interface Appointment {
   therapist?: {
     id: number;
     name: string;
+    /** Colore calendario del terapista (therapists.calendar_color) */
+    color?: string | null;
   };
   // Per appointment di terapista
   patient?: {

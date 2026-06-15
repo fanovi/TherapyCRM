@@ -165,7 +165,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
           ? "#1E40AF"
           : getStatusColor(appointment.status), // Bordo blu scuro per gruppi
 
-        textColor: "#ffffff",
+        textColor: "#000000",
         editable: isEditable, // Importante: disabilita drag & drop per non scheduled
         classNames: [
           ...(isEditable ? [] : ["non-editable-event"]),
@@ -174,6 +174,7 @@ export const DualFullCalendarView: React.FC<DualFullCalendarViewProps> = ({
         extendedProps: {
           patient_name: appointment.patient?.name || "N/A",
           therapist_name: appointment.therapist?.name || "N/A",
+          therapist_color: appointment.therapist?.color || null,
           status: appointment.status,
           duration: appointment.duration,
           patient_id: appointment.patient?.id || null,
