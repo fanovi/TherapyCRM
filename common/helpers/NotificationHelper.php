@@ -120,11 +120,22 @@ class NotificationHelper
     }
 
     /**
-     * Invia una notifica a tutta la direzione: manager e amministratori.
+     * Permesso che abilita la ricezione delle notifiche direzionali.
+     * Assegnato ai ruoli admin/manager/super_admin dalla migration
+     * m260615_120000, ma anche concedibile al singolo utente (RBAC per-persona).
+     */
+    const PERM_RECEIVE_MANAGEMENT_NOTIFICATIONS = 'receive_management_notifications';
+
+    /**
+     * Invia una notifica a tutta la direzione.
      *
-     * Necessario perche' authManager->getUserIdsByRole() restituisce solo gli
-     * utenti con assegnazione diretta del ruolo e il ruolo 'admin' non eredita
-     * 'manager': sendToManagers() da solo escluderebbe gli amministratori.
+     * I destinatari sono risolti per PERMESSO ('receive_management_notifications')
+     * e non piu' per ruolo: in questo modo vengono inclusi i super_admin (che non
+     * ereditano 'manager'/'admin') e gli utenti a cui il permesso e' stato
+     * assegnato direttamente, coerentemente con l'RBAC per-persona della
+     * piattaforma. Se il permesso non risulta ancora assegnato a nessuno
+     * (es. migration non eseguita) si ricade sui ruoli direzionali per non
+     * perdere la notifica.
      *
      * @param string $title
      * @param string $message
@@ -135,19 +146,74 @@ class NotificationHelper
      */
     public static function sendToManagement($title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
-        $userIds = array_values(array_unique(array_merge(
-            static::getUserIdsByRole('manager'),
-            static::getUserIdsByRole('admin')
-        )));
+        $userIds = static::getUserIdsByPermission(static::PERM_RECEIVE_MANAGEMENT_NOTIFICATIONS);
+
+        // Fallback di sicurezza: nessuno ha (ancora) il permesso -> usa i ruoli.
+        if (empty($userIds)) {
+            $userIds = array_values(array_unique(array_merge(
+                static::getUserIdsByRole('manager'),
+                static::getUserIdsByRole('admin'),
+                static::getUserIdsByRole('super_admin')
+            )));
+        }
 
         if (empty($userIds)) {
             return [
                 'success' => false,
-                'error' => "Nessun utente trovato con i ruoli 'manager' o 'admin'"
+                'error' => "Nessun destinatario con permesso '" . static::PERM_RECEIVE_MANAGEMENT_NOTIFICATIONS . "' o ruolo direzionale"
             ];
         }
 
         return static::sendToUsers($userIds, $title, $message, $type, $data, $skipPush);
+    }
+
+    /**
+     * Restituisce gli user_id che possiedono un permesso, sia perche' lo ereditano
+     * da un ruolo assegnato sia perche' il permesso e' assegnato loro direttamente.
+     *
+     * yii\rbac\DbManager non espone un getUserIdsByPermission(): qui si calcola la
+     * chiusura "verso l'alto" su auth_item_child (il permesso piu' tutti gli item
+     * che lo contengono) e si recuperano gli utenti assegnati a uno di quegli item.
+     *
+     * @param string $permissionName
+     * @return int[]
+     */
+    public static function getUserIdsByPermission($permissionName)
+    {
+        $permissionName = (string)$permissionName;
+        if ($permissionName === '') {
+            return [];
+        }
+
+        // Item che concedono il permesso: il permesso stesso + tutti gli antenati.
+        $items = [$permissionName => true];
+        $frontier = [$permissionName];
+
+        while (!empty($frontier)) {
+            $parents = (new \yii\db\Query())
+                ->select('parent')
+                ->distinct()
+                ->from('{{%auth_item_child}}')
+                ->where(['child' => $frontier])
+                ->column();
+
+            $frontier = [];
+            foreach ($parents as $parent) {
+                if (!isset($items[$parent])) {
+                    $items[$parent] = true;
+                    $frontier[] = $parent;
+                }
+            }
+        }
+
+        $userIds = (new \yii\db\Query())
+            ->select('user_id')
+            ->distinct()
+            ->from('{{%auth_assignment}}')
+            ->where(['item_name' => array_keys($items)])
+            ->column();
+
+        return array_values(array_unique(array_map('intval', $userIds)));
     }
 
     /**

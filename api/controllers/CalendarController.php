@@ -1442,8 +1442,14 @@ class CalendarController extends ActiveController
     private function sendAbsenceNotifications($appointment, $absenceType, $reason, $notes)
     {
         try {
-            // Carica le relazioni necessarie
-            $patient = $appointment->planTherapy->therapeuticPlan->patient;
+            // Carica le relazioni necessarie. Gli appuntamenti privati non hanno
+            // planTherapy: dereferenziarlo lancerebbe un'eccezione (catturata sotto)
+            // e nessuna notifica verrebbe inviata. Ricava il paziente dalla sorgente.
+            if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
+                $patient = $appointment->planTherapy->therapeuticPlan->patient;
+            } else {
+                $patient = $appointment->patient;
+            }
             $therapist = $appointment->therapist;
             $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
 
