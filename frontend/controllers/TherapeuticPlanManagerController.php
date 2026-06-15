@@ -2596,7 +2596,15 @@ class TherapeuticPlanManagerController extends Controller
                     ['tp.patient_id' => $patientId],
                     ['a.patient_id' => $patientId]
                 ])
-                ->andWhere(['!=', 'a.status', Appointment::STATUS_CANCELLED])
+                // Esclude annullati e assenze paziente: gli appuntamenti con assenza
+                // segnalata (RBT/PT/supervisioni) non devono occupare lo slot nel
+                // calendario, così è possibile creare un appuntamento di recupero.
+                // (stesso filtro di actionGetTherapistAppointments)
+                ->andWhere(['not in', 'a.status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                ]])
                 ->andWhere([
                     'between',
                     'a.appointment_datetime',
@@ -6037,9 +6045,13 @@ class TherapeuticPlanManagerController extends Controller
                 $periodoInizio->format('Y-m-d H:i:s'),
                 $periodoFine->format('Y-m-d H:i:s')
             ])
+            // Le assenze non rientrano nel conteggio delle ore erogate:
+            // le ore vengono restituite al piano per il recupero.
             ->andWhere(['not in', 'status', [
                 Appointment::STATUS_CANCELLED,
-                Appointment::STATUS_THERAPIST_ABSENT
+                Appointment::STATUS_THERAPIST_ABSENT,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
             ]])
             ->sum('duration_minutes') ?: 0;
 
@@ -6287,7 +6299,14 @@ class TherapeuticPlanManagerController extends Controller
             ->where(['plan_therapy_id' => $planTherapyId])
             // ->andWhere(['patient_id' => $planTherapy->therapeuticPlan->patient_id])
             ->andWhere(['between', 'appointment_datetime', $periodoInizio->format('Y-m-d H:i:s'), $periodoFine->format('Y-m-d H:i:s')])
-            ->andWhere(['not in', 'status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_THERAPIST_ABSENT]]);
+            // Le assenze (terapista e paziente, giustificate o meno) non consumano
+            // il monte ore del piano: le ore vengono restituite per consentire il recupero.
+            ->andWhere(['not in', 'status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+            ]]);
 
         if ($excludeAppointmentId) {
             $query->andWhere(['!=', 'id', $excludeAppointmentId]);
