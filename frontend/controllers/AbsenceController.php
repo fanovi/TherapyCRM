@@ -122,6 +122,17 @@ class AbsenceController extends Controller
             ];
         }
 
+        // Solo alla CREAZIONE: notifica (gestionale) direzione + coordinatori del terapista.
+        // Questo e' il percorso realmente usato dalla modale su /absence/index.
+        if ($isNew) {
+            $affectedCount = count($this->getAppointmentsInRange(
+                $model->therapist_id,
+                $model->start_date,
+                $model->end_date
+            ));
+            $this->sendTherapistAbsenceNotifications($model, $affectedCount);
+        }
+
         return [
             'success' => true,
             'message' => $isNew ? 'Assenza creata' : 'Assenza aggiornata',
@@ -603,7 +614,7 @@ class AbsenceController extends Controller
             $title = 'Assenza Terapista Inserita dal Gestionale';
             $message = "Inserita un'assenza per il terapista {$therapistName} {$period}.\n"
                 . "Motivo: {$absence->reason}{$extraNotes}\n"
-                . "Appuntamenti coinvolti: {$affectedAppointments}\n"
+                . "Appuntamenti programmati nel periodo: {$affectedAppointments}\n"
                 . "Inserita da: {$insertedBy}";
 
             $data = [
