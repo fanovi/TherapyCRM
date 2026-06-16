@@ -500,6 +500,7 @@ class AbsenceController extends Controller
                 if ($model->save()) {
                     // Check if we need to update appointments
                     $updateAppointments = Yii::$app->request->post('update_appointments', false);
+                    $affectedCount = 0;
 
                     if ($updateAppointments) {
                         $appointments = $this->getAppointmentsInRange(
@@ -512,15 +513,20 @@ class AbsenceController extends Controller
                             $appointment->status = Appointment::STATUS_THERAPIST_ABSENT;
                             $appointment->save(false);
                         }
+                        $affectedCount = count($appointments);
 
                         Yii::$app->session->setFlash('info',
-                            'Assenza creata con successo. ' . count($appointments) . ' appuntamenti sono stati aggiornati.'
+                            'Assenza creata con successo. ' . $affectedCount . ' appuntamenti sono stati aggiornati.'
                         );
                     } else {
                         Yii::$app->session->setFlash('success', 'Assenza creata con successo.');
                     }
 
                     $transaction->commit();
+
+                    // Notifica (solo gestionale) direzione + coordinatori del terapista assente.
+                    $this->sendTherapistAbsenceNotifications($model, $affectedCount);
+
                     return $this->redirect(['view', 'id' => $model->id]);
                 }
             } catch (\Exception $e) {
@@ -564,6 +570,69 @@ class AbsenceController extends Controller
         ];
 
         return $reasonLabels[$reason] ?? $reason;
+    }
+
+    /**
+     * Invia notifiche per un'assenza terapista creata da gestionale.
+     * Destinatari (solo gestionale, niente push, coerente con le assenze paziente):
+     * la direzione (manager/admin via sendToManagement) e i coordinatori dei gruppi
+     * a cui appartiene il terapista assente.
+     *
+     * @param Absence $absence
+     * @param int $affectedAppointments appuntamenti messi in 'terapista assente'
+     */
+    private function sendTherapistAbsenceNotifications($absence, $affectedAppointments)
+    {
+        try {
+            $therapist = $absence->therapist;
+            $therapistName = ($therapist && $therapist->user && $therapist->user->profile)
+                ? trim($therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name)
+                : 'Terapista non disponibile';
+
+            $startDate = (new \DateTime($absence->start_date))->format('d/m/Y');
+            $endDate = (new \DateTime($absence->end_date))->format('d/m/Y');
+            $period = $startDate === $endDate ? "il {$startDate}" : "dal {$startDate} al {$endDate}";
+
+            $user = Yii::$app->user->identity;
+            $insertedBy = ($user && $user->profile)
+                ? 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name
+                : 'Operatore';
+
+            $extraNotes = !empty($absence->notes) ? "\nNote: {$absence->notes}" : '';
+
+            $title = 'Assenza Terapista Inserita dal Gestionale';
+            $message = "Inserita un'assenza per il terapista {$therapistName} {$period}.\n"
+                . "Motivo: {$absence->reason}{$extraNotes}\n"
+                . "Appuntamenti coinvolti: {$affectedAppointments}\n"
+                . "Inserita da: {$insertedBy}";
+
+            $data = [
+                'absence_id' => $absence->id,
+                'therapist_id' => $absence->therapist_id,
+                'type' => 'therapist_absence_created',
+            ];
+
+            // Direzione: solo gestionale (skipPush=true).
+            NotificationHelper::sendToManagement(
+                $title,
+                $message,
+                Notification::TYPE_INFO,
+                $data,
+                true
+            );
+
+            // Coordinatori dei gruppi del terapista assente: solo gestionale (skipPush=true).
+            NotificationHelper::sendToTherapistCoordinators(
+                $absence->therapist_id,
+                $title,
+                $message,
+                Notification::TYPE_INFO,
+                $data,
+                true
+            );
+        } catch (\Exception $e) {
+            Yii::error("Errore invio notifiche assenza terapista: " . $e->getMessage(), __METHOD__);
+        }
     }
 
     /**
