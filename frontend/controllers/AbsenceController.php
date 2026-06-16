@@ -879,7 +879,8 @@ class AbsenceController extends Controller
                     $managerTitle,
                     $managerMessage,
                     Notification::TYPE_INFO,
-                    $managerData
+                    $managerData,
+                    true
                 );
             }
 
@@ -1237,7 +1238,8 @@ class AbsenceController extends Controller
                     $managerTitle,
                     $managerMessage,
                     Notification::TYPE_INFO,
-                    $data
+                    $data,
+                    true
                 );
             }
 

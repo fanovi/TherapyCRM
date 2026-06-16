@@ -44,7 +44,9 @@ class NotificationController extends BaseController
     }
 
     /**
-     * Visualizza tutte le notifiche del sistema (quelle con sender_user_id NON null)
+     * Visualizza tutte le notifiche dell'utente corrente, incluse quelle "di sistema"
+     * (sender_user_id null, mostrate come provenienti da "Sistema": assenze, scadenze,
+     * richieste documenti, ecc.).
      *
      * @return string
      */
@@ -52,10 +54,9 @@ class NotificationController extends BaseController
     {
         $userId = Yii::$app->user->id;
 
-        // Query base: solo notifiche indirizzate all'utente corrente, con mittente.
+        // Query base: tutte le notifiche indirizzate all'utente corrente.
         $query = Notification::find()
             ->where(['recipient_user_id' => $userId])
-            ->andWhere(['not', ['sender_user_id' => null]])
             ->with(['senderUser', 'recipientUser'])
             ->orderBy(['created_at' => SORT_DESC]);
 
@@ -101,8 +102,7 @@ class NotificationController extends BaseController
 
         // Statistiche per header (scoped utente corrente)
         $baseQuery = Notification::find()
-            ->where(['recipient_user_id' => $userId])
-            ->andWhere(['not', ['sender_user_id' => null]]);
+            ->where(['recipient_user_id' => $userId]);
 
         $totalCount = $baseQuery->count();
         $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
@@ -159,8 +159,7 @@ class NotificationController extends BaseController
         try {
             $userId = Yii::$app->user->id;
             $baseQuery = Notification::find()
-                ->where(['recipient_user_id' => $userId])
-                ->andWhere(['not', ['sender_user_id' => null]]);
+                ->where(['recipient_user_id' => $userId]);
 
             $totalCount = $baseQuery->count();
             $unreadCount = (clone $baseQuery)->andWhere(['read_at' => null])->count();
@@ -195,7 +194,6 @@ class NotificationController extends BaseController
         $model = Notification::find()
             ->where(['id' => $id])
             ->andWhere(['recipient_user_id' => Yii::$app->user->id])
-            ->andWhere(['not', ['sender_user_id' => null]])
             ->with(['senderUser', 'recipientUser'])
             ->one();
 

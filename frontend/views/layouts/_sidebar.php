@@ -679,10 +679,10 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                 :class="sidebarToggle ? 'lg:hidden' : ''">
                                 Notifiche Sistema
                                 <?php
-                                // Badge: notifiche indirizzate all'utente corrente, non lette.
+                                // Badge: notifiche indirizzate all'utente corrente, non lette
+                                // (incluse quelle "di sistema" con sender_user_id null).
                                 $unreadNotifications = \common\models\Notification::find()
                                     ->where(['recipient_user_id' => Yii::$app->user->id])
-                                    ->andWhere(['not', ['sender_user_id' => null]])
                                     ->andWhere(['read_at' => null])
                                     ->count();
 

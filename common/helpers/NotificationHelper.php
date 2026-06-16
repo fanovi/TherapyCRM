@@ -257,15 +257,18 @@ class NotificationHelper
      * @param string $message
      * @param string $type
      * @param array $data
+     * @param bool $skipPush Se true, non invia push (notifica solo sul gestionale).
+     *                       Coerente con sendToManagement, che e' la notifica di cui
+     *                       questo metodo replica titolo/messaggio per i coordinatori.
      * @return array
      */
-    public static function sendToTherapistCoordinators($therapistId, $title, $message, $type = Notification::TYPE_INFO, $data = [])
+    public static function sendToTherapistCoordinators($therapistId, $title, $message, $type = Notification::TYPE_INFO, $data = [], $skipPush = false)
     {
         $userIds = static::findCoordinatorUserIdsForTherapist($therapistId);
         if (empty($userIds)) {
             return ['success' => true, 'notifications_created' => 0];
         }
-        return static::sendToUsers($userIds, $title, $message, $type, $data, false);
+        return static::sendToUsers($userIds, $title, $message, $type, $data, $skipPush);
     }
 
     /**

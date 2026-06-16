@@ -1397,7 +1397,8 @@ class CalendarController extends ActiveController
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
-                $managerData
+                $managerData,
+                true
             );
 
             // Notifica al terapista
@@ -1494,7 +1495,8 @@ class CalendarController extends ActiveController
                 $managerTitle,
                 $managerMessage,
                 Notification::TYPE_INFO,
-                $managerData
+                $managerData,
+                true
             );
 
             // Notifica al paziente (trova l'utente associato al paziente)
@@ -1770,7 +1772,8 @@ class CalendarController extends ActiveController
                     $managerTitle,
                     $managerMessage,
                     Notification::TYPE_INFO,
-                    $managerData
+                    $managerData,
+                    true
                 );
             }
 
