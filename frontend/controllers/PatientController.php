@@ -70,7 +70,7 @@ class PatientController extends Controller
      */
     public function actionIndex()
     {
-        if (!Yii::$app->user->can('create_patient')) {
+        if (!Yii::$app->user->can('create_patient') && !Yii::$app->user->can('view_patient')) {
             throw new ForbiddenHttpException('Non hai i permessi per visualizzare i pazienti.');
         }
 
