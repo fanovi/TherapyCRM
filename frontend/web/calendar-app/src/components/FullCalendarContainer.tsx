@@ -709,8 +709,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const isEditable = props.isEditable !== false;
     const treatmentType = props.type || "Non specificato";
 
-    // Colore base: colore calendario del terapista (se impostato dal
-    // gestionale), fallback sul colore del tipo di trattamento.
+    // Colore base: colore del tipo di trattamento; colore calendario del
+    // terapista come fallback se il trattamento non ha un colore dedicato.
     // Sfondo schiarito + testo nero (richiesta direzione).
     const baseColor = getEventBaseColor(props.therapist_color, treatmentType);
 

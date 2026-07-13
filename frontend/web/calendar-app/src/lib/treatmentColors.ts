@@ -7,10 +7,10 @@ export const TREATMENT_COLORS: Record<string, string> = {
   Neuropsicomotricità: "#22C55E",
   "Neuropsicomotricità PG": "#22C55E",
 
-  // Fisioterapia - Beige
-  "Riabilitazione Neuromotoria": "#D2B48C",
-  "FKT respiratoria": "#D2B48C",
-  Fisiokinesiterapia: "#D2B48C",
+  // Fisioterapia - Lilla
+  "Riabilitazione Neuromotoria": "#C8A2C8",
+  "FKT respiratoria": "#C8A2C8",
+  Fisiokinesiterapia: "#C8A2C8",
 
   // Terapia Occupazionale - Celeste
   "Terapia Occupazionale": "#38BDF8",
@@ -60,13 +60,18 @@ export const lightenColor = (hex: string, factor = 0.75): string => {
 };
 
 /**
- * Colore base di un evento: priorita' al colore del terapista impostato
- * dal gestionale (therapists.calendar_color), fallback sul colore del
- * tipo di trattamento.
+ * Colore base di un evento: priorita' al colore del tipo di trattamento
+ * (richiesta direzione: un colore per ogni terapia). Il colore del terapista
+ * impostato dal gestionale (therapists.calendar_color) resta come fallback
+ * solo quando il trattamento non ha un colore dedicato in mappa.
  */
 export const getEventBaseColor = (
   therapistColor: string | null | undefined,
   treatmentName: string
 ): string => {
-  return therapistColor || getTreatmentColor(treatmentName);
+  return (
+    TREATMENT_COLORS[treatmentName] ||
+    therapistColor ||
+    TREATMENT_COLORS.default
+  );
 };
