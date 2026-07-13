@@ -1,30 +1,33 @@
 export const TREATMENT_COLORS: Record<string, string> = {
-  // Logopedia - Verde
-  Logopedia: "#10B981",
-  "Logopedista PG": "#059669",
+  // Logopedia - Fucsia
+  Logopedia: "#D946EF",
+  "Logopedista PG": "#D946EF",
 
-  // Neuropsicomotricità - Blu
-  Neuropsicomotricità: "#3B82F6",
-  "Neuropsicomotricità PG": "#1D4ED8",
+  // Neuropsicomotricità - Verde
+  Neuropsicomotricità: "#22C55E",
+  "Neuropsicomotricità PG": "#22C55E",
 
-  // Fisioterapia - Arancione
-  "Riabilitazione Neuromotoria": "#F59E0B",
-  "FKT respiratoria": "#D97706",
-  Fisiokinesiterapia: "#F97316",
+  // Fisioterapia - Beige
+  "Riabilitazione Neuromotoria": "#D2B48C",
+  "FKT respiratoria": "#D2B48C",
+  Fisiokinesiterapia: "#D2B48C",
 
-  // Terapia Occupazionale - Viola
-  "Terapia Occupazionale": "#8B5CF6",
-  "Terapia Occupazionale PG": "#7C3AED",
+  // Terapia Occupazionale - Celeste
+  "Terapia Occupazionale": "#38BDF8",
+  "Terapia Occupazionale PG": "#38BDF8",
 
-  // Psicoterapia - Rosa
-  Psicoterapia: "#EC4899",
-  "Psicoterapia PG": "#DB2777",
+  // Psicoterapia - Beige
+  Psicoterapia: "#D2B48C",
+  "Psicoterapia PG": "#D2B48C",
 
-  // Parent Training - Indaco
-  "Parental Training": "#6366F1",
+  // Parent Training - Arancione
+  "Parental Training": "#F97316",
 
-  // Supervisione - Teal
-  Supervisione: "#14B8A6",
+  // Supervisione - Rosso
+  Supervisione: "#EF4444",
+
+  // RBT - Giallo
+  "RBT - Registered Behavior Technician": "#FACC15",
 
   // Default
   default: "#6B7280",
