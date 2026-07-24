@@ -350,11 +350,15 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
-            // Verifica conflitti slot temporale paziente
+            // Verifica conflitti slot temporale paziente.
+            // Passiamo il treatment type per abilitare la coesistenza PT/supervisione
+            // nello stesso slot (come per i piani ABA).
             $patientSlotConflict = $this->checkPatientTimeSlotConflict(
                 $data['patientId'],
                 $data['appointmentDateTime'],
-                $data['durationMinutes']
+                $data['durationMinutes'],
+                null,
+                $treatmentType->id
             );
 
             if ($patientSlotConflict) {
@@ -1039,6 +1043,9 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->patient_id = $data['patientId'];
         $appointment->therapist_id = $data['therapistId'];
         $appointment->treatment_type_id = $data['treatmentTypeId'];
+        // Storicizza il tipo appuntamento (PT/supervisione/terapia) anche sui privati,
+        // cosi' la coesistenza nello stesso slot e il calendario sono coerenti con ABA.
+        $appointment->appointment_type = $this->resolveAbaAppointmentType($data['treatmentTypeId']);
         if (isset($data['specializationId']) && (int)$data['specializationId'] > 0) {
             $appointment->specialization_id = (int)$data['specializationId'];
         }
@@ -3089,11 +3096,15 @@ class TherapeuticPlanManagerController extends Controller
                 Yii::info("Nessun conflitto terapista per {$appointmentDateTime}", __METHOD__);
             }
 
-            // Verifica conflitti slot temporale paziente
+            // Verifica conflitti slot temporale paziente.
+            // Passiamo il treatment type per abilitare la coesistenza PT/supervisione
+            // nello stesso slot (come per i piani ABA).
             $patientSlotConflict = $this->checkPatientTimeSlotConflict(
                 $data['patientId'],
                 $appointmentDateTime,
-                $data['durationMinutes']
+                $data['durationMinutes'],
+                null,
+                $data['treatmentTypeId']
             );
 
             if ($patientSlotConflict) {
@@ -3133,6 +3144,8 @@ class TherapeuticPlanManagerController extends Controller
                 $appointment->patient_id = $data['patientId'];
                 $appointment->therapist_id = $data['therapistId'];
                 $appointment->treatment_type_id = $data['treatmentTypeId'];
+                // Storicizza il tipo appuntamento (PT/supervisione/terapia) anche sui privati.
+                $appointment->appointment_type = $this->resolveAbaAppointmentType($data['treatmentTypeId']);
                 $appointment->private_cycle_id = $privateCycle->id;
                 $appointment->appointment_datetime = $appointmentDateTime;
                 $appointment->duration_minutes = $data['durationMinutes'];
@@ -3262,12 +3275,15 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
-            // Controllo conflitti slot temporale paziente
+            // Controllo conflitti slot temporale paziente.
+            // Passiamo il treatment type (eventualmente aggiornato) per abilitare la
+            // coesistenza PT/supervisione nello stesso slot (come per i piani ABA).
             $patientSlotConflict = $this->checkPatientTimeSlotConflict(
                 $appointment->patient_id,
                 $data['appointmentDateTime'],
                 $data['durationMinutes'],
-                $appointment->id
+                $appointment->id,
+                $newTreatmentTypeId
             );
 
             if ($patientSlotConflict) {
@@ -3311,6 +3327,8 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->appointment_datetime = $data['appointmentDateTime'];
             $appointment->duration_minutes = $data['durationMinutes'];
             $appointment->treatment_type_id = $newTreatmentTypeId;
+            // Aggiorna il tipo appuntamento coerentemente al treatment type (privati).
+            $appointment->appointment_type = $this->resolveAbaAppointmentType($newTreatmentTypeId);
             $appointment->notes = $data['notes'] ?? null;
 
             // Aggiorna id_setting - mantieni esistente se non specificato
@@ -4566,10 +4584,23 @@ class TherapeuticPlanManagerController extends Controller
      * @param string $appointmentDateTime
      * @param int $durationMinutes
      * @param int $excludeAppointmentId ID dell'appuntamento da escludere dal controllo (per update)
+     * @param int|null $newTreatmentTypeId Treatment type del NUOVO appuntamento privato.
+     *        Se valorizzato, abilita la coesistenza PT/supervisione nello stesso slot
+     *        (come per i piani ABA): un PT/supervisione (treatment 24/25) coesiste con
+     *        tutto, e una terapia confligge solo con altre terapie (non con PT/supervisione).
+     *        Se null, comportamento storico (qualsiasi sovrapposizione e' un conflitto).
      * @return Appointment|null
      */
-    private function checkPatientTimeSlotConflict($patientId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null)
+    private function checkPatientTimeSlotConflict($patientId, $appointmentDateTime, $durationMinutes, $excludeAppointmentId = null, $newTreatmentTypeId = null)
     {
+        // Coesistenza privati: se il nuovo appuntamento e' PT o supervisione puo'
+        // affiancare qualsiasi altro appuntamento nello stesso slot (il duplicato
+        // dello stesso tipo e' gia' bloccato da checkSameTreatmentTypeConflict).
+        if ($newTreatmentTypeId !== null
+            && $this->resolveAbaAppointmentType($newTreatmentTypeId) !== Appointment::TYPE_TERAPIA) {
+            return null;
+        }
+
         $startTime = new DateTime($appointmentDateTime);
         $endTime = clone $startTime;
         $endTime->modify("+{$durationMinutes} minutes");
@@ -4606,6 +4637,20 @@ class TherapeuticPlanManagerController extends Controller
 
         if ($excludeAppointmentId) {
             $query->andWhere(['!=', 'a.id', $excludeAppointmentId]);
+        }
+
+        // Coesistenza privati (nuovo = terapia): una terapia confligge solo con
+        // altre terapie. Gli appuntamenti PT/supervisione (per tipo esplicito o
+        // privati legacy con treatment 24/25) vengono esclusi cosi' da poter
+        // coesistere nello stesso slot.
+        if ($newTreatmentTypeId !== null) {
+            $query->andWhere(['not', ['or',
+                ['a.appointment_type' => [Appointment::TYPE_SUPERVISIONE, Appointment::TYPE_PARENT_TRAINING]],
+                ['and',
+                    ['a.appointment_source' => Appointment::SOURCE_PRIVATE],
+                    ['a.treatment_type_id' => [24, 25]],
+                ],
+            ]]);
         }
 
         $result = $query->one();
