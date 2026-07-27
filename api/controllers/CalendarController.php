@@ -1588,12 +1588,16 @@ class CalendarController extends ActiveController
                 throw new BadRequestHttpException('Questa assenza è stata inserita dal gestionale e non può essere revocata dall\'app');
             }
 
-            // Vincolo temporale: almeno 1 ora prima dell'inizio
-            $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
-            $now = new \DateTime();
-            $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
-            if ($now >= $oneHourBefore) {
-                throw new BadRequestHttpException('Non è possibile rimuovere l\'assenza a meno di 1 ora dall\'inizio dell\'appuntamento');
+            // Vincolo temporale: almeno 1 ora prima dell'inizio.
+            // Vale solo per il paziente in self-service; il terapista (autenticato
+            // come therapist) puo' revocare l'assenza anche dell'ora corrente e successiva.
+            if (!$therapistAuthCheck) {
+                $appointmentDateTime = new \DateTime($appointment->appointment_datetime);
+                $now = new \DateTime();
+                $oneHourBefore = (clone $appointmentDateTime)->modify('-1 hour');
+                if ($now >= $oneHourBefore) {
+                    throw new BadRequestHttpException('Non è possibile rimuovere l\'assenza a meno di 1 ora dall\'inizio dell\'appuntamento');
+                }
             }
 
             // Autorizzazione: terapista o paziente associato
