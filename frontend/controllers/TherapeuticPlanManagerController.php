@@ -1921,16 +1921,6 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
-            // Gruppo "fantasma": rimasto con un solo paziente attivo. Non va piu'
-            // presentato come appuntamento di gruppo, altrimenti il calendario
-            // continua a mostrarlo come tale anche dopo l'eliminazione degli altri
-            // partecipanti (ticket #296).
-            $groupSessionId = $appointment->group_session_id;
-            if (count($groupPatients) < 2) {
-                $groupSessionId = null;
-                $groupPatients = [];
-            }
-
             $result = [
                 'id' => $appointment->id,
                 'datetime' => $appointment->appointment_datetime,
@@ -1952,7 +1942,7 @@ class TherapeuticPlanManagerController extends Controller
                 'isRecurring' => $appointment->pattern_id !== null,
                 'privateCycleId' => $appointment->private_cycle_id,
                 'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
-                'groupSessionId' => $groupSessionId,
+                'groupSessionId' => $appointment->group_session_id,
                 'groupPatients' => $groupPatients,  // AGGIUNTO: ora include i pazienti del gruppo
                 'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                 'id_setting' => $appointment->id_setting,
@@ -2510,22 +2500,10 @@ class TherapeuticPlanManagerController extends Controller
                 $groupedAppointments[$groupKey][] = $appointment;
             }
 
-            // Gruppi ancora reali (>= 2 appuntamenti attivi). I "gruppi fantasma"
-            // rimasti con un solo paziente vengono esposti come appuntamenti
-            // singoli, altrimenti il calendario continua a mostrarli come di
-            // gruppo anche dopo l'eliminazione degli altri partecipanti (ticket #296).
-            $realGroupSessionIds = $this->filterRealGroupSessionIds(
-                array_map(function ($a) {
-                    return $a->group_session_id;
-                }, $appointments)
-            );
-
             $result = [];
             foreach ($groupedAppointments as $groupKey => $appointmentGroup) {
                 // Prendi il primo appuntamento del gruppo come "principale"
                 $appointment = $appointmentGroup[0];
-                $isRealGroup = $appointment->group_session_id !== null
-                    && isset($realGroupSessionIds[$appointment->group_session_id]);
 
                 // Ottieni il paziente corretto basato sul tipo di appuntamento
                 if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
@@ -2541,7 +2519,7 @@ class TherapeuticPlanManagerController extends Controller
 
                 // Se è un gruppo, raccogli tutti i pazienti
                 $groupPatients = [];
-                if ($isRealGroup) {
+                if ($appointment->group_session_id !== null) {
                     foreach ($appointmentGroup as $groupAppt) {
                         $groupPatient = $groupAppt->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN
                             ? $groupAppt->planTherapy->therapeuticPlan->patient
@@ -2578,7 +2556,7 @@ class TherapeuticPlanManagerController extends Controller
                     'isRecurring' => $appointment->pattern_id !== null,
                     'privateCycleId' => $appointment->private_cycle_id,
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
-                    'groupSessionId' => $isRealGroup ? $appointment->group_session_id : null,
+                    'groupSessionId' => $appointment->group_session_id,
                     'groupPatients' => $groupPatients,
                     'category' => $appointment->appointment_category ?? NULL,
                     'appointment_category' => $appointment->appointment_category ?? NULL,
@@ -2643,20 +2621,10 @@ class TherapeuticPlanManagerController extends Controller
                 ->orderBy(['a.appointment_datetime' => SORT_ASC])
                 ->all();
 
-            // Vedi actionGetTherapistAppointments: i gruppi rimasti con un solo
-            // paziente attivo vanno esposti come appuntamenti singoli (ticket #296).
-            $realGroupSessionIds = $this->filterRealGroupSessionIds(
-                array_map(function ($a) {
-                    return $a->group_session_id;
-                }, $appointments)
-            );
-
             $result = [];
             foreach ($appointments as $appointment) {
                 $therapist = $appointment->therapist;
                 $profile = $therapist->user->profile;
-                $isRealGroup = $appointment->group_session_id !== null
-                    && isset($realGroupSessionIds[$appointment->group_session_id]);
 
                 // Ottieni il paziente e il tipo di trattamento corretti
                 if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
@@ -2690,7 +2658,7 @@ class TherapeuticPlanManagerController extends Controller
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
                     'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                     'id_setting' => $appointment->id_setting,
-                    'groupSessionId' => $isRealGroup ? $appointment->group_session_id : null,
+                    'groupSessionId' => $appointment->group_session_id,
                     'appointment_category' => $appointment->appointment_category ?? NULL,
                     'appointmentType' => $appointment->appointment_type,
                 ];
@@ -5522,39 +5490,6 @@ class TherapeuticPlanManagerController extends Controller
                 Yii::info("Gruppo {$groupSessionId} dissolto: rimasto solo l'appuntamento {$survivor->id}", __METHOD__);
             }
         }
-    }
-
-    /**
-     * Restituisce, fra i group_session_id passati, solo quelli che sono ancora
-     * gruppi reali (almeno 2 appuntamenti attivi). Serve a non esporre al
-     * calendario i "gruppi fantasma" rimasti con un solo paziente (ticket #296).
-     *
-     * @param array $groupSessionIds
-     * @return array mappa [group_session_id => true]
-     */
-    private function filterRealGroupSessionIds(array $groupSessionIds)
-    {
-        $groupSessionIds = array_values(array_unique(array_filter($groupSessionIds)));
-        if (empty($groupSessionIds)) {
-            return [];
-        }
-
-        $rows = Appointment::find()
-            ->select(['group_session_id', 'members' => 'COUNT(*)'])
-            ->where(['group_session_id' => $groupSessionIds])
-            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-            ->groupBy('group_session_id')
-            ->asArray()
-            ->all();
-
-        $realGroups = [];
-        foreach ($rows as $row) {
-            if ((int) $row['members'] > 1) {
-                $realGroups[$row['group_session_id']] = true;
-            }
-        }
-
-        return $realGroups;
     }
 
     /**
