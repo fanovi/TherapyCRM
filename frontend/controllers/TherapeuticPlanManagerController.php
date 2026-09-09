@@ -5527,7 +5527,24 @@ class TherapeuticPlanManagerController extends Controller
     {
         $substitution = TherapistSubstitution::findOne(['appointment_id' => $appointment->id]);
 
+        // REVOCA: l'appuntamento torna al terapista che lo aveva in origine,
+        // quindi non e' piu' una sostituzione e il record va rimosso. Aggiornarlo
+        // fallirebbe: TherapistSubstitution vieta sostituto == originale, e
+        // l'eccezione farebbe abortire l'intera revoca (ticket #296).
+        if ($substitution && (int) $substitution->original_therapist_id === (int) $newTherapistId) {
+            if ($substitution->delete() === false) {
+                throw new Exception("Errore nella revoca della sostituzione per l'appuntamento {$appointment->id}");
+            }
+            Yii::info("Sostituzione revocata per l'appuntamento {$appointment->id}: torna al terapista originale {$newTherapistId}", __METHOD__);
+            return;
+        }
+
         if (!$substitution) {
+            // Niente da tracciare se il "sostituto" coincide con l'attuale titolare.
+            if ((int) $originalTherapistId === (int) $newTherapistId) {
+                return;
+            }
+
             $substitution = new TherapistSubstitution();
             $substitution->appointment_id = $appointment->id;
             $substitution->original_therapist_id = $originalTherapistId;
