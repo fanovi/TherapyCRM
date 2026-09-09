@@ -1232,7 +1232,17 @@ const Index = () => {
 
       setSelectedAppointment(appointment);
 
-      if (appointment.status === "therapist_absent") {
+      // Gli appuntamenti di gruppo passano sempre dalla modale di dettaglio:
+      // e' li' che si sceglie il paziente e si decide, con "applica azioni a
+      // tutto il gruppo", se la sostituzione riguarda tutti o solo lui.
+      // La scorciatoia diretta alla sostituzione resta per i singoli, dove non
+      // c'e' nulla da scegliere (ticket #296).
+      const isGroupAppointment =
+        appointment.groupSessionId !== null &&
+        appointment.groupSessionId !== undefined &&
+        (appointment.groupPatients?.length ?? 0) > 1;
+
+      if (appointment.status === "therapist_absent" && !isGroupAppointment) {
         setIsSubstitutionModalOpen(true);
       } else {
         setIsEditModalOpen(true);
@@ -1967,6 +1977,8 @@ const Index = () => {
           appointment={selectedAppointment}
           therapists={therapists}
           onConfirm={handleTherapistSubstitution}
+          // Qui arrivano solo appuntamenti non di gruppo (vedi handleAppointmentClick)
+          applyToGroup={true}
         />
       </div>
     </div>

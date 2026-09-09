@@ -1921,6 +1921,16 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            // Gruppo "fantasma": rimasto con un solo paziente attivo. Non va piu'
+            // presentato come appuntamento di gruppo, altrimenti il calendario
+            // continua a mostrarlo come tale anche dopo l'eliminazione degli altri
+            // partecipanti (ticket #296).
+            $groupSessionId = $appointment->group_session_id;
+            if (count($groupPatients) < 2) {
+                $groupSessionId = null;
+                $groupPatients = [];
+            }
+
             $result = [
                 'id' => $appointment->id,
                 'datetime' => $appointment->appointment_datetime,
@@ -1942,7 +1952,7 @@ class TherapeuticPlanManagerController extends Controller
                 'isRecurring' => $appointment->pattern_id !== null,
                 'privateCycleId' => $appointment->private_cycle_id,
                 'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
-                'groupSessionId' => $appointment->group_session_id,
+                'groupSessionId' => $groupSessionId,
                 'groupPatients' => $groupPatients,  // AGGIUNTO: ora include i pazienti del gruppo
                 'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                 'id_setting' => $appointment->id_setting,
@@ -2500,10 +2510,22 @@ class TherapeuticPlanManagerController extends Controller
                 $groupedAppointments[$groupKey][] = $appointment;
             }
 
+            // Gruppi ancora reali (>= 2 appuntamenti attivi). I "gruppi fantasma"
+            // rimasti con un solo paziente vengono esposti come appuntamenti
+            // singoli, altrimenti il calendario continua a mostrarli come di
+            // gruppo anche dopo l'eliminazione degli altri partecipanti (ticket #296).
+            $realGroupSessionIds = $this->filterRealGroupSessionIds(
+                array_map(function ($a) {
+                    return $a->group_session_id;
+                }, $appointments)
+            );
+
             $result = [];
             foreach ($groupedAppointments as $groupKey => $appointmentGroup) {
                 // Prendi il primo appuntamento del gruppo come "principale"
                 $appointment = $appointmentGroup[0];
+                $isRealGroup = $appointment->group_session_id !== null
+                    && isset($realGroupSessionIds[$appointment->group_session_id]);
 
                 // Ottieni il paziente corretto basato sul tipo di appuntamento
                 if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
@@ -2519,7 +2541,7 @@ class TherapeuticPlanManagerController extends Controller
 
                 // Se è un gruppo, raccogli tutti i pazienti
                 $groupPatients = [];
-                if ($appointment->group_session_id !== null) {
+                if ($isRealGroup) {
                     foreach ($appointmentGroup as $groupAppt) {
                         $groupPatient = $groupAppt->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN
                             ? $groupAppt->planTherapy->therapeuticPlan->patient
@@ -2556,7 +2578,7 @@ class TherapeuticPlanManagerController extends Controller
                     'isRecurring' => $appointment->pattern_id !== null,
                     'privateCycleId' => $appointment->private_cycle_id,
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
-                    'groupSessionId' => $appointment->group_session_id,
+                    'groupSessionId' => $isRealGroup ? $appointment->group_session_id : null,
                     'groupPatients' => $groupPatients,
                     'category' => $appointment->appointment_category ?? NULL,
                     'appointment_category' => $appointment->appointment_category ?? NULL,
@@ -2621,10 +2643,20 @@ class TherapeuticPlanManagerController extends Controller
                 ->orderBy(['a.appointment_datetime' => SORT_ASC])
                 ->all();
 
+            // Vedi actionGetTherapistAppointments: i gruppi rimasti con un solo
+            // paziente attivo vanno esposti come appuntamenti singoli (ticket #296).
+            $realGroupSessionIds = $this->filterRealGroupSessionIds(
+                array_map(function ($a) {
+                    return $a->group_session_id;
+                }, $appointments)
+            );
+
             $result = [];
             foreach ($appointments as $appointment) {
                 $therapist = $appointment->therapist;
                 $profile = $therapist->user->profile;
+                $isRealGroup = $appointment->group_session_id !== null
+                    && isset($realGroupSessionIds[$appointment->group_session_id]);
 
                 // Ottieni il paziente e il tipo di trattamento corretti
                 if ($appointment->appointment_source === Appointment::SOURCE_THERAPEUTIC_PLAN) {
@@ -2658,7 +2690,7 @@ class TherapeuticPlanManagerController extends Controller
                     'isPrivate' => $appointment->appointment_source === Appointment::SOURCE_PRIVATE,
                     'settingName' => $appointment->setting ? $appointment->setting->nome : null,
                     'id_setting' => $appointment->id_setting,
-                    'groupSessionId' => $appointment->group_session_id,
+                    'groupSessionId' => $isRealGroup ? $appointment->group_session_id : null,
                     'appointment_category' => $appointment->appointment_category ?? NULL,
                     'appointmentType' => $appointment->appointment_type,
                 ];
@@ -2935,13 +2967,25 @@ class TherapeuticPlanManagerController extends Controller
         $applyToGroup = $data['applyToGroup'] ?? false;
         $appointmentsToUpdate = [$appointment];
 
-        // Controllo per rimuovere groupSessionId se applyToGroup è false e la data/ora è cambiata
+        // Controllo per rimuovere groupSessionId quando applyToGroup è false e
+        // l'appuntamento viene individualizzato: cambio di data/ora OPPURE cambio
+        // di terapista. Senza il secondo caso il paziente restava agganciato al
+        // gruppo pur passando a un altro terapista, e ogni azione successiva sul
+        // gruppo se lo trascinava dietro (ticket #296).
         $shouldRemoveGroupSessionId = false;
+        $previousGroupSessionId = $appointment->group_session_id;
         if (!$applyToGroup && $appointment->group_session_id !== null) {
             $dateTimeChanged = $data['appointmentDateTime'] != $appointment->appointment_datetime;
-            if ($dateTimeChanged) {
+            $therapistChanged = isset($data['therapistId'])
+                && (int) $data['therapistId'] !== (int) $appointment->therapist_id;
+            if ($dateTimeChanged || $therapistChanged) {
                 $shouldRemoveGroupSessionId = true;
-                Yii::info("Rimozione groupSessionId - applyToGroup: false, groupSessionId esistente: {$appointment->group_session_id}, data/ora cambiata", __METHOD__);
+                Yii::info(
+                    "Rimozione groupSessionId - applyToGroup: false, groupSessionId esistente: {$appointment->group_session_id}"
+                        . ', data/ora cambiata: ' . ($dateTimeChanged ? 'si' : 'no')
+                        . ', terapista cambiato: ' . ($therapistChanged ? 'si' : 'no'),
+                    __METHOD__
+                );
             }
         }
 
@@ -3008,6 +3052,12 @@ class TherapeuticPlanManagerController extends Controller
             }
 
             $transaction->commit();
+
+            // Il paziente e' uscito dal gruppo: se il gruppo di partenza resta con
+            // un solo appuntamento attivo non e' piu' un gruppo (ticket #296).
+            if ($shouldRemoveGroupSessionId && $previousGroupSessionId !== null) {
+                $this->dissolveGroupIfSingleMember($previousGroupSessionId);
+            }
 
             $message = count($updatedAppointments) > 1
                 ? 'Appuntamenti di gruppo aggiornati con successo'
@@ -5248,8 +5298,16 @@ class TherapeuticPlanManagerController extends Controller
                 // Riassegnazione: l'appuntamento e' gia' stato sostituito in precedenza,
                 // quindi il terapista corrente e' un sostituto PRESENTE. In questo caso
                 // non va registrata nessuna assenza a suo carico (ticket #296).
-                $isReassignment = $appointment->original_therapist_id !== null
-                    || TherapistSubstitution::find()->where(['appointment_id' => $appointment->id])->exists();
+                // La traccia va cercata su TUTTI gli appuntamenti coinvolti: in una
+                // sostituzione di gruppo l'assenza viene creata sul primo elemento
+                // della lista, che non e' necessariamente quello su cui si e' cliccato.
+                $isReassignment = false;
+                foreach ($appointmentsToSubstitute as $aptToCheck) {
+                    if ($this->appointmentHasSubstitutionTrace($aptToCheck)) {
+                        $isReassignment = true;
+                        break;
+                    }
+                }
 
                 // Pre-fetch eventuali appuntamenti del nuovo terapista negli stessi slot.
                 // Servono per fondere automaticamente in un gruppo quando l'utente
@@ -5290,6 +5348,17 @@ class TherapeuticPlanManagerController extends Controller
                         if (!$currentAppointment->save()) {
                             throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
                         }
+
+                        // Traccia comunque la sostituzione: senza questo record una
+                        // successiva revoca/riassegnazione non riconosce che il
+                        // terapista attuale e' un sostituto PRESENTE e gli registra
+                        // un'assenza inesistente (ticket #296).
+                        $this->trackSubstitution(
+                            $currentAppointment,
+                            $originalTherapistId,
+                            $newTherapistId,
+                            $reason
+                        );
 
                         $substitutedCount++;
                         $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -5355,22 +5424,12 @@ class TherapeuticPlanManagerController extends Controller
                     }
 
                     // Crea o aggiorna il record di sostituzione
-                    $substitution = TherapistSubstitution::findOne(['appointment_id' => $currentAppointment->id]);
-
-                    if (!$substitution) {
-                        $substitution = new TherapistSubstitution();
-                        $substitution->appointment_id = $currentAppointment->id;
-                        $substitution->original_therapist_id = $originalTherapistId;
-                    }
-
-                    $substitution->substitute_therapist_id = $newTherapistId;
-                    $substitution->reason = $reason;
-                    $substitution->substituted_by = Yii::$app->user->id ?: 1;
-                    $substitution->substituted_at = date('Y-m-d H:i:s');
-
-                    if (!$substitution->save()) {
-                        throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
-                    }
+                    $this->trackSubstitution(
+                        $currentAppointment,
+                        $originalTherapistId,
+                        $newTherapistId,
+                        $reason
+                    );
 
                     $substitutedCount++;
                     $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -5462,6 +5521,90 @@ class TherapeuticPlanManagerController extends Controller
             } else {
                 Yii::info("Gruppo {$groupSessionId} dissolto: rimasto solo l'appuntamento {$survivor->id}", __METHOD__);
             }
+        }
+    }
+
+    /**
+     * Restituisce, fra i group_session_id passati, solo quelli che sono ancora
+     * gruppi reali (almeno 2 appuntamenti attivi). Serve a non esporre al
+     * calendario i "gruppi fantasma" rimasti con un solo paziente (ticket #296).
+     *
+     * @param array $groupSessionIds
+     * @return array mappa [group_session_id => true]
+     */
+    private function filterRealGroupSessionIds(array $groupSessionIds)
+    {
+        $groupSessionIds = array_values(array_unique(array_filter($groupSessionIds)));
+        if (empty($groupSessionIds)) {
+            return [];
+        }
+
+        $rows = Appointment::find()
+            ->select(['group_session_id', 'members' => 'COUNT(*)'])
+            ->where(['group_session_id' => $groupSessionIds])
+            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->groupBy('group_session_id')
+            ->asArray()
+            ->all();
+
+        $realGroups = [];
+        foreach ($rows as $row) {
+            if ((int) $row['members'] > 1) {
+                $realGroups[$row['group_session_id']] = true;
+            }
+        }
+
+        return $realGroups;
+    }
+
+    /**
+     * Verifica se l'appuntamento porta traccia di una sostituzione gia' avvenuta.
+     * In tal caso il terapista che lo detiene ora e' un sostituto PRESENTE: una
+     * nuova sostituzione e' una semplice riassegnazione e non deve generare
+     * alcuna assenza a suo carico (ticket #296).
+     *
+     * @param Appointment $appointment
+     * @return bool
+     */
+    private function appointmentHasSubstitutionTrace($appointment)
+    {
+        if ($appointment->original_therapist_id !== null) {
+            return true;
+        }
+
+        return TherapistSubstitution::find()
+            ->where(['appointment_id' => $appointment->id])
+            ->exists();
+    }
+
+    /**
+     * Crea o aggiorna il record di audit della sostituzione per un appuntamento.
+     * Va scritto anche quando l'assenza non viene registrata, altrimenti una
+     * successiva revoca non riconosce il terapista attuale come sostituto
+     * presente e gli attribuisce un'assenza inesistente (ticket #296).
+     *
+     * @param Appointment $appointment
+     * @param int $originalTherapistId
+     * @param int $newTherapistId
+     * @param string|null $reason
+     */
+    private function trackSubstitution($appointment, $originalTherapistId, $newTherapistId, $reason)
+    {
+        $substitution = TherapistSubstitution::findOne(['appointment_id' => $appointment->id]);
+
+        if (!$substitution) {
+            $substitution = new TherapistSubstitution();
+            $substitution->appointment_id = $appointment->id;
+            $substitution->original_therapist_id = $originalTherapistId;
+        }
+
+        $substitution->substitute_therapist_id = $newTherapistId;
+        $substitution->reason = $reason;
+        $substitution->substituted_by = Yii::$app->user->id ?: 1;
+        $substitution->substituted_at = date('Y-m-d H:i:s');
+
+        if (!$substitution->save()) {
+            throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
         }
     }
 
