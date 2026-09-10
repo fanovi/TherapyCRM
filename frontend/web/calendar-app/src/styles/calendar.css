@@ -118,3 +118,37 @@
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* Giorni di chiusura della struttura (festivita' e chiusure settimanali).
+   Tinta rosata, distinta dal grigio delle assenze terapista. Lo sfondo e
+   l'etichetta li da' l'evento background (holiday-event); la classe sulla
+   cella serve solo per il cursore. */
+.fc .fc-bg-event.holiday-event {
+  opacity: 1;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(244, 63, 94, 0.07),
+    rgba(244, 63, 94, 0.07) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+  cursor: not-allowed !important;
+}
+
+/* Gli eventi background ereditano .fc-event: niente effetti hover degli appuntamenti */
+.fc .fc-bg-event.holiday-event:hover {
+  transform: none;
+  box-shadow: none;
+  opacity: 1 !important;
+}
+
+.fc .fc-bg-event.holiday-event .fc-event-title {
+  color: #be123c;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.fc-timegrid-col.holiday-day-bg,
+.fc-daygrid-day.holiday-day-bg {
+  cursor: not-allowed !important;
+}

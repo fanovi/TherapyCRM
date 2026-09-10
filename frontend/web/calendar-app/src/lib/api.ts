@@ -15,6 +15,7 @@ import {
   TherapistAbsencesResponse,
   ResolveSpecializationResponse,
   ActivePatientPlan,
+  ClosureRules,
 } from "@/types/therapy";
 
 /**
@@ -36,6 +37,15 @@ class TherapeuticPlanManagerAPI {
   private settingsCache: { id: number; nome: string }[] | null = null;
   private settingsCacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 ore
+
+  // Cache dei giorni di chiusura per range. I calendari terapista e paziente
+  // chiedono lo stesso range in parallelo: la promise condivisa evita la
+  // doppia chiamata. TTL breve perche' l'anagrafica si modifica dal gestionale.
+  private closuresCache = new Map<
+    string,
+    { promise: Promise<ClosureRules>; timestamp: number }
+  >();
+  private readonly CLOSURES_CACHE_DURATION = 10 * 60 * 1000; // 10 minuti
 
   /**
    * Effettua una richiesta HTTP
@@ -979,6 +989,49 @@ class TherapeuticPlanManagerAPI {
     }
 
     return response.data.absences;
+  }
+
+  // === GIORNI DI CHIUSURA DELLA STRUTTURA ===
+
+  /**
+   * NON RIMUOVERE — usato da FullCalendarContainer (loadClosures, chiamato da
+   * datesSet a ogni cambio del range visibile) per marcare i giorni di
+   * chiusura della struttura e bloccare la creazione e lo spostamento di
+   * appuntamenti in quei giorni.
+   *
+   * Giorni di chiusura nel range [startDate, endDate] (YYYY-MM-DD, estremi
+   * inclusi): le festività arrivano come date, le chiusure settimanali (es. la
+   * domenica) come regola.
+   */
+  async getHolidays(startDate: string, endDate: string): Promise<ClosureRules> {
+    const key = `${startDate}|${endDate}`;
+    const cached = this.closuresCache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CLOSURES_CACHE_DURATION) {
+      return cached.promise;
+    }
+
+    const promise = this.get<APIResponse<ClosureRules> & { message?: string }>(
+      "get-holidays",
+      { startDate, endDate },
+    ).then((response) => {
+      if (!response.success || !response.data) {
+        throw new Error(
+          response.error ||
+            response.message ||
+            "Errore nel caricamento dei giorni di chiusura",
+        );
+      }
+      return {
+        holidays: response.data.holidays || [],
+        closedWeekdays: response.data.closedWeekdays || [],
+      };
+    });
+
+    // Un errore non deve restare in cache
+    promise.catch(() => this.closuresCache.delete(key));
+    this.closuresCache.set(key, { promise, timestamp: Date.now() });
+
+    return promise;
   }
 
   /**

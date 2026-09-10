@@ -28,6 +28,21 @@ import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
+// Riepilogo delle occorrenze non create da pattern e cicli privati: i giorni
+// di chiusura della struttura vanno distinti dai conflitti con altri appuntamenti.
+const describeSkippedOccurrences = (conflicts: Array<{ type?: string }>) => {
+  const closedDays = conflicts.filter((c) => c?.type === "holiday").length;
+  const others = conflicts.length - closedDays;
+  const parts: string[] = [];
+  if (closedDays > 0) {
+    parts.push(`${closedDays} in giorni di chiusura della struttura`);
+  }
+  if (others > 0) {
+    parts.push(`${others} per conflitti con altri appuntamenti`);
+  }
+  return `${conflicts.length} appuntamenti non sono stati creati: ${parts.join(", ")}.`;
+};
+
 const Index = () => {
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -858,7 +873,7 @@ const Index = () => {
         if (patternResult.conflicts && patternResult.conflicts.length > 0) {
           showInfo(
             "Conflitti rilevati",
-            `${patternResult.conflicts.length} appuntamenti non sono stati creati a causa di conflitti con altri appuntamenti.`
+            describeSkippedOccurrences(patternResult.conflicts)
           );
         }
       } else {
@@ -968,7 +983,10 @@ const Index = () => {
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_plan_therapy") {
+        if (conflict?.type === "holiday") {
+          conflictTitle = "Struttura chiusa";
+          conflictMessage = conflict.message;
+        } else if (conflict?.type === "same_plan_therapy") {
           conflictTitle = "Conflitto terapia specifica";
           conflictMessage =
             conflict.message ||
@@ -1042,7 +1060,7 @@ const Index = () => {
         if (result.conflicts && result.conflicts.length > 0) {
           showInfo(
             "Conflitti rilevati",
-            `${result.conflicts.length} appuntamenti non sono stati creati a causa di conflitti.`
+            describeSkippedOccurrences(result.conflicts)
           );
         }
 
@@ -1116,7 +1134,10 @@ const Index = () => {
       if (err instanceof Error && "conflict" in err) {
         const conflict = (err as any).conflict;
         let conflictMessage = conflict?.message || "Conflitto rilevato";
-        showError("Conflitto appuntamento", conflictMessage);
+        showError(
+          conflict?.type === "holiday" ? "Struttura chiusa" : "Conflitto appuntamento",
+          conflictMessage
+        );
       } else {
         const errorMessage =
           err instanceof Error ? err.message : "Errore sconosciuto";
@@ -1541,7 +1562,10 @@ const Index = () => {
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_plan_therapy") {
+        if (conflict?.type === "holiday") {
+          conflictTitle = "Struttura chiusa";
+          conflictMessage = conflict.message;
+        } else if (conflict?.type === "same_plan_therapy") {
           conflictTitle = "Conflitto terapia specifica";
           conflictMessage =
             conflict.message ||

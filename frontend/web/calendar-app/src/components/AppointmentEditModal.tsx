@@ -572,7 +572,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_plan_therapy") {
+        if (conflict?.type === "holiday") {
+          conflictTitle = "Struttura chiusa";
+          conflictMessage = conflict.message;
+        } else if (conflict?.type === "same_plan_therapy") {
           conflictTitle = "Conflitto terapia specifica";
           conflictMessage =
             conflict.message ||

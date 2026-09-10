@@ -338,6 +338,7 @@ class PermissionController extends Controller
             'document_request' => 'Documenti',
             'specialization' => 'Specializzazioni',
             'specialist_visit' => 'Visite Specialistiche',
+            'holiday' => 'Giorni Festivi',
         ];
 
         foreach ($prefixMap as $suffix => $category) {

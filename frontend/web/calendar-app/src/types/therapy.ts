@@ -248,6 +248,8 @@ export interface CreatePatternResponse {
 }
 
 export interface ConflictInfo {
+  /** Presente per i conflitti tipizzati, es. "holiday" per i giorni di chiusura */
+  type?: string;
   date?: string;
   time?: string;
   therapistId?: number;
@@ -337,4 +339,25 @@ export interface TherapistAbsencesResponse {
   };
   total: number;
   absences: TherapistAbsence[];
+}
+
+/** Giorno di chiusura della struttura con data esplicita (festività, chiusura straordinaria). */
+export interface Holiday {
+  date: string; // YYYY-MM-DD
+  name: string;
+}
+
+/** Giorno della settimana sempre chiuso, in numerazione ISO 8601 (1 = lunedì, 7 = domenica). */
+export interface ClosedWeekday {
+  isoDay: number;
+  name: string;
+}
+
+/**
+ * Regole di chiusura per un range: le festività come date, le chiusure
+ * settimanali come regola (valgono per qualunque data, anche fuori range).
+ */
+export interface ClosureRules {
+  holidays: Holiday[];
+  closedWeekdays: ClosedWeekday[];
 }
