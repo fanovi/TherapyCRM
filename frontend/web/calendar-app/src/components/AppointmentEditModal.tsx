@@ -198,6 +198,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
   useEffect(() => {
     if (appointment) {
+      // La modale resta montata fra un'apertura e l'altra: senza questo reset
+      // la scelta "applica azioni a tutto il gruppo" fatta su un appuntamento
+      // resterebbe attiva anche sul successivo (ticket #296).
+      setApplyToWholeGroup(true);
+
       // console.log("📝 AppointmentEditModal ricevuto appointment:", appointment);
       // console.log("📝 appointment.groupSessionId:", appointment.groupSessionId);
       // console.log("📝 appointment.groupPatients:", appointment.groupPatients);
@@ -567,7 +572,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         let conflictMessage = "";
         let conflictTitle = "Conflitto appuntamento";
 
-        if (conflict?.type === "same_plan_therapy") {
+        if (conflict?.type === "holiday") {
+          conflictTitle = "Struttura chiusa";
+          conflictMessage = conflict.message;
+        } else if (conflict?.type === "same_plan_therapy") {
           conflictTitle = "Conflitto terapia specifica";
           conflictMessage =
             conflict.message ||

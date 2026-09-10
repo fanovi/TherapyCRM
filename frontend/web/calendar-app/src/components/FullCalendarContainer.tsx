@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Grid } from "lucide-react";
 import { therapyAPI } from "@/lib/api";
-import { Appointment, TherapistAbsence } from "@/types/therapy";
+import { Appointment, ClosedWeekday, TherapistAbsence } from "@/types/therapy";
 import { getEventBaseColor, lightenColor } from "@/lib/treatmentColors";
 import moment from "moment";
 import "../styles/calendar.css";
@@ -88,6 +88,57 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     return `${now.format("YYYY-MM")}`;
   });
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+
+  // Giorni di chiusura della struttura. Le festivita' sono indicizzate per
+  // data e ogni risposta sostituisce solo le date del proprio range, cosi' una
+  // risposta arrivata fuori ordine non tocca gli altri range; le chiusure
+  // settimanali sono una regola e valgono per qualunque data.
+  const [holidaysByDate, setHolidaysByDate] = useState<Record<string, string>>({});
+  const [closedWeekdays, setClosedWeekdays] = useState<ClosedWeekday[]>([]);
+  const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Data LOCALE YYYY-MM-DD (toISOString e' UTC: off-by-one in CEST)
+  const toLocalDateStr = (d: Date) => {
+    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  };
+
+  // Stessa logica di HolidayService::getClosureName(): prima il giorno della
+  // settimana, poi la data. null se il giorno e' lavorativo.
+  const getClosureName = (date: Date): string | null => {
+    const isoDay = date.getDay() === 0 ? 7 : date.getDay();
+    const weekly = closedWeekdays.find((w) => w.isoDay === isoDay);
+    if (weekly) {
+      return weekly.name;
+    }
+    return holidaysByDate[toLocalDateStr(date)] ?? null;
+  };
+
+  // Carica le regole di chiusura per il range visibile ([start, end) come FullCalendar)
+  const loadClosures = async (start: Date, end: Date) => {
+    const lastDay = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(lastDay);
+    try {
+      const rules = await therapyAPI.getHolidays(startStr, endStr);
+      setHolidaysByDate((prev) => {
+        const next: Record<string, string> = {};
+        Object.entries(prev).forEach(([date, name]) => {
+          if (date < startStr || date > endStr) {
+            next[date] = name;
+          }
+        });
+        rules.holidays.forEach((h) => {
+          next[h.date] = h.name;
+        });
+        return next;
+      });
+      setClosedWeekdays(rules.closedWeekdays);
+    } catch (error) {
+      // Il calendario resta usabile: il blocco vero lo applica il backend
+      console.error("Errore caricamento giorni di chiusura:", error);
+    }
+  };
 
   // Carica gli appuntamenti dal server per un range di date
   const loadAppointments = async (startDate?: Date, endDate?: Date) => {
@@ -442,8 +493,39 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     };
   });
 
-  // Combina eventi normali e assenze
-  const allEvents = [...(externalEvents || events), ...absenceEvents];
+  // Giorni di chiusura: un evento di sfondo per ogni giorno chiuso visibile.
+  // Essendo all-day + background, FullCalendar lo stende anche sulla griglia
+  // oraria (che qui non ha la riga allDay). Le domeniche restano visibili, niente
+  // hiddenDays: gli appuntamenti gia' presenti devono poter essere spostati o annullati.
+  const holidayEvents: EventInput[] = [];
+  if (visibleRange) {
+    const { start, end } = visibleRange;
+    for (
+      let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      d < end;
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+    ) {
+      const name = getClosureName(d);
+      if (name) {
+        const dateStr = toLocalDateStr(d);
+        holidayEvents.push({
+          id: `holiday-${dateStr}`,
+          title: `Chiuso · ${name}`,
+          start: dateStr,
+          end: toLocalDateStr(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)),
+          allDay: true,
+          display: "background",
+          // Colore esplicito: senza, FullCalendar userebbe eventBackgroundColor (azzurro)
+          backgroundColor: "rgba(244, 63, 94, 0.12)",
+          classNames: ["holiday-event"],
+          extendedProps: { isHoliday: true, holidayName: name },
+        });
+      }
+    }
+  }
+
+  // Combina eventi normali, assenze e giorni di chiusura
+  const allEvents: EventInput[] = [...(externalEvents || events), ...absenceEvents, ...holidayEvents];
   const displayEvents = allEvents;
 
   // Espone funzioni per comunicazione con altri calendari
@@ -491,9 +573,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const event = clickInfo.event;
     const props = event.extendedProps;
 
-    // Le assenze terapista non sono appuntamenti: il click non deve aprire
-    // alcun modal di modifica appuntamento.
-    if (props.isAbsence) {
+    // Le assenze terapista e i giorni di chiusura non sono appuntamenti: il
+    // click non deve aprire alcun modal di modifica appuntamento.
+    if (props.isAbsence || props.isHoliday) {
       return;
     }
 
@@ -543,6 +625,20 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     // Se è readOnly, non permettere selezione
     if (readOnly) {
+      return;
+    }
+
+    // Giorno di chiusura della struttura: nessun appuntamento, per nessuno.
+    // Si lascia partire la selezione (invece di selectAllow) per poter
+    // spiegare con un toast perche' lo slot non e' disponibile.
+    const closureName = getClosureName(selectInfo.start);
+    if (closureName) {
+      toast({
+        title: "Struttura chiusa",
+        description: `${closureName}: non è possibile creare appuntamenti in questo giorno.`,
+        variant: "destructive",
+      });
+      calendarRef.current?.getApi()?.unselect();
       return;
     }
 
@@ -602,6 +698,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
     const selectedEnd = selectInfo.end.getTime();
 
     const hasConflict = displayEvents.some((event) => {
+      if (event.extendedProps?.isHoliday) {
+        return false;
+      }
       const eventStart = new Date(event.start as string).getTime();
       const eventEnd = new Date(event.end as string).getTime();
 
@@ -700,8 +799,9 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
   const eventContent = (eventInfo: any) => {
     const props = eventInfo.event.extendedProps;
 
-    // Le assenze (blocchi grigi) usano il rendering di default di FullCalendar.
-    if (props.isAbsence) {
+    // Le assenze (blocchi grigi) e i giorni di chiusura usano il rendering di
+    // default di FullCalendar.
+    if (props.isAbsence || props.isHoliday) {
       return true;
     }
 
@@ -884,8 +984,8 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           eventDidMount={(info: any) => {
             const props = info.event.extendedProps;
 
-            // Le assenze (blocchi viola) mantengono il proprio stile.
-            if (props.isAbsence) {
+            // Le assenze (blocchi viola) e i giorni di chiusura mantengono il proprio stile.
+            if (props.isAbsence || props.isHoliday) {
               return;
             }
 
@@ -906,8 +1006,12 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
           editable={!readOnly}
           droppable={!readOnly}
           eventAllow={(dropInfo, draggedEvent) => {
-            // Impedisci il drop se l'evento non è editable
-            return draggedEvent.extendedProps?.isEditable !== false;
+            // Impedisci il drop se l'evento non è editable o se la
+            // destinazione cade in un giorno di chiusura della struttura
+            return (
+              draggedEvent.extendedProps?.isEditable !== false &&
+              getClosureName(dropInfo.start) === null
+            );
           }}
           locale="it"
           buttonText={{
@@ -944,9 +1048,18 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
               dateStr >= a.start_date &&
               dateStr <= a.end_date
             );
-            return blocked ? ["absence-day-bg"] : [];
+            const classes = blocked ? ["absence-day-bg"] : [];
+            if (getClosureName(d)) {
+              classes.push("holiday-day-bg");
+            }
+            return classes;
           }}
           datesSet={(dateInfo) => {
+            // Regole di chiusura per il range visibile (indipendenti da
+            // externalEvents: valgono per calendario terapista e paziente)
+            setVisibleRange({ start: dateInfo.start, end: dateInfo.end });
+            loadClosures(dateInfo.start, dateInfo.end);
+
             // Notifica la navigazione se definita
             if (onNavigate) {
               const calendarApi = calendarRef.current?.getApi();

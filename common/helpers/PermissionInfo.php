@@ -247,6 +247,28 @@ class PermissionInfo
                 'description' => "Accesso a parametri di configurazione del gestionale (e-mail, integrazioni, etc)."
             ],
 
+            // ==== Giorni Festivi ====
+            'view_holiday' => [
+                'title' => 'Visualizzare giorni festivi',
+                'description' => "Accesso in lettura all'elenco dei giorni di chiusura della struttura: festività nazionali, chiusure straordinarie e chiusure settimanali (es. la domenica).\n\n"
+                    . "Il blocco degli appuntamenti nei giorni chiusi vale per tutti, anche senza questo permesso."
+            ],
+            'create_holiday' => [
+                'title' => 'Creare giorni festivi',
+                'description' => "Permette di aggiungere un giorno di chiusura: ricorrente ogni anno, una tantum, calcolato (Pasqua, Lunedì dell'Angelo) o settimanale.\n\n"
+                    . "Non è possibile chiudere un giorno che ha ancora appuntamenti programmati: vanno prima spostati o annullati."
+            ],
+            'update_holiday' => [
+                'title' => 'Modificare giorni festivi',
+                'description' => "Permette di modificare, disattivare o riattivare un giorno di chiusura.\n\n"
+                    . "Spostare o riattivare una chiusura su un giorno con appuntamenti programmati viene bloccato."
+            ],
+            'delete_holiday' => [
+                'title' => 'Eliminare giorni festivi',
+                'description' => "Rimuove un giorno di chiusura: da quel momento il giorno torna disponibile per nuovi appuntamenti.\n\n"
+                    . "Per sospenderlo senza perderlo è preferibile disattivarlo."
+            ],
+
             // ==== Gestione Admin ====
             'create_admin' => [
                 'title' => 'Creare amministratori',

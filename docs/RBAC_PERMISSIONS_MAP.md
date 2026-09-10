@@ -245,6 +245,19 @@
 
 ---
 
+### 19. Giorni Festivi
+
+| Permesso | Descrizione | super_admin | admin | manager | coordinator | therapist | patient | patient_family |
+|----------|-------------|:-----------:|:-----:|:-------:|:-----------:|:---------:|:-------:|:--------------:|
+| `view_holiday` | Visualizzare i giorni festivi | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `create_holiday` | Creare giorni festivi | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `update_holiday` | Modificare giorni festivi | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `delete_holiday` | Eliminare giorni festivi | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+I permessi governano solo l'anagrafica delle chiusure. Il blocco degli appuntamenti nei giorni chiusi vale per chiunque e non ha permesso di bypass.
+
+---
+
 ## Controllo Accesso per Interfaccia
 
 | Interfaccia | Ruoli con Accesso | Permesso Richiesto |
@@ -274,6 +287,7 @@
 | `console/migrations/m250620_000000_create_login_permissions.php` | Permessi di login |
 | `console/migrations/m260204_133225_add_super_admin_role.php` | Ruolo super_admin |
 | `console/migrations/m260225_000001_remove_coordinator_update_therapist.php` | Rimozione permesso al coordinator |
+| `console/migrations/m260909_150100_add_holiday_permissions.php` | Permessi giorni festivi |
 | `console/controllers/RbacController.php` | Comandi CLI per gestione RBAC |
 | `common/models/AuthItem.php` | Modello ruoli/permessi |
 | `common/models/AuthItemChild.php` | Modello relazioni ruolo-permesso |

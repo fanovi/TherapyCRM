@@ -92,3 +92,7 @@ Dati Personali,update_own_data,Modificare propri dati,SI,SI,NO,SI,SI,SI,SI
 Dati Personali,view_assigned_patients,Visualizzare pazienti assegnati,SI,SI,NO,NO,SI,NO,NO
 Configurazione,manage_districts,Gestire distretti,SI,SI,SI,NO,NO,NO,NO
 Configurazione,manage_settings,Gestire impostazioni,SI,SI,SI,NO,NO,NO,NO
+Giorni Festivi,view_holiday,Visualizzare i giorni festivi,SI,SI,NO,NO,NO,NO,NO
+Giorni Festivi,create_holiday,Creare giorni festivi,SI,SI,NO,NO,NO,NO,NO
+Giorni Festivi,update_holiday,Modificare giorni festivi,SI,SI,NO,NO,NO,NO,NO
+Giorni Festivi,delete_holiday,Eliminare giorni festivi,SI,SI,NO,NO,NO,NO,NO

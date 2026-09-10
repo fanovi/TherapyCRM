@@ -22,6 +22,7 @@ use common\models\Therapist;
 use common\models\TherapistSpecialization;
 use common\models\TherapistSubstitution;
 use common\models\TreatmentType;
+use common\services\HolidayService;
 use yii\filters\AccessControl;
 use yii\filters\Cors;
 use yii\filters\VerbFilter;
@@ -176,6 +177,12 @@ class TherapeuticPlanManagerController extends Controller
             $therapist = $this->findTherapist($data['therapistId']);
 
             $this->validateTherapist($data);
+
+            // Giorno di chiusura della struttura
+            $holidayConflict = $this->checkHolidayConflict($data['appointmentDateTime']);
+            if ($holidayConflict) {
+                return $this->holidayConflictResponse($holidayConflict);
+            }
 
             // Verifica conflitti terapista
             $conflict = $this->checkTherapistConflict(
@@ -332,6 +339,12 @@ class TherapeuticPlanManagerController extends Controller
                 $treatmentType->id,
                 $explicitSpecializationId
             );
+
+            // Giorno di chiusura della struttura
+            $holidayConflict = $this->checkHolidayConflict($data['appointmentDateTime']);
+            if ($holidayConflict) {
+                return $this->holidayConflictResponse($holidayConflict);
+            }
 
             // Verifica conflitti terapista
             $conflict = $this->checkTherapistConflict(
@@ -708,6 +721,68 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * Giorni di chiusura della struttura nel range richiesto, per il calendario.
+     *
+     * Le festivita' a data arrivano espanse (holidays); le chiusure settimanali
+     * come regola (closedWeekdays), cosi' la response resta piccola anche su
+     * range lunghi e il client marca le domeniche senza dipendere dal range.
+     *
+     * GET ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+     *
+     * @return array
+     */
+    public function actionGetHolidays()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $startDate = (string) Yii::$app->request->get('startDate', '');
+        $endDate = (string) Yii::$app->request->get('endDate', '');
+
+        $start = DateTime::createFromFormat('!Y-m-d', $startDate);
+        $end = DateTime::createFromFormat('!Y-m-d', $endDate);
+        if (!$start || !$end || $start->format('Y-m-d') !== $startDate || $end->format('Y-m-d') !== $endDate) {
+            return [
+                'success' => false,
+                'message' => 'startDate e endDate obbligatori nel formato YYYY-MM-DD',
+                'data' => null
+            ];
+        }
+        // Il calendario chiede al massimo il range visibile: un tetto evita di
+        // espandere secoli di festivita' per un parametro sbagliato
+        if ($start > $end || $start->diff($end)->days > 1100) {
+            return [
+                'success' => false,
+                'message' => 'Intervallo di date non valido (massimo 3 anni)',
+                'data' => null
+            ];
+        }
+
+        $holidays = [];
+        foreach (HolidayService::getDatesInRange($startDate, $endDate) as $date => $name) {
+            $holidays[] = ['date' => $date, 'name' => $name];
+        }
+
+        $closedWeekdays = [];
+        foreach (HolidayService::getClosedWeekdays() as $isoDay => $name) {
+            $closedWeekdays[] = ['isoDay' => $isoDay, 'name' => $name];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Festività recuperate con successo',
+            'data' => [
+                'filters' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ],
+                'total' => count($holidays),
+                'holidays' => $holidays,
+                'closedWeekdays' => $closedWeekdays
+            ]
+        ];
+    }
+
+    /**
      * Aggiorna l'appuntamento con un ID di sessione di gruppo
      *
      * @return array
@@ -804,6 +879,18 @@ class TherapeuticPlanManagerController extends Controller
                             'date' => $occDate,
                             'time' => $occTime,
                             'reason' => 'Già di gruppo',
+                        ];
+                        continue;
+                    }
+
+                    // In un giorno di chiusura non si apre un gruppo: non potrebbe
+                    // comunque accogliere nuovi pazienti
+                    $holidayConflict = $this->checkHolidayConflict($occ->appointment_datetime);
+                    if ($holidayConflict) {
+                        $skipped[] = [
+                            'date' => $occDate,
+                            'time' => $occTime,
+                            'reason' => $holidayConflict['reason'],
                         ];
                         continue;
                     }
@@ -2706,6 +2793,12 @@ class TherapeuticPlanManagerController extends Controller
                 throw new BadRequestHttpException('Non è possibile modificare un appuntamento con stato "' . $appointment->status . '"');
             }
 
+            // Spostamento in un giorno di chiusura (vale per piano e privati)
+            $holidayConflict = $this->checkHolidayConflictOnReschedule($appointment, $data['appointmentDateTime']);
+            if ($holidayConflict) {
+                return $this->holidayConflictResponse($holidayConflict);
+            }
+
             // Gestione diversa per appuntamenti privati vs piano terapeutico
             if ($appointment->appointment_source === Appointment::SOURCE_PRIVATE) {
                 return $this->updatePrivateAppointment($appointment, $data);
@@ -2935,13 +3028,25 @@ class TherapeuticPlanManagerController extends Controller
         $applyToGroup = $data['applyToGroup'] ?? false;
         $appointmentsToUpdate = [$appointment];
 
-        // Controllo per rimuovere groupSessionId se applyToGroup è false e la data/ora è cambiata
+        // Controllo per rimuovere groupSessionId quando applyToGroup è false e
+        // l'appuntamento viene individualizzato: cambio di data/ora OPPURE cambio
+        // di terapista. Senza il secondo caso il paziente restava agganciato al
+        // gruppo pur passando a un altro terapista, e ogni azione successiva sul
+        // gruppo se lo trascinava dietro (ticket #296).
         $shouldRemoveGroupSessionId = false;
+        $previousGroupSessionId = $appointment->group_session_id;
         if (!$applyToGroup && $appointment->group_session_id !== null) {
             $dateTimeChanged = $data['appointmentDateTime'] != $appointment->appointment_datetime;
-            if ($dateTimeChanged) {
+            $therapistChanged = isset($data['therapistId'])
+                && (int) $data['therapistId'] !== (int) $appointment->therapist_id;
+            if ($dateTimeChanged || $therapistChanged) {
                 $shouldRemoveGroupSessionId = true;
-                Yii::info("Rimozione groupSessionId - applyToGroup: false, groupSessionId esistente: {$appointment->group_session_id}, data/ora cambiata", __METHOD__);
+                Yii::info(
+                    "Rimozione groupSessionId - applyToGroup: false, groupSessionId esistente: {$appointment->group_session_id}"
+                        . ', data/ora cambiata: ' . ($dateTimeChanged ? 'si' : 'no')
+                        . ', terapista cambiato: ' . ($therapistChanged ? 'si' : 'no'),
+                    __METHOD__
+                );
             }
         }
 
@@ -3009,6 +3114,12 @@ class TherapeuticPlanManagerController extends Controller
 
             $transaction->commit();
 
+            // Il paziente e' uscito dal gruppo: se il gruppo di partenza resta con
+            // un solo appuntamento attivo non e' piu' un gruppo (ticket #296).
+            if ($shouldRemoveGroupSessionId && $previousGroupSessionId !== null) {
+                $this->dissolveGroupIfSingleMember($previousGroupSessionId);
+            }
+
             $message = count($updatedAppointments) > 1
                 ? 'Appuntamenti di gruppo aggiornati con successo'
                 : 'Appuntamento aggiornato con successo';
@@ -3069,6 +3180,15 @@ class TherapeuticPlanManagerController extends Controller
             // Verifica che l'appuntamento non sia nel passato
             if ($startDate <= $currentDate) {
                 Yii::info("Saltato appuntamento nel passato: {$appointmentDateTime}", __METHOD__);
+                $startDate->modify("+{$daysToAdd} days");
+                continue;
+            }
+
+            // Giorno di chiusura: l'occorrenza si salta, il ciclo prosegue
+            $holidayConflict = $this->checkHolidayConflict($appointmentDateTime);
+            if ($holidayConflict) {
+                Yii::info("Giorno di chiusura ({$holidayConflict['holidayName']}) per {$appointmentDateTime}", __METHOD__);
+                $result['conflicts'][] = $holidayConflict + ['time' => $startDate->format('H:i')];
                 $startDate->modify("+{$daysToAdd} days");
                 continue;
             }
@@ -3429,6 +3549,15 @@ class TherapeuticPlanManagerController extends Controller
                     // Calcola nuova data/ora mantenendo stesso giorno e ora
                     $appointmentDate = new DateTime($appointment->appointment_datetime);
                     $newDateTime = $appointmentDate->format('Y-m-d ') . $data['startTime'];
+
+                    // Cambio orario in un giorno di chiusura: si salta, senza
+                    // far fallire l'intero aggiornamento. Se cambia solo il
+                    // terapista l'occorrenza resta aggiornabile.
+                    $holidayConflict = $this->checkHolidayConflictOnReschedule($appointment, $newDateTime);
+                    if ($holidayConflict) {
+                        $errors[] = $holidayConflict + ['time' => $data['startTime']];
+                        continue;
+                    }
 
                     // Verifica conflitti terapista
                     $conflict = $this->checkTherapistConflict(
@@ -4164,6 +4293,15 @@ class TherapeuticPlanManagerController extends Controller
 
                 Yii::info("Tentativo creazione appuntamento: {$appointmentDateTime}", __METHOD__);
 
+                // Giorno di chiusura: l'occorrenza si salta, il pattern prosegue
+                $holidayConflict = $this->checkHolidayConflict($appointmentDateTime);
+                if ($holidayConflict) {
+                    Yii::info("Giorno di chiusura ({$holidayConflict['holidayName']}) per {$appointmentDateTime}", __METHOD__);
+                    $result['conflicts'][] = $holidayConflict + ['time' => $startTime];
+                    $currentDate->modify('+1 day');
+                    continue;
+                }
+
                 // Verifica conflitti terapista
                 $conflict = $this->checkTherapistConflict(
                     $pattern->therapist_id,
@@ -4408,6 +4546,77 @@ class TherapeuticPlanManagerController extends Controller
     {
         $groupSessionId = $data['groupSessionId'] ?? Appointment::generateGroupSessionId();
         return $groupSessionId;
+    }
+
+    /**
+     * Verifica se la data cade in un giorno di chiusura della struttura
+     * (festivita', chiusure straordinarie, chiusure settimanali).
+     * Il blocco vale per chiunque: non esiste un permesso di bypass. La stessa
+     * regola e' applicata anche da Appointment::validateNotHoliday(); qui serve
+     * a restituire alla SPA un conflitto strutturato invece di un errore di
+     * validazione generico.
+     *
+     * @param string $appointmentDateTime
+     * @return array|null info del conflitto (type 'holiday'), null se il giorno e' aperto
+     */
+    private function checkHolidayConflict($appointmentDateTime)
+    {
+        $name = HolidayService::getClosureName((string) $appointmentDateTime);
+        if ($name === null) {
+            return null;
+        }
+
+        $date = new DateTime($appointmentDateTime);
+
+        return [
+            'type' => 'holiday',
+            'code' => 'HOLIDAY',
+            'date' => $date->format('Y-m-d'),
+            'holidayName' => $name,
+            'message' => "Struttura chiusa il {$date->format('d/m/Y')} ({$name}): non è possibile programmare appuntamenti in questo giorno.",
+            // Stessa chiave usata dai conflitti dei gruppi ricorrenti
+            'reason' => "Struttura chiusa ({$name})",
+        ];
+    }
+
+    /**
+     * Come checkHolidayConflict(), ma per una riprogrammazione: scatta solo se
+     * data/ora cambiano davvero. Un appuntamento gia' presente in un giorno
+     * diventato chiuso (es. le domeniche pregresse) resta modificabile in tutto
+     * il resto: terapista, durata, note.
+     *
+     * @param Appointment $appointment
+     * @param string $newDateTime
+     * @return array|null
+     */
+    private function checkHolidayConflictOnReschedule($appointment, $newDateTime)
+    {
+        try {
+            $unchanged = (new DateTime($newDateTime))->format('Y-m-d H:i:s')
+                === (new DateTime($appointment->appointment_datetime))->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            // Formato non valido: lo segnala la validazione del modello
+            return null;
+        }
+
+        return $unchanged ? null : $this->checkHolidayConflict($newDateTime);
+    }
+
+    /**
+     * Response di blocco per un giorno di chiusura, nella stessa forma degli
+     * altri conflitti (error + conflict), con code HOLIDAY.
+     *
+     * @param array $holidayConflict output di checkHolidayConflict()
+     * @return array
+     */
+    private function holidayConflictResponse(array $holidayConflict)
+    {
+        return [
+            'success' => false,
+            'error' => $holidayConflict['message'],
+            'code' => 'HOLIDAY',
+            'conflict' => $holidayConflict,
+        ];
     }
 
     /**
@@ -5248,8 +5457,16 @@ class TherapeuticPlanManagerController extends Controller
                 // Riassegnazione: l'appuntamento e' gia' stato sostituito in precedenza,
                 // quindi il terapista corrente e' un sostituto PRESENTE. In questo caso
                 // non va registrata nessuna assenza a suo carico (ticket #296).
-                $isReassignment = $appointment->original_therapist_id !== null
-                    || TherapistSubstitution::find()->where(['appointment_id' => $appointment->id])->exists();
+                // La traccia va cercata su TUTTI gli appuntamenti coinvolti: in una
+                // sostituzione di gruppo l'assenza viene creata sul primo elemento
+                // della lista, che non e' necessariamente quello su cui si e' cliccato.
+                $isReassignment = false;
+                foreach ($appointmentsToSubstitute as $aptToCheck) {
+                    if ($this->appointmentHasSubstitutionTrace($aptToCheck)) {
+                        $isReassignment = true;
+                        break;
+                    }
+                }
 
                 // Pre-fetch eventuali appuntamenti del nuovo terapista negli stessi slot.
                 // Servono per fondere automaticamente in un gruppo quando l'utente
@@ -5290,6 +5507,17 @@ class TherapeuticPlanManagerController extends Controller
                         if (!$currentAppointment->save()) {
                             throw new Exception("Errore nel salvataggio dell'appuntamento ID {$currentAppointment->id}: " . json_encode($currentAppointment->errors));
                         }
+
+                        // Traccia comunque la sostituzione: senza questo record una
+                        // successiva revoca/riassegnazione non riconosce che il
+                        // terapista attuale e' un sostituto PRESENTE e gli registra
+                        // un'assenza inesistente (ticket #296).
+                        $this->trackSubstitution(
+                            $currentAppointment,
+                            $originalTherapistId,
+                            $newTherapistId,
+                            $reason
+                        );
 
                         $substitutedCount++;
                         $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -5355,22 +5583,12 @@ class TherapeuticPlanManagerController extends Controller
                     }
 
                     // Crea o aggiorna il record di sostituzione
-                    $substitution = TherapistSubstitution::findOne(['appointment_id' => $currentAppointment->id]);
-
-                    if (!$substitution) {
-                        $substitution = new TherapistSubstitution();
-                        $substitution->appointment_id = $currentAppointment->id;
-                        $substitution->original_therapist_id = $originalTherapistId;
-                    }
-
-                    $substitution->substitute_therapist_id = $newTherapistId;
-                    $substitution->reason = $reason;
-                    $substitution->substituted_by = Yii::$app->user->id ?: 1;
-                    $substitution->substituted_at = date('Y-m-d H:i:s');
-
-                    if (!$substitution->save()) {
-                        throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
-                    }
+                    $this->trackSubstitution(
+                        $currentAppointment,
+                        $originalTherapistId,
+                        $newTherapistId,
+                        $reason
+                    );
 
                     $substitutedCount++;
                     $substitutedAppointmentIds[] = $currentAppointment->id;
@@ -5462,6 +5680,74 @@ class TherapeuticPlanManagerController extends Controller
             } else {
                 Yii::info("Gruppo {$groupSessionId} dissolto: rimasto solo l'appuntamento {$survivor->id}", __METHOD__);
             }
+        }
+    }
+
+    /**
+     * Verifica se l'appuntamento porta traccia di una sostituzione gia' avvenuta.
+     * In tal caso il terapista che lo detiene ora e' un sostituto PRESENTE: una
+     * nuova sostituzione e' una semplice riassegnazione e non deve generare
+     * alcuna assenza a suo carico (ticket #296).
+     *
+     * @param Appointment $appointment
+     * @return bool
+     */
+    private function appointmentHasSubstitutionTrace($appointment)
+    {
+        if ($appointment->original_therapist_id !== null) {
+            return true;
+        }
+
+        return TherapistSubstitution::find()
+            ->where(['appointment_id' => $appointment->id])
+            ->exists();
+    }
+
+    /**
+     * Crea o aggiorna il record di audit della sostituzione per un appuntamento.
+     * Va scritto anche quando l'assenza non viene registrata, altrimenti una
+     * successiva revoca non riconosce il terapista attuale come sostituto
+     * presente e gli attribuisce un'assenza inesistente (ticket #296).
+     *
+     * @param Appointment $appointment
+     * @param int $originalTherapistId
+     * @param int $newTherapistId
+     * @param string|null $reason
+     */
+    private function trackSubstitution($appointment, $originalTherapistId, $newTherapistId, $reason)
+    {
+        $substitution = TherapistSubstitution::findOne(['appointment_id' => $appointment->id]);
+
+        // REVOCA: l'appuntamento torna al terapista che lo aveva in origine,
+        // quindi non e' piu' una sostituzione e il record va rimosso. Aggiornarlo
+        // fallirebbe: TherapistSubstitution vieta sostituto == originale, e
+        // l'eccezione farebbe abortire l'intera revoca (ticket #296).
+        if ($substitution && (int) $substitution->original_therapist_id === (int) $newTherapistId) {
+            if ($substitution->delete() === false) {
+                throw new Exception("Errore nella revoca della sostituzione per l'appuntamento {$appointment->id}");
+            }
+            Yii::info("Sostituzione revocata per l'appuntamento {$appointment->id}: torna al terapista originale {$newTherapistId}", __METHOD__);
+            return;
+        }
+
+        if (!$substitution) {
+            // Niente da tracciare se il "sostituto" coincide con l'attuale titolare.
+            if ((int) $originalTherapistId === (int) $newTherapistId) {
+                return;
+            }
+
+            $substitution = new TherapistSubstitution();
+            $substitution->appointment_id = $appointment->id;
+            $substitution->original_therapist_id = $originalTherapistId;
+        }
+
+        $substitution->substitute_therapist_id = $newTherapistId;
+        $substitution->reason = $reason;
+        $substitution->substituted_by = Yii::$app->user->id ?: 1;
+        $substitution->substituted_at = date('Y-m-d H:i:s');
+
+        if (!$substitution->save()) {
+            throw new Exception('Errore nel salvataggio della sostituzione: ' . json_encode($substitution->errors));
         }
     }
 
@@ -5847,6 +6133,12 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
             $this->validateTherapist($data);
+
+            // Giorno di chiusura della struttura
+            $holidayConflict = $this->checkHolidayConflict($data['appointmentDateTime']);
+            if ($holidayConflict) {
+                return $this->holidayConflictResponse($holidayConflict);
+            }
 
             $isRecovery = isset($data['appointmentCategory'])
                 && $data['appointmentCategory'] === Appointment::CATEGORY_RECOVERY;
@@ -6650,6 +6942,14 @@ class TherapeuticPlanManagerController extends Controller
                     $occDateTime = $occ->appointment_datetime;
                     $occDuration = $occ->duration_minutes;
                     $occDate = date('Y-m-d', strtotime($occDateTime));
+
+                    // Occorrenza in un giorno di chiusura: il gruppo esistente resta,
+                    // ma non vi si aggiungono nuovi appuntamenti
+                    $holidayConflict = $this->checkHolidayConflict($occDateTime);
+                    if ($holidayConflict) {
+                        $conflicts[] = $holidayConflict + ['time' => date('H:i', strtotime($occDateTime))];
+                        continue;
+                    }
 
                     // Paziente già presente in questa sessione?
                     $alreadyIn = Appointment::find()

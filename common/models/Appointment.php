@@ -7,6 +7,7 @@ use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
 use yii\helpers\ArrayHelper;
 use Ramsey\Uuid\Uuid;
+use common\services\HolidayService;
 
 /**
  * This is the model class for table "appointments".
@@ -130,6 +131,7 @@ class Appointment extends ActiveRecord
             [['appointment_type'], 'default', 'value' => self::TYPE_TERAPIA],
             [['duration_minutes'], 'integer', 'min' => 15, 'max' => 180],
             [['appointment_datetime'], 'validateFutureDateTime'],
+            [['appointment_datetime'], 'validateNotHoliday'],
             [['therapist_id', 'appointment_datetime'], 'validateTherapistAvailability'],
             // Validazione condizionale per appuntamenti da piano terapeutico
             [['plan_therapy_id'], 'required', 'when' => function ($model) {
@@ -221,6 +223,29 @@ class Appointment extends ActiveRecord
         // Per ora accettiamo qualsiasi data per il testing
         if (!empty($this->$attribute)) {
             \Yii::info("Validazione data futura temporaneamente disabilitata per testing - DateTime: {$this->$attribute}", __METHOD__);
+        }
+    }
+
+    /**
+     * Blocca gli appuntamenti nei giorni di chiusura della struttura (festivita',
+     * chiusure straordinarie, chiusure settimanali). Vale per chiunque: non esiste
+     * un permesso di bypass.
+     */
+    public function validateNotHoliday($attribute, $params)
+    {
+        if (empty($this->$attribute)) {
+            return;
+        }
+        // Solo appuntamenti nuovi o riprogrammati: un appuntamento gia' a
+        // calendario in un giorno diventato chiuso (es. le domeniche pregresse)
+        // deve restare gestibile — completamento, note, sostituzioni, annullamento.
+        if (!$this->isNewRecord && !$this->isAttributeChanged($attribute, false)) {
+            return;
+        }
+
+        $name = HolidayService::getClosureName($this->$attribute);
+        if ($name !== null) {
+            $this->addError($attribute, "Struttura chiusa ({$name}): non è possibile programmare appuntamenti in questo giorno.");
         }
     }
 

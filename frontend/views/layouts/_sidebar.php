@@ -30,6 +30,7 @@ $menuMappings = [
     'Absences' => ['absence/index', 'absence/patients', 'absence/create', 'absence/view', 'absence/update', 'absence/create-patient-absence'],
     'Manuale' => ['site/manuale', 'site/manuale-gestionale', 'site/manuale-app'],
     'RolePermissions' => ['permission/roles', 'permission/view-role'],
+    'Holidays' => ['holiday/index', 'holiday/create', 'holiday/update'],
 ];
 
 // Funzione per controllare se un menu è attivo
@@ -1097,6 +1098,81 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                     <?php endif; ?>
                     <!-- Menu Item Managers -->
 
+                    <!-- Menu Item Giorni Festivi -->
+                    <?php if (Yii::$app->user->can('view_holiday')): ?>
+                    <li>
+                        <a
+                            href="#"
+                            @click.prevent="selected = (selected === 'Holidays' ? '':'Holidays')"
+                            class="menu-item group"
+                            :class="(selected === 'Holidays') || <?= isMenuActive('Holidays', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-active' : 'menu-item-inactive'">
+                            <svg
+                                :class="(selected === 'Holidays') || <?= isMenuActive('Holidays', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-icon-active'  :'menu-item-icon-inactive'"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5ZM9.5 13.5L14.5 18.5M14.5 13.5L9.5 18.5"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+
+                            <span
+                                class="menu-item-text"
+                                :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Giorni Festivi
+                            </span>
+
+                            <svg
+                                class="menu-item-arrow"
+                                :class="[(selected === 'Holidays') || <?= isMenuActive('Holidays', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585"
+                                    stroke=""
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </a>
+
+                        <!-- Dropdown Menu Start -->
+                        <div
+                            class="overflow-hidden transform translate"
+                            :class="(selected === 'Holidays') || <?= isMenuActive('Holidays', $currentRoute, $menuMappings) ? 'true' : 'false' ?> ? 'block' :'hidden'">
+                            <ul
+                                :class="sidebarToggle ? 'lg:hidden' : 'flex'"
+                                class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/holiday/index']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['holiday/index', 'holiday/update'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Visualizza Giorni Festivi
+                                    </a>
+                                </li>
+                                <?php if (Yii::$app->user->can('create_holiday')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/holiday/create']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['holiday/create'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Nuova Festività
+                                    </a>
+                                </li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        <!-- Dropdown Menu End -->
+                    </li>
+                    <?php endif; ?>
+                    <!-- Menu Item Giorni Festivi End -->
 
                     <!-- Menu Item Permessi Ruoli -->
                     <?php if (Yii::$app->user->can('manage_permissions')): ?>
