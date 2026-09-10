@@ -611,9 +611,15 @@ export const removeAbsence = async (appointmentId, notes = '') => {
 /**
  * Verifica se un appuntamento con assenza può essere ripristinato
  * @param {Object} appointment - Oggetto appuntamento
+ * @param {Object} [options] - Opzioni di contesto
+ * @param {boolean} [options.isTherapist=false] - True se la verifica è per il
+ *   terapista autenticato: salta il vincolo temporale e consente la revoca
+ *   delle assenze inserite dal gestionale, come fa il server.
  * @returns {boolean} - True se l'assenza può essere rimossa
  */
-export const canRemoveAbsence = appointment => {
+export const canRemoveAbsence = (appointment, options = {}) => {
+  const {isTherapist = false} = options;
+
   // Solo se lo status è assente (giustificato o non giustificato)
   if (
     appointment.status !== 'assente_giustificato' &&
@@ -622,9 +628,16 @@ export const canRemoveAbsence = appointment => {
     return false;
   }
 
-  // Le assenze inserite dal gestionale non sono revocabili dal paziente
-  if (appointment.is_admin_absence) {
+  // Le assenze inserite dal gestionale non sono revocabili dal paziente,
+  // il terapista sì. Specchio di api/controllers/CalendarController.php:1587
+  if (appointment.is_admin_absence && !isTherapist) {
     return false;
+  }
+
+  // Vincolo "almeno 1 ora prima": vale solo per il paziente in self-service.
+  // Specchio di api/controllers/CalendarController.php:1594
+  if (isTherapist) {
+    return true;
   }
 
   const appointmentDate = new Date(appointment.datetime);
