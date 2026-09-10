@@ -595,7 +595,9 @@ const TherapistCalendarScreen = () => {
       now.isAfter(appointmentStart) &&
       now.isBefore(fifteenMinutesAfterEnd);
 
-    const canRemoveAbsenceCheck = canRemoveAbsence(appointment);
+    const canRemoveAbsenceCheck = canRemoveAbsence(appointment, {
+      isTherapist: true,
+    });
 
     const showMenu = canMarkAbsent || canRemoveAbsenceCheck || true; // Sempre mostrare per le note
 
