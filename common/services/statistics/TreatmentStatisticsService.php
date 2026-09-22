@@ -67,8 +67,8 @@ class TreatmentStatisticsService
                 ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
 
             // Applica filtri
-            if (!empty($filters['includeInactive']) && !$filters['includeInactive']) {
-                $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            if (empty($filters['includeInactive'])) {
+                $this->applyActivePlanFilter($query);
             }
 
             if (!empty($filters['dateFrom'])) {
@@ -111,7 +111,9 @@ class TreatmentStatisticsService
                 ->from('treatment_types tt')
                 ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
                 ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['>=', 'tp.end_date', date('Y-m-d')])
+                ->where(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
                 ->groupBy(['tt.id', 'tt.name', 'tt.code'])
                 ->orderBy(['patient_count' => SORT_DESC])
                 ->limit($limit)
@@ -151,7 +153,7 @@ class TreatmentStatisticsService
      */
     public function getWeeklyHoursDistribution($searchModel = null)
     {
-        return (new Query())
+        $query = (new Query())
             ->select([
                 'hours_range' => new Expression('CASE 
                     WHEN pt.weekly_hours <= 2 THEN "1-2h"
@@ -165,8 +167,11 @@ class TreatmentStatisticsService
                 'avg_hours' => 'AVG(pt.weekly_hours)'
             ])
             ->from('plan_therapies pt')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
+
+        $this->applyTreatmentFilters($query, $searchModel);
+
+        return $query
             ->groupBy(new Expression('CASE 
                 WHEN pt.weekly_hours <= 2 THEN "1-2h"
                 WHEN pt.weekly_hours <= 5 THEN "3-5h"
@@ -186,7 +191,7 @@ class TreatmentStatisticsService
      */
     public function getBySettingType($searchModel = null)
     {
-        return (new Query())
+        $query = (new Query())
             ->select([
                 'setting_type' => new Expression('CASE WHEN pt.is_group = 1 THEN "Gruppo" ELSE "Individuale" END'),
                 'therapy_count' => 'COUNT(*)',
@@ -195,8 +200,11 @@ class TreatmentStatisticsService
                 'avg_hours' => 'AVG(pt.weekly_hours)'
             ])
             ->from('plan_therapies pt')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
+
+        $this->applyTreatmentFilters($query, $searchModel);
+
+        return $query
             ->groupBy('pt.is_group')
             ->all();
     }
@@ -253,7 +261,9 @@ class TreatmentStatisticsService
             ->from('regime r')
             ->leftJoin('therapeutic_plans tp', 'r.id = tp.regime_id')
             ->leftJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->groupBy(['r.id', 'r.nome'])
             ->orderBy(['therapy_count' => SORT_DESC])
             ->all();
@@ -273,6 +283,10 @@ class TreatmentStatisticsService
         $actualLimit = $isSearchModel ? $limit : $searchModelOrLimit;
         
         $cacheKey = "frequent_combinations_{$actualLimit}";
+
+        if ($isSearchModel) {
+            return $this->getFrequentCombinations($searchModelOrLimit, $actualLimit);
+        }
         
         return Yii::$app->cache->getOrSet($cacheKey, function() use ($actualLimit) {
             // Trova pazienti con più di un trattamento
@@ -285,7 +299,9 @@ class TreatmentStatisticsService
                 ->from('therapeutic_plans tp')
                 ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
                 ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
-                ->where(['>=', 'tp.end_date', date('Y-m-d')])
+                ->where(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
                 ->groupBy('tp.patient_id')
                 ->having(['>', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), 1])
                 ->all();
@@ -412,6 +428,8 @@ class TreatmentStatisticsService
         if (!empty($searchModel->dateTo)) {
             $filters['dateTo'] = $searchModel->dateTo;
         }
+
+        $filters['includeInactive'] = (bool)$searchModel->includeInactive;
         
         return $filters;
     }
@@ -454,9 +472,86 @@ class TreatmentStatisticsService
             $query->andWhere(['<=', 'tp.start_date', $filters['dateTo']]);
         }
 
+        if (empty($filters['includeInactive'])) {
+            $this->applyActivePlanFilter($query);
+        }
+
         return $query->groupBy(['tt.id', 'tt.name', 'tt.code', 'tt.description'])
             ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0])
             ->orderBy(['patient_count' => SORT_DESC])
             ->all();
+    }
+
+    /**
+     * Applica i filtri della pagina trattamenti a una query con alias pt/tp.
+     */
+    protected function applyTreatmentFilters($query, $searchModel = null)
+    {
+        if (!$searchModel) {
+            $this->applyActivePlanFilter($query);
+            return;
+        }
+
+        if (!$searchModel->includeInactive) {
+            $this->applyActivePlanFilter($query);
+        }
+        if (!empty($searchModel->treatmentIds)) {
+            $query->andWhere(['pt.treatment_type_id' => $searchModel->treatmentIds]);
+        }
+        if (!empty($searchModel->regimeId)) {
+            $query->andWhere(['tp.regime_id' => $searchModel->regimeId]);
+        }
+        if (!empty($searchModel->dateFrom)) {
+            $query->andWhere(['>=', 'tp.start_date', $searchModel->dateFrom]);
+        }
+        if (!empty($searchModel->dateTo)) {
+            $query->andWhere(['<=', 'tp.start_date', $searchModel->dateTo]);
+        }
+    }
+
+    protected function applyActivePlanFilter($query)
+    {
+        $today = date('Y-m-d');
+        $query->andWhere(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', $today])
+            ->andWhere(['>=', 'tp.end_date', $today]);
+    }
+
+    protected function getFrequentCombinations($searchModel, $limit)
+    {
+        $query = (new Query())
+            ->select([
+                'tp.patient_id',
+                'treatment_combination' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)'),
+                'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)'
+            ])
+            ->from('therapeutic_plans tp')
+            ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
+            ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id');
+
+        $this->applyTreatmentFilters($query, $searchModel);
+        $patients = $query
+            ->groupBy('tp.patient_id')
+            ->having(['>', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), 1])
+            ->all();
+
+        $combinations = [];
+        foreach ($patients as $patient) {
+            $combo = $patient['treatment_combination'];
+            if (!isset($combinations[$combo])) {
+                $combinations[$combo] = [
+                    'combination' => $combo,
+                    'patient_count' => 0,
+                    'treatment_count' => $patient['treatment_count'],
+                ];
+            }
+            $combinations[$combo]['patient_count']++;
+        }
+
+        usort($combinations, function ($a, $b) {
+            return $b['patient_count'] - $a['patient_count'];
+        });
+
+        return array_slice($combinations, 0, $limit);
     }
 }

@@ -236,10 +236,10 @@ function loadGrowthChart() {
             growthChart = new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
-                    labels: growthData.map(function(d) { return d.month || ''; }),
+                    labels: growthData.map(function(d) { return d.month_label || d.month || ''; }),
                     datasets: [{
                         label: 'Nuovi Pazienti',
-                        data: growthData.map(function(d) { return d.new_patients || 0; }),
+                        data: growthData.map(function(d) { return Number(d.count || 0); }),
                         borderColor: 'rgba(59, 130, 246, 1)',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
@@ -317,6 +317,12 @@ function loadTreatmentsChart() {
 function loadAbsenceDayChart() {
     $.ajax({
         url: '" . Url::to(['chart-data', 'type' => 'absence-by-day']) . "',
+        data: {
+            AbsenceStatisticsSearch: {
+                dateFrom: '" . date('Y-m-01') . "',
+                dateTo: '" . date('Y-m-t') . "'
+            }
+        },
         dataType: 'json',
         success: function(response) {
             if (response.success && response.data) {

@@ -7,7 +7,7 @@ Questo documento riepiloga gli URL/host per i diversi ambienti del progetto Ther
 | Componente | URL | File di configurazione |
 | --- | --- | --- |
 | Gestionale frontend (Yii2) | `https://app.gruppovitolo.local` | nginx / vhost lato server |
-| Calendar-app (React SPA) | `https://app.gruppovitolo.local/therapeutic-plan-manager` | `frontend/web/calendar-app/src/lib/api.ts` (campo `baseURL`) |
+| Calendar-app (React SPA) | `https://app.gruppovitolo.local/therapeutic-plan-manager` | `frontend/web/calendar-app/src/lib/api.ts` (mappa `APP_ORIGINS`) |
 | Mobile app API (React Native) | `https://app.sanlucacentromedico.it/api` | `tp/src/config/api.js` (campo `BASE_URL`) |
 
 Note:
@@ -28,7 +28,19 @@ Tutti i componenti puntano allo stesso host condiviso:
 
 ### Calendar-app (React)
 
-1. Modifica `private baseURL = ...` in `frontend/web/calendar-app/src/lib/api.ts`.
+Non serve cambiare nulla: la stessa build funziona in produzione e in stage.
+L'host dell'API si ricava a runtime dall'hostname da cui è servita la SPA,
+tramite la mappa `APP_ORIGINS` in `frontend/web/calendar-app/src/lib/api.ts`:
+
+| Host della SPA | API |
+| --- | --- |
+| `app.gruppovitolo.local`, `calendar.gruppovitolo.local` | `https://app.gruppovitolo.local` |
+| `app-cgm.badil.it`, `calendar-cgm.badil.it` | `https://app-cgm.badil.it` |
+| qualsiasi altro host (localhost, dev server) | `https://app-cgm.badil.it` (stage) |
+
+Per aggiungere un nuovo host della SPA:
+
+1. Aggiungi la voce in `APP_ORIGINS` e l'origin nella whitelist CORS di `TherapeuticPlanManagerController`.
 2. Rebuild:
    ```bash
    cd frontend/web/calendar-app
@@ -43,7 +55,7 @@ Tutti i componenti puntano allo stesso host condiviso:
 
 ## Convenzione branch (maggio 2026)
 
-- `stats_calendario` — branch di produzione: gli host devono essere **gruppovitolo** (calendar-app) e **sanluca** (mobile).
-- `aba_group_appointments` o altri feature branch — normalmente puntano all'host **test** (`app-cgm.badil.it`).
+- `stats_calendario` — branch di produzione: l'host del mobile deve essere **sanluca**.
+- `aba_group_appointments` o altri feature branch — il mobile normalmente punta all'host **test** (`app-cgm.badil.it`).
 
-Prima di portare lavoro da un feature branch verso `stats_calendario`, verifica che `api.ts` e `tp/src/config/api.js` siano stati riportati ai valori di produzione.
+Prima di portare lavoro da un feature branch verso `stats_calendario`, verifica che `tp/src/config/api.js` sia stato riportato al valore di produzione. La calendar-app sceglie l'host da sola (vedi sopra).

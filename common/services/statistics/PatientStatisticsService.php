@@ -49,7 +49,10 @@ class PatientStatisticsService
             ])
             ->from('treatment_types tt')
             ->leftJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
-            ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id AND tp.end_date >= CURDATE()')
+            ->leftJoin('therapeutic_plans tp', "pt.therapeutic_plan_id = tp.id
+                AND tp.status = 'active'
+                AND tp.start_date <= CURDATE()
+                AND tp.end_date >= CURDATE()")
             ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
 
         // Se ci sono filtri per treatmentTypeIds, mostra solo quelli
@@ -85,7 +88,10 @@ class PatientStatisticsService
                 'AVG(tp.duration_days) as avg_duration'
             ])
             ->from('regime r')
-            ->leftJoin('therapeutic_plans tp', 'r.id = tp.regime_id AND tp.end_date >= CURDATE()')
+            ->leftJoin('therapeutic_plans tp', "r.id = tp.regime_id
+                AND tp.status = 'active'
+                AND tp.start_date <= CURDATE()
+                AND tp.end_date >= CURDATE()")
             ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
 
         // Applica filtri del search model
@@ -224,7 +230,9 @@ class PatientStatisticsService
                 ->innerJoin('patients p', 'tp.patient_id = p.id')
                 ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
                 ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
-                ->where(['>=', 'tp.end_date', date('Y-m-d')]);
+                ->where(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
             if ($excludeABA) {
                 $query->andWhere(['not like', 'tt.name', '%ABA%']);
@@ -275,7 +283,9 @@ class PatientStatisticsService
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
             ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
             ->innerJoin('statistics_patients_mv sp', 'p.id = sp.id') // Join per applicare filtri
-            ->where(['>=', 'tp.end_date', date('Y-m-d')]);
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
         if ($excludeABA) {
             $query->andWhere(['not like', 'tt.name', '%ABA%']);
@@ -384,7 +394,7 @@ class PatientStatisticsService
     protected function applyPatientFilters($query, $searchModel)
     {
         // Filtro piano terapeutico attivo (coerente con PatientStatisticsSearch)
-        if ($searchModel->activePlanOnly) {
+        if ($searchModel->activePlanOnly && $searchModel->status !== 'inactive') {
             $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
         }
 
@@ -403,8 +413,8 @@ class PatientStatisticsService
         if ($searchModel->status && $searchModel->status !== 'all') {
             if ($searchModel->status === 'active') {
                 $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($searchModel->status === 'dismissed') {
-                $query->andWhere(['sp.dismesso' => 'SI']);
+            } elseif ($searchModel->status === 'inactive') {
+                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
             }
         }
 
@@ -431,9 +441,24 @@ class PatientStatisticsService
                 ->distinct()
                 ->from('plan_therapies pt_sub')
                 ->innerJoin('therapeutic_plans tp_sub', 'pt_sub.therapeutic_plan_id = tp_sub.id')
-                ->where(['pt_sub.treatment_type_id' => $searchModel->treatmentTypeIds]);
+                ->where(['pt_sub.treatment_type_id' => $searchModel->treatmentTypeIds])
+                ->andWhere(['tp_sub.status' => 'active'])
+                ->andWhere(['<=', 'tp_sub.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp_sub.end_date', date('Y-m-d')]);
 
-            $query->andWhere(['IN', 'tp.patient_id', $subQuery]);
+            $query->andWhere(['IN', 'sp.id', $subQuery]);
+        }
+
+        if ($searchModel->regimeId) {
+            $regimePatients = (new Query())
+                ->select('tp_regime.patient_id')
+                ->distinct()
+                ->from(['tp_regime' => 'therapeutic_plans'])
+                ->where(['tp_regime.regime_id' => $searchModel->regimeId])
+                ->andWhere(['tp_regime.status' => 'active'])
+                ->andWhere(['<=', 'tp_regime.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp_regime.end_date', date('Y-m-d')]);
+            $query->andWhere(['IN', 'sp.id', $regimePatients]);
         }
 
         if ($searchModel->districtId) {

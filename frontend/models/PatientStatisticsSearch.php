@@ -35,7 +35,7 @@ class PatientStatisticsSearch extends Model
             [['ageFrom', 'ageTo', 'districtId', 'regimeId'], 'integer', 'min' => 0],
             [['treatmentTypeIds'], 'each', 'rule' => ['integer']],
             [['hasMultipleTreatments', 'activePlanOnly'], 'boolean'],
-            [['status'], 'in', 'range' => ['active', 'dismissed', 'all']],
+            [['status'], 'in', 'range' => ['active', 'inactive', 'all']],
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
             [['ageFrom'], 'compare', 'compareAttribute' => 'ageTo', 'operator' => '<=', 'when' => function ($model) {
                 return !empty($model->ageTo);
@@ -74,7 +74,7 @@ class PatientStatisticsSearch extends Model
             ->from('statistics_patients_mv sp');
 
         // Filtro piano terapeutico attivo (default ON)
-        if ($this->activePlanOnly) {
+        if ($this->activePlanOnly && $this->status !== 'inactive') {
             $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
         }
 
@@ -94,8 +94,8 @@ class PatientStatisticsSearch extends Model
         if ($this->status && $this->status !== 'all') {
             if ($this->status === 'active') {
                 $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($this->status === 'dismissed') {
-                $query->andWhere(['sp.dismesso' => 'SI']);
+            } elseif ($this->status === 'inactive') {
+                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
             }
         }
 
@@ -123,9 +123,32 @@ class PatientStatisticsSearch extends Model
                 ->distinct()
                 ->from('plan_therapies pt')
                 ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds]);
+                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds])
+                ->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
             $query->andWhere(['in', 'sp.id', $subQuery]);
+        }
+
+        if ($this->regimeId) {
+            $regimePatients = (new Query())
+                ->select('tp.patient_id')
+                ->distinct()
+                ->from('therapeutic_plans tp')
+                ->where(['tp.regime_id' => $this->regimeId])
+                ->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            $query->andWhere(['in', 'sp.id', $regimePatients]);
+        }
+
+        if ($this->districtId) {
+            $districtPatients = (new Query())
+                ->select('p.id')
+                ->from('patients p')
+                ->where(['p.district_id' => $this->districtId]);
+            $query->andWhere(['in', 'sp.id', $districtPatients]);
         }
 
         return $query;
@@ -156,7 +179,7 @@ class PatientStatisticsSearch extends Model
         return [
             'all' => 'Tutti',
             'active' => 'Pazienti Attivi',
-            'dismissed' => 'Pazienti Dimessi',
+            'inactive' => 'Senza piano attivo',
         ];
     }
 
@@ -361,7 +384,7 @@ class PatientStatisticsSearch extends Model
     protected function applyFilters($query)
     {
         // Filtro piano terapeutico attivo (default ON)
-        if ($this->activePlanOnly) {
+        if ($this->activePlanOnly && $this->status !== 'inactive') {
             $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
         }
 
@@ -383,8 +406,8 @@ class PatientStatisticsSearch extends Model
         if ($this->status && $this->status !== 'all') {
             if ($this->status === 'active') {
                 $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($this->status === 'dismissed') {
-                $query->andWhere(['sp.dismesso' => 'SI']);
+            } elseif ($this->status === 'inactive') {
+                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
             }
         }
 
@@ -413,9 +436,24 @@ class PatientStatisticsSearch extends Model
                 ->distinct()
                 ->from('plan_therapies pt')
                 ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds]);
+                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds])
+                ->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
             $query->andWhere(['in', 'sp.id', $subQuery]);
+        }
+
+        if ($this->regimeId) {
+            $regimePatients = (new Query())
+                ->select('tp.patient_id')
+                ->distinct()
+                ->from('therapeutic_plans tp')
+                ->where(['tp.regime_id' => $this->regimeId])
+                ->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            $query->andWhere(['in', 'sp.id', $regimePatients]);
         }
 
         // Filtro distretto

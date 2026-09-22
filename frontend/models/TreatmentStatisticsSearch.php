@@ -218,6 +218,9 @@ class TreatmentStatisticsSearch extends Model
             ->having(['=', 'total_treatments', $treatmentCount])
             ->orderBy(['p.last_name' => SORT_ASC]);
 
+        $this->applyDateFilters($query);
+        $this->applyStatusFilters($query);
+
         return $query->all();
     }
 
@@ -245,7 +248,10 @@ class TreatmentStatisticsSearch extends Model
     protected function applyStatusFilters($query)
     {
         if (!$this->includeInactive) {
-            $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            $today = date('Y-m-d');
+            $query->andWhere(['tp.status' => 'active'])
+                ->andWhere(['<=', 'tp.start_date', $today])
+                ->andWhere(['>=', 'tp.end_date', $today]);
         }
 
         if ($this->regimeId) {

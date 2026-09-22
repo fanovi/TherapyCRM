@@ -529,37 +529,12 @@ function loadDayChart() {
                     var labels = response.data.labels || ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
                     var datasets = response.data.datasets || [];
                     
-                    // Se abbiamo un solo dataset, convertiamolo per mostrare terapisti e pazienti
-                    if (datasets.length === 1) {
-                        // Usa i dati esistenti per creare due dataset fittizi
-                        datasets = [
-                            {
-                                label: 'Assenze Terapisti',
-                                data: datasets[0].data.map(v => Math.floor(v * 0.6)),
-                                backgroundColor: 'rgba(147, 51, 234, 0.8)',
-                                borderColor: 'rgba(147, 51, 234, 1)',
-                                borderRadius: 4
-                            },
-                            {
-                                label: 'Assenze Pazienti',
-                                data: datasets[0].data.map(v => Math.ceil(v * 0.4)),
-                                backgroundColor: 'rgba(251, 146, 60, 0.8)',
-                                borderColor: 'rgba(251, 146, 60, 1)',
-                                borderRadius: 4
-                            }
-                        ];
-                    } else {
-                        // Personalizza i colori se abbiamo già due dataset
-                        if (datasets[0]) {
-                            datasets[0].backgroundColor = 'rgba(147, 51, 234, 0.8)';
-                            datasets[0].borderColor = 'rgba(147, 51, 234, 1)';
-                            datasets[0].borderRadius = 4;
-                        }
-                        if (datasets[1]) {
-                            datasets[1].backgroundColor = 'rgba(251, 146, 60, 0.8)';
-                            datasets[1].borderColor = 'rgba(251, 146, 60, 1)';
-                            datasets[1].borderRadius = 4;
-                        }
+                    // I dataset sono calcolati dal backend sui dati reali.
+                    if (datasets[0]) {
+                        datasets[0].borderRadius = 4;
+                    }
+                    if (datasets[1]) {
+                        datasets[1].borderRadius = 4;
                     }
                     
                     dayChart = new Chart(ctx.getContext('2d'), {

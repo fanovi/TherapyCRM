@@ -467,17 +467,16 @@ class StatisticsController extends BaseController
                 'labels' => ArrayHelper::getColumn($dayData, 'day_label'),
                 'datasets' => [
                     [
-                        'label' => 'Assenze per Giorno',
-                        'data' => ArrayHelper::getColumn($dayData, 'count'),
-                        'backgroundColor' => [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 205, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(199, 199, 199, 0.8)',
-                        ]
+                        'label' => 'Assenze Terapisti',
+                        'data' => ArrayHelper::getColumn($dayData, 'therapist_count'),
+                        'backgroundColor' => 'rgba(147, 51, 234, 0.8)',
+                        'borderColor' => 'rgba(147, 51, 234, 1)',
+                    ],
+                    [
+                        'label' => 'Assenze Pazienti',
+                        'data' => ArrayHelper::getColumn($dayData, 'patient_count'),
+                        'backgroundColor' => 'rgba(251, 146, 60, 0.8)',
+                        'borderColor' => 'rgba(251, 146, 60, 1)',
                     ]
                 ]
             ]
@@ -489,8 +488,8 @@ class StatisticsController extends BaseController
         $searchModel = new PatientStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
-        // Costruisci la query base
-        $query = (new \yii\db\Query())
+        // Riusa la query del search model per mantenere allineati tutti i filtri.
+        $query = $searchModel->getStatisticsQuery()
             ->select([
                 'age_group' => new \yii\db\Expression("CASE 
                 WHEN age < 18 THEN '0-17'
@@ -501,54 +500,7 @@ class StatisticsController extends BaseController
             END"),
                 'count' => 'COUNT(*)',
                 'avg_age' => 'ROUND(AVG(age), 1)'
-            ])
-            ->from('statistics_patients_mv sp');
-
-        // Filtro piano terapeutico attivo (default ON)
-        if ($searchModel->activePlanOnly) {
-            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-        }
-
-        // Applica i filtri dal searchModel
-        // Filtro età
-        if ($searchModel->ageFrom !== null && $searchModel->ageFrom !== '') {
-            $query->andWhere(['>=', 'sp.age', $searchModel->ageFrom]);
-        }
-        if ($searchModel->ageTo !== null && $searchModel->ageTo !== '') {
-            $query->andWhere(['<=', 'sp.age', $searchModel->ageTo]);
-        }
-
-        // Filtro genere
-        if ($searchModel->gender && $searchModel->gender !== 'all') {
-            $query->andWhere(['sp.gender' => $searchModel->gender]);
-        }
-
-        // Filtro stato piano terapeutico
-        if ($searchModel->status === 'active') {
-            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-        } elseif ($searchModel->status === 'inactive') {
-            $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
-        }
-
-        // Filtro tipi di trattamento
-        if (!empty($searchModel->treatmentTypeIds)) {
-            $subQuery = (new \yii\db\Query())
-                ->select('tp.patient_id')
-                ->distinct()
-                ->from('plan_therapies pt')
-                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['pt.treatment_type_id' => $searchModel->treatmentTypeIds]);
-
-            $query->andWhere(['IN', 'sp.id', $subQuery]);
-        }
-
-        // Filtro date
-        if ($searchModel->dateFrom) {
-            $query->andWhere(['>=', 'sp.created_at', $searchModel->dateFrom . ' 00:00:00']);
-        }
-        if ($searchModel->dateTo) {
-            $query->andWhere(['<=', 'sp.created_at', $searchModel->dateTo . ' 23:59:59']);
-        }
+            ]);
 
         // Raggruppa e ordina - usa Expression anche qui
         $query->groupBy(new \yii\db\Expression("CASE 
@@ -758,7 +710,9 @@ class StatisticsController extends BaseController
 
     protected function exportTreatments()
     {
-        $ranking = $this->treatmentService->getRankingData();
+        $searchModel = new TreatmentStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+        $ranking = $this->treatmentService->getRankingData($searchModel);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -784,7 +738,9 @@ class StatisticsController extends BaseController
 
     protected function exportPlans()
     {
-        $plansStats = $this->statisticsService->getPlansStatistics();
+        $searchModel = new PlanStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+        $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();

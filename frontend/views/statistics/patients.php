@@ -35,6 +35,7 @@ $hasActiveFilters = !empty($searchModel->gender) || !empty($searchModel->ageFrom
                     !empty($searchModel->ageTo) || !empty($searchModel->status) ||
                     !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
                     !empty($searchModel->treatmentTypeIds) || !empty($searchModel->districtId) ||
+                    !empty($searchModel->regimeId) ||
                     !$searchModel->activePlanOnly;
 
 // Calcola il totale pazienti
@@ -90,7 +91,6 @@ function calculatePercentage($part, $total, $decimals = 1) {
                         '' => 'Tutti gli stati',
                         'active' => 'Con piano attivo',
                         'inactive' => 'Senza piano attivo',
-                        'dismissed' => 'Dimessi'
                     ], ['class' => 'form-control'])->label('Stato paziente') ?>
                 </div>
             </div>
@@ -133,6 +133,12 @@ function calculatePercentage($part, $total, $decimals = 1) {
                         ['' => 'Tutti i distretti'] + $districtOptions,
                         ['class' => 'form-control']
                     )->label('Distretto') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'regimeId')->dropDownList(
+                        ['' => 'Tutti i regimi'] + $regimeOptions,
+                        ['class' => 'form-control']
+                    )->label('Regime sanitario') ?>
                 </div>
             </div>
         </div>

@@ -44,7 +44,9 @@ class StatisticsService
         $activeCount = $query
             ->from('patients p')
             ->innerJoin('therapeutic_plans tp', 'p.id = tp.patient_id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->count('DISTINCT p.id');
 
         // Pazienti totali
@@ -64,7 +66,9 @@ class StatisticsService
             ->from('patients p')
             ->innerJoin('therapeutic_plans tp', 'p.id = tp.patient_id')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->groupBy('p.id')
             ->having('COUNT(DISTINCT pt.treatment_type_id) > 1')
             ->count();
@@ -123,7 +127,9 @@ class StatisticsService
             ->select('COUNT(DISTINCT pt.treatment_type_id)')
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->scalar();
 
         // Ore settimanali totali
@@ -131,7 +137,9 @@ class StatisticsService
             ->select('SUM(pt.weekly_hours)')
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->scalar();
 
         // Trattamento più frequente
@@ -140,7 +148,9 @@ class StatisticsService
             ->from('treatment_types tt')
             ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['>=', 'tp.end_date', date('Y-m-d')])
+            ->where(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
             ->groupBy('tt.id, tt.name')
             ->orderBy(['patient_count' => SORT_DESC])
             ->limit(1)
@@ -166,13 +176,17 @@ class StatisticsService
         // Piani attivi
         $active = (new Query())
             ->from('therapeutic_plans')
-            ->where(['>=', 'end_date', date('Y-m-d')])
+            ->where(['status' => 'active'])
+            ->andWhere(['<=', 'start_date', date('Y-m-d')])
+            ->andWhere(['>=', 'end_date', date('Y-m-d')])
             ->count();
 
         // Piani in scadenza (prossimi 30 giorni)
         $expiringSoon = (new Query())
             ->from('therapeutic_plans')
             ->where(['between', 'end_date', date('Y-m-d'), date('Y-m-d', strtotime('+30 days'))])
+            ->andWhere(['status' => 'active'])
+            ->andWhere(['<=', 'start_date', date('Y-m-d')])
             ->count();
 
         // Nuovi questo mese
@@ -516,7 +530,7 @@ public function getPatientGrowthData($params = [])
     {
         if (!$searchModel) {
             // Se non ci sono filtri, usa il comportamento predefinito (solo piani attivi)
-            $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            $this->applyActivePlanFilter($query);
             return;
         }
 
@@ -524,10 +538,10 @@ public function getPatientGrowthData($params = [])
         if (!empty($searchModel->status)) {
             switch ($searchModel->status) {
                 case 'active':
-                    $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+                    $this->applyActivePlanFilter($query);
                     break;
                 case 'completed':
-                    $query->andWhere(['<', 'tp.end_date', date('Y-m-d')]);
+                    $query->andWhere(['tp.status' => 'completed']);
                     break;
                 default:
                     // Tutti gli stati - non aggiungere filtro
@@ -535,7 +549,7 @@ public function getPatientGrowthData($params = [])
             }
         } else {
             // Default: solo piani attivi se non specificato diversamente
-            $query->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
+            $this->applyActivePlanFilter($query);
         }
 
         // Filtro durata minima
@@ -575,5 +589,16 @@ public function getPatientGrowthData($params = [])
 
             $query->andWhere(['in', 'tp.id', $subQuery]);
         }
+    }
+
+    /**
+     * Applica la definizione di piano attivo usata dal dominio.
+     */
+    protected function applyActivePlanFilter($query)
+    {
+        $today = date('Y-m-d');
+        $query->andWhere(['tp.status' => 'active'])
+            ->andWhere(['<=', 'tp.start_date', $today])
+            ->andWhere(['>=', 'tp.end_date', $today]);
     }
 }
