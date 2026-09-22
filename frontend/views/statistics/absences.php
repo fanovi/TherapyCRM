@@ -69,11 +69,11 @@ $withRecovery = (int) ($monthlyRate['with_recovery'] ?? 0);
 $withoutRecovery = (int) ($monthlyRate['without_recovery'] ?? max(0, $totalAbsences - $withRecovery));
 $totalAppointments = (int) ($monthlyRate['total_appointments'] ?? 0);
 $absenceRate = (float) ($monthlyRate['absence_rate'] ?? 0);
-$lostHours = (float) ($monthlyRate['lost_hours'] ?? 0);
-$unrecoveredHours = (float) ($monthlyRate['unrecovered_hours'] ?? 0);
-$plannedHours = (float) ($monthlyRate['planned_hours'] ?? 0);
+$lostHours = (int) ($monthlyRate['lost_hours'] ?? 0);
+$unrecoveredHours = (int) ($monthlyRate['unrecovered_hours'] ?? 0);
+$plannedHours = (int) ($monthlyRate['planned_hours'] ?? 0);
 $hoursRate = (float) ($monthlyRate['hours_rate'] ?? 0);
-$recoveredHours = max(0, round($lostHours - $unrecoveredHours, 1));
+$recoveredHours = max(0, $lostHours - $unrecoveredHours);
 
 $hasAbsences = $totalAbsences > 0 ||
                !empty($byReason) ||
@@ -85,7 +85,7 @@ $hasAbsences = $totalAbsences > 0 ||
 $hasData = $hasAbsences || $totalAppointments > 0 || $plannedHours > 0;
 
 $fmtHours = function ($hours) {
-    return number_format((float) $hours, 1, ',', '.');
+    return number_format((int) round((float) $hours), 0, ',', '.');
 };
 $fmtPct = function ($value) {
     return number_format((float) $value, 1, ',', '.');
@@ -445,7 +445,6 @@ $canExport = Yii::$app->user->can('export_data');
                 <thead>
                     <tr>
                         <th>Trattamento</th>
-                        <th>Codice</th>
                         <th class="text-center">Eventi</th>
                         <th class="text-center">Terapisti</th>
                         <th class="text-center">Pazienti</th>
@@ -457,9 +456,6 @@ $canExport = Yii::$app->user->can('export_data');
                         <tr>
                             <td class="font-bold">
                                 <?= Html::encode($treatment['treatment_name'] ?: 'Trattamento non specificato') ?>
-                            </td>
-                            <td>
-                                <?= Html::encode($treatment['treatment_code'] ?: 'N/A') ?>
                             </td>
                             <td class="text-center">
                                 <span class="badge badge-gray"><?= $treatment['total_absences'] ?></span>

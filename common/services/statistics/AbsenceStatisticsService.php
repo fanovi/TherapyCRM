@@ -325,7 +325,7 @@ class AbsenceStatisticsService
         foreach ($bySetting as &$row) {
             $sid = (string) $row['setting_id'];
             $minutes = (int) ($hoursBySetting[$sid]['lost_minutes'] ?? 0);
-            $row['lost_hours'] = round($minutes / 60, 1);
+            $row['lost_hours'] = $this->minutesToHours($minutes);
         }
         unset($row);
 
@@ -656,9 +656,9 @@ class AbsenceStatisticsService
             'without_recovery' => max(0, $totalEvents - $withRecovery),
             'total_appointments' => $totalAppointments,
             'absence_rate' => $rate,
-            'lost_hours' => round($lostMinutes / 60, 1),
-            'unrecovered_hours' => round($unrecoveredMinutes / 60, 1),
-            'planned_hours' => round($plannedMinutes / 60, 1),
+            'lost_hours' => $this->minutesToHours($lostMinutes),
+            'unrecovered_hours' => $this->minutesToHours($unrecoveredMinutes),
+            'planned_hours' => $this->minutesToHours($plannedMinutes),
             'hours_rate' => $hoursRate,
         ];
     }
@@ -787,5 +787,13 @@ class AbsenceStatisticsService
         ];
 
         return $days[$dayNumber] ?? '';
+    }
+
+    /**
+     * Le sedute sono in minuti, ma in pagina le ore si mostrano intere.
+     */
+    protected function minutesToHours($minutes)
+    {
+        return (int) round(((int) $minutes) / 60);
     }
 }
