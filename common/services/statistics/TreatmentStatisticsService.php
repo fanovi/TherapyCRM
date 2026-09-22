@@ -36,20 +36,11 @@ class TreatmentStatisticsService
      * @param mixed $searchModelOrFilters SearchModel o array di filtri per compatibilità
      * @return array
      */
-        public function getRankingData($searchModelOrFilters = [])
+    public function getRankingData($searchModelOrFilters = [])
     {
-        // Determina se è un searchModel o array di filtri
-        $isSearchModel = is_object($searchModelOrFilters) && $searchModelOrFilters instanceof \frontend\models\TreatmentStatisticsSearch;
-        $filters = $isSearchModel ? $this->extractFiltersFromSearchModel($searchModelOrFilters) : $searchModelOrFilters;
-        
-        // Se c'è un searchModel con filtri, non usare cache
-        if ($isSearchModel && !empty(array_filter($filters))) {
-            return $this->getRankingDataWithFilters($filters);
-        }
-        
-        $cacheKey = 'treatment_ranking_' . md5(serialize($filters));
+        $searchModel = $this->resolveSearchModel($searchModelOrFilters);
 
-        return Yii::$app->cache->getOrSet($cacheKey, function() use ($filters) {
+        $loader = function () use ($searchModel) {
             $query = (new Query())
                 ->select([
                     'tt.id',
@@ -60,33 +51,39 @@ class TreatmentStatisticsService
                     'COUNT(pt.id) as therapy_count',
                     'SUM(pt.weekly_hours) as total_weekly_hours',
                     'AVG(pt.weekly_hours) as avg_weekly_hours',
-                    'SUM(pt.weekly_hours * 4.33 * tp.duration_days / 365) as estimated_total_hours'
                 ])
                 ->from('treatment_types tt')
-                ->leftJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
-                ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
+                ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
+                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
 
-            // Applica filtri
-            if (empty($filters['includeInactive'])) {
-                $this->applyActivePlanFilter($query);
-            }
-
-            if (!empty($filters['dateFrom'])) {
-                $query->andWhere(['>=', 'tp.start_date', $filters['dateFrom']]);
-            }
-
-            if (!empty($filters['dateTo'])) {
-                $query->andWhere(['<=', 'tp.start_date', $filters['dateTo']]);
-            }
-
-            if (!empty($filters['regimeId'])) {
-                $query->andWhere(['tp.regime_id' => $filters['regimeId']]);
-            }
+            $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => true, 'restrictPatients' => true]);
 
             return $query->groupBy(['tt.id', 'tt.name', 'tt.code', 'tt.description'])
+                ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0])
                 ->orderBy(['patient_count' => SORT_DESC])
                 ->all();
-        }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
+        };
+
+        if ($this->hasRestrictiveFilters($searchModel)) {
+            return $loader();
+        }
+
+        $cacheKey = 'treatment_ranking_' . md5(serialize($searchModel->attributes));
+        return Yii::$app->cache->getOrSet($cacheKey, $loader, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
+    }
+
+    /**
+     * Pazienti distinti con almeno una terapia nei filtri correnti.
+     */
+    public function getDistinctPatientCount($searchModel)
+    {
+        $query = (new Query())
+            ->from('therapeutic_plans tp')
+            ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id');
+
+        $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => false, 'restrictPatients' => true]);
+
+        return (int) $query->count('DISTINCT tp.patient_id');
     }
 
     /**
@@ -153,38 +150,34 @@ class TreatmentStatisticsService
      */
     public function getWeeklyHoursDistribution($searchModel = null)
     {
+        $hoursCase = 'CASE
+                    WHEN pt.weekly_hours <= 2 THEN "<=2h"
+                    WHEN pt.weekly_hours <= 5 THEN "2-5h"
+                    WHEN pt.weekly_hours <= 10 THEN "5-10h"
+                    WHEN pt.weekly_hours <= 20 THEN "10-20h"
+                    ELSE ">20h"
+                END';
+
         $query = (new Query())
             ->select([
-                'hours_range' => new Expression('CASE 
-                    WHEN pt.weekly_hours <= 2 THEN "1-2h"
-                    WHEN pt.weekly_hours <= 5 THEN "3-5h"
-                    WHEN pt.weekly_hours <= 10 THEN "6-10h"
-                    WHEN pt.weekly_hours <= 20 THEN "11-20h"
-                    ELSE "20h+"
-                END'),
+                'hours_range' => new Expression($hoursCase),
                 'therapy_count' => 'COUNT(*)',
                 'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
-                'avg_hours' => 'AVG(pt.weekly_hours)'
+                'avg_hours' => 'AVG(pt.weekly_hours)',
             ])
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
 
-        $this->applyTreatmentFilters($query, $searchModel);
+        $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => true, 'restrictPatients' => true]);
 
         return $query
-            ->groupBy(new Expression('CASE 
-                WHEN pt.weekly_hours <= 2 THEN "1-2h"
-                WHEN pt.weekly_hours <= 5 THEN "3-5h"
-                WHEN pt.weekly_hours <= 10 THEN "6-10h"
-                WHEN pt.weekly_hours <= 20 THEN "11-20h"
-                ELSE "20h+"
-            END'))
+            ->groupBy(new Expression($hoursCase))
             ->orderBy('avg_hours')
             ->all();
     }
 
     /**
-     * Ottiene statistiche per setting (individuale/gruppo)
+     * Ottiene statistiche per setting (ambulatoriale, domiciliare, ecc.)
      *
      * @param mixed $searchModel SearchModel per filtri (opzionale)
      * @return array
@@ -193,19 +186,22 @@ class TreatmentStatisticsService
     {
         $query = (new Query())
             ->select([
-                'setting_type' => new Expression('CASE WHEN pt.is_group = 1 THEN "Gruppo" ELSE "Individuale" END'),
+                'setting_type' => new Expression('COALESCE(s.nome, "N/D")'),
                 'therapy_count' => 'COUNT(*)',
                 'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
                 'total_hours' => 'SUM(pt.weekly_hours)',
-                'avg_hours' => 'AVG(pt.weekly_hours)'
+                'avg_hours' => 'AVG(pt.weekly_hours)',
             ])
             ->from('plan_therapies pt')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
+            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
+            ->leftJoin('setting s', 'pt.setting_id = s.id');
 
-        $this->applyTreatmentFilters($query, $searchModel);
+        $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => true, 'restrictPatients' => true]);
 
         return $query
-            ->groupBy('pt.is_group')
+            ->groupBy(['s.id', 's.nome'])
+            ->having(['>', 'COUNT(*)', 0])
+            ->orderBy(['therapy_count' => SORT_DESC])
             ->all();
     }
 
@@ -278,55 +274,20 @@ class TreatmentStatisticsService
      */
     public function getMostFrequentCombinations($searchModelOrLimit = 10, $limit = 10)
     {
-        // Determina se è un searchModel o un limite numerico
-        $isSearchModel = is_object($searchModelOrLimit) && $searchModelOrLimit instanceof \frontend\models\TreatmentStatisticsSearch;
+        $isSearchModel = is_object($searchModelOrLimit) && $searchModelOrLimit instanceof TreatmentStatisticsSearch;
         $actualLimit = $isSearchModel ? $limit : $searchModelOrLimit;
-        
-        $cacheKey = "frequent_combinations_{$actualLimit}";
+        $searchModel = $isSearchModel ? $searchModelOrLimit : new TreatmentStatisticsSearch();
 
-        if ($isSearchModel) {
-            return $this->getFrequentCombinations($searchModelOrLimit, $actualLimit);
+        $loader = function () use ($searchModel, $actualLimit) {
+            return $this->getFrequentCombinations($searchModel, $actualLimit);
+        };
+
+        if ($this->hasRestrictiveFilters($searchModel)) {
+            return $loader();
         }
-        
-        return Yii::$app->cache->getOrSet($cacheKey, function() use ($actualLimit) {
-            // Trova pazienti con più di un trattamento
-            $multiTreatmentPatients = (new Query())
-                ->select([
-                    'tp.patient_id',
-                    'treatment_combination' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)'),
-                    'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)'
-                ])
-                ->from('therapeutic_plans tp')
-                ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
-                ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
-                ->where(['tp.status' => 'active'])
-                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-                ->groupBy('tp.patient_id')
-                ->having(['>', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), 1])
-                ->all();
 
-            // Conta frequenza combinazioni
-            $combinations = [];
-            foreach ($multiTreatmentPatients as $patient) {
-                $combo = $patient['treatment_combination'];
-                if (!isset($combinations[$combo])) {
-                    $combinations[$combo] = [
-                        'combination' => $combo,
-                        'patient_count' => 0,
-                        'treatment_count' => $patient['treatment_count']
-                    ];
-                }
-                $combinations[$combo]['patient_count']++;
-            }
-
-            // Ordina per frequenza
-            usort($combinations, function($a, $b) {
-                return $b['patient_count'] - $a['patient_count'];
-            });
-
-            return array_slice($combinations, 0, $actualLimit);
-        }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
+        $cacheKey = 'frequent_combinations_' . $actualLimit . '_' . md5(serialize($searchModel->attributes));
+        return Yii::$app->cache->getOrSet($cacheKey, $loader, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
     }
 
     /**
@@ -401,111 +362,46 @@ class TreatmentStatisticsService
     /**
      * Pulisce la cache delle statistiche trattamenti
      */
-    public function clearCache()
+    public static function invalidateCache()
     {
         TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
     }
 
     /**
-     * Estrae i filtri dal search model
+     * Pulisce la cache delle statistiche trattamenti
      */
-    protected function extractFiltersFromSearchModel($searchModel)
+    public function clearCache()
     {
-        $filters = [];
-        
-        if (!empty($searchModel->treatmentIds)) {
-            $filters['treatmentIds'] = $searchModel->treatmentIds;
-        }
-        
-        if (!empty($searchModel->regimeId)) {
-            $filters['regimeId'] = $searchModel->regimeId;
-        }
-        
-        if (!empty($searchModel->dateFrom)) {
-            $filters['dateFrom'] = $searchModel->dateFrom;
-        }
-        
-        if (!empty($searchModel->dateTo)) {
-            $filters['dateTo'] = $searchModel->dateTo;
-        }
-
-        $filters['includeInactive'] = (bool)$searchModel->includeInactive;
-        
-        return $filters;
-    }
-
-    /**
-     * Metodo helper per getRankingData con filtri applicati
-     */
-    protected function getRankingDataWithFilters($filters)
-    {
-        $query = (new Query())
-            ->select([
-                'tt.id',
-                'tt.name',
-                'tt.code',
-                'tt.description',
-                'COUNT(DISTINCT tp.patient_id) as patient_count',
-                'COUNT(pt.id) as therapy_count',
-                'SUM(pt.weekly_hours) as total_weekly_hours',
-                'AVG(pt.weekly_hours) as avg_weekly_hours',
-                'SUM(pt.weekly_hours * 4.33 * tp.duration_days / 365) as estimated_total_hours'
-            ])
-            ->from('treatment_types tt')
-            ->leftJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
-            ->leftJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
-
-        // Applica filtri
-        if (!empty($filters['treatmentIds'])) {
-            $query->andWhere(['tt.id' => $filters['treatmentIds']]);
-        }
-        
-        if (!empty($filters['regimeId'])) {
-            $query->andWhere(['tp.regime_id' => $filters['regimeId']]);
-        }
-        
-        if (!empty($filters['dateFrom'])) {
-            $query->andWhere(['>=', 'tp.start_date', $filters['dateFrom']]);
-        }
-        
-        if (!empty($filters['dateTo'])) {
-            $query->andWhere(['<=', 'tp.start_date', $filters['dateTo']]);
-        }
-
-        if (empty($filters['includeInactive'])) {
-            $this->applyActivePlanFilter($query);
-        }
-
-        return $query->groupBy(['tt.id', 'tt.name', 'tt.code', 'tt.description'])
-            ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0])
-            ->orderBy(['patient_count' => SORT_DESC])
-            ->all();
+        self::invalidateCache();
     }
 
     /**
      * Applica i filtri della pagina trattamenti a una query con alias pt/tp.
+     *
+     * @param Query $query
+     * @param TreatmentStatisticsSearch|null $searchModel
+     * @param array $options restrictTypes: filtra pt.treatment_type_id; restrictPatients: insieme pazienti della combinazione
      */
-    protected function applyTreatmentFilters($query, $searchModel = null)
+    protected function applyTreatmentFilters($query, $searchModel = null, $options = [])
     {
+        $restrictTypes = $options['restrictTypes'] ?? true;
+        $restrictPatients = $options['restrictPatients'] ?? true;
+
         if (!$searchModel) {
-            $this->applyActivePlanFilter($query);
-            return;
+            $searchModel = new TreatmentStatisticsSearch();
         }
 
-        if (!$searchModel->includeInactive) {
-            $this->applyActivePlanFilter($query);
+        $searchModel->applyCommonFilters($query);
+
+        if ($restrictPatients) {
+            $patientQuery = $searchModel->getMatchingPatientIdQuery();
+            if ($patientQuery !== null) {
+                $query->andWhere(['in', 'tp.patient_id', $patientQuery]);
+            }
         }
-        if (!empty($searchModel->treatmentIds)) {
+
+        if ($restrictTypes && !empty($searchModel->treatmentIds)) {
             $query->andWhere(['pt.treatment_type_id' => $searchModel->treatmentIds]);
-        }
-        if (!empty($searchModel->regimeId)) {
-            $query->andWhere(['tp.regime_id' => $searchModel->regimeId]);
-        }
-        if (!empty($searchModel->dateFrom)) {
-            $query->andWhere(['>=', 'tp.start_date', $searchModel->dateFrom]);
-        }
-        if (!empty($searchModel->dateTo)) {
-            $query->andWhere(['<=', 'tp.start_date', $searchModel->dateTo]);
         }
     }
 
@@ -523,13 +419,14 @@ class TreatmentStatisticsService
             ->select([
                 'tp.patient_id',
                 'treatment_combination' => new Expression('GROUP_CONCAT(DISTINCT tt.name ORDER BY tt.name)'),
-                'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)'
+                'treatment_count' => 'COUNT(DISTINCT pt.treatment_type_id)',
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
             ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id');
 
-        $this->applyTreatmentFilters($query, $searchModel);
+        // Tutti i tipi del paziente, ma solo pazienti del filtro combinazione
+        $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => false, 'restrictPatients' => true]);
         $patients = $query
             ->groupBy('tp.patient_id')
             ->having(['>', new Expression('COUNT(DISTINCT pt.treatment_type_id)'), 1])
@@ -552,6 +449,38 @@ class TreatmentStatisticsService
             return $b['patient_count'] - $a['patient_count'];
         });
 
-        return array_slice($combinations, 0, $limit);
+        $totalMultiPatients = array_sum(array_column($combinations, 'patient_count'));
+
+        return [
+            'items' => array_slice($combinations, 0, $limit),
+            'total_multi_patients' => $totalMultiPatients,
+        ];
+    }
+
+    /**
+     * @param mixed $searchModelOrFilters
+     * @return TreatmentStatisticsSearch
+     */
+    protected function resolveSearchModel($searchModelOrFilters)
+    {
+        if ($searchModelOrFilters instanceof TreatmentStatisticsSearch) {
+            return $searchModelOrFilters;
+        }
+
+        $searchModel = new TreatmentStatisticsSearch();
+        if (is_array($searchModelOrFilters) && $searchModelOrFilters) {
+            $searchModel->load($searchModelOrFilters);
+        }
+
+        return $searchModel;
+    }
+
+    protected function hasRestrictiveFilters($searchModel)
+    {
+        return !empty($searchModel->treatmentIds)
+            || !empty($searchModel->regimeId)
+            || !empty($searchModel->dateFrom)
+            || !empty($searchModel->dateTo)
+            || (bool) $searchModel->includeInactive;
     }
 }

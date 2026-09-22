@@ -6,6 +6,7 @@ use Yii;
 use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
 use common\services\statistics\PatientStatisticsService;
+use common\services\statistics\TreatmentStatisticsService;
 
 /**
  * This is the model class for table "plan_therapies".
@@ -224,6 +225,7 @@ class PlanTherapy extends ActiveRecord
     {
         parent::afterSave($insert, $changedAttributes);
         PatientStatisticsService::invalidateCache();
+        TreatmentStatisticsService::invalidateCache();
     }
 
     /**
@@ -233,6 +235,7 @@ class PlanTherapy extends ActiveRecord
     {
         parent::afterDelete();
         PatientStatisticsService::invalidateCache();
+        TreatmentStatisticsService::invalidateCache();
     }
 
     /**

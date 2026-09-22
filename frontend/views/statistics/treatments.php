@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\helpers\Url;
+use frontend\models\TreatmentStatisticsSearch;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\TreatmentStatisticsSearch */
@@ -13,6 +14,8 @@ use yii\helpers\Url;
 /* @var $searchResults array */
 /* @var $treatmentOptions array */
 /* @var $regimeOptions array */
+/* @var $distinctPatientCount int */
+/* @var $combinationsTotalPatients int */
 
 $this->title = 'Statistiche Trattamenti';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
@@ -29,18 +32,17 @@ $hoursDistribution = $hoursDistribution ?? [];
 $searchResults = $searchResults ?? [];
 
 // Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->treatmentIds) || !empty($searchModel->regimeId) || 
+$hasActiveFilters = !empty($searchModel->treatmentIds) || !empty($searchModel->regimeId) ||
                     !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
-                    $searchModel->combinationMode !== 'any' || $searchModel->includeInactive;
+                    $searchModel->includeInactive;
 
-// Helper per verificare se ci sono dati
-$hasData = !empty($ranking) || !empty($combinations) || !empty($bySettingType) || !empty($hoursDistribution);
+$hasData = !empty($ranking) || !empty($combinations) || !empty($bySettingType) || !empty($hoursDistribution) || !empty($searchResults);
 
-// Calcola totali per statistiche
-$totalPatients = array_sum(array_column($ranking, 'patient_count'));
 $totalTherapies = array_sum(array_column($ranking, 'therapy_count'));
-$totalHours = array_sum(array_column($ranking, 'total_weekly_hours'));
+$totalHours = round((float) array_sum(array_column($ranking, 'total_weekly_hours')), 1);
 $activeTreatments = count($ranking);
+$distinctPatientCount = $distinctPatientCount ?? 0;
+$combinationsTotalPatients = $combinationsTotalPatients ?? array_sum(array_column($combinations, 'patient_count'));
 ?>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6 statistics-treatments">
@@ -93,7 +95,8 @@ $activeTreatments = count($ranking);
             <!-- Modalità combinazione -->
             <div class="filter-row">
                 <div class="filter-col">
-                    <label class="control-label">Modalità Combinazione</label>
+                    <label class="control-label">Modalità combinazione</label>
+                    <p class="text-xs text-gray-500 mb-1">Si applica se selezioni uno o più trattamenti</p>
                     <div style="display: flex; gap: 20px; margin-top: 8px;">
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
                             <?= Html::radio('TreatmentStatisticsSearch[combinationMode]', 
@@ -131,7 +134,8 @@ $activeTreatments = count($ranking);
 
         <!-- Filtri temporali -->
         <div class="filter-section">
-            <h4>Periodo analisi</h4>
+            <h4>Periodo di validità dei piani</h4>
+            <p class="text-xs text-gray-500 mb-2">Include i piani la cui validità si sovrappone alle date (non la data di creazione del piano).</p>
             <div class="filter-row">
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'dateFrom')->textInput([
@@ -205,8 +209,8 @@ $activeTreatments = count($ranking);
                                     </tr>
                                 <?php endforeach; ?>
                                 <tr style="background: #f3f4f6; font-weight: 600;">
-                                    <td colspan="2">Totale Selezionati</td>
-                                    <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'patient_count')) ?></td>
+                                    <td colspan="2">Totale terapie selezionate</td>
+                                    <td class="text-center">-</td>
                                     <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'therapy_count')) ?></td>
                                     <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'total_weekly_hours')) ?></td>
                                     <td class="text-center">-</td>
@@ -217,6 +221,45 @@ $activeTreatments = count($ranking);
                 </div>
             </div>
         <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if (!empty($searchResults)): ?>
+        <div class="full-width-card">
+            <h3>
+                Pazienti corrispondenti
+                (<?= Html::encode(TreatmentStatisticsSearch::getCombinationModeOptions()[$searchModel->combinationMode] ?? $searchModel->combinationMode) ?>)
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">
+                <?= count($searchResults) ?> pazienti. I trattamenti elencati sono tutti quelli del piano filtrato, non solo i tipi selezionati.
+            </p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Paziente</th>
+                        <th class="text-center">N° trattamenti</th>
+                        <th>Trattamenti</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($searchResults, 0, 30) as $patient): ?>
+                        <tr>
+                            <td class="font-bold">
+                                <?= Html::encode(($patient['last_name'] ?? '') . ' ' . ($patient['first_name'] ?? '')) ?>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-blue"><?= (int) $patient['treatment_count'] ?></span>
+                            </td>
+                            <td class="text-sm"><?= Html::encode($patient['treatments'] ?? '') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if (count($searchResults) > 30): ?>
+                <p class="text-center mt-4 text-sm text-gray-600">
+                    Mostrati i primi 30 di <?= count($searchResults) ?> pazienti
+                </p>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <?php if (!$hasData): ?>
@@ -240,8 +283,8 @@ $activeTreatments = count($ranking);
                     <div class="stat-label">Tipi Attivi</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value green"><?= $totalPatients ?></div>
-                    <div class="stat-label">Pazienti Totali</div>
+                    <div class="stat-value green"><?= $distinctPatientCount ?></div>
+                    <div class="stat-label">Pazienti distinti</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value purple"><?= $totalTherapies ?></div>
@@ -310,7 +353,7 @@ $activeTreatments = count($ranking);
                 </div>
             </div>
             <div class="chart-card">
-                <h4>Distribuzione per Setting</h4>
+                <h4>Distribuzione per setting</h4>
                 <div class="chart-container">
                     <canvas id="setting-chart"></canvas>
                 </div>
@@ -327,12 +370,12 @@ $activeTreatments = count($ranking);
                         <th style="width: 50px;">Pos.</th>
                         <th>Combinazione Trattamenti</th>
                         <th class="text-center">N° Pazienti</th>
-                        <th class="text-center">% sul Totale</th>
+                        <th class="text-center">% sui multi-trattamento</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php 
-                    $totalMultiPatients = array_sum(array_column($combinations, 'patient_count'));
+                    $totalMultiPatients = $combinationsTotalPatients;
                     foreach ($combinations as $index => $combo): 
                         $percentage = $totalMultiPatients > 0 ? round(($combo['patient_count'] / $totalMultiPatients) * 100, 1) : 0;
                     ?>
@@ -360,7 +403,7 @@ $activeTreatments = count($ranking);
         <div class="export-section">
             <div class="info-text">
                 <i class="fas fa-info-circle"></i>
-                I dati mostrati includono tutti i trattamenti attivi nel sistema
+                I dati rispettano i filtri attivi. L'export include ranking, combinazioni e setting.
             </div>
             <?= Html::a(
                 '<i class="fas fa-file-excel"></i> Esporta Report Excel',

@@ -7,6 +7,7 @@ use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 use Yii;
 use common\services\statistics\PatientStatisticsService;
+use common\services\statistics\TreatmentStatisticsService;
 
 /**
  * This is the model class for table "therapeutic_plans".
@@ -497,6 +498,7 @@ class TherapeuticPlan extends ActiveRecord
     {
         parent::afterSave($insert, $changedAttributes);
         PatientStatisticsService::invalidateCache();
+        TreatmentStatisticsService::invalidateCache();
     }
 
     /**
@@ -506,6 +508,7 @@ class TherapeuticPlan extends ActiveRecord
     {
         parent::afterDelete();
         PatientStatisticsService::invalidateCache();
+        TreatmentStatisticsService::invalidateCache();
     }
 
     /**

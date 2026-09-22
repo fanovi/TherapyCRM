@@ -295,58 +295,52 @@ class StatisticsController extends BaseController
     }
 
     /**
-     * Pagina analisi dettagliata trattamenti
+     * Carica e valida i filtri delle statistiche trattamenti.
      */
-    public function actionTreatments()
+    protected function createTreatmentSearchModel($throwOnInvalid = true)
     {
         $searchModel = new TreatmentStatisticsSearch();
         $searchModel->load(Yii::$app->request->queryParams);
 
+        if ($throwOnInvalid && !$searchModel->validate()) {
+            $messages = $searchModel->getFirstErrors();
+            throw new BadRequestHttpException(
+                'Filtri trattamenti non validi: ' . implode('; ', $messages)
+            );
+        }
+
+        return $searchModel;
+    }
+
+    /**
+     * Pagina analisi dettagliata trattamenti
+     */
+    public function actionTreatments()
+    {
+        $searchModel = $this->createTreatmentSearchModel(false);
+
         try {
-            // Debug: prova ogni chiamata singolarmente con filtri
-            try {
+            if ($searchModel->validate()) {
                 $ranking = $this->treatmentService->getRankingData($searchModel);
-            } catch (\Exception $e) {
-                Yii::error("Errore in getRankingData: " . $e->getMessage());
-                $ranking = [];
-            }
-
-            try {
-                $combinations = $this->treatmentService->getMostFrequentCombinations($searchModel, 10);
-            } catch (\Exception $e) {
-                Yii::error("Errore in getMostFrequentCombinations: " . $e->getMessage());
-                $combinations = [];
-            }
-
-            try {
+                $comboResult = $this->treatmentService->getMostFrequentCombinations($searchModel, 10);
+                $combinations = $comboResult['items'];
+                $combinationsTotalPatients = $comboResult['total_multi_patients'];
                 $bySettingType = $this->treatmentService->getBySettingType($searchModel);
-            } catch (\Exception $e) {
-                Yii::error("Errore in getBySettingType: " . $e->getMessage());
-                $bySettingType = [];
-            }
-
-            try {
                 $hoursDistribution = $this->treatmentService->getWeeklyHoursDistribution($searchModel);
-            } catch (\Exception $e) {
-                Yii::error("Errore in getWeeklyHoursDistribution: " . $e->getMessage());
+                $distinctPatientCount = $this->treatmentService->getDistinctPatientCount($searchModel);
+                $searchResults = !empty($searchModel->treatmentIds)
+                    ? $searchModel->getStatistics()
+                    : [];
+            } else {
+                $ranking = [];
+                $combinations = [];
+                $combinationsTotalPatients = 0;
+                $bySettingType = [];
                 $hoursDistribution = [];
-            }
-
-            // Statistiche specifiche per i filtri del search model
-            try {
-                // Statistiche specifiche per i filtri del search model
-                // Mostra risultati solo se ci sono filtri attivi
-                if (!empty($searchModel->treatmentIds)) {
-                    $searchResults = $searchModel->getStatistics();
-                } else {
-                    $searchResults = [];
-                }
-            } catch (\Exception $e) {
-                Yii::error("Errore in getStatistics: " . $e->getMessage());
+                $distinctPatientCount = 0;
                 $searchResults = [];
             }
 
-            // Opzioni per i filtri
             $treatmentOptions = $this->getTreatmentOptions();
             $regimeOptions = $this->getRegimeOptions();
 
@@ -354,8 +348,10 @@ class StatisticsController extends BaseController
                 'searchModel' => $searchModel,
                 'ranking' => $ranking,
                 'combinations' => $combinations,
+                'combinationsTotalPatients' => $combinationsTotalPatients,
                 'bySettingType' => $bySettingType,
                 'hoursDistribution' => $hoursDistribution,
+                'distinctPatientCount' => $distinctPatientCount,
                 'searchResults' => $searchResults,
                 'treatmentOptions' => $treatmentOptions,
                 'regimeOptions' => $regimeOptions,
@@ -609,10 +605,9 @@ class StatisticsController extends BaseController
 
     protected function getTreatmentRankingData()
     {
-        $filters = Yii::$app->request->queryParams;
-        $ranking = $this->treatmentService->getRankingData($filters);
+        $searchModel = $this->createTreatmentSearchModel();
+        $ranking = $this->treatmentService->getRankingData($searchModel);
 
-        // Prende i top 10
         $topRanking = array_slice($ranking, 0, 10);
 
         return [
@@ -632,7 +627,7 @@ class StatisticsController extends BaseController
 
     protected function getTreatmentHoursData()
     {
-        $hoursData = $this->treatmentService->getWeeklyHoursDistribution();
+        $hoursData = $this->treatmentService->getWeeklyHoursDistribution($this->createTreatmentSearchModel());
 
         return [
             'success' => true,
@@ -775,18 +770,22 @@ class StatisticsController extends BaseController
 
     protected function exportTreatments()
     {
-        $searchModel = new TreatmentStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createTreatmentSearchModel();
         $ranking = $this->treatmentService->getRankingData($searchModel);
+        $comboResult = $this->treatmentService->getMostFrequentCombinations($searchModel, 50);
+        $settings = $this->treatmentService->getBySettingType($searchModel);
+        $distinctPatients = $this->treatmentService->getDistinctPatientCount($searchModel);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Ranking');
 
-        // Headers
-        $headers = ['Trattamento', 'Codice', 'Pazienti', 'Terapie Totali', 'Ore Settimanali', 'Ore Medie'];
-        $sheet->fromArray($headers, null, 'A1');
+        $sheet->fromArray(
+            ['Trattamento', 'Codice', 'Pazienti', 'Terapie Totali', 'Ore Settimanali', 'Ore Medie'],
+            null,
+            'A1'
+        );
 
-        // Dati
         $row = 2;
         foreach ($ranking as $treatment) {
             $sheet->setCellValue("A{$row}", $treatment['name']);
@@ -797,6 +796,36 @@ class StatisticsController extends BaseController
             $sheet->setCellValue("F{$row}", round($treatment['avg_weekly_hours'], 2));
             $row++;
         }
+
+        $sheet->setCellValue('A' . ($row + 1), 'Pazienti distinti (filtro corrente)');
+        $sheet->setCellValue('C' . ($row + 1), $distinctPatients);
+
+        $comboSheet = $spreadsheet->createSheet();
+        $comboSheet->setTitle('Combinazioni');
+        $comboSheet->fromArray(['Combinazione', 'N. Pazienti', 'N. Trattamenti'], null, 'A1');
+        $comboRow = 2;
+        foreach ($comboResult['items'] as $combo) {
+            $comboSheet->setCellValue("A{$comboRow}", $combo['combination']);
+            $comboSheet->setCellValue("B{$comboRow}", $combo['patient_count']);
+            $comboSheet->setCellValue("C{$comboRow}", $combo['treatment_count']);
+            $comboRow++;
+        }
+        $comboSheet->setCellValue('A' . ($comboRow + 1), 'Pazienti multi-trattamento');
+        $comboSheet->setCellValue('B' . ($comboRow + 1), $comboResult['total_multi_patients']);
+
+        $settingSheet = $spreadsheet->createSheet();
+        $settingSheet->setTitle('Setting');
+        $settingSheet->fromArray(['Setting', 'Terapie', 'Pazienti', 'Ore settimanali'], null, 'A1');
+        $settingRow = 2;
+        foreach ($settings as $setting) {
+            $settingSheet->setCellValue("A{$settingRow}", $setting['setting_type']);
+            $settingSheet->setCellValue("B{$settingRow}", $setting['therapy_count']);
+            $settingSheet->setCellValue("C{$settingRow}", $setting['patient_count']);
+            $settingSheet->setCellValue("D{$settingRow}", $setting['total_hours']);
+            $settingRow++;
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
 
         return $this->sendExcelFile($spreadsheet, 'statistiche_trattamenti_' . date('Y-m-d') . '.xlsx');
     }
