@@ -313,6 +313,24 @@ class StatisticsController extends BaseController
     }
 
     /**
+     * Carica e valida i filtri delle statistiche piani.
+     */
+    protected function createPlanSearchModel($throwOnInvalid = true)
+    {
+        $searchModel = new PlanStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        if ($throwOnInvalid && !$searchModel->validate()) {
+            $messages = $searchModel->getFirstErrors();
+            throw new BadRequestHttpException(
+                'Filtri piani non validi: ' . implode('; ', $messages)
+            );
+        }
+
+        return $searchModel;
+    }
+
+    /**
      * Pagina analisi dettagliata trattamenti
      */
     public function actionTreatments()
@@ -367,15 +385,34 @@ class StatisticsController extends BaseController
      */
     public function actionPlans()
     {
-        $searchModel = new PlanStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPlanSearchModel(false);
 
         try {
-            $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
+            if ($searchModel->validate()) {
+                $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
+            } else {
+                $plansStats = [
+                    'by_status' => [],
+                    'by_duration' => [],
+                    'completion_rates' => [],
+                    'expiring_list' => [],
+                    'monthly_trends' => [],
+                    'by_regime' => [],
+                    'kpis' => [
+                        'active_today' => 0,
+                        'completed' => 0,
+                        'expiring_soon' => 0,
+                        'total' => 0,
+                        'avg_completion' => 0,
+                    ],
+                ];
+            }
 
             return $this->render('plans', [
                 'searchModel' => $searchModel,
                 'plansStats' => $plansStats,
+                'therapistOptions' => $this->getTherapistOptions(),
+                'patientOptions' => $this->getPatientOptions(),
             ]);
         } catch (\Exception $e) {
             Yii::error("Errore pagina piani: " . $e->getMessage());
@@ -646,8 +683,9 @@ class StatisticsController extends BaseController
 
     protected function getPlansMonthlyData()
     {
-        $filters = Yii::$app->request->queryParams;
-        $monthlyData = $this->treatmentService->getMonthlyTrends($filters);
+        $searchModel = $this->createPlanSearchModel();
+        $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
+        $monthlyData = $plansStats['monthly_trends'];
 
         return [
             'success' => true,
@@ -656,7 +694,7 @@ class StatisticsController extends BaseController
                 'datasets' => [
                     [
                         'label' => 'Nuovi Piani',
-                        'data' => ArrayHelper::getColumn($monthlyData, 'new_therapies'),
+                        'data' => ArrayHelper::getColumn($monthlyData, 'count'),
                         'borderColor' => 'rgb(255, 99, 132)',
                         'backgroundColor' => 'rgba(255, 99, 132, 0.2)',
                     ]
@@ -832,27 +870,51 @@ class StatisticsController extends BaseController
 
     protected function exportPlans()
     {
-        $searchModel = new PlanStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPlanSearchModel();
         $plansStats = $this->statisticsService->getPlansStatistics($searchModel);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-
-        // Headers
-        $headers = ['Piano ID', 'Paziente', 'Appuntamenti Totali', 'Completati', 'Tasso Completamento'];
-        $sheet->fromArray($headers, null, 'A1');
-
-        // Dati
+        $sheet->setTitle('Completamento');
+        $sheet->fromArray(['Piano ID', 'Paziente', 'Stato', 'Appuntamenti', 'Completati', 'Tasso'], null, 'A1');
         $row = 2;
         foreach ($plansStats['completion_rates'] as $plan) {
             $sheet->setCellValue("A{$row}", $plan['id']);
             $sheet->setCellValue("B{$row}", $plan['patient_name']);
-            $sheet->setCellValue("C{$row}", $plan['total_appointments']);
-            $sheet->setCellValue("D{$row}", $plan['completed_appointments']);
-            $sheet->setCellValue("E{$row}", $plan['completion_rate'] . '%');
+            $sheet->setCellValue("C{$row}", $plan['status'] ?? '');
+            $sheet->setCellValue("D{$row}", $plan['total_appointments']);
+            $sheet->setCellValue("E{$row}", $plan['completed_appointments']);
+            $sheet->setCellValue("F{$row}", $plan['completion_rate'] . '%');
             $row++;
         }
+        $sheet->setCellValue('A' . ($row + 1), 'Completamento medio');
+        $sheet->setCellValue('F' . ($row + 1), ($plansStats['kpis']['avg_completion'] ?? 0) . '%');
+
+        $statusSheet = $spreadsheet->createSheet();
+        $statusSheet->setTitle('Stati');
+        $statusSheet->fromArray(['Stato', 'N. Piani'], null, 'A1');
+        $srow = 2;
+        foreach ($plansStats['by_status'] as $status) {
+            $statusSheet->setCellValue("A{$srow}", $status['status_label'] ?? $status['status']);
+            $statusSheet->setCellValue("B{$srow}", $status['count']);
+            $srow++;
+        }
+
+        $expSheet = $spreadsheet->createSheet();
+        $expSheet->setTitle('In scadenza');
+        $expSheet->fromArray(['Piano ID', 'Paziente', 'Fine', 'Giorni'], null, 'A1');
+        $erow = 2;
+        foreach ($plansStats['expiring_list'] as $plan) {
+            $expSheet->setCellValue("A{$erow}", $plan['id']);
+            $expSheet->setCellValue("B{$erow}", $plan['patient_name']);
+            $expSheet->setCellValue("C{$erow}", $plan['end_date']);
+            $expSheet->setCellValue("D{$erow}", $plan['days_until_expiry']);
+            $erow++;
+        }
+        $expSheet->setCellValue('A' . ($erow + 1), 'Totale in scadenza (30 gg)');
+        $expSheet->setCellValue('D' . ($erow + 1), $plansStats['kpis']['expiring_soon'] ?? 0);
+
+        $spreadsheet->setActiveSheetIndex(0);
 
         return $this->sendExcelFile($spreadsheet, 'statistiche_piani_' . date('Y-m-d') . '.xlsx');
     }

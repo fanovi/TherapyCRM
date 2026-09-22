@@ -3,13 +3,15 @@
 namespace frontend\models;
 
 use yii\base\Model;
+use yii\db\Query;
+use common\models\TherapeuticPlan;
 
 /**
  * PlanStatisticsSearch rappresenta il modello per i filtri delle statistiche dei piani terapeutici
  */
 class PlanStatisticsSearch extends Model
 {
-    public $status;
+    public $status = 'active';
     public $minDuration;
     public $maxDuration;
     public $dateFrom;
@@ -23,10 +25,15 @@ class PlanStatisticsSearch extends Model
     public function rules()
     {
         return [
-            [['status'], 'string'],
+            [['status'], 'in', 'range' => array_keys(self::getStatusOptions())],
             [['minDuration', 'maxDuration', 'therapistId', 'patientId'], 'integer', 'min' => 0],
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
-            [['status'], 'in', 'range' => ['', 'active', 'completed']],
+            [['dateFrom'], 'compare', 'compareAttribute' => 'dateTo', 'operator' => '<=', 'when' => function ($model) {
+                return !empty($model->dateTo);
+            }],
+            [['minDuration'], 'compare', 'compareAttribute' => 'maxDuration', 'operator' => '<=', 'when' => function ($model) {
+                return $model->maxDuration !== null && $model->maxDuration !== '';
+            }],
         ];
     }
 
@@ -46,119 +53,120 @@ class PlanStatisticsSearch extends Model
         ];
     }
 
-    /**
-     * Ottiene la lista degli stati disponibili
-     */
-    public function getStatusList()
+    public static function getStatusOptions()
     {
         return [
-            '' => 'Tutti gli stati',
-            'active' => 'Attivi',
-            'completed' => 'Completati'
+            'active' => 'Attivi (validi oggi)',
+            'all' => 'Tutti gli stati',
+            TherapeuticPlan::STATUS_DRAFT => 'Bozza',
+            TherapeuticPlan::STATUS_PENDING => 'In attesa',
+            TherapeuticPlan::STATUS_SUSPENDED => 'Sospesi',
+            TherapeuticPlan::STATUS_COMPLETED => 'Completati',
+            TherapeuticPlan::STATUS_TERMINATED => 'Interrotti',
+            TherapeuticPlan::STATUS_EXPIRED => 'Scaduti',
+        ];
+    }
+
+    public static function getStatusLabels()
+    {
+        return [
+            TherapeuticPlan::STATUS_DRAFT => 'Bozza',
+            TherapeuticPlan::STATUS_PENDING => 'In attesa',
+            TherapeuticPlan::STATUS_ACTIVE => 'Attivo',
+            TherapeuticPlan::STATUS_SUSPENDED => 'Sospeso',
+            TherapeuticPlan::STATUS_COMPLETED => 'Completato',
+            TherapeuticPlan::STATUS_TERMINATED => 'Interrotto',
+            TherapeuticPlan::STATUS_EXPIRED => 'Scaduto',
         ];
     }
 
     /**
-     * Ottiene la lista dei terapisti disponibili
+     * Filtri condivisi su query con alias `tp`.
+     *
+     * @param Query $query
+     * @param bool $applyStatus
      */
-    public function getTherapistList()
+    public function applyCommonFilters($query, $applyStatus = true)
     {
-        return (new \yii\db\Query())
-            ->select(['id', 'CONCAT(first_name, " ", last_name) as name'])
-            ->from('therapist')
-            ->where(['status' => 'active'])
-            ->orderBy('last_name, first_name')
-            ->all();
+        if ($applyStatus) {
+            $this->applyStatusFilter($query);
+        }
+
+        if ($this->minDuration !== null && $this->minDuration !== '') {
+            $query->andWhere(['>=', 'tp.duration_days', $this->minDuration]);
+        }
+        if ($this->maxDuration !== null && $this->maxDuration !== '') {
+            $query->andWhere(['<=', 'tp.duration_days', $this->maxDuration]);
+        }
+
+        if ($this->dateFrom) {
+            $query->andWhere(['>=', 'tp.end_date', $this->dateFrom]);
+        }
+        if ($this->dateTo) {
+            $query->andWhere(['<=', 'tp.start_date', $this->dateTo]);
+        }
+
+        if ($this->patientId) {
+            $query->andWhere(['tp.patient_id' => $this->patientId]);
+        }
+
+        if ($this->therapistId) {
+            $subQuery = (new Query())
+                ->select('pt_filter.therapeutic_plan_id')
+                ->distinct()
+                ->from(['pt_filter' => 'plan_therapies'])
+                ->innerJoin(['a_filter' => 'appointments'], 'pt_filter.id = a_filter.plan_therapy_id')
+                ->where(['a_filter.therapist_id' => $this->therapistId]);
+            $query->andWhere(['in', 'tp.id', $subQuery]);
+        }
     }
 
-    /**
-     * Ottiene la lista dei pazienti disponibili
-     */
-    public function getPatientList()
+    public function applyStatusFilter($query)
     {
-        return (new \yii\db\Query())
-            ->select(['id', 'CONCAT(first_name, " ", last_name) as name'])
-            ->from('patient')
-            ->where(['status' => 'active'])
-            ->orderBy('last_name, first_name')
-            ->all();
-    }
+        if ($this->status === 'all' || $this->status === '' || $this->status === null) {
+            return;
+        }
 
-    /**
-     * Prepara i filtri per le query delle statistiche
-     */
-    public function getFilters()
-    {
-        $filters = [];
-        
-        if (!empty($this->status)) {
-            $filters['status'] = $this->status;
+        if ($this->status === 'active') {
+            $today = date('Y-m-d');
+            $query->andWhere(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
+                ->andWhere(['<=', 'tp.start_date', $today])
+                ->andWhere(['>=', 'tp.end_date', $today]);
+            return;
         }
-        
-        if (!empty($this->minDuration)) {
-            $filters['minDuration'] = $this->minDuration;
-        }
-        
-        if (!empty($this->maxDuration)) {
-            $filters['maxDuration'] = $this->maxDuration;
-        }
-        
-        if (!empty($this->dateFrom)) {
-            $filters['dateFrom'] = $this->dateFrom;
-        }
-        
-        if (!empty($this->dateTo)) {
-            $filters['dateTo'] = $this->dateTo;
-        }
-        
-        if (!empty($this->therapistId)) {
-            $filters['therapistId'] = $this->therapistId;
-        }
-        
-        if (!empty($this->patientId)) {
-            $filters['patientId'] = $this->patientId;
-        }
-        
-        return $filters;
-    }
 
-    /**
-     * Valida il range di date
-     */
-    public function validateDateRange()
-    {
-        if (!empty($this->dateFrom) && !empty($this->dateTo)) {
-            if (strtotime($this->dateFrom) > strtotime($this->dateTo)) {
-                $this->addError('dateTo', 'La data di fine deve essere successiva alla data di inizio');
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Valida il range di durata
-     */
-    public function validateDurationRange()
-    {
-        if (!empty($this->minDuration) && !empty($this->maxDuration)) {
-            if ($this->minDuration > $this->maxDuration) {
-                $this->addError('maxDuration', 'La durata massima deve essere maggiore della durata minima');
-                return false;
-            }
-        }
-        return true;
+        $query->andWhere(['tp.status' => $this->status]);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function beforeValidate()
+    public function load($params, $formName = null)
     {
-        if (!parent::beforeValidate()) {
-            return false;
+        $loaded = parent::load($params, $formName);
+
+        if ($this->status === '') {
+            $this->status = 'all';
+        }
+        if ($this->dateFrom === '') {
+            $this->dateFrom = null;
+        }
+        if ($this->dateTo === '') {
+            $this->dateTo = null;
+        }
+        if ($this->minDuration === '') {
+            $this->minDuration = null;
+        }
+        if ($this->maxDuration === '') {
+            $this->maxDuration = null;
+        }
+        if ($this->therapistId === '') {
+            $this->therapistId = null;
+        }
+        if ($this->patientId === '') {
+            $this->patientId = null;
         }
 
-        return $this->validateDateRange() && $this->validateDurationRange();
+        return $loaded;
     }
-} 
+}

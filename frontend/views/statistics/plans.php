@@ -3,10 +3,13 @@
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\helpers\Url;
+use frontend\models\PlanStatisticsSearch;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\PlanStatisticsSearch */
 /* @var $plansStats array */
+/* @var $therapistOptions array */
+/* @var $patientOptions array */
 
 $this->title = 'Statistiche Piani Terapeutici';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
@@ -22,33 +25,41 @@ $plansStats = $plansStats ?? [
     'by_duration' => [],
     'completion_rates' => [],
     'expiring_list' => [],
-    'monthly_trends' => []
+    'monthly_trends' => [],
+    'by_regime' => [],
+    'kpis' => [
+        'active_today' => 0,
+        'completed' => 0,
+        'expiring_soon' => 0,
+        'total' => 0,
+        'avg_completion' => 0,
+    ],
+];
+$kpis = $plansStats['kpis'] ?? [
+    'active_today' => 0,
+    'completed' => 0,
+    'expiring_soon' => 0,
+    'total' => 0,
+    'avg_completion' => 0,
 ];
 
-// Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) || 
-                    !empty($searchModel->status) || !empty($searchModel->minDuration) || 
-                    !empty($searchModel->maxDuration);
+$therapistOptions = $therapistOptions ?? [];
+$patientOptions = $patientOptions ?? [];
 
-// Calcola statistiche di riepilogo
-$activeCount = 0;
-$completedCount = 0;
-$suspendedCount = 0;
-foreach ($plansStats['by_status'] as $status) {
-    if ($status['status'] === 'active') $activeCount = $status['count'];
-    elseif ($status['status'] === 'completed') $completedCount = $status['count'];
-    elseif ($status['status'] === 'suspended') $suspendedCount = $status['count'];
-}
-$totalPlans = $activeCount + $completedCount + $suspendedCount;
+$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
+                    ($searchModel->status && $searchModel->status !== 'active') ||
+                    ($searchModel->minDuration !== null && $searchModel->minDuration !== '') ||
+                    ($searchModel->maxDuration !== null && $searchModel->maxDuration !== '') ||
+                    !empty($searchModel->therapistId) ||
+                    !empty($searchModel->patientId);
 
-// Calcola tasso medio di completamento
-$avgCompletion = 0;
-if (!empty($plansStats['completion_rates'])) {
-    $avgCompletion = round(array_sum(array_column($plansStats['completion_rates'], 'completion_rate')) / count($plansStats['completion_rates']), 1);
-}
+$activeCount = $kpis['active_today'];
+$completedCount = $kpis['completed'];
+$expiringCount = $kpis['expiring_soon'];
+$avgCompletion = $kpis['avg_completion'];
+$totalPlans = $kpis['total'];
 
-// Helper per verificare se ci sono dati
-$hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plansStats['completion_rates']);
+$hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plansStats['completion_rates']) || $expiringCount > 0;
 ?>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6 statistics-plans">
@@ -75,16 +86,21 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
             'options' => ['class' => 'filter-form']
         ]); ?>
 
+        <?php if ($searchModel->hasErrors()): ?>
+            <div class="alert alert-danger mb-4">
+                <?= Html::errorSummary($searchModel, ['header' => '<strong>Filtri non validi</strong>']) ?>
+            </div>
+        <?php endif; ?>
+
         <!-- Filtri stato e durata -->
         <div class="filter-section">
             <h4>Filtri principali</h4>
             <div class="filter-row">
                 <div class="filter-col">
-                    <?= $form->field($searchModel, 'status')->dropDownList([
-                        '' => 'Tutti gli stati',
-                        'active' => 'Attivi',
-                        'completed' => 'Completati'
-                    ], ['class' => 'form-control'])->label('Stato piano') ?>
+                    <?= $form->field($searchModel, 'status')->dropDownList(
+                        PlanStatisticsSearch::getStatusOptions(),
+                        ['class' => 'form-control']
+                    )->label('Stato piano') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'minDuration')->textInput([
@@ -107,7 +123,8 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
 
         <!-- Filtri temporali -->
         <div class="filter-section">
-            <h4>Periodo di riferimento</h4>
+            <h4>Periodo di validità</h4>
+            <p class="text-xs text-gray-500 mb-2">Include i piani la cui validità si sovrappone alle date (non la sola data di inizio o di fine).</p>
             <div class="filter-row">
                 <div class="filter-col">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700">Data inizio</label>
@@ -144,6 +161,24 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
             </div>
         </div>
 
+        <div class="filter-section">
+            <h4>Filtri specifici</h4>
+            <div class="filter-row">
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'therapistId')->dropDownList(
+                        ['' => 'Tutti i terapisti'] + $therapistOptions,
+                        ['class' => 'form-control']
+                    )->label('Terapista') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'patientId')->dropDownList(
+                        ['' => 'Tutti i pazienti'] + $patientOptions,
+                        ['class' => 'form-control']
+                    )->label('Paziente') ?>
+                </div>
+            </div>
+        </div>
+
         <!-- Pulsanti azione -->
         <div class="filter-actions">
             <?= Html::submitButton('<i class="fas fa-search"></i> Applica filtri', [
@@ -175,15 +210,15 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-value green"><?= $activeCount ?></div>
-                    <div class="stat-label">Piani Attivi</div>
+                    <div class="stat-label">Attivi oggi</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value blue"><?= $completedCount ?></div>
                     <div class="stat-label">Completati</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value orange"><?= count($plansStats['expiring_list']) ?></div>
-                    <div class="stat-label">In Scadenza</div>
+                    <div class="stat-value orange"><?= $expiringCount ?></div>
+                    <div class="stat-label">In scadenza (30 gg)</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value gray"><?= $avgCompletion ?>%</div>
@@ -215,6 +250,7 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
         <?php if (!empty($plansStats['completion_rates'])): ?>
         <div class="full-width-card">
             <h3>Top 10 Piani per Tasso di Completamento</h3>
+            <p class="text-sm text-gray-600 mb-3">Il tasso esclude gli appuntamenti cancellati. La media KPI è su tutti i piani filtrati con appuntamenti, non solo sulla top 10.</p>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -253,12 +289,35 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="badge-small badge-blue">Attivo</span>
+                                <?php
+                                $statusLabels = PlanStatisticsSearch::getStatusLabels();
+                                $statusKey = $plan['status'] ?? '';
+                                echo Html::encode($statusLabels[$statusKey] ?? ($statusKey ?: 'N/D'));
+                                ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($plansStats['by_regime'])): ?>
+        <div class="section-title">
+            <h3>Distribuzione per Regime Sanitario</h3>
+        </div>
+        <div class="regime-grid">
+            <?php foreach ($plansStats['by_regime'] as $regime): ?>
+            <div class="regime-card">
+                <h4><?= Html::encode($regime['regime_name']) ?></h4>
+                <div class="regime-count">
+                    <?= (int) $regime['plan_count'] ?> piani
+                </div>
+                <div class="regime-duration">
+                    <?= (int) $regime['patient_count'] ?> pazienti
+                </div>
+            </div>
+            <?php endforeach; ?>
         </div>
         <?php endif; ?>
 
@@ -310,7 +369,7 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
         <!-- 5. Piani in scadenza -->
         <?php if (!empty($plansStats['expiring_list'])): ?>
         <div class="full-width-card warning">
-            <h3><i class="fas fa-exclamation-triangle"></i> Piani in Scadenza (Prossimi 60 Giorni)</h3>
+            <h3><i class="fas fa-exclamation-triangle"></i> Piani in scadenza (prossimi 30 giorni)</h3>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -383,6 +442,36 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
 
 <!-- CSS aggiuntivo per questa view -->
 <style>
+.regime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.regime-card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #3182ce;
+}
+.regime-card h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 12px;
+}
+.regime-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3182ce;
+    margin-bottom: 8px;
+}
+.regime-duration {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
 /* Stili specifici per le statistiche durata */
 .duration-stats {
     padding: 16px 0;
@@ -543,12 +632,7 @@ function loadStatusChart() {
                 type: 'doughnut',
                 data: {
                     labels: statusData.map(function(s) { 
-                        switch(s.status) {
-                            case 'active': return 'Attivi';
-                            case 'completed': return 'Completati';
-                            case 'suspended': return 'Sospesi';
-                            default: return s.status;
-                        }
+                        return s.status_label || s.status;
                     }),
                     datasets: [{
                         label: 'Piani',
@@ -556,12 +640,20 @@ function loadStatusChart() {
                         backgroundColor: [
                             'rgba(34, 197, 94, 0.8)',
                             'rgba(59, 130, 246, 0.8)',
-                            'rgba(249, 115, 22, 0.8)'
+                            'rgba(249, 115, 22, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(107, 114, 128, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(14, 165, 233, 0.8)'
                         ],
                         borderColor: [
                             'rgba(34, 197, 94, 1)',
                             'rgba(59, 130, 246, 1)',
-                            'rgba(249, 115, 22, 1)'
+                            'rgba(249, 115, 22, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(107, 114, 128, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(14, 165, 233, 1)'
                         ],
                         borderWidth: 1
                     }]
