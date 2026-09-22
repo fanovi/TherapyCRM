@@ -18,6 +18,43 @@ $this->params['breadcrumbs'][] = $this->title;
 // del proprio gruppo, altrimenti tutti.
 $modalTherapists = $therapistsList ?? \common\models\AbsenceSearch::getTherapistsList();
 $absenceTypes = \common\models\Absence::getTypeLabels();
+
+$calendarIcon = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+
+$datePickerFilter = static function ($model, $attribute) use ($calendarIcon) {
+    $id = Html::getInputId($model, $attribute);
+    $input = Html::activeTextInput($model, $attribute, [
+        'type' => 'date',
+        'id' => $id,
+        'class' => 'absence-date-filter w-full h-9 pl-2 pr-8 text-sm border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white cursor-pointer',
+        'onclick' => 'this.showPicker && this.showPicker()',
+    ]);
+    $button = Html::button($calendarIcon, [
+        'type' => 'button',
+        'encode' => false,
+        'class' => 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200',
+        'title' => 'Apri calendario',
+        'onclick' => "event.preventDefault(); var el = document.getElementById('{$id}'); el && el.showPicker && el.showPicker();",
+    ]);
+
+    return '<div class="relative min-w-[170px]">' . $input . $button . '</div>';
+};
+
+$this->registerCss(<<<CSS
+.absence-date-filter {
+    min-width: 160px;
+    color-scheme: light;
+}
+.absence-date-filter::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    width: 0;
+    padding: 0;
+}
+.dark .absence-date-filter {
+    color-scheme: dark;
+}
+CSS
+);
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
@@ -105,19 +142,19 @@ $absenceTypes = \common\models\Absence::getTypeLabels();
                     [
                         'attribute' => 'start_date',
                         'label' => 'Data Inizio',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'type' => 'date'],
+                        'filter' => $datePickerFilter($searchModel, 'start_date'),
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
                         'attribute' => 'end_date',
                         'label' => 'Data Fine',
-                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[120px]'],
+                        'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'type' => 'date'],
+                        'filter' => $datePickerFilter($searchModel, 'end_date'),
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
@@ -293,11 +330,11 @@ $js = <<<JS
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">' +
                 '<div>' +
                     '<label style="display:block;font-weight:600;color:#374151;margin-bottom:4px;">Data inizio *</label>' +
-                    '<input type="date" id="ab-start-date" value="' + escapeHtml(model.start_date || today) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">' +
+                    '<input type="date" id="ab-start-date" value="' + escapeHtml(model.start_date || today) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;" onclick="this.showPicker && this.showPicker()">' +
                 '</div>' +
                 '<div>' +
                     '<label style="display:block;font-weight:600;color:#374151;margin-bottom:4px;">Data fine *</label>' +
-                    '<input type="date" id="ab-end-date" value="' + escapeHtml(model.end_date || today) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">' +
+                    '<input type="date" id="ab-end-date" value="' + escapeHtml(model.end_date || today) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;" onclick="this.showPicker && this.showPicker()">' +
                 '</div>' +
             '</div>' +
             '<div style="margin-bottom:10px;">' +

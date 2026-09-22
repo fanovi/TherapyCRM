@@ -17,6 +17,40 @@ $apptsUrl = Url::to(['absence/patient-appointments-absence']);
 $markUrl = Url::to(['absence/mark-patients-absent']);
 $revokePatientUrl = Url::to(['absence/remove-patient-absence']);
 $csrfToken = Yii::$app->request->csrfToken;
+
+$calendarIcon = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+$birthDateId = Html::getInputId($searchModel, 'birth_date');
+$birthDateFilter = '<div class="relative min-w-[170px]">'
+    . Html::activeTextInput($searchModel, 'birth_date', [
+        'type' => 'date',
+        'id' => $birthDateId,
+        'class' => 'absence-date-filter w-full h-9 pl-2 pr-8 text-sm border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white cursor-pointer',
+        'onclick' => 'this.showPicker && this.showPicker()',
+    ])
+    . Html::button($calendarIcon, [
+        'type' => 'button',
+        'encode' => false,
+        'class' => 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200',
+        'title' => 'Apri calendario',
+        'onclick' => "event.preventDefault(); var el = document.getElementById('{$birthDateId}'); el && el.showPicker && el.showPicker();",
+    ])
+    . '</div>';
+
+$this->registerCss(<<<CSS
+.absence-date-filter {
+    min-width: 160px;
+    color-scheme: light;
+}
+.absence-date-filter::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    width: 0;
+    padding: 0;
+}
+.dark .absence-date-filter {
+    color-scheme: dark;
+}
+CSS
+);
 ?>
 
 <div class="mx-auto max-w-full p-4 md:p-6">
@@ -86,10 +120,10 @@ $csrfToken = Yii::$app->request->csrfToken;
                         [
                             'attribute' => 'birth_date',
                             'label' => 'Data nascita',
-                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[120px]'],
+                            'headerOptions' => ['class' => 'px-6 py-3 min-w-[180px]'],
                             'contentOptions' => ['class' => 'px-6 py-4 text-xs whitespace-nowrap'],
                             'filterOptions' => ['class' => 'px-2 py-2'],
-                            'filterInputOptions' => ['class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white', 'type' => 'date'],
+                            'filter' => $birthDateFilter,
                             'value' => function ($m) {
                                 return $m->birth_date
                                     ? Yii::$app->formatter->asDate($m->birth_date, 'php:d/m/Y')
