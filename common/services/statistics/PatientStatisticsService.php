@@ -98,6 +98,7 @@ class PatientStatisticsService
         $this->applyPatientFilters($query, $searchModel);
 
         return $query->groupBy(['r.id', 'r.nome', 'r.descrizione'])
+            ->having(['>', 'COUNT(DISTINCT tp.patient_id)', 0])
             ->orderBy(['patient_count' => SORT_DESC])
             ->all();
     }
@@ -351,7 +352,7 @@ class PatientStatisticsService
         $query = (new Query())
             ->select([
                 'd.id',
-                'd.nome as district_name',
+                'd.name as district_name',
                 'COUNT(DISTINCT p.id) as patient_count'
             ])
             ->from('districts d')
@@ -363,7 +364,8 @@ class PatientStatisticsService
         $tempSearchModel->districtId = null;
         $this->applyPatientFilters($query, $tempSearchModel);
 
-        return $query->groupBy(['d.id', 'd.nome'])
+        return $query->groupBy(['d.id', 'd.name'])
+            ->having(['>', 'COUNT(DISTINCT p.id)', 0])
             ->orderBy(['patient_count' => SORT_DESC])
             ->all();
     }
@@ -386,88 +388,22 @@ class PatientStatisticsService
     }
 
     /**
-     * Applica filtri del patient search model alla query
+     * Applica i filtri condivisi del search model alla query (alias `sp` richiesto).
      *
      * @param Query $query
      * @param PatientStatisticsSearch $searchModel
      */
     protected function applyPatientFilters($query, $searchModel)
     {
-        // Filtro piano terapeutico attivo (coerente con PatientStatisticsSearch)
-        if ($searchModel->activePlanOnly && $searchModel->status !== 'inactive') {
-            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-        }
+        $searchModel->applyCommonFilters($query);
+    }
 
-        if ($searchModel->gender && $searchModel->gender !== 'all') {
-            $query->andWhere(['sp.gender' => $searchModel->gender]);
-        }
-
-        if ($searchModel->ageFrom !== null) {
-            $query->andWhere(['>=', 'sp.age', $searchModel->ageFrom]);
-        }
-
-        if ($searchModel->ageTo !== null) {
-            $query->andWhere(['<=', 'sp.age', $searchModel->ageTo]);
-        }
-
-        if ($searchModel->status && $searchModel->status !== 'all') {
-            if ($searchModel->status === 'active') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($searchModel->status === 'inactive') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
-            }
-        }
-
-        if ($searchModel->dateFrom) {
-            $query->andWhere(['>=', 'DATE(sp.created_at)', $searchModel->dateFrom]);
-        }
-
-        if ($searchModel->dateTo) {
-            $query->andWhere(['<=', 'DATE(sp.created_at)', $searchModel->dateTo]);
-        }
-
-        if ($searchModel->hasMultipleTreatments !== null) {
-            if ($searchModel->hasMultipleTreatments) {
-                $query->andWhere(['>', 'sp.trattamenti_count_no_aba', 1]);
-            } else {
-                $query->andWhere(['<=', 'sp.trattamenti_count_no_aba', 1]);
-            }
-        }
-
-        if (!empty($searchModel->treatmentTypeIds)) {
-            // Filtro per tipi di trattamento - applica solo ai pazienti che hanno questi trattamenti
-            $subQuery = (new Query())
-                ->select('tp_sub.patient_id')
-                ->distinct()
-                ->from('plan_therapies pt_sub')
-                ->innerJoin('therapeutic_plans tp_sub', 'pt_sub.therapeutic_plan_id = tp_sub.id')
-                ->where(['pt_sub.treatment_type_id' => $searchModel->treatmentTypeIds])
-                ->andWhere(['tp_sub.status' => 'active'])
-                ->andWhere(['<=', 'tp_sub.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp_sub.end_date', date('Y-m-d')]);
-
-            $query->andWhere(['IN', 'sp.id', $subQuery]);
-        }
-
-        if ($searchModel->regimeId) {
-            $regimePatients = (new Query())
-                ->select('tp_regime.patient_id')
-                ->distinct()
-                ->from(['tp_regime' => 'therapeutic_plans'])
-                ->where(['tp_regime.regime_id' => $searchModel->regimeId])
-                ->andWhere(['tp_regime.status' => 'active'])
-                ->andWhere(['<=', 'tp_regime.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp_regime.end_date', date('Y-m-d')]);
-            $query->andWhere(['IN', 'sp.id', $regimePatients]);
-        }
-
-        if ($searchModel->districtId) {
-            // Richiede join con patients se non già presente
-            if (strpos($query->createCommand()->getRawSql(), 'patients') === false) {
-                $query->leftJoin('patients p', 'sp.id = p.id');
-            }
-            $query->andWhere(['p.district_id' => $searchModel->districtId]);
-        }
+    /**
+     * Pulisce la cache delle statistiche pazienti
+     */
+    public static function invalidateCache()
+    {
+        TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
     }
 
     /**
@@ -475,6 +411,6 @@ class PatientStatisticsService
      */
     public function clearCache()
     {
-        TagDependency::invalidate(Yii::$app->cache, self::CACHE_TAG);
+        self::invalidateCache();
     }
 }

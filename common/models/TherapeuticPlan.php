@@ -6,6 +6,7 @@ use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 use Yii;
+use common\services\statistics\PatientStatisticsService;
 
 /**
  * This is the model class for table "therapeutic_plans".
@@ -487,6 +488,24 @@ class TherapeuticPlan extends ActiveRecord
         }
 
         return null;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+        PatientStatisticsService::invalidateCache();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function afterDelete()
+    {
+        parent::afterDelete();
+        PatientStatisticsService::invalidateCache();
     }
 
     /**

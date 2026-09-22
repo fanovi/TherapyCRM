@@ -162,14 +162,36 @@ class StatisticsController extends BaseController
      */
     public function actionPatients()
     {
-        $searchModel = new PatientStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPatientSearchModel(false);
 
         try {
-            $demographics = $this->patientService->getDemographics($searchModel);
-            $byTreatment = $this->patientService->getByTreatment($searchModel);
-            $byRegime = $this->patientService->getByRegime($searchModel);
-            $multiTreatmentStats = $this->patientService->getMultiTreatmentStats($searchModel);
+            if ($searchModel->validate()) {
+                $demographics = $this->patientService->getDemographics($searchModel);
+                $byTreatment = $this->patientService->getByTreatment($searchModel);
+                $byRegime = $this->patientService->getByRegime($searchModel);
+                $multiTreatmentStats = $this->patientService->getMultiTreatmentStats($searchModel);
+            } else {
+                $demographics = [
+                    'age_groups' => [],
+                    'gender_distribution' => [],
+                    'age_stats' => [
+                        'avg_age' => 0,
+                        'min_age' => 0,
+                        'max_age' => 0,
+                        'total_patients' => 0,
+                    ],
+                ];
+                $byTreatment = [];
+                $byRegime = [];
+                $multiTreatmentStats = [
+                    'patients' => [],
+                    'stats' => [
+                        'avg_treatments' => 0,
+                        'max_treatments' => 0,
+                        'total_multi_patients' => 0,
+                    ],
+                ];
+            }
 
             // Opzioni per i filtri
             $treatmentOptions = $this->getTreatmentOptions();
@@ -248,6 +270,24 @@ class StatisticsController extends BaseController
             $messages = $searchModel->getFirstErrors();
             throw new BadRequestHttpException(
                 'Filtri assenze non validi: ' . implode('; ', $messages)
+            );
+        }
+
+        return $searchModel;
+    }
+
+    /**
+     * Carica e valida i filtri delle statistiche pazienti.
+     */
+    protected function createPatientSearchModel($throwOnInvalid = true)
+    {
+        $searchModel = new PatientStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        if ($throwOnInvalid && !$searchModel->validate()) {
+            $messages = $searchModel->getFirstErrors();
+            throw new BadRequestHttpException(
+                'Filtri pazienti non validi: ' . implode('; ', $messages)
             );
         }
 
@@ -485,8 +525,7 @@ class StatisticsController extends BaseController
 
     protected function getPatientAgeGroupsData()
     {
-        $searchModel = new PatientStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPatientSearchModel();
 
         // Riusa la query del search model per mantenere allineati tutti i filtri.
         $query = $searchModel->getStatisticsQuery()
@@ -537,8 +576,7 @@ class StatisticsController extends BaseController
 
     protected function getPatientGenderData()
     {
-        $searchModel = new PatientStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPatientSearchModel();
 
         $genderData = $searchModel->getGenderDistribution();
 
@@ -694,16 +732,28 @@ class StatisticsController extends BaseController
 
     protected function exportPatients()
     {
-        $searchModel = new PatientStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createPatientSearchModel();
 
-        $patientData = $searchModel->getStatisticsQuery()->all();
+        $patientData = $searchModel->getStatisticsQuery()
+            ->select([
+                'sp.first_name',
+                'sp.last_name',
+                'sp.age',
+                'sp.gender',
+                'sp.piano_terapeutico_attivo',
+                'sp.trattamenti_count_no_aba',
+                'sp.created_at',
+                'district_name' => new \yii\db\Expression("CASE WHEN d.asl_reference IS NOT NULL AND d.asl_reference != '' AND LOCATE(d.asl_reference, d.name) = 0 THEN CONCAT(d.asl_reference, ' - ', d.name) ELSE d.name END"),
+            ])
+            ->leftJoin('patients p_export', 'sp.id = p_export.id')
+            ->leftJoin('districts d', 'p_export.district_id = d.id')
+            ->all();
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         // Headers
-        $headers = ['Nome', 'Cognome', 'Età', 'Genere', 'Piano Attivo', 'Trattamenti (no ABA)', 'Data Creazione'];
+        $headers = ['Nome', 'Cognome', 'Età', 'Genere', 'Distretto', 'Piano Attivo', 'Trattamenti (no ABA)', 'Data Creazione'];
         $sheet->fromArray($headers, null, 'A1');
 
         // Dati
@@ -713,9 +763,10 @@ class StatisticsController extends BaseController
             $sheet->setCellValue("B{$row}", $patient['last_name']);
             $sheet->setCellValue("C{$row}", $patient['age']);
             $sheet->setCellValue("D{$row}", $patient['gender']);
-            $sheet->setCellValue("E{$row}", $patient['piano_terapeutico_attivo']);
-            $sheet->setCellValue("F{$row}", $patient['trattamenti_count_no_aba']);
-            $sheet->setCellValue("G{$row}", date('d/m/Y', strtotime($patient['created_at'])));
+            $sheet->setCellValue("E{$row}", $patient['district_name'] ?: '');
+            $sheet->setCellValue("F{$row}", $patient['piano_terapeutico_attivo']);
+            $sheet->setCellValue("G{$row}", $patient['trattamenti_count_no_aba']);
+            $sheet->setCellValue("H{$row}", date('d/m/Y', strtotime($patient['created_at'])));
             $row++;
         }
 

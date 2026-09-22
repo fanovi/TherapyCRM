@@ -60,17 +60,22 @@ class StatisticsService
             ->where(['>=', 'created_at', date('Y-m-01 00:00:00')])
             ->count();
 
-        // Pazienti con trattamenti multipli
-        $multiTreatment = (new Query())
-            ->select('COUNT(DISTINCT p.id)')
+        // Pazienti con trattamenti multipli (escluso ABA, come in /statistics/patients)
+        $multiTreatmentQuery = (new Query())
+            ->select('p.id')
             ->from('patients p')
             ->innerJoin('therapeutic_plans tp', 'p.id = tp.patient_id')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
+            ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
             ->where(['tp.status' => 'active'])
             ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
             ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
+            ->andWhere(['not like', 'tt.name', '%ABA%'])
             ->groupBy('p.id')
-            ->having('COUNT(DISTINCT pt.treatment_type_id) > 1')
+            ->having('COUNT(DISTINCT pt.treatment_type_id) > 1');
+
+        $multiTreatment = (new Query())
+            ->from(['multi' => $multiTreatmentQuery])
             ->count();
 
         return [

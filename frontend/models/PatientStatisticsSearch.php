@@ -13,17 +13,17 @@ use Yii;
  */
 class PatientStatisticsSearch extends Model
 {
-    public $gender;
+    public $gender = 'all';
     public $ageFrom;
     public $ageTo;
     public $districtId;
     public $regimeId;
     public $treatmentTypeIds = [];
     public $hasMultipleTreatments;
-    public $status;
+    public $status = 'active';
     public $dateFrom;
     public $dateTo;
-    public $activePlanOnly = 1; // Default: mostra solo pazienti con piano terapeutico attivo
+    public $activePlanOnly = 1;
 
     /**
      * {@inheritdoc}
@@ -39,6 +39,9 @@ class PatientStatisticsSearch extends Model
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
             [['ageFrom'], 'compare', 'compareAttribute' => 'ageTo', 'operator' => '<=', 'when' => function ($model) {
                 return !empty($model->ageTo);
+            }],
+            [['dateFrom'], 'compare', 'compareAttribute' => 'dateTo', 'operator' => '<=', 'when' => function ($model) {
+                return !empty($model->dateTo);
             }],
         ];
     }
@@ -73,12 +76,22 @@ class PatientStatisticsSearch extends Model
         $query = (new Query())
             ->from('statistics_patients_current_v sp');
 
-        // Filtro piano terapeutico attivo (default ON)
-        if ($this->activePlanOnly && $this->status !== 'inactive') {
+        $this->applyCommonFilters($query);
+
+        return $query;
+    }
+
+    /**
+     * Applica i filtri condivisi a una query che espone l'alias `sp`.
+     */
+    public function applyCommonFilters($query)
+    {
+        if ($this->resolvePlanStatus() === 'active') {
             $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
+        } elseif ($this->resolvePlanStatus() === 'inactive') {
+            $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
         }
 
-        // Applica filtri
         if ($this->gender && $this->gender !== 'all') {
             $query->andWhere(['sp.gender' => $this->gender]);
         }
@@ -91,14 +104,6 @@ class PatientStatisticsSearch extends Model
             $query->andWhere(['<=', 'sp.age', $this->ageTo]);
         }
 
-        if ($this->status && $this->status !== 'all') {
-            if ($this->status === 'active') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($this->status === 'inactive') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
-            }
-        }
-
         if ($this->dateFrom) {
             $query->andWhere(['>=', 'DATE(sp.created_at)', $this->dateFrom]);
         }
@@ -107,8 +112,7 @@ class PatientStatisticsSearch extends Model
             $query->andWhere(['<=', 'DATE(sp.created_at)', $this->dateTo]);
         }
 
-        // Filtro per trattamenti multipli
-        if ($this->hasMultipleTreatments !== null) {
+        if ($this->hasMultipleTreatments !== null && $this->hasMultipleTreatments !== '') {
             if ($this->hasMultipleTreatments) {
                 $query->andWhere(['>', 'sp.trattamenti_count_no_aba', 1]);
             } else {
@@ -116,7 +120,6 @@ class PatientStatisticsSearch extends Model
             }
         }
 
-        // Filtro per tipi di trattamento specifici
         if (!empty($this->treatmentTypeIds) && is_array($this->treatmentTypeIds)) {
             $subQuery = (new Query())
                 ->select('tp.patient_id')
@@ -145,13 +148,24 @@ class PatientStatisticsSearch extends Model
 
         if ($this->districtId) {
             $districtPatients = (new Query())
-                ->select('p.id')
-                ->from('patients p')
-                ->where(['p.district_id' => $this->districtId]);
+                ->select('p_district.id')
+                ->from(['p_district' => 'patients'])
+                ->where(['p_district.district_id' => $this->districtId]);
             $query->andWhere(['in', 'sp.id', $districtPatients]);
         }
+    }
 
-        return $query;
+    /**
+     * Stato piano da usare nelle query: active|inactive|all.
+     */
+    public function resolvePlanStatus()
+    {
+        if ($this->status === 'inactive' || $this->status === 'all' || $this->status === 'active') {
+            return $this->status;
+        }
+
+        // Retrocompatibilità con vecchi URL che usavano solo la checkbox
+        return $this->activePlanOnly ? 'active' : 'all';
     }
 
     /**
@@ -178,7 +192,7 @@ class PatientStatisticsSearch extends Model
     {
         return [
             'all' => 'Tutti',
-            'active' => 'Pazienti Attivi',
+            'active' => 'Con piano attivo',
             'inactive' => 'Senza piano attivo',
         ];
     }
@@ -259,7 +273,7 @@ class PatientStatisticsSearch extends Model
             'sp.last_name',
             'sp.trattamenti_count_no_aba as treatment_count'
         ])
-        ->where(['>', 'sp.trattamenti_count_no_aba', 1])
+        ->andWhere(['>', 'sp.trattamenti_count_no_aba', 1])
         ->orderBy(['sp.trattamenti_count_no_aba' => SORT_DESC, 'sp.last_name' => SORT_ASC])
         ->all();
     }
@@ -274,17 +288,26 @@ class PatientStatisticsSearch extends Model
     {
         $loaded = parent::load($params, $formName);
 
-        // Pulizia parametri stringa vuota
-        if ($this->gender === '') $this->gender = 'all';
-        if ($this->status === '') $this->status = 'all';
-        if ($this->dateFrom === '') $this->dateFrom = null;
-        if ($this->dateTo === '') $this->dateTo = null;
-        if ($this->ageFrom === '') $this->ageFrom = null;
-        if ($this->ageTo === '') $this->ageTo = null;
-        if (empty($this->treatmentTypeIds)) $this->treatmentTypeIds = [];
-        // Se il form è stato inviato ma activePlanOnly non è presente, vuol dire che la checkbox è deselezionata
-        if ($loaded && !isset($params[$this->formName()]['activePlanOnly']) && !isset($params['activePlanOnly'])) {
-            $this->activePlanOnly = 0;
+        if ($this->gender === '') {
+            $this->gender = 'all';
+        }
+        if ($this->status === '') {
+            $this->status = 'all';
+        }
+        if ($this->dateFrom === '') {
+            $this->dateFrom = null;
+        }
+        if ($this->dateTo === '') {
+            $this->dateTo = null;
+        }
+        if ($this->ageFrom === '') {
+            $this->ageFrom = null;
+        }
+        if ($this->ageTo === '') {
+            $this->ageTo = null;
+        }
+        if (empty($this->treatmentTypeIds)) {
+            $this->treatmentTypeIds = [];
         }
 
         return $loaded;
@@ -367,98 +390,12 @@ class PatientStatisticsSearch extends Model
         $this->load($params);
 
         if (!$this->validate()) {
+            $query->andWhere('0=1');
             return $dataProvider;
         }
 
-        // Applica i filtri della statistiche alla query
-        $this->applyFilters($query);
+        $this->applyCommonFilters($query);
 
         return $dataProvider;
-    }
-
-    /**
-     * Applica i filtri alla query
-     *
-     * @param \yii\db\ActiveQuery $query
-     */
-    protected function applyFilters($query)
-    {
-        // Filtro piano terapeutico attivo (default ON)
-        if ($this->activePlanOnly && $this->status !== 'inactive') {
-            $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-        }
-
-        // Filtro genere
-        if ($this->gender && $this->gender !== 'all') {
-            $query->andWhere(['sp.gender' => $this->gender]);
-        }
-
-        // Filtro età
-        if ($this->ageFrom !== null && $this->ageFrom !== '') {
-            $query->andWhere(['>=', 'sp.age', $this->ageFrom]);
-        }
-
-        if ($this->ageTo !== null && $this->ageTo !== '') {
-            $query->andWhere(['<=', 'sp.age', $this->ageTo]);
-        }
-
-        // Filtro stato
-        if ($this->status && $this->status !== 'all') {
-            if ($this->status === 'active') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'SI']);
-            } elseif ($this->status === 'inactive') {
-                $query->andWhere(['sp.piano_terapeutico_attivo' => 'NO']);
-            }
-        }
-
-        // Filtro date
-        if ($this->dateFrom) {
-            $query->andWhere(['>=', 'DATE(sp.created_at)', $this->dateFrom]);
-        }
-
-        if ($this->dateTo) {
-            $query->andWhere(['<=', 'DATE(sp.created_at)', $this->dateTo]);
-        }
-
-        // Filtro trattamenti multipli
-        if ($this->hasMultipleTreatments !== null) {
-            if ($this->hasMultipleTreatments) {
-                $query->andWhere(['>', 'sp.trattamenti_count_no_aba', 1]);
-            } else {
-                $query->andWhere(['<=', 'sp.trattamenti_count_no_aba', 1]);
-            }
-        }
-
-        // Filtro per tipi di trattamento specifici
-        if (!empty($this->treatmentTypeIds) && is_array($this->treatmentTypeIds)) {
-            $subQuery = (new Query())
-                ->select('tp.patient_id')
-                ->distinct()
-                ->from('plan_therapies pt')
-                ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-                ->where(['in', 'pt.treatment_type_id', $this->treatmentTypeIds])
-                ->andWhere(['tp.status' => 'active'])
-                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
-
-            $query->andWhere(['in', 'sp.id', $subQuery]);
-        }
-
-        if ($this->regimeId) {
-            $regimePatients = (new Query())
-                ->select('tp.patient_id')
-                ->distinct()
-                ->from('therapeutic_plans tp')
-                ->where(['tp.regime_id' => $this->regimeId])
-                ->andWhere(['tp.status' => 'active'])
-                ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
-            $query->andWhere(['in', 'sp.id', $regimePatients]);
-        }
-
-        // Filtro distretto
-        if ($this->districtId) {
-            $query->andWhere(['p.district_id' => $this->districtId]);
-        }
     }
 }

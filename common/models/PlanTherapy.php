@@ -5,6 +5,7 @@ namespace common\models;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
+use common\services\statistics\PatientStatisticsService;
 
 /**
  * This is the model class for table "plan_therapies".
@@ -214,6 +215,24 @@ class PlanTherapy extends ActiveRecord
     public function isDomiciliary()
     {
         return $this->setting && $this->setting->nome === 'Domiciliare';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+        PatientStatisticsService::invalidateCache();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function afterDelete()
+    {
+        parent::afterDelete();
+        PatientStatisticsService::invalidateCache();
     }
 
     /**

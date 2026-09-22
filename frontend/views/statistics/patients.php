@@ -5,6 +5,7 @@ use yii\widgets\ActiveForm;
 use yii\helpers\Url;
 use yii\grid\GridView;
 use yii\grid\ActionColumn;
+use frontend\models\PatientStatisticsSearch;
 
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\PatientStatisticsSearch */
@@ -31,12 +32,13 @@ $byRegime = $byRegime ?? [];
 $multiTreatmentStats = $multiTreatmentStats ?? ['patients' => [], 'stats' => []];
 
 // Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->gender) || !empty($searchModel->ageFrom) ||
-                    !empty($searchModel->ageTo) || !empty($searchModel->status) ||
+$hasActiveFilters = ($searchModel->gender && $searchModel->gender !== 'all') ||
+                    ($searchModel->ageFrom !== null && $searchModel->ageFrom !== '') ||
+                    ($searchModel->ageTo !== null && $searchModel->ageTo !== '') ||
+                    ($searchModel->status && $searchModel->status !== 'active') ||
                     !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
                     !empty($searchModel->treatmentTypeIds) || !empty($searchModel->districtId) ||
-                    !empty($searchModel->regimeId) ||
-                    !$searchModel->activePlanOnly;
+                    !empty($searchModel->regimeId);
 
 // Calcola il totale pazienti
 $totalPatients = $demographics['age_stats']['total_patients'] ?? 0;
@@ -79,19 +81,16 @@ function calculatePercentage($part, $total, $decimals = 1) {
             <h4>Filtri demografici</h4>
             <div class="filter-row">
                 <div class="filter-col">
-                    <?= $form->field($searchModel, 'gender')->dropDownList([
-                        '' => 'Tutti i generi',
-                        'M' => 'Maschio',
-                        'F' => 'Femmina',
-                        'N' => 'Non specificato'
-                    ], ['class' => 'form-control'])->label('Genere') ?>
+                    <?= $form->field($searchModel, 'gender')->dropDownList(
+                        PatientStatisticsSearch::getGenderOptions(),
+                        ['class' => 'form-control']
+                    )->label('Genere') ?>
                 </div>
                 <div class="filter-col">
-                    <?= $form->field($searchModel, 'status')->dropDownList([
-                        '' => 'Tutti gli stati',
-                        'active' => 'Con piano attivo',
-                        'inactive' => 'Senza piano attivo',
-                    ], ['class' => 'form-control'])->label('Stato paziente') ?>
+                    <?= $form->field($searchModel, 'status')->dropDownList(
+                        PatientStatisticsSearch::getStatusOptions(),
+                        ['class' => 'form-control']
+                    )->label('Stato paziente') ?>
                 </div>
             </div>
             <div class="filter-row">
@@ -182,21 +181,6 @@ function calculatePercentage($part, $total, $decimals = 1) {
             </div>
         </div>
 
-        <!-- Filtro piano attivo -->
-        <div class="filter-section" style="padding-top: 0;">
-            <div class="filter-row">
-                <div class="filter-col">
-                    <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <?= Html::activeCheckbox($searchModel, 'activePlanOnly', [
-                            'label' => false,
-                            'class' => 'h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500',
-                        ]) ?>
-                        <span class="text-sm font-medium text-gray-700">Mostra solo pazienti con piano terapeutico attivo</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
         <!-- Pulsanti azione -->
         <div class="filter-actions">
             <?= Html::submitButton('<i class="fas fa-search"></i> Applica filtri', [
@@ -240,7 +224,7 @@ function calculatePercentage($part, $total, $decimals = 1) {
                 </div>
                 <div class="stat-box">
                     <div class="stat-value orange"><?= round($multiTreatmentStats['stats']['avg_treatments'] ?? 0, 1) ?></div>
-                    <div class="stat-label">Media Trattamenti</div>
+                    <div class="stat-label">Media trattamenti (multi)</div>
                 </div>
             </div>
         </div>
@@ -274,7 +258,7 @@ function calculatePercentage($part, $total, $decimals = 1) {
                         <th>Trattamento</th>
                         <th>Codice</th>
                         <th class="text-center">Pazienti</th>
-                        <th class="text-center">% del Totale</th>
+                        <th class="text-center">% dei pazienti</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -303,6 +287,9 @@ function calculatePercentage($part, $total, $decimals = 1) {
                 Mostrati i primi 15 di <?= count($byTreatment) ?> trattamenti
             </p>
             <?php endif; ?>
+            <p class="text-center mt-2 text-xs text-gray-500">
+                La percentuale è sul totale pazienti filtrati: un paziente con più trattamenti compare in più righe, quindi la somma può superare il 100%.
+            </p>
         </div>
         <?php endif; ?>
 
