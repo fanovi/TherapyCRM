@@ -10,66 +10,100 @@ use yii\helpers\Url;
 /* @var $byReason array */
 /* @var $byGenerator array */
 /* @var $byTreatmentType array */
+/* @var $bySetting array */
 /* @var $topAbsentees array */
 /* @var $therapistOptions array */
 /* @var $patientOptions array */
 /* @var $treatmentOptions array */
 /* @var $settingOptions array */
 
-$this->title = 'Statistiche Assenze';
+$this->title = 'Analisi assenze';
 $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-// Registra Chart.js
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('@web/css/statistics.css');
-// Inizializza variabili se non definite
+
 $monthlyRate = $monthlyRate ?? [];
 $byReason = $byReason ?? [];
 $byGenerator = $byGenerator ?? [];
 $byTreatmentType = $byTreatmentType ?? [];
+$bySetting = $bySetting ?? [];
 $topAbsentees = $topAbsentees ?? ['therapists' => [], 'patients' => []];
 
-// Funzione helper per verificare se ci sono filtri attivi
-$hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
+$defaultFrom = date('Y-m-01');
+$defaultTo = date('Y-m-d');
+$isDefaultPeriod = $searchModel->dateFrom === $defaultFrom && $searchModel->dateTo === $defaultTo;
+$customPeriod = (!$isDefaultPeriod) && (!empty($searchModel->dateFrom) || !empty($searchModel->dateTo));
+
+$hasActiveFilters = $customPeriod ||
                     !empty($searchModel->absenceSource) ||
                     ($searchModel->isJustified !== null && $searchModel->isJustified !== '') ||
                     !empty($searchModel->absenceTypeFlag) || !empty($searchModel->therapistId) ||
                     !empty($searchModel->patientId) || !empty($searchModel->treatmentTypeId) ||
                     !empty($searchModel->settingId);
 
-// Determina il periodo visualizzato
-$periodText = 'Periodo: ';
+$formatDate = function ($value) {
+    return $value ? Yii::$app->formatter->asDate($value, 'php:d/m/Y') : '';
+};
+
 if (!empty($searchModel->dateFrom) && !empty($searchModel->dateTo)) {
-    $periodText .= Yii::$app->formatter->asDate($searchModel->dateFrom, 'dd/MM/yyyy') . ' - ' . 
-                   Yii::$app->formatter->asDate($searchModel->dateTo, 'dd/MM/yyyy');
+    $range = $formatDate($searchModel->dateFrom) . ' – ' . $formatDate($searchModel->dateTo);
+    $periodText = $isDefaultPeriod
+        ? 'Mese in corso · ' . $range
+        : 'Periodo selezionato · ' . $range;
 } elseif (!empty($searchModel->dateFrom)) {
-    $periodText .= 'Dal ' . Yii::$app->formatter->asDate($searchModel->dateFrom, 'dd/MM/yyyy');
+    $periodText = 'Dal ' . $formatDate($searchModel->dateFrom);
 } elseif (!empty($searchModel->dateTo)) {
-    $periodText .= 'Fino al ' . Yii::$app->formatter->asDate($searchModel->dateTo, 'dd/MM/yyyy');
+    $periodText = 'Fino al ' . $formatDate($searchModel->dateTo);
 } else {
-    $periodText .= 'Ultimi 30 giorni';
+    $periodText = 'Mese in corso';
 }
 
-// Helper per verificare se ci sono dati
-$hasData = ($monthlyRate['total_absences'] ?? 0) > 0 || 
-           !empty($byReason) || 
-           !empty($byGenerator) || 
-           !empty($byTreatmentType) ||
-           (!empty($topAbsentees['therapists']) || !empty($topAbsentees['patients']));
+$totalAbsences = (int) ($monthlyRate['total_absences'] ?? 0);
+$justifiedAbsences = (int) ($monthlyRate['justified_absences'] ?? 0);
+$unjustifiedAbsences = (int) ($monthlyRate['unjustified_absences'] ?? max(0, $totalAbsences - $justifiedAbsences));
+$therapistAbsences = (int) ($monthlyRate['therapist_absences'] ?? 0);
+$patientAbsences = (int) ($monthlyRate['patient_absences'] ?? 0);
+$withRecovery = (int) ($monthlyRate['with_recovery'] ?? 0);
+$withoutRecovery = (int) ($monthlyRate['without_recovery'] ?? max(0, $totalAbsences - $withRecovery));
+$totalAppointments = (int) ($monthlyRate['total_appointments'] ?? 0);
+$absenceRate = (float) ($monthlyRate['absence_rate'] ?? 0);
+$lostHours = (float) ($monthlyRate['lost_hours'] ?? 0);
+$unrecoveredHours = (float) ($monthlyRate['unrecovered_hours'] ?? 0);
+$plannedHours = (float) ($monthlyRate['planned_hours'] ?? 0);
+$hoursRate = (float) ($monthlyRate['hours_rate'] ?? 0);
+$recoveredHours = max(0, round($lostHours - $unrecoveredHours, 1));
+
+$hasAbsences = $totalAbsences > 0 ||
+               !empty($byReason) ||
+               !empty($byGenerator) ||
+               !empty($byTreatmentType) ||
+               !empty($bySetting) ||
+               !empty($topAbsentees['therapists']) ||
+               !empty($topAbsentees['patients']);
+$hasData = $hasAbsences || $totalAppointments > 0 || $plannedHours > 0;
+
+$fmtHours = function ($hours) {
+    return number_format((float) $hours, 1, ',', '.');
+};
+$fmtPct = function ($value) {
+    return number_format((float) $value, 1, ',', '.');
+};
+$canExport = Yii::$app->user->can('export_data');
 ?>
 
-<div class="statistics-absences">
-    <!-- Header con titolo e periodo -->
+<div class="mx-auto max-w-4xl p-4 md:p-6 statistics-absences">
     <div class="page-header">
         <h1><?= Html::encode($this->title) ?></h1>
-        <p class="period-text"><?= $periodText ?></p>
+        <p class="period-text"><?= Html::encode($periodText) ?></p>
+        <p class="section-intro">Quante sedute saltano, dove si concentrano e quanta capacità oraria si perde nel periodo. Non è una coda operativa: i numeri servono a leggere l’andamento, anche economico, senza prezzi né fatture.</p>
     </div>
 
     <!-- Filtri di ricerca - Riorganizzati logicamente -->
     <div class="filter-card">
         <div class="filter-header">
-            <h3>Filtri di ricerca</h3>
+            <h3>Periodo e criteri</h3>
             <?php if ($hasActiveFilters): ?>
                 <span class="active-filters-badge">
                     <i class="fas fa-filter"></i> Filtri attivi
@@ -85,7 +119,8 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
 
         <!-- Filtri temporali -->
         <div class="filter-section">
-            <h4>Periodo temporale</h4>
+            <h4>Periodo da analizzare</h4>
+            <p class="section-intro">Di default è il mese in corso fino a oggi. Cambia le date per confrontare un altro intervallo.</p>
             <div class="filter-row">
                 <div class="filter-col">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700">Data inizio</label>
@@ -124,36 +159,36 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
 
         <!-- Filtri per tipologia -->
         <div class="filter-section">
-            <h4>Tipologia assenze</h4>
+            <h4>Tipo di assenza</h4>
             <div class="filter-row">
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'absenceSource')->dropDownList([
-                        '' => 'Tutte le sorgenti',
-                        'therapist' => 'Solo Terapisti',
-                        'patient' => 'Solo Pazienti'
-                    ], ['class' => 'form-control'])->label('Sorgente assenza') ?>
+                        '' => 'Terapisti e pazienti',
+                        'therapist' => 'Solo terapisti',
+                        'patient' => 'Solo pazienti'
+                    ], ['class' => 'form-control'])->label('Chi è assente') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'isJustified')->dropDownList([
-                        '' => 'Tutte le assenze',
+                        '' => 'Tutte',
                         '1' => 'Solo giustificate',
                         '0' => 'Solo non giustificate'
-                    ], ['class' => 'form-control'])->label('Stato giustificazione') ?>
+                    ], ['class' => 'form-control'])->label('Giustificata') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'absenceTypeFlag')->dropDownList([
                         '' => 'Tutti i tipi',
-                        'direct' => 'Terapista - diretta',
-                        'substitution' => 'Terapista - sostituzione',
+                        'direct' => 'Terapista — diretta',
+                        'substitution' => 'Terapista — sostituzione',
                         'patient' => 'Paziente'
-                    ], ['class' => 'form-control'])->label('Tipo evento') ?>
+                    ], ['class' => 'form-control'])->label('Tipo assenza') ?>
                 </div>
             </div>
         </div>
 
         <!-- Filtri specifici -->
         <div class="filter-section">
-            <h4>Filtri specifici</h4>
+            <h4>Ambito</h4>
             <div class="filter-row">
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'therapistId')->dropDownList(
@@ -196,77 +231,149 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
     </div>
 
     <?php if (!$hasData): ?>
-        <!-- Messaggio quando non ci sono dati -->
         <div class="no-data-message">
             <i class="fas fa-info-circle"></i>
-            <h3>Nessuna assenza trovata</h3>
+            <h3>Nessun dato nel periodo</h3>
             <p>
-                Non sono presenti assenze per il periodo e i criteri selezionati.<br>
-                Prova a modificare i filtri di ricerca per visualizzare i dati.
+                Non risultano appuntamenti né assenze per i criteri selezionati.<br>
+                Allarga le date o rimuovi i filtri per analizzare un altro intervallo.
             </p>
         </div>
     <?php else: ?>
 
-        <!-- 1. Riepilogo principale -->
         <div class="summary-card">
-            <h3>Riepilogo <?= $hasActiveFilters ? 'Filtrato' : 'Generale' ?></h3>
+            <h3>Volume assenze</h3>
+            <p class="section-intro">Quanti eventi di assenza nel periodo, chi li genera e quanto pesano sugli slot previsti.</p>
             <div class="stats-grid">
                 <div class="stat-box">
-                    <div class="stat-value blue"><?= $monthlyRate['total_absences'] ?? 0 ?></div>
-                    <div class="stat-label">Assenze Totali</div>
+                    <div class="stat-value blue"><?= $totalAbsences ?></div>
+                    <div class="stat-label">Eventi di assenza</div>
+                    <div class="stat-period"><?= $therapistAbsences ?> terapista · <?= $patientAbsences ?> paziente</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value green"><?= $monthlyRate['justified_absences'] ?? 0 ?></div>
+                    <div class="stat-value green"><?= $justifiedAbsences ?></div>
                     <div class="stat-label">Giustificate</div>
+                    <div class="stat-period"><?= $unjustifiedAbsences ?> non giustificate</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value green"><?= $monthlyRate['with_recovery'] ?? 0 ?></div>
-                    <div class="stat-label">Con recupero</div>
+                    <div class="stat-value gray"><?= $totalAppointments ?></div>
+                    <div class="stat-label">Slot previsti</div>
+                    <div class="stat-period">Sedute nel periodo</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value gray"><?= $monthlyRate['total_appointments'] ?? 0 ?></div>
-                    <div class="stat-label">Appuntamenti</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value red"><?= number_format($monthlyRate['absence_rate'] ?? 0, 1) ?>%</div>
-                    <div class="stat-label">Tasso Assenza</div>
+                    <div class="stat-value red"><?= $fmtPct($absenceRate) ?>%</div>
+                    <div class="stat-label">Tasso di assenza</div>
+                    <div class="stat-period">Slot con assenza / slot previsti</div>
                 </div>
             </div>
         </div>
 
-        <!-- 2. Distribuzione temporale -->
+        <div class="summary-card">
+            <h3>Capacità e recupero</h3>
+            <p class="section-intro">Andamento senza prezzi: ore di slot perse rispetto alle ore previste, e quanto è stato recuperato.</p>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value gray"><?= $fmtHours($plannedHours) ?></div>
+                    <div class="stat-label">Ore previste</div>
+                    <div class="stat-period">Durata degli slot nel periodo</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value orange"><?= $fmtHours($lostHours) ?></div>
+                    <div class="stat-label">Ore perse</div>
+                    <div class="stat-period"><?= $fmtPct($hoursRate) ?>% delle ore previste</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value red"><?= $fmtHours($unrecoveredHours) ?></div>
+                    <div class="stat-label">Ore non recuperate</div>
+                    <div class="stat-period"><?= $withoutRecovery ?> assenze senza recupero</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value green"><?= $fmtHours($recoveredHours) ?></div>
+                    <div class="stat-label">Ore recuperate</div>
+                    <div class="stat-period"><?= $withRecovery ?> assenze con recupero</div>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!$hasAbsences): ?>
+            <div class="no-data-message">
+                <i class="fas fa-info-circle"></i>
+                <h3>Nessuna assenza nel periodo</h3>
+                <p>Gli slot previsti ci sono, ma non risultano assenze con i criteri selezionati.</p>
+            </div>
+        <?php else: ?>
+
         <div class="section-title">
-            <h3>Distribuzione Temporale</h3>
+            <h3>Quando si concentrano</h3>
+            <p class="section-intro">Fasce orarie e giorni della settimana in cui saltano più sedute.</p>
         </div>
         <div class="charts-row">
             <div class="chart-card">
-                <h4>Assenze per Ora del Giorno</h4>
+                <h4>Per fascia oraria</h4>
                 <div class="chart-container">
                     <canvas id="hourly-chart"></canvas>
                 </div>
             </div>
             <div class="chart-card">
-                <h4>Assenze per Giorno della Settimana</h4>
+                <h4>Per giorno della settimana</h4>
                 <div class="chart-container">
                     <canvas id="day-chart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Analisi dettagliata -->
+        <?php if (!empty($bySetting)): ?>
+        <div class="full-width-card">
+            <h3>Assenze per setting</h3>
+            <p class="section-intro">Dove saltano le sedute: ambulatorio, domiciliare e altri setting, con le ore di slot perse.</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Setting</th>
+                        <th class="text-center">Eventi</th>
+                        <th class="text-center">Terapisti</th>
+                        <th class="text-center">Pazienti</th>
+                        <th class="text-center">Ore perse</th>
+                        <th class="text-center">% eventi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($bySetting as $setting): ?>
+                        <?php
+                        $settingShare = $totalAbsences > 0
+                            ? round(((int) $setting['total_absences'] / $totalAbsences) * 100, 1)
+                            : 0;
+                        ?>
+                        <tr>
+                            <td class="font-bold"><?= Html::encode($setting['setting_name'] ?: 'Non indicato') ?></td>
+                            <td class="text-center">
+                                <span class="badge badge-gray"><?= (int) $setting['total_absences'] ?></span>
+                            </td>
+                            <td class="text-center"><?= (int) $setting['therapist_absences'] ?></td>
+                            <td class="text-center"><?= (int) $setting['patient_absences'] ?></td>
+                            <td class="text-center"><?= $fmtHours($setting['lost_hours'] ?? 0) ?></td>
+                            <td class="text-center"><?= $fmtPct($settingShare) ?>%</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
         <div class="section-title">
-            <h3>Analisi Dettagliata</h3>
+            <h3>Chi genera l’assenza e perché</h3>
+            <p class="section-intro">Origine dell’evento (diretta, sostituzione, paziente) e motivazioni più frequenti.</p>
         </div>
         <div class="analysis-row">
             <div class="table-card">
-                <h4>Origine delle Assenze</h4>
+                <h4>Origine delle assenze</h4>
                 <?php if (!empty($byGenerator)): ?>
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>Chi</th>
                                 <th>Tipo</th>
-                                <th>Dettaglio</th>
-                                <th class="text-right">Numero</th>
+                                <th class="text-right">Eventi</th>
                                 <th class="text-right">%</th>
                             </tr>
                         </thead>
@@ -282,11 +389,11 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                                         <?php
                                         if ($item['absence_type'] === 'direct') echo 'Assenza diretta';
                                         elseif ($item['absence_type'] === 'substitution') echo 'Sostituzione';
-                                        else echo '-';
+                                        else echo 'Assenza paziente';
                                         ?>
                                     </td>
                                     <td class="text-right font-bold"><?= $item['count'] ?></td>
-                                    <td class="text-right"><?= number_format($item['percentage'] ?? 0, 1) ?>%</td>
+                                    <td class="text-right"><?= $fmtPct($item['percentage'] ?? 0) ?>%</td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -297,14 +404,14 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
             </div>
 
             <div class="table-card">
-                <h4>Top 10 Motivazioni</h4>
+                <h4>Motivazioni più frequenti</h4>
                 <?php if (!empty($byReason)): ?>
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Motivazione</th>
                                 <th>Chi</th>
-                                <th class="text-right">N°</th>
+                                <th class="text-right">Eventi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -330,19 +437,19 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
             </div>
         </div>
 
-        <!-- 4. Analisi per trattamento -->
         <?php if (!empty($byTreatmentType)): ?>
         <div class="full-width-card">
-            <h3>Analisi per Trattamento</h3>
+            <h3>Assenze per trattamento</h3>
+            <p class="section-intro">Su quali terapie si concentrano le assenze nel periodo.</p>
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Trattamento</th>
                         <th>Codice</th>
-                        <th class="text-center">Totale</th>
+                        <th class="text-center">Eventi</th>
                         <th class="text-center">Terapisti</th>
                         <th class="text-center">Pazienti</th>
-                        <th class="text-center">% Giust.</th>
+                        <th class="text-center">% giustificate</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -361,7 +468,7 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                             <td class="text-center"><?= $treatment['patient_absences'] ?></td>
                             <td class="text-center">
                                 <span class="badge-small <?= $treatment['justified_rate'] > 50 ? 'badge-green' : 'badge-red' ?>">
-                                    <?= number_format($treatment['justified_rate'], 1) ?>%
+                                    <?= $fmtPct($treatment['justified_rate']) ?>%
                                 </span>
                             </td>
                         </tr>
@@ -371,15 +478,15 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
         </div>
         <?php endif; ?>
 
-        <!-- 5. Top assenti -->
         <?php if (empty($searchModel->therapistId) && (!empty($topAbsentees['therapists']) || !empty($topAbsentees['patients']))): ?>
         <div class="section-title">
-            <h3>Classifica Assenze</h3>
+            <h3>Chi è assente più spesso</h3>
+            <p class="section-intro">Concentrazione nel periodo, non una lista da gestire: serve a capire se il fenomeno è diffuso o legato a poche persone.</p>
         </div>
         <div class="ranking-row">
             <?php if (!empty($topAbsentees['therapists']) && $searchModel->absenceSource !== 'patient'): ?>
             <div class="ranking-card red">
-                <h4>Top 10 Terapisti Assenti</h4>
+                <h4>Terapisti con più assenze</h4>
                 <div class="ranking-list">
                     <?php foreach ($topAbsentees['therapists'] as $index => $therapist): ?>
                         <div class="ranking-item <?= $index < 3 ? 'top-three' : '' ?>">
@@ -394,7 +501,7 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
 
             <?php if (!empty($topAbsentees['patients']) && $searchModel->absenceSource !== 'therapist'): ?>
             <div class="ranking-card orange">
-                <h4>Top 10 Pazienti Assenti</h4>
+                <h4>Pazienti con più assenze</h4>
                 <div class="ranking-list">
                     <?php foreach ($topAbsentees['patients'] as $index => $patient): ?>
                         <div class="ranking-item <?= $index < 3 ? 'top-three' : '' ?>">
@@ -409,31 +516,34 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
         </div>
         <?php endif; ?>
 
-        <!-- 6. Trend temporale -->
         <div class="full-width-card">
-            <h3>Trend Temporale</h3>
+            <h3>Andamento nel periodo</h3>
+            <p class="section-intro">Come evolvono le assenze nel tempo. Su intervalli brevi il grafico è per giorno, altrimenti per mese.</p>
             <div class="chart-container large">
                 <canvas id="trend-chart"></canvas>
             </div>
         </div>
 
-        <!-- 7. Azioni export -->
+        <?php endif; ?>
+
+        <?php if ($canExport && $hasAbsences): ?>
         <div class="export-section">
             <div class="info-text">
                 <i class="fas fa-info-circle"></i>
-                I dati mostrati sono filtrati secondo i criteri selezionati
+                Export del dettaglio eventi secondo i criteri del periodo.
             </div>
             <?= Html::a(
-                '<i class="fas fa-file-excel"></i> Esporta Report Excel',
+                '<i class="fas fa-file-excel"></i> Esporta report Excel',
                 ['export', 'type' => 'absences'] + Yii::$app->request->queryParams,
                 ['class' => 'btn btn-success']
             ) ?>
         </div>
+        <?php endif; ?>
 
     <?php endif; ?>
 </div>
 
-<?php if ($hasData): ?>
+<?php if ($hasAbsences): ?>
 <?php
 // Javascript per i grafici
 $this->registerJs("
@@ -677,7 +787,7 @@ function loadTrendChart() {
                                 x: {
                                     title: {
                                         display: true,
-                                        text: 'Mese'
+                                        text: response.data.xAxisTitle || 'Periodo'
                                     }
                                 }
                             }

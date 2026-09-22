@@ -281,6 +281,58 @@ class AbsenceStatisticsService
     }
 
     /**
+     * Statistiche per setting (ambulatorio, domiciliare, ecc.).
+     */
+    public function getBySetting($filters = [])
+    {
+        $bySetting = (new Query())
+            ->select([
+                'setting_id' => new Expression('COALESCE(ad.setting_id, 0)'),
+                'setting_name' => new Expression("COALESCE(MIN(s.nome), 'Non indicato')"),
+                'total_absences' => new Expression('COUNT(DISTINCT ad.absence_group_key)'),
+                'therapist_absences' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN ad.generated_by = 'therapist' THEN ad.absence_group_key END)"
+                ),
+                'patient_absences' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN ad.generated_by = 'patient' THEN ad.absence_group_key END)"
+                ),
+            ])
+            ->from(['ad' => $this->getBaseAbsencesQuery($filters)])
+            ->leftJoin(['s' => '{{%setting}}'], 's.id = ad.setting_id')
+            ->groupBy([new Expression('COALESCE(ad.setting_id, 0)')])
+            ->having(['>', 'COUNT(DISTINCT ad.absence_group_key)', 0])
+            ->orderBy(['total_absences' => SORT_DESC])
+            ->all();
+
+        $hoursBySetting = (new Query())
+            ->select([
+                'setting_id',
+                'lost_minutes' => new Expression('COALESCE(SUM(slot_minutes), 0)'),
+            ])
+            ->from(['slots' => (new Query())
+                ->select([
+                    'setting_id' => new Expression('COALESCE(ad.setting_id, 0)'),
+                    'absence_slot_key',
+                    'slot_minutes' => new Expression('MAX(ad.duration_minutes)'),
+                ])
+                ->from(['ad' => $this->getBaseAbsencesQuery($filters)])
+                ->groupBy(['absence_slot_key', new Expression('COALESCE(ad.setting_id, 0)')])
+            ])
+            ->groupBy('setting_id')
+            ->indexBy('setting_id')
+            ->all();
+
+        foreach ($bySetting as &$row) {
+            $sid = (string) $row['setting_id'];
+            $minutes = (int) ($hoursBySetting[$sid]['lost_minutes'] ?? 0);
+            $row['lost_hours'] = round($minutes / 60, 1);
+        }
+        unset($row);
+
+        return $bySetting;
+    }
+
+    /**
      * Statistiche per giorno della settimana
      */
     public function getByDayOfWeek($searchModel)
@@ -364,17 +416,18 @@ class AbsenceStatisticsService
     {
         $filters = $this->extractFilters($searchModel);
 
-        // Default ultimi 12 mesi
-        if (empty($filters['dateFrom'])) {
-            $filters['dateFrom'] = date('Y-m-01', strtotime('-11 months'));
-        }
+        $from = $filters['dateFrom'] ?? date('Y-m-01', strtotime('-11 months'));
+        $to = $filters['dateTo'] ?? date('Y-m-d');
+        $spanDays = (int) round((strtotime($to) - strtotime($from)) / 86400);
+        $byDay = $spanDays <= 62;
 
-        $monthExpression = new Expression("DATE_FORMAT(absence_date, '%Y-%m')");
+        $periodExpression = $byDay
+            ? new Expression('absence_date')
+            : new Expression("DATE_FORMAT(absence_date, '%Y-%m')");
 
-        return (new Query())
+        $rows = (new Query())
             ->select([
-                'month' => $monthExpression,
-                'month_label' => new Expression("DATE_FORMAT(MIN(absence_date), '%b %Y')"),
+                'month' => $periodExpression,
                 'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'justified_absences' => new Expression(
                     'COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'
@@ -387,9 +440,25 @@ class AbsenceStatisticsService
                 ),
             ])
             ->from(['absences_data' => $this->getBaseAbsencesQuery($filters)])
-            ->groupBy($monthExpression)
+            ->groupBy($periodExpression)
             ->orderBy(['month' => SORT_ASC])
             ->all();
+
+        $mesi = [1 => 'Gen', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mag', 6 => 'Giu', 7 => 'Lug', 8 => 'Ago', 9 => 'Set', 10 => 'Ott', 11 => 'Nov', 12 => 'Dic'];
+        foreach ($rows as &$row) {
+            if ($byDay) {
+                $ts = strtotime($row['month']);
+                $row['month_label'] = $ts ? date('d/m', $ts) : $row['month'];
+            } else {
+                $ts = strtotime($row['month'] . '-01');
+                $row['month_label'] = $ts
+                    ? ($mesi[(int) date('n', $ts)] . ' ' . date('Y', $ts))
+                    : $row['month'];
+            }
+        }
+        unset($row);
+
+        return $rows;
     }
 
     /**
@@ -409,10 +478,34 @@ class AbsenceStatisticsService
             ->select([
                 'total' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'justified' => new Expression('COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'),
+                'therapist' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"
+                ),
+                'patient' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"
+                ),
                 'with_recovery' => new Expression(
                     "COUNT(DISTINCT CASE WHEN has_recovery = 'SI' THEN absence_group_key END)"
                 ),
                 'affected_slots' => new Expression('COUNT(DISTINCT absence_slot_key)')
+            ])
+            ->one();
+
+        $slotHours = (new Query())
+            ->select([
+                'lost_minutes' => new Expression('COALESCE(SUM(slot_minutes), 0)'),
+                'unrecovered_minutes' => new Expression(
+                    'COALESCE(SUM(CASE WHEN recovered = 0 THEN slot_minutes ELSE 0 END), 0)'
+                ),
+            ])
+            ->from(['slots' => (new Query())
+                ->select([
+                    'absence_slot_key',
+                    'slot_minutes' => new Expression('MAX(duration_minutes)'),
+                    'recovered' => new Expression("MAX(CASE WHEN has_recovery = 'SI' THEN 1 ELSE 0 END)"),
+                ])
+                ->from(['ad' => $this->getBaseAbsencesQuery($filters)])
+                ->groupBy('absence_slot_key')
             ])
             ->one();
 
@@ -477,19 +570,96 @@ class AbsenceStatisticsService
         }
 
         $appointmentData = $appointmentsQuery->one();
-        $totalAppointments = $appointmentData['total_appointments'] ?? 0;
+        $totalAppointments = (int) ($appointmentData['total_appointments'] ?? 0);
 
-        $affectedSlots = (int)($absences['affected_slots'] ?? 0);
+        $plannedSlotsQuery = (new Query())
+            ->select([
+                'slot_key' => new Expression('COALESCE(a.group_session_id, CONCAT("single_", a.id))'),
+                'slot_minutes' => new Expression('MAX(a.duration_minutes)'),
+            ])
+            ->from(['a' => 'appointments'])
+            ->leftJoin(['pt_rate' => 'plan_therapies'], 'a.plan_therapy_id = pt_rate.id')
+            ->leftJoin(['tp_rate' => 'therapeutic_plans'], 'pt_rate.therapeutic_plan_id = tp_rate.id')
+            ->andWhere([
+                'a.status' => [
+                    'scheduled',
+                    'completed',
+                    'absent_justified',
+                    'absent_not_justified',
+                    'therapist_absent',
+                ],
+            ])
+            ->groupBy(new Expression('COALESCE(a.group_session_id, CONCAT("single_", a.id))'));
+
+        if (!empty($filters['dateFrom'])) {
+            $plannedSlotsQuery->andWhere(['>=', 'a.appointment_datetime', $filters['dateFrom'] . ' 00:00:00']);
+        }
+        if (!empty($filters['dateTo'])) {
+            $plannedSlotsQuery->andWhere(['<=', 'a.appointment_datetime', $filters['dateTo'] . ' 23:59:59']);
+        }
+        if (!empty($filters['therapistId'])) {
+            $plannedSlotsQuery->andWhere([
+                'OR',
+                ['a.therapist_id' => $filters['therapistId']],
+                [
+                    'EXISTS',
+                    (new Query())
+                        ->from(['ts_hrs' => 'therapist_substitutions'])
+                        ->where('ts_hrs.appointment_id = a.id')
+                        ->andWhere(['ts_hrs.original_therapist_id' => $filters['therapistId']]),
+                ],
+            ]);
+        }
+        if (!empty($filters['patientId'])) {
+            $plannedSlotsQuery->andWhere([
+                '=',
+                new Expression('COALESCE(tp_rate.patient_id, a.patient_id)'),
+                $filters['patientId'],
+            ]);
+        }
+        if (!empty($filters['treatmentTypeId'])) {
+            $plannedSlotsQuery->andWhere([
+                'OR',
+                ['a.treatment_type_id' => $filters['treatmentTypeId']],
+                ['pt_rate.treatment_type_id' => $filters['treatmentTypeId']],
+            ]);
+        }
+        if (!empty($filters['settingId'])) {
+            $plannedSlotsQuery->andWhere(['a.id_setting' => $filters['settingId']]);
+        }
+
+        $plannedMinutes = (int) (new Query())
+            ->from(['slots' => $plannedSlotsQuery])
+            ->select(['planned_minutes' => new Expression('COALESCE(SUM(slot_minutes), 0)')])
+            ->scalar();
+
+        $affectedSlots = (int) ($absences['affected_slots'] ?? 0);
+        $totalEvents = (int) ($absences['total'] ?? 0);
+        $justified = (int) ($absences['justified'] ?? 0);
+        $withRecovery = (int) ($absences['with_recovery'] ?? 0);
+        $lostMinutes = (int) ($slotHours['lost_minutes'] ?? 0);
+        $unrecoveredMinutes = (int) ($slotHours['unrecovered_minutes'] ?? 0);
         $rate = $totalAppointments > 0
             ? round(($affectedSlots / $totalAppointments) * 100, 1)
             : 0;
+        $hoursRate = $plannedMinutes > 0
+            ? round(($lostMinutes / $plannedMinutes) * 100, 1)
+            : 0;
 
         return [
-            'total_absences' => $absences['total'] ?? 0,
-            'justified_absences' => $absences['justified'] ?? 0,
-            'with_recovery' => $absences['with_recovery'] ?? 0,
+            'total_absences' => $totalEvents,
+            'justified_absences' => $justified,
+            'unjustified_absences' => max(0, $totalEvents - $justified),
+            'therapist_absences' => (int) ($absences['therapist'] ?? 0),
+            'patient_absences' => (int) ($absences['patient'] ?? 0),
+            'with_recovery' => $withRecovery,
+            'without_recovery' => max(0, $totalEvents - $withRecovery),
             'total_appointments' => $totalAppointments,
-            'absence_rate' => $rate
+            'absence_rate' => $rate,
+            'lost_hours' => round($lostMinutes / 60, 1),
+            'unrecovered_hours' => round($unrecoveredMinutes / 60, 1),
+            'planned_hours' => round($plannedMinutes / 60, 1),
+            'hours_rate' => $hoursRate,
         ];
     }
 

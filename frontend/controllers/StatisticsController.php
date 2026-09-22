@@ -131,6 +131,7 @@ class StatisticsController extends BaseController
             $byReason = $this->absenceService->getByReason($searchModel);
             $byGenerator = $this->absenceService->getByGenerator($searchModel);
             $byTreatmentType = $this->absenceService->getByTreatmentType($filters);
+            $bySetting = $this->absenceService->getBySetting($filters);
             $topAbsentees = $this->absenceService->getTopAbsentees($filters);
 
             // Opzioni per i filtri
@@ -145,6 +146,7 @@ class StatisticsController extends BaseController
                 'byReason' => $byReason,
                 'byGenerator' => $byGenerator,
                 'byTreatmentType' => $byTreatmentType,
+                'bySetting' => $bySetting,
                 'topAbsentees' => $topAbsentees,
                 'therapistOptions' => $therapistOptions,
                 'patientOptions' => $patientOptions,
@@ -247,7 +249,7 @@ class StatisticsController extends BaseController
         if ($searchModel->absenceTypeFlag) {
             $filters['absenceTypeFlag'] = $searchModel->absenceTypeFlag;
         }
-        if (isset($searchModel->isJustified)) {
+        if ($searchModel->isJustified !== null && $searchModel->isJustified !== '') {
             $filters['isJustified'] = $searchModel->isJustified;
         }
 
@@ -506,19 +508,30 @@ class StatisticsController extends BaseController
 
         $trendData = $this->absenceService->getTrendData($searchModel);
 
+        $from = $searchModel->dateFrom ?: date('Y-m-01', strtotime('-11 months'));
+        $to = $searchModel->dateTo ?: date('Y-m-d');
+        $spanDays = (int) round((strtotime($to) - strtotime($from)) / 86400);
+        $byDay = $spanDays <= 62;
+
+        $labels = ArrayHelper::getColumn($trendData, 'month_label');
+        if (empty(array_filter($labels))) {
+            $labels = ArrayHelper::getColumn($trendData, 'month');
+        }
+
         return [
             'success' => true,
             'data' => [
-                'labels' => ArrayHelper::getColumn($trendData, 'month'),
+                'labels' => $labels,
+                'xAxisTitle' => $byDay ? 'Giorno' : 'Mese',
                 'datasets' => [
                     [
-                        'label' => 'Assenze Totali',
+                        'label' => 'Assenze totali',
                         'data' => ArrayHelper::getColumn($trendData, 'total_absences'),
                         'borderColor' => 'rgb(255, 99, 132)',
                         'backgroundColor' => 'rgba(255, 99, 132, 0.2)',
                     ],
                     [
-                        'label' => 'Assenze Giustificate',
+                        'label' => 'Assenze giustificate',
                         'data' => ArrayHelper::getColumn($trendData, 'justified_absences'),
                         'borderColor' => 'rgb(54, 162, 235)',
                         'backgroundColor' => 'rgba(54, 162, 235, 0.2)',

@@ -488,10 +488,30 @@
 .stat-value.red {
   color: #ef4444;
 }
+.stat-value.orange {
+  color: #f97316;
+}
 
 .stat-label {
   font-size: 0.875rem;
   color: #6b7280;
+}
+
+.stat-period {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.section-intro {
+  font-size: 0.875rem;
+  color: #718096;
+  margin: -8px 0 16px;
+}
+
+.section-title .section-intro {
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 /* Section titles */

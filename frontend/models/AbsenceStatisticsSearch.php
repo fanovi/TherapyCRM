@@ -116,7 +116,7 @@ class AbsenceStatisticsSearch extends Model
     public function applyDefaultPeriod()
     {
         if (empty($this->dateFrom) && empty($this->dateTo)) {
-            $this->dateFrom = date('Y-m-d', strtotime('-30 days'));
+            $this->dateFrom = date('Y-m-01');
             $this->dateTo = date('Y-m-d');
         }
     }

@@ -112,7 +112,7 @@ $patientGrowth = $patientGrowth ?? [];
                 <h4 style="color: #1e40af;">Analisi Assenze</h4>
                 <div class="text-center" style="padding: 20px;">
                     <i class="fas fa-calendar-times" style="font-size: 3rem; color: #3b82f6; margin-bottom: 16px; display: block;"></i>
-                    <p style="margin-bottom: 20px; color: #4b5563;">Analisi dettagliata pattern assenze</p>
+                    <p style="margin-bottom: 20px; color: #4b5563;">Volume, setting e capacità persa nel periodo</p>
                     <?= Html::a('Vai all\'analisi <i class="fas fa-arrow-right"></i>', ['absences'], [
                         'class' => 'btn btn-primary',
                         'style' => 'display: inline-block;'
