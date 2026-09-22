@@ -97,7 +97,7 @@ $canExport = Yii::$app->user->can('export_data');
     <div class="page-header">
         <h1><?= Html::encode($this->title) ?></h1>
         <p class="period-text"><?= Html::encode($periodText) ?></p>
-        <p class="section-intro">Quante sedute saltano, dove si concentrano e quanta capacità oraria si perde nel periodo. Non è una coda operativa: i numeri servono a leggere l’andamento, anche economico, senza prezzi né fatture.</p>
+        <p class="section-intro">Quante sedute saltano, dove si concentrano e quanta capacità oraria si perde nel periodo.</p>
     </div>
 
     <!-- Filtri di ricerca - Riorganizzati logicamente -->
@@ -270,7 +270,7 @@ $canExport = Yii::$app->user->can('export_data');
 
         <div class="summary-card">
             <h3>Capacità e recupero</h3>
-            <p class="section-intro">Andamento senza prezzi: ore di slot perse rispetto alle ore previste, e quanto è stato recuperato.</p>
+            <p class="section-intro">Ore di slot perse rispetto alle ore previste, e quanto è stato recuperato.</p>
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-value gray"><?= $fmtHours($plannedHours) ?></div>
