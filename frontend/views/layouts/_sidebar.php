@@ -20,7 +20,7 @@ $menuMappings = [
         'user/coordinators', 'user/create-coordinator', 'user/view-coordinator', 'user/update-coordinator',
         'coordinator-group/index', 'coordinator-group/create', 'coordinator-group/view', 'coordinator-group/update',
     ],
-    'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group', 'absence/daily'],
+    'Therapists' => ['therapist/index', 'therapist/create', 'therapist/view', 'therapist/update', 'therapist/my-group', 'absence/daily', 'calendar/therapists'],
     'MyTherapists' => ['therapist/my-group'],
     'Patients' => ['patient/index', 'patient/create', 'patient/view', 'patient/update', 'patient/accounts', 'patient/view-account', 'patient/my-group'],
     'MyPatients' => ['patient/my-group'],
@@ -372,6 +372,15 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                                     </a>
                                 </li>
                                 <?php endif; ?>
+                                <?php if (Yii::$app->user->can('view_calendar')): ?>
+                                <li>
+                                    <a
+                                        href="<?= \yii\helpers\Url::to(['/calendar/therapists']) ?>"
+                                        class="menu-dropdown-item group <?= isSubmenuActive(['calendar/therapists'], $currentRoute) ? 'menu-dropdown-item-active' : '' ?>">
+                                        Calendario terapisti
+                                    </a>
+                                </li>
+                                <?php endif; ?>
                             </ul>
                         </div>
                         <!-- Dropdown Menu End -->
@@ -422,6 +431,22 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                         </a>
                     </li>
                     <?php endif; ?>
+                    <?php if (Yii::$app->user->can('view_calendar')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/calendar/therapists']) ?>"
+                            class="menu-item group <?= isSubmenuActive(['calendar/therapists'], $currentRoute) ? 'menu-item-active' : 'menu-item-inactive' ?>">
+                            <svg
+                                class="<?= isSubmenuActive(['calendar/therapists'], $currentRoute) ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>"
+                                width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Calendario terapisti
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <?php elseif (Yii::$app->user->can('view_therapist')): ?>
                     <!-- Menu Item Therapists (read-only: solo visualizzazione lista) -->
                     <li>
@@ -451,6 +476,22 @@ function getCurrentActiveMenu($currentRoute, $mappings)
                             </span>
                         </a>
                     </li>
+                    <?php if (Yii::$app->user->can('view_calendar')): ?>
+                    <li>
+                        <a
+                            href="<?= \yii\helpers\Url::to(['/calendar/therapists']) ?>"
+                            class="menu-item group <?= isSubmenuActive(['calendar/therapists'], $currentRoute) ? 'menu-item-active' : 'menu-item-inactive' ?>">
+                            <svg
+                                class="<?= isSubmenuActive(['calendar/therapists'], $currentRoute) ? 'menu-item-icon-active' : 'menu-item-icon-inactive' ?>"
+                                width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                                Calendario terapisti
+                            </span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <?php endif; ?>
                     <!-- Menu Item Therapists -->
 

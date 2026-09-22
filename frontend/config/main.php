@@ -63,6 +63,9 @@ return [
             'rules' => [
                 // Route per il calendar
                 'calendar' => 'calendar/index',
+                'calendar/therapists' => 'calendar/therapists',
+                'calendar/therapists/<id_therapist:\d+>' => 'calendar/therapists',
+                'calendar/search-therapists' => 'calendar/search-therapists',
                 'calendar/<id_patient:\d+>' => 'calendar/index',
                 'calendar/therapist/<id_therapist:\d+>' => 'calendar/index',
                 // Route per le statistiche
