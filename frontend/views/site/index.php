@@ -1,7 +1,6 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $totalPatients int */
@@ -32,6 +31,10 @@ $this->params['breadcrumbs'][] = $this->title;
 // Le statistiche in dashboard sono visibili solo a chi ha il permesso view_statistics.
 // La dashboard resta accessibile a tutti, ma i riquadri statistici vengono nascosti.
 $canViewStatistics = Yii::$app->user->can('view_statistics');
+$canViewPatient = Yii::$app->user->can('view_patient');
+$canCreatePatient = Yii::$app->user->can('create_patient');
+$canViewDocuments = Yii::$app->user->can('view_documents') || Yii::$app->user->can('manage_documents');
+$canViewNotifications = Yii::$app->user->can('view_notifications');
 $expectedAppointmentsToday = $expectedAppointmentsToday ?? 0;
 $absentAppointmentsToday = $absentAppointmentsToday ?? 0;
 $appointmentCompletionRate = $appointmentCompletionRate ?? (
@@ -581,11 +584,15 @@ if (typeof Chart !== 'undefined') {
                             ?>
                             <tr>
                                 <td class="font-bold">
-                                    <?= Html::a(
-                                        Html::encode($plan['patient_name']),
-                                        ['patient/view', 'id' => $plan['patient_id']],
-                                        ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
-                                    ) ?>
+                                    <?php if ($canViewPatient): ?>
+                                        <?= Html::a(
+                                            Html::encode($plan['patient_name']),
+                                            ['patient/view', 'id' => $plan['patient_id']],
+                                            ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
+                                        ) ?>
+                                    <?php else: ?>
+                                        <?= Html::encode($plan['patient_name']) ?>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= Yii::$app->formatter->asDate($plan['end_date'], 'php:d/m/Y') ?></td>
                                 <td class="text-center">
@@ -608,7 +615,7 @@ if (typeof Chart !== 'undefined') {
                         <div class="system-stat-value"><?= (int) $pickupDocumentRequests ?></div>
                         <div class="system-stat-label">Documenti da ritirare</div>
                     </div>
-                    <?php if (Yii::$app->user->can('view_documents') || Yii::$app->user->can('manage_documents')): ?>
+                    <?php if ($canViewDocuments): ?>
                         <?= Html::a(
                             'Apri',
                             ['/document-request/index', 'DocumentRequestSearch' => ['status' => \common\models\DocumentRequest::STATUS_STAMPATO]],
@@ -628,8 +635,10 @@ if (typeof Chart !== 'undefined') {
                         <div class="system-stat-value"><?= $unreadNotifications ?></div>
                         <div class="system-stat-label">Notifiche da leggere</div>
                     </div>
-                    <?php if ($unreadNotifications > 0): ?>
+                    <?php if ($unreadNotifications > 0 && $canViewNotifications): ?>
                         <?= Html::a('Apri', ['/notification/index', 'status' => 'unread'], ['class' => 'badge badge-orange']) ?>
+                    <?php elseif ($unreadNotifications > 0): ?>
+                        <span class="badge badge-orange">Da leggere</span>
                     <?php else: ?>
                         <span class="badge badge-gray">Nessuna</span>
                     <?php endif; ?>
@@ -651,11 +660,6 @@ if (typeof Chart !== 'undefined') {
     <div class="full-width-card">
         <div class="card-header-with-action">
             <h3>Prossimi in agenda</h3>
-            <?php if (Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')): ?>
-                <a href="<?= Url::to(['/calendar/index']) ?>" class="btn btn-secondary btn-sm">
-                    <i class="fas fa-calendar"></i> Vedi calendario
-                </a>
-            <?php endif; ?>
         </div>
         <p class="stat-period" style="margin-bottom: 16px;">Da adesso in poi, non solo oggi</p>
 
@@ -689,7 +693,17 @@ if (typeof Chart !== 'undefined') {
                                     </div>
                                     <div>
                                         <div class="font-bold">
-                                            <?= $patient ? Html::encode($patient->getFullName()) : 'Paziente non trovato' ?>
+                                            <?php if ($patient && $canViewPatient): ?>
+                                                <?= Html::a(
+                                                    Html::encode($patient->getFullName()),
+                                                    ['patient/view', 'id' => $patient->id],
+                                                    ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
+                                                ) ?>
+                                            <?php elseif ($patient): ?>
+                                                <?= Html::encode($patient->getFullName()) ?>
+                                            <?php else: ?>
+                                                Paziente non trovato
+                                            <?php endif; ?>
                                         </div>
                                         <div class="text-sm text-gray">
                                             ID: <?= $patient ? $patient->id : 'N/A' ?>
@@ -720,18 +734,11 @@ if (typeof Chart !== 'undefined') {
 
     <div class="export-section">
         <div class="quick-actions">
-            <?php if (Yii::$app->user->can('create_patient')): ?>
+            <?php if ($canCreatePatient): ?>
                 <?= Html::a(
                     '<i class="fas fa-user-plus"></i> Nuovo Paziente',
                     ['/patient/create'],
                     ['class' => 'btn btn-primary']
-                ) ?>
-            <?php endif; ?>
-            <?php if (Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')): ?>
-                <?= Html::a(
-                    '<i class="fas fa-calendar-plus"></i> Calendario',
-                    ['/calendar/index'],
-                    ['class' => 'btn btn-success']
                 ) ?>
             <?php endif; ?>
             <?= Html::a(
