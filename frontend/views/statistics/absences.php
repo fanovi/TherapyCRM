@@ -32,8 +32,10 @@ $topAbsentees = $topAbsentees ?? ['therapists' => [], 'patients' => []];
 
 // Funzione helper per verificare se ci sono filtri attivi
 $hasActiveFilters = !empty($searchModel->dateFrom) || !empty($searchModel->dateTo) ||
-                    !empty($searchModel->absenceSource) || !empty($searchModel->isJustified) ||
-                    !empty($searchModel->therapistId) || !empty($searchModel->treatmentTypeId) ||
+                    !empty($searchModel->absenceSource) ||
+                    ($searchModel->isJustified !== null && $searchModel->isJustified !== '') ||
+                    !empty($searchModel->absenceTypeFlag) || !empty($searchModel->therapistId) ||
+                    !empty($searchModel->patientId) || !empty($searchModel->treatmentTypeId) ||
                     !empty($searchModel->settingId);
 
 // Determina il periodo visualizzato
@@ -138,6 +140,14 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                         '0' => 'Solo non giustificate'
                     ], ['class' => 'form-control'])->label('Stato giustificazione') ?>
                 </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'absenceTypeFlag')->dropDownList([
+                        '' => 'Tutti i tipi',
+                        'direct' => 'Terapista - diretta',
+                        'substitution' => 'Terapista - sostituzione',
+                        'patient' => 'Paziente'
+                    ], ['class' => 'form-control'])->label('Tipo evento') ?>
+                </div>
             </div>
         </div>
 
@@ -150,6 +160,12 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                         ['' => 'Tutti i terapisti'] + $therapistOptions,
                         ['class' => 'form-control']
                     )->label('Terapista') ?>
+                </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'patientId')->dropDownList(
+                        ['' => 'Tutti i pazienti'] + $patientOptions,
+                        ['class' => 'form-control']
+                    )->label('Paziente') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'treatmentTypeId')->dropDownList(
@@ -202,6 +218,10 @@ $hasData = ($monthlyRate['total_absences'] ?? 0) > 0 ||
                 <div class="stat-box">
                     <div class="stat-value green"><?= $monthlyRate['justified_absences'] ?? 0 ?></div>
                     <div class="stat-label">Giustificate</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value green"><?= $monthlyRate['with_recovery'] ?? 0 ?></div>
+                    <div class="stat-label">Con recupero</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value gray"><?= $monthlyRate['total_appointments'] ?? 0 ?></div>

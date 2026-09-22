@@ -2,10 +2,8 @@
 
 namespace common\services\statistics;
 
-use Yii;
 use yii\db\Query;
 use yii\db\Expression;
-use yii\helpers\ArrayHelper;
 
 /**
  * Service per statistiche assenze
@@ -21,7 +19,8 @@ class AbsenceStatisticsService
         // Assenze dirette dei terapisti
         $therapistDirectQuery = (new Query())
             ->select([
-                'absence_group_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
+                'absence_group_key' => new Expression("CONCAT('therapist_', a.therapist_id, '_', COALESCE(a.group_session_id, CONCAT('single_', a.id)))"),
+                'absence_slot_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
                 'absence_type' => new Expression("'therapist_direct'"),
                 'absence_type_flag' => new Expression("'direct'"),
                 'appointment_id' => 'a.id',
@@ -42,32 +41,35 @@ class AbsenceStatisticsService
                 'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'), // Assenze terapisti considerate giustificate
-                'has_recovery' => new Expression("CASE WHEN ar.id IS NOT NULL THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression("CASE WHEN EXISTS (
+                    SELECT 1 FROM absence_recoveries ar
+                    WHERE ar.original_appointment_id = a.id
+                ) THEN 'SI' ELSE 'NO' END"),
                 'generated_by' => new Expression("'therapist'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id'
             ])
             ->from(['a' => 'appointments'])
-            ->innerJoin(
-                ['ab' => 'absences'],
-                'a.therapist_id = ab.therapist_id
-                AND DATE(a.appointment_datetime) BETWEEN ab.start_date AND ab.end_date
-                AND ab.status = "approved"'
-            )
-            ->where(['NOT IN', 'a.status', ['completed', 'deleted']]) // Escludi solo quelli completati o cancellati
+            ->leftJoin(['ab' => 'absences'], $this->buildAbsenceJoinCondition('a.therapist_id'))
+            ->where(['a.status' => ['scheduled', 'therapist_absent']])
+            ->andWhere([
+                'OR',
+                ['a.status' => 'therapist_absent'],
+                ['IS NOT', 'ab.id', null],
+            ])
             ->leftJoin(['pt' => 'plan_therapies'], 'a.plan_therapy_id = pt.id')
             ->leftJoin(['tp' => 'therapeutic_plans'], 'pt.therapeutic_plan_id = tp.id')
             ->leftJoin(['p' => 'patients'], new Expression('COALESCE(tp.patient_id, a.patient_id) = p.id'))
             ->leftJoin(['t' => 'therapists'], 'a.therapist_id = t.id')
             ->leftJoin(['u_th' => 'users'], 't.user_id = u_th.id')
             ->leftJoin(['up_th' => 'user_profiles'], 'u_th.id = up_th.user_id')
-            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'))
-            ->leftJoin(['ar' => 'absence_recoveries'], 'ar.original_appointment_id = a.id');
+            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'));
 
         // Assenze per sostituzione
         $therapistSubstitutionQuery = (new Query())
             ->select([
-                'absence_group_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
+                'absence_group_key' => new Expression("CONCAT('therapist_', ts.original_therapist_id, '_', COALESCE(a.group_session_id, CONCAT('single_', a.id)))"),
+                'absence_slot_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
                 'absence_type' => new Expression("'therapist_substitution'"),
                 'absence_type_flag' => new Expression("'substitution'"),
                 'appointment_id' => 'a.id',
@@ -88,32 +90,31 @@ class AbsenceStatisticsService
                 'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'),
-                'has_recovery' => new Expression("CASE WHEN ar.id IS NOT NULL THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression("CASE WHEN EXISTS (
+                    SELECT 1 FROM absence_recoveries ar
+                    WHERE ar.original_appointment_id = a.id
+                ) THEN 'SI' ELSE 'NO' END"),
                 'generated_by' => new Expression("'therapist'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id'
             ])
             ->from(['a' => 'appointments'])
             ->innerJoin(['ts' => 'therapist_substitutions'], 'ts.appointment_id = a.id')
-            ->innerJoin(
-                ['ab' => 'absences'],
-                'ab.therapist_id = ts.original_therapist_id
-                AND DATE(a.appointment_datetime) BETWEEN ab.start_date AND ab.end_date
-                AND ab.status = "approved"'
-            )
+            ->innerJoin(['ab' => 'absences'], $this->buildAbsenceJoinCondition('ts.original_therapist_id'))
+            ->where(['a.status' => ['scheduled', 'therapist_absent']])
             ->leftJoin(['pt' => 'plan_therapies'], 'a.plan_therapy_id = pt.id')
             ->leftJoin(['tp' => 'therapeutic_plans'], 'pt.therapeutic_plan_id = tp.id')
             ->leftJoin(['p' => 'patients'], new Expression('COALESCE(tp.patient_id, a.patient_id) = p.id'))
             ->leftJoin(['t_orig' => 'therapists'], 'ts.original_therapist_id = t_orig.id')
             ->leftJoin(['u_th_orig' => 'users'], 't_orig.user_id = u_th_orig.id')
             ->leftJoin(['up_th_orig' => 'user_profiles'], 'u_th_orig.id = up_th_orig.user_id')
-            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'))
-            ->leftJoin(['ar' => 'absence_recoveries'], 'ar.original_appointment_id = a.id');
+            ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'));
 
         // Assenze pazienti - gestisce anche appuntamenti privati
         $patientQuery = (new Query())
             ->select([
-                'absence_group_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
+                'absence_group_key' => new Expression("CONCAT('patient_', a.id)"),
+                'absence_slot_key' => new Expression("COALESCE(a.group_session_id, CONCAT('single_', a.id))"),
                 'absence_type' => new Expression("'patient'"),
                 'absence_type_flag' => new Expression("'patient'"),
                 'appointment_id' => 'a.id',
@@ -137,7 +138,10 @@ class AbsenceStatisticsService
                     ELSE 'Non giustificata'
                 END"),
                 'is_justified' => new Expression("CASE WHEN a.status = 'absent_justified' THEN 1 ELSE 0 END"),
-                'has_recovery' => new Expression("CASE WHEN ar.id IS NOT NULL THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression("CASE WHEN EXISTS (
+                    SELECT 1 FROM absence_recoveries ar
+                    WHERE ar.original_appointment_id = a.id
+                ) THEN 'SI' ELSE 'NO' END"),
                 'generated_by' => new Expression("'patient'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id'
@@ -150,7 +154,6 @@ class AbsenceStatisticsService
             ->leftJoin(['u_th' => 'users'], 't.user_id = u_th.id')
             ->leftJoin(['up_th' => 'user_profiles'], 'u_th.id = up_th.user_id')
             ->leftJoin(['tt' => 'treatment_types'], new Expression('COALESCE(pt.treatment_type_id, a.treatment_type_id) = tt.id'))
-            ->leftJoin(['ar' => 'absence_recoveries'], 'ar.original_appointment_id = a.id')
             ->where(['a.status' => ['absent_justified', 'absent_not_justified']]);
 
         // Unione delle tre query
@@ -166,6 +169,34 @@ class AbsenceStatisticsService
         $this->applyFilters($query, $filters);
 
         return $query;
+    }
+
+    /**
+     * Seleziona una sola assenza approvata che copre realmente lo slot.
+     * Per le assenze orarie richiede la sovrapposizione degli intervalli.
+     */
+    protected function buildAbsenceJoinCondition($therapistExpression)
+    {
+        return "ab.id = (
+            SELECT ab2.id
+            FROM absences ab2
+            WHERE ab2.therapist_id = {$therapistExpression}
+              AND DATE(a.appointment_datetime) BETWEEN ab2.start_date AND ab2.end_date
+              AND ab2.status = 'approved'
+              AND (
+                  ab2.start_time IS NULL
+                  OR ab2.end_time IS NULL
+                  OR (
+                      TIME(a.appointment_datetime) < ab2.end_time
+                      AND ADDTIME(
+                          TIME(a.appointment_datetime),
+                          SEC_TO_TIME(COALESCE(a.duration_minutes, 0) * 60)
+                      ) > ab2.start_time
+                  )
+              )
+            ORDER BY ab2.approved_at DESC, ab2.id DESC
+            LIMIT 1
+        )";
     }
 
     /**
@@ -210,40 +241,14 @@ class AbsenceStatisticsService
             }
         }
 
+        if (!empty($filters['absenceTypeFlag'])) {
+            $query->andWhere(['absence_type_flag' => $filters['absenceTypeFlag']]);
+        }
+
         // Filtro giustificata/non giustificata
         if (isset($filters['isJustified']) && $filters['isJustified'] !== '') {
             $query->andWhere(['is_justified' => $filters['isJustified']]);
         }
-    }
-
-    /**
-     * Ottiene dati per heatmap oraria
-     */
-    public function getHeatmapData($searchModel)
-    {
-        $filters = $this->extractFilters($searchModel);
-        $query = $this->getBaseAbsencesQuery($filters);
-
-        $data = $query
-            ->select([
-                'hour' => 'absence_hour',
-                'day' => 'absence_day_number',
-                'count' => new Expression('COUNT(DISTINCT absence_group_key)')
-            ])
-            ->groupBy(['absence_hour', 'absence_day_number'])
-            ->all();
-
-        // Formatta per la heatmap
-        $heatmapData = [];
-        foreach ($data as $item) {
-            $heatmapData[] = [
-                'x' => $this->getDayLabel($item['day']),
-                'y' => sprintf('%02d:00', $item['hour']),
-                'value' => (int)$item['count']
-            ];
-        }
-
-        return $heatmapData;
     }
 
     /**
@@ -260,10 +265,13 @@ class AbsenceStatisticsService
                 'treatment_type_id' => new Expression('COALESCE(treatment_type_id, 0)'), // Usa 0 invece di NULL
                 'treatment_name' => new Expression("COALESCE(MIN(treatment_name), 'Trattamento non specificato')"),
                 'treatment_code' => new Expression("COALESCE(MIN(treatment_code), 'N/A')"),
-                'total_absences' => new Expression('COUNT(DISTINCT CASE WHEN generated_by = "therapist" THEN absence_group_key END) + COUNT(DISTINCT CASE WHEN generated_by = "patient" THEN absence_group_key END)'),
+                'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'therapist_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"),
                 'patient_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"),
-                'justified_rate' => new Expression('ROUND(AVG(is_justified) * 100, 1)')
+                'justified_rate' => new Expression(
+                    'ROUND(COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END) '
+                    . '* 100.0 / COUNT(DISTINCT absence_group_key), 1)'
+                )
             ])
             ->groupBy([new Expression('COALESCE(treatment_type_id, 0)')])
             ->having(['>', 'COUNT(DISTINCT absence_group_key)', 0])
@@ -339,7 +347,9 @@ class AbsenceStatisticsService
             ->all();
 
         // Calcola percentuali
-        $total = array_sum(array_column($data, 'count'));
+        $total = (int)$this->getBaseAbsencesQuery($filters)
+            ->select(new Expression('COUNT(DISTINCT absence_group_key)'))
+            ->scalar();
         foreach ($data as &$item) {
             $item['percentage'] = $total > 0 ? round(($item['count'] / $total) * 100, 1) : 0;
         }
@@ -359,25 +369,27 @@ class AbsenceStatisticsService
             $filters['dateFrom'] = date('Y-m-01', strtotime('-11 months'));
         }
 
-        // Costruisci la query base
-        $baseQuery = $this->getBaseAbsencesQuery($filters);
-        $baseSql = $baseQuery->createCommand()->getRawSql();
+        $monthExpression = new Expression("DATE_FORMAT(absence_date, '%Y-%m')");
 
-        // Query finale con GROUP BY corretto
-        $sql = "
-        SELECT 
-            DATE_FORMAT(absence_date, '%Y-%m') as month,
-            DATE_FORMAT(MIN(absence_date), '%b %Y') as month_label,
-            COUNT(DISTINCT absence_group_key) as total_absences,
-            COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END) as justified_absences,
-            COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END) as therapist_absences,
-            COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END) as patient_absences
-        FROM ($baseSql) as absences_data
-        GROUP BY DATE_FORMAT(absence_date, '%Y-%m')
-        ORDER BY month ASC
-    ";
-
-        return Yii::$app->db->createCommand($sql)->queryAll();
+        return (new Query())
+            ->select([
+                'month' => $monthExpression,
+                'month_label' => new Expression("DATE_FORMAT(MIN(absence_date), '%b %Y')"),
+                'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
+                'justified_absences' => new Expression(
+                    'COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'
+                ),
+                'therapist_absences' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"
+                ),
+                'patient_absences' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"
+                ),
+            ])
+            ->from(['absences_data' => $this->getBaseAbsencesQuery($filters)])
+            ->groupBy($monthExpression)
+            ->orderBy(['month' => SORT_ASC])
+            ->all();
     }
 
     /**
@@ -396,55 +408,86 @@ class AbsenceStatisticsService
         $absences = $query
             ->select([
                 'total' => new Expression('COUNT(DISTINCT absence_group_key)'),
-                'justified' => new Expression('COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)')
+                'justified' => new Expression('COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'),
+                'with_recovery' => new Expression(
+                    "COUNT(DISTINCT CASE WHEN has_recovery = 'SI' THEN absence_group_key END)"
+                ),
+                'affected_slots' => new Expression('COUNT(DISTINCT absence_slot_key)')
             ])
             ->one();
 
-        // Conta appuntamenti totali nel periodo filtrato (inclusi quelli con group_session_id)
+        // Conta gli slot eleggibili applicando gli stessi filtri dimensionali.
         $appointmentsQuery = (new Query())
             ->select([
-                'total_appointments' => new Expression('COUNT(DISTINCT COALESCE(group_session_id, CONCAT("single_", id)))')
+                'total_appointments' => new Expression(
+                    'COUNT(DISTINCT COALESCE(a.group_session_id, CONCAT("single_", a.id)))'
+                )
             ])
-            ->from('appointments')
-            ->andWhere(['status' => ['scheduled', 'completed', 'absent_justified', 'absent_not_justified']]);
+            ->from(['a' => 'appointments'])
+            ->leftJoin(['pt_rate' => 'plan_therapies'], 'a.plan_therapy_id = pt_rate.id')
+            ->leftJoin(['tp_rate' => 'therapeutic_plans'], 'pt_rate.therapeutic_plan_id = tp_rate.id')
+            ->andWhere([
+                'a.status' => [
+                    'scheduled',
+                    'completed',
+                    'absent_justified',
+                    'absent_not_justified',
+                    'therapist_absent',
+                ],
+            ]);
 
         // Applica filtri di date
         if (!empty($filters['dateFrom'])) {
-            $appointmentsQuery->andWhere(['>=', 'appointment_datetime', $filters['dateFrom'] . ' 00:00:00']);
+            $appointmentsQuery->andWhere(['>=', 'a.appointment_datetime', $filters['dateFrom'] . ' 00:00:00']);
         }
         if (!empty($filters['dateTo'])) {
-            $appointmentsQuery->andWhere(['<=', 'appointment_datetime', $filters['dateTo'] . ' 23:59:59']);
+            $appointmentsQuery->andWhere(['<=', 'a.appointment_datetime', $filters['dateTo'] . ' 23:59:59']);
         }
 
         // Applica altri filtri
         if (!empty($filters['therapistId'])) {
-            $appointmentsQuery->andWhere(['therapist_id' => $filters['therapistId']]);
+            $appointmentsQuery->andWhere([
+                'OR',
+                ['a.therapist_id' => $filters['therapistId']],
+                [
+                    'EXISTS',
+                    (new Query())
+                        ->from(['ts_rate' => 'therapist_substitutions'])
+                        ->where('ts_rate.appointment_id = a.id')
+                        ->andWhere(['ts_rate.original_therapist_id' => $filters['therapistId']]),
+                ],
+            ]);
+        }
+        if (!empty($filters['patientId'])) {
+            $appointmentsQuery->andWhere([
+                '=',
+                new Expression('COALESCE(tp_rate.patient_id, a.patient_id)'),
+                $filters['patientId'],
+            ]);
         }
         if (!empty($filters['treatmentTypeId'])) {
             $appointmentsQuery->andWhere([
                 'OR',
-                ['treatment_type_id' => $filters['treatmentTypeId']], // Appuntamenti privati
-                [
-                    'EXISTS',
-                    (new Query())
-                        ->from(['pt' => 'plan_therapies'])
-                        ->where('pt.id = appointments.plan_therapy_id')
-                        ->andWhere(['pt.treatment_type_id' => $filters['treatmentTypeId']])
-                ] // Appuntamenti con piano terapeutico
+                ['a.treatment_type_id' => $filters['treatmentTypeId']],
+                ['pt_rate.treatment_type_id' => $filters['treatmentTypeId']],
             ]);
         }
         if (!empty($filters['settingId'])) {
-            $appointmentsQuery->andWhere(['id_setting' => $filters['settingId']]);
+            $appointmentsQuery->andWhere(['a.id_setting' => $filters['settingId']]);
         }
 
         $appointmentData = $appointmentsQuery->one();
         $totalAppointments = $appointmentData['total_appointments'] ?? 0;
 
-        $rate = $totalAppointments > 0 ? round(($absences['total'] / $totalAppointments) * 100, 1) : 0;
+        $affectedSlots = (int)($absences['affected_slots'] ?? 0);
+        $rate = $totalAppointments > 0
+            ? round(($affectedSlots / $totalAppointments) * 100, 1)
+            : 0;
 
         return [
             'total_absences' => $absences['total'] ?? 0,
             'justified_absences' => $absences['justified'] ?? 0,
+            'with_recovery' => $absences['with_recovery'] ?? 0,
             'total_appointments' => $totalAppointments,
             'absence_rate' => $rate
         ];
@@ -469,7 +512,7 @@ class AbsenceStatisticsService
                 'count' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'type' => new Expression("'therapist'")
             ])
-            ->where(['generated_by' => 'therapist'])
+            ->andWhere(['generated_by' => 'therapist'])
             ->andWhere(['IS NOT', 'therapist_id', null])
             ->groupBy(['therapist_id', 'therapist_name', 'therapist_surname'])
             ->having(['>', 'COUNT(DISTINCT absence_group_key)', 0])
@@ -486,7 +529,7 @@ class AbsenceStatisticsService
                 'count' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'type' => new Expression("'patient'")
             ])
-            ->where(['generated_by' => 'patient'])
+            ->andWhere(['generated_by' => 'patient'])
             ->andWhere(['IS NOT', 'patient_id', null])
             ->groupBy(['patient_id', 'patient_name', 'patient_surname'])
             ->having(['>', 'COUNT(DISTINCT absence_group_key)', 0])
@@ -547,6 +590,9 @@ class AbsenceStatisticsService
         }
         if ($searchModel->absenceSource) {
             $filters['absenceSource'] = $searchModel->absenceSource;
+        }
+        if ($searchModel->absenceTypeFlag) {
+            $filters['absenceTypeFlag'] = $searchModel->absenceTypeFlag;
         }
         if (isset($searchModel->isJustified)) {
             $filters['isJustified'] = $searchModel->isJustified;

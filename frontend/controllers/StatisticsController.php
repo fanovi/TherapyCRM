@@ -120,14 +120,7 @@ class StatisticsController extends BaseController
      */
     public function actionAbsences()
     {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
-
-        // Default: ultimi 30 giorni se nessuna data specificata
-        if (empty($searchModel->dateFrom) && empty($searchModel->dateTo)) {
-            $searchModel->dateFrom = date('Y-m-d', strtotime('-30 days'));
-            $searchModel->dateTo = date('Y-m-d');
-        }
+        $searchModel = $this->createAbsenceSearchModel();
 
         try {
             // Estrai filtri una volta sola
@@ -229,11 +222,36 @@ class StatisticsController extends BaseController
         if ($searchModel->absenceSource) {
             $filters['absenceSource'] = $searchModel->absenceSource;
         }
+        if ($searchModel->absenceTypeFlag) {
+            $filters['absenceTypeFlag'] = $searchModel->absenceTypeFlag;
+        }
         if (isset($searchModel->isJustified)) {
             $filters['isJustified'] = $searchModel->isJustified;
         }
 
         return $filters;
+    }
+
+    /**
+     * Carica, normalizza e valida i filtri delle statistiche assenze.
+     */
+    protected function createAbsenceSearchModel($applyDefaultPeriod = true)
+    {
+        $searchModel = new AbsenceStatisticsSearch();
+        $searchModel->load(Yii::$app->request->queryParams);
+
+        if ($applyDefaultPeriod) {
+            $searchModel->applyDefaultPeriod();
+        }
+
+        if (!$searchModel->validate()) {
+            $messages = $searchModel->getFirstErrors();
+            throw new BadRequestHttpException(
+                'Filtri assenze non validi: ' . implode('; ', $messages)
+            );
+        }
+
+        return $searchModel;
     }
 
     /**
@@ -338,9 +356,6 @@ class StatisticsController extends BaseController
 
         try {
             switch ($type) {
-                case 'absence-heatmap':
-                    return $this->getAbsenceHeatmapData();
-
                 case 'absence-trend':
                     return $this->getAbsenceTrendData();
 
@@ -412,23 +427,9 @@ class StatisticsController extends BaseController
 
     // ===== METODI PROTETTI PER DATI GRAFICI =====
 
-    protected function getAbsenceHeatmapData()
-    {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
-
-        $data = $this->absenceService->getHeatmapData($searchModel);
-
-        return [
-            'success' => true,
-            'data' => $data
-        ];
-    }
-
     protected function getAbsenceTrendData()
     {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createAbsenceSearchModel();
 
         $trendData = $this->absenceService->getTrendData($searchModel);
 
@@ -456,8 +457,7 @@ class StatisticsController extends BaseController
 
     protected function getAbsenceByDayData()
     {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createAbsenceSearchModel();
 
         $dayData = $this->absenceService->getByDayOfWeek($searchModel);
 
@@ -636,19 +636,31 @@ class StatisticsController extends BaseController
 
     protected function exportAbsences()
     {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createAbsenceSearchModel();
 
         // Usa la nuova query
         $query = $searchModel->getStatisticsQuery();
         $rawData = $query->all();
 
-        // Raggruppa per absence_group_key per evitare duplicati
+        // Una assenza terapista di gruppo produce una riga per paziente:
+        // accorpa lo slot senza perdere i nominativi o i trattamenti coinvolti.
         $groupedData = [];
-        foreach ($rawData as $row) {
-            $groupKey = $row['absence_group_key'];
-            if (!isset($groupedData[$groupKey])) {
-                $groupedData[$groupKey] = $row;
+        foreach ($rawData as $absence) {
+            $key = $absence['absence_group_key'];
+            if (!isset($groupedData[$key])) {
+                $groupedData[$key] = $absence;
+                $groupedData[$key]['_patients'] = [];
+                $groupedData[$key]['_treatments'] = [];
+            }
+
+            $patientName = trim(
+                ($absence['patient_name'] ?: '') . ' ' . ($absence['patient_surname'] ?: '')
+            );
+            if ($patientName !== '' && $patientName !== 'N/A') {
+                $groupedData[$key]['_patients'][$patientName] = true;
+            }
+            if (!empty($absence['treatment_name'])) {
+                $groupedData[$key]['_treatments'][$absence['treatment_name']] = true;
             }
         }
 
@@ -662,11 +674,13 @@ class StatisticsController extends BaseController
         // Dati
         $row = 2;
         foreach ($groupedData as $absence) {
+            $patients = implode(', ', array_keys($absence['_patients']));
+            $treatments = implode(', ', array_keys($absence['_treatments']));
             $sheet->setCellValue("A{$row}", $absence['absence_date']);
-            $sheet->setCellValue("B{$row}", sprintf('%02d:00', $absence['absence_hour']));
-            $sheet->setCellValue("C{$row}", ($absence['patient_name'] ?: '') . ' ' . ($absence['patient_surname'] ?: ''));
+            $sheet->setCellValue("B{$row}", date('H:i', strtotime($absence['appointment_datetime'])));
+            $sheet->setCellValue("C{$row}", $patients);
             $sheet->setCellValue("D{$row}", ($absence['therapist_name'] ?: '') . ' ' . ($absence['therapist_surname'] ?: ''));
-            $sheet->setCellValue("E{$row}", $absence['treatment_name'] ?: '');
+            $sheet->setCellValue("E{$row}", $treatments);
             $sheet->setCellValue("F{$row}", $absence['absence_reason'] ?: '');
             $sheet->setCellValue("G{$row}", $absence['generated_by'] === 'therapist' ? 'Terapista' : 'Paziente');
             $sheet->setCellValue("H{$row}", $absence['absence_type_flag'] === 'direct' ? 'Diretta' : ($absence['absence_type_flag'] === 'substitution' ? 'Sostituzione' : 'Paziente'));
@@ -844,8 +858,7 @@ class StatisticsController extends BaseController
 
     protected function getAbsenceHourlyData()
     {
-        $searchModel = new AbsenceStatisticsSearch();
-        $searchModel->load(Yii::$app->request->queryParams);
+        $searchModel = $this->createAbsenceSearchModel();
 
         $hourlyStats = $this->absenceService->getHourlyStatistics($this->extractFilters($searchModel));
 

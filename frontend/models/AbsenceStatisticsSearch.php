@@ -29,8 +29,13 @@ class AbsenceStatisticsSearch extends Model
     {
         return [
             [['dateFrom', 'dateTo'], 'date', 'format' => 'php:Y-m-d'],
-            [['therapistId', 'patientId', 'treatmentTypeId', 'settingId'], 'integer'],
-            [['absenceSource', 'absenceTypeFlag'], 'string'],
+            [['dateFrom'], 'compare', 'compareAttribute' => 'dateTo', 'operator' => '<=', 'when' => function ($model) {
+                return !empty($model->dateTo);
+            }],
+            [['therapistId', 'patientId', 'treatmentTypeId', 'settingId'], 'integer', 'min' => 1],
+            [['absenceSource'], 'in', 'range' => ['therapist', 'patient']],
+            [['absenceTypeFlag'], 'in', 'range' => ['direct', 'substitution', 'patient']],
+            [['absenceTypeFlag'], 'validateSourceAndType'],
             [['isJustified'], 'boolean'],
         ];
     }
@@ -68,6 +73,7 @@ class AbsenceStatisticsSearch extends Model
         if ($this->treatmentTypeId) $filters['treatmentTypeId'] = $this->treatmentTypeId;
         if ($this->settingId) $filters['settingId'] = $this->settingId;
         if ($this->absenceSource) $filters['absenceSource'] = $this->absenceSource;
+        if ($this->absenceTypeFlag) $filters['absenceTypeFlag'] = $this->absenceTypeFlag;
         if ($this->isJustified !== null) $filters['isJustified'] = $this->isJustified;
         
         return $service->getBaseAbsencesQuery($filters);
@@ -78,7 +84,15 @@ class AbsenceStatisticsSearch extends Model
      */
     public function search($params)
     {
-        $query = $this->getStatisticsQuery();
+        $this->load($params);
+
+        if (!$this->validate()) {
+            $query = (new \common\services\statistics\AbsenceStatisticsService())
+                ->getBaseAbsencesQuery()
+                ->andWhere('0=1');
+        } else {
+            $query = $this->getStatisticsQuery();
+        }
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -93,12 +107,30 @@ class AbsenceStatisticsSearch extends Model
             ],
         ]);
 
-        $this->load($params);
-
-        if (!$this->validate()) {
-            return $dataProvider;
-        }
-
         return $dataProvider;
+    }
+
+    /**
+     * Imposta il periodo standard della pagina quando non specificato.
+     */
+    public function applyDefaultPeriod()
+    {
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            $this->dateFrom = date('Y-m-d', strtotime('-30 days'));
+            $this->dateTo = date('Y-m-d');
+        }
+    }
+
+    public function validateSourceAndType($attribute)
+    {
+        if (
+            ($this->absenceSource === 'therapist' && $this->absenceTypeFlag === 'patient')
+            || (
+                $this->absenceSource === 'patient'
+                && in_array($this->absenceTypeFlag, ['direct', 'substitution'], true)
+            )
+        ) {
+            $this->addError($attribute, 'Il tipo evento non è compatibile con la sorgente selezionata.');
+        }
     }
 }
