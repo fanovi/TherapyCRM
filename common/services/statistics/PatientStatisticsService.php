@@ -26,7 +26,7 @@ class PatientStatisticsService
 
         return Yii::$app->cache->getOrSet($cacheKey, function () {
             return (new Query())
-                ->from('statistics_patients_mv')
+                ->from('statistics_patients_current_v')
                 ->where(['piano_terapeutico_attivo' => 'SI'])
                 ->count();
         }, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
@@ -53,7 +53,7 @@ class PatientStatisticsService
                 AND tp.status = 'active'
                 AND tp.start_date <= CURDATE()
                 AND tp.end_date >= CURDATE()")
-            ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
+            ->leftJoin('statistics_patients_current_v sp', 'tp.patient_id = sp.id');
 
         // Se ci sono filtri per treatmentTypeIds, mostra solo quelli
         if (!empty($searchModel->treatmentTypeIds)) {
@@ -92,7 +92,7 @@ class PatientStatisticsService
                 AND tp.status = 'active'
                 AND tp.start_date <= CURDATE()
                 AND tp.end_date >= CURDATE()")
-            ->leftJoin('statistics_patients_mv sp', 'tp.patient_id = sp.id');
+            ->leftJoin('statistics_patients_current_v sp', 'tp.patient_id = sp.id');
 
         // Applica filtri del search model
         $this->applyPatientFilters($query, $searchModel);
@@ -282,7 +282,7 @@ class PatientStatisticsService
             ->innerJoin('patients p', 'tp.patient_id = p.id')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
             ->innerJoin('treatment_types tt', 'pt.treatment_type_id = tt.id')
-            ->innerJoin('statistics_patients_mv sp', 'p.id = sp.id') // Join per applicare filtri
+            ->innerJoin('statistics_patients_current_v sp', 'p.id = sp.id') // Join per applicare filtri
             ->where(['tp.status' => 'active'])
             ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
             ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
@@ -333,7 +333,7 @@ class PatientStatisticsService
                 'COUNT(*) as new_patients',
                 'SUM(COUNT(*)) OVER (ORDER BY DATE_FORMAT(sp.created_at, "%Y-%m")) as cumulative_patients'
             ])
-            ->from('statistics_patients_mv sp')
+            ->from('statistics_patients_current_v sp')
             ->where(['between', 'DATE(sp.created_at)', $dateFrom, $dateTo])
             ->groupBy('month')
             ->orderBy('month')
@@ -356,7 +356,7 @@ class PatientStatisticsService
             ])
             ->from('districts d')
             ->leftJoin('patients p', 'd.id = p.district_id')
-            ->leftJoin('statistics_patients_mv sp', 'p.id = sp.id');
+            ->leftJoin('statistics_patients_current_v sp', 'p.id = sp.id');
 
         // Applica filtri del search model (senza il filtro distretto per evitare circolarità)
         $tempSearchModel = clone $searchModel;
@@ -380,7 +380,7 @@ class PatientStatisticsService
                 'sp.piano_terapeutico_attivo as status',
                 'COUNT(*) as count'
             ])
-            ->from('statistics_patients_mv sp')
+            ->from('statistics_patients_current_v sp')
             ->groupBy('sp.piano_terapeutico_attivo')
             ->all();
     }

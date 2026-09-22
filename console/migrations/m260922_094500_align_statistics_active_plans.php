@@ -3,16 +3,17 @@
 use yii\db\Migration;
 
 /**
- * Allinea le viste statistiche alla definizione di piano attivo del dominio:
- * status=active e data corrente compresa tra start_date ed end_date.
+ * Allinea le viste statistiche alla definizione di piano attivo del dominio.
+ *
+ * Usa nomi versionati per non dover eliminare le viste legacy, che in alcuni
+ * ambienti sono associate a un DEFINER con privilegi SYSTEM_USER.
  */
 class m260922_094500_align_statistics_active_plans extends Migration
 {
     public function safeUp()
     {
-        $this->execute('DROP VIEW IF EXISTS statistics_patients_mv');
         $this->execute("
-            CREATE VIEW statistics_patients_mv AS
+            CREATE OR REPLACE SQL SECURITY INVOKER VIEW statistics_patients_current_v AS
             SELECT
                 p.id,
                 p.first_name,
@@ -43,9 +44,8 @@ class m260922_094500_align_statistics_active_plans extends Migration
             GROUP BY p.id, p.first_name, p.last_name, p.birth_date, p.gender, p.created_at
         ");
 
-        $this->execute('DROP VIEW IF EXISTS statistics_treatments_mv');
         $this->execute("
-            CREATE VIEW statistics_treatments_mv AS
+            CREATE OR REPLACE SQL SECURITY INVOKER VIEW statistics_treatments_current_v AS
             SELECT
                 tt.id,
                 tt.name,
@@ -72,7 +72,7 @@ class m260922_094500_align_statistics_active_plans extends Migration
 
     public function safeDown()
     {
-        echo "m260922_094500_align_statistics_active_plans non è reversibile automaticamente.\n";
-        return false;
+        $this->execute('DROP VIEW IF EXISTS statistics_treatments_current_v');
+        $this->execute('DROP VIEW IF EXISTS statistics_patients_current_v');
     }
 }

@@ -71,7 +71,7 @@ class PatientStatisticsSearch extends Model
     public function getStatisticsQuery()
     {
         $query = (new Query())
-            ->from('statistics_patients_mv sp');
+            ->from('statistics_patients_current_v sp');
 
         // Filtro piano terapeutico attivo (default ON)
         if ($this->activePlanOnly && $this->status !== 'inactive') {
@@ -313,7 +313,7 @@ class PatientStatisticsSearch extends Model
                 'sp.trattamenti_count_no_aba',
                 "CASE WHEN d.asl_reference IS NOT NULL AND d.asl_reference != '' AND LOCATE(d.asl_reference, d.name) = 0 THEN CONCAT(d.asl_reference, ' - ', d.name) ELSE d.name END AS district_name"
             ])
-            ->from('statistics_patients_mv sp')
+            ->from('statistics_patients_current_v sp')
             ->leftJoin('patients p', 'sp.id = p.id')
             ->leftJoin('districts d', 'p.district_id = d.id');
 
