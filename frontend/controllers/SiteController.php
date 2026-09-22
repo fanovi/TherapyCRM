@@ -125,10 +125,6 @@ class SiteController extends BaseController
         $patientsGrowthPercentage = $this->percentChange($newPatientsThisMonth, $lastMonthPatients);
 
         $totalTherapists = (int) Therapist::find()->where(['is_active' => 1])->count();
-        $newTherapistsThisMonth = (int) Therapist::find()
-            ->where(['is_active' => 1])
-            ->andWhere(['>=', 'created_at', $monthStart])
-            ->count();
 
         $todayStart = $today . ' 00:00:00';
         $todayEnd = $today . ' 23:59:59';
@@ -162,8 +158,32 @@ class SiteController extends BaseController
             ->all();
 
         $pendingDocumentRequests = (int) DocumentRequest::findActive()->count();
+        $pickupDocumentRequests = (int) DocumentRequest::find()
+            ->where(['status' => DocumentRequest::STATUS_STAMPATO])
+            ->count();
 
         $activeTherapeuticPlans = (int) TherapeuticPlan::find()->activeAtDate($today)->count();
+
+        $expiringUntil = date('Y-m-d', strtotime('+30 days'));
+        $expiringQuery = (new Query())
+            ->from(['tp' => TherapeuticPlan::tableName()])
+            ->innerJoin(['p' => Patient::tableName()], 'p.id = tp.patient_id')
+            ->where(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
+            ->andWhere(['<=', 'tp.start_date', $today])
+            ->andWhere(['>=', 'tp.end_date', $today])
+            ->andWhere(['<=', 'tp.end_date', $expiringUntil]);
+        $expiringPlansCount = (int) (clone $expiringQuery)->count();
+        $expiringPlans = (clone $expiringQuery)
+            ->select([
+                'tp.id',
+                'tp.end_date',
+                'p.id as patient_id',
+                "CONCAT(p.first_name, ' ', p.last_name) as patient_name",
+                'days_until_expiry' => new Expression('DATEDIFF(tp.end_date, CURDATE())'),
+            ])
+            ->orderBy(['tp.end_date' => SORT_ASC])
+            ->limit(8)
+            ->all();
 
         $unreadNotifications = 0;
         if (!Yii::$app->user->isGuest) {
@@ -214,14 +234,17 @@ class SiteController extends BaseController
             'newPatientsThisMonth' => $newPatientsThisMonth,
             'patientsGrowthPercentage' => $patientsGrowthPercentage,
             'totalTherapists' => $totalTherapists,
-            'newTherapistsThisMonth' => $newTherapistsThisMonth,
             'totalAppointmentsToday' => $totalAppointmentsToday,
             'completedAppointmentsToday' => $completedAppointmentsToday,
+            'scheduledAppointmentsToday' => $scheduledToday,
             'expectedAppointmentsToday' => $expectedAppointmentsToday,
             'absentAppointmentsToday' => $absentAppointmentsToday,
             'appointmentCompletionRate' => $appointmentCompletionRate,
             'upcomingAppointments' => $upcomingAppointments,
             'pendingDocumentRequests' => $pendingDocumentRequests,
+            'pickupDocumentRequests' => $pickupDocumentRequests,
+            'expiringPlansCount' => $expiringPlansCount,
+            'expiringPlans' => $expiringPlans,
             'activeTherapeuticPlans' => $activeTherapeuticPlans,
             'unreadNotifications' => $unreadNotifications,
             'dailyAppointments' => $dailyAppointments,
@@ -241,14 +264,17 @@ class SiteController extends BaseController
             'newPatientsThisMonth' => 0,
             'patientsGrowthPercentage' => null,
             'totalTherapists' => 0,
-            'newTherapistsThisMonth' => 0,
             'totalAppointmentsToday' => 0,
             'completedAppointmentsToday' => 0,
+            'scheduledAppointmentsToday' => 0,
             'expectedAppointmentsToday' => 0,
             'absentAppointmentsToday' => 0,
             'appointmentCompletionRate' => 0,
             'upcomingAppointments' => [],
             'pendingDocumentRequests' => 0,
+            'pickupDocumentRequests' => 0,
+            'expiringPlansCount' => 0,
+            'expiringPlans' => [],
             'activeTherapeuticPlans' => 0,
             'unreadNotifications' => 0,
             'dailyAppointments' => [],

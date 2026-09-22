@@ -8,14 +8,17 @@ use yii\helpers\Url;
 /* @var $newPatientsThisMonth int */
 /* @var $patientsGrowthPercentage float|null */
 /* @var $totalTherapists int */
-/* @var $newTherapistsThisMonth int */
 /* @var $totalAppointmentsToday int */
 /* @var $completedAppointmentsToday int */
+/* @var $scheduledAppointmentsToday int */
 /* @var $expectedAppointmentsToday int */
 /* @var $absentAppointmentsToday int */
 /* @var $appointmentCompletionRate int */
 /* @var $upcomingAppointments array */
 /* @var $pendingDocumentRequests int */
+/* @var $pickupDocumentRequests int */
+/* @var $expiringPlansCount int */
+/* @var $expiringPlans array */
 /* @var $activeTherapeuticPlans int */
 /* @var $unreadNotifications int */
 /* @var $dailyAppointments array */
@@ -36,7 +39,10 @@ $appointmentCompletionRate = $appointmentCompletionRate ?? (
         ? (int) round(($completedAppointmentsToday / $expectedAppointmentsToday) * 100)
         : 0
 );
-$newTherapistsThisMonth = $newTherapistsThisMonth ?? 0;
+$scheduledAppointmentsToday = $scheduledAppointmentsToday ?? 0;
+$pickupDocumentRequests = $pickupDocumentRequests ?? 0;
+$expiringPlansCount = $expiringPlansCount ?? 0;
+$expiringPlans = $expiringPlans ?? [];
 $upcomingAppointments = $upcomingAppointments ?? [];
 
 if ($canViewStatistics) {
@@ -48,12 +54,18 @@ if ($canViewStatistics) {
 <div class="mx-auto max-w-4xl p-4 md:p-6 dashboard-index">
     <div class="page-header">
         <h1><?= Html::encode($this->title) ?></h1>
-        <p class="period-text">Panoramica operativa allineata alle statistiche</p>
+        <p class="period-text">Situazione del centro al <?= Yii::$app->formatter->asDate('now', 'php:d/m/Y') ?></p>
     </div>
 
 <!-- CSS aggiuntivo per questa view -->
 <style>
 /* Stat change indicators */
+.stat-period {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
 .stat-change {
     font-size: 0.75rem;
     font-weight: 500;
@@ -461,26 +473,32 @@ if (typeof Chart !== 'undefined') {
     <?php if ($canViewStatistics): ?>
     <!-- 1. Riepilogo principale -->
     <div class="summary-card">
-        <h3>Riepilogo Generale</h3>
+        <h3>Riepilogo</h3>
         <div class="stats-grid">
             <div class="stat-box">
                 <div class="stat-value blue"><?= number_format($totalPatients) ?></div>
-                <div class="stat-label">Pazienti Attivi</div>
-                <?php if ($patientsGrowthPercentage !== null && $patientsGrowthPercentage != 0): ?>
-                    <div class="stat-change <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>% nuovi vs mese scorso
-                    </div>
-                <?php elseif ($patientsGrowthPercentage === null && $newPatientsThisMonth > 0): ?>
-                    <div class="stat-change positive">Nessun nuovo inserimento il mese scorso</div>
-                <?php endif; ?>
+                <div class="stat-label">Pazienti in carico</div>
+                <div class="stat-period">Oggi · piano in corso</div>
             </div>
             <div class="stat-box">
                 <div class="stat-value orange"><?= $pendingDocumentRequests ?></div>
                 <div class="stat-label">Richieste aperte</div>
+                <div class="stat-period">
+                    In questo momento
+                    <?php if ($pickupDocumentRequests > 0): ?>
+                        · <?= (int) $pickupDocumentRequests ?> da ritirare
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="stat-box">
                 <div class="stat-value green"><?= $completedAppointmentsToday ?>/<?= $expectedAppointmentsToday ?></div>
-                <div class="stat-label">Completati oggi</div>
+                <div class="stat-label">Appuntamenti di oggi</div>
+                <div class="stat-period">
+                    Completati / previsti oggi
+                    <?php if ($scheduledAppointmentsToday > 0): ?>
+                        · restano <?= (int) $scheduledAppointmentsToday ?>
+                    <?php endif; ?>
+                </div>
                 <div class="stat-progress">
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: <?= $appointmentCompletionRate ?>%"></div>
@@ -495,7 +513,15 @@ if (typeof Chart !== 'undefined') {
             </div>
             <div class="stat-box">
                 <div class="stat-value gray"><?= $newPatientsThisMonth ?></div>
-                <div class="stat-label">Nuovi Questo Mese</div>
+                <div class="stat-label">Nuovi pazienti</div>
+                <div class="stat-period">Da inizio mese</div>
+                <?php if ($patientsGrowthPercentage !== null && $patientsGrowthPercentage != 0): ?>
+                    <div class="stat-change <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
+                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>% vs mese scorso
+                    </div>
+                <?php elseif ($patientsGrowthPercentage === null && $newPatientsThisMonth > 0): ?>
+                    <div class="stat-change positive">Nessun inserimento il mese scorso</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -523,24 +549,89 @@ if (typeof Chart !== 'undefined') {
 
     <!-- 3. Statistiche sistema -->
     <div class="section-title">
-        <h3>Statistiche Sistema</h3>
+        <h3>Da seguire</h3>
     </div>
     <div class="analysis-row">
         <div class="table-card">
-            <h4>Risorse Attive</h4>
+            <div class="card-header-with-action">
+                <h4>Piani in scadenza</h4>
+                <?= Html::a(
+                    'Vedi tutti',
+                    ['/statistics/plans'],
+                    ['class' => 'btn btn-secondary btn-sm']
+                ) ?>
+            </div>
+            <p class="stat-period" style="margin-bottom: 12px;">Prossimi 30 giorni · <?= (int) $expiringPlansCount ?> in totale</p>
+            <?php if (empty($expiringPlans)): ?>
+                <p class="text-gray">Nessun piano in scadenza nei prossimi 30 giorni.</p>
+            <?php else: ?>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Paziente</th>
+                            <th>Fine</th>
+                            <th class="text-center">Giorni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($expiringPlans as $plan): ?>
+                            <?php
+                            $daysLeft = (int) $plan['days_until_expiry'];
+                            $urgencyClass = $daysLeft <= 7 ? 'badge-red' : 'badge-orange';
+                            ?>
+                            <tr>
+                                <td class="font-bold">
+                                    <?= Html::a(
+                                        Html::encode($plan['patient_name']),
+                                        ['patient/view', 'id' => $plan['patient_id']],
+                                        ['class' => 'text-blue-600 hover:text-blue-800 font-medium']
+                                    ) ?>
+                                </td>
+                                <td><?= Yii::$app->formatter->asDate($plan['end_date'], 'php:d/m/Y') ?></td>
+                                <td class="text-center">
+                                    <span class="badge <?= $urgencyClass ?>"><?= $daysLeft ?></span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+        <div class="table-card">
+            <h4>Ufficio</h4>
             <div class="system-stats">
                 <div class="system-stat-item">
                     <div class="system-stat-icon">
-                        <i class="fas fa-user-md"></i>
+                        <i class="fas fa-file-alt"></i>
                     </div>
                     <div class="system-stat-content">
-                        <div class="system-stat-value"><?= $totalTherapists ?></div>
-                        <div class="system-stat-label">Terapisti Attivi</div>
+                        <div class="system-stat-value"><?= (int) $pickupDocumentRequests ?></div>
+                        <div class="system-stat-label">Documenti da ritirare</div>
                     </div>
-                    <?php if ($newTherapistsThisMonth > 0): ?>
-                        <span class="badge badge-green">+<?= (int) $newTherapistsThisMonth ?> questo mese</span>
+                    <?php if (Yii::$app->user->can('view_documents') || Yii::$app->user->can('manage_documents')): ?>
+                        <?= Html::a(
+                            'Apri',
+                            ['/document-request/index', 'DocumentRequestSearch' => ['status' => \common\models\DocumentRequest::STATUS_STAMPATO]],
+                            ['class' => 'badge badge-orange']
+                        ) ?>
+                    <?php elseif ($pickupDocumentRequests > 0): ?>
+                        <span class="badge badge-orange">Da ritirare</span>
                     <?php else: ?>
-                        <span class="badge badge-green">Attivo</span>
+                        <span class="badge badge-gray">Nessuno</span>
+                    <?php endif; ?>
+                </div>
+                <div class="system-stat-item">
+                    <div class="system-stat-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="system-stat-content">
+                        <div class="system-stat-value"><?= $unreadNotifications ?></div>
+                        <div class="system-stat-label">Notifiche da leggere</div>
+                    </div>
+                    <?php if ($unreadNotifications > 0): ?>
+                        <?= Html::a('Apri', ['/notification/index', 'status' => 'unread'], ['class' => 'badge badge-orange']) ?>
+                    <?php else: ?>
+                        <span class="badge badge-gray">Nessuna</span>
                     <?php endif; ?>
                 </div>
                 <div class="system-stat-item">
@@ -549,44 +640,24 @@ if (typeof Chart !== 'undefined') {
                     </div>
                     <div class="system-stat-content">
                         <div class="system-stat-value"><?= $activeTherapeuticPlans ?></div>
-                        <div class="system-stat-label">Piani Terapeutici</div>
+                        <div class="system-stat-label">Piani in corso oggi</div>
                     </div>
-                    <span class="badge badge-blue">In corso</span>
+                    <span class="badge badge-blue"><?= (int) $totalTherapists ?> terapisti</span>
                 </div>
-                <div class="system-stat-item">
-                    <div class="system-stat-icon">
-                        <i class="fas fa-bell"></i>
-                    </div>
-                    <div class="system-stat-content">
-                        <div class="system-stat-value"><?= $unreadNotifications ?></div>
-                        <div class="system-stat-label">Notifiche</div>
-                    </div>
-                    <?php if ($unreadNotifications > 0): ?>
-                        <span class="badge badge-orange">Da leggere</span>
-                    <?php else: ?>
-                        <span class="badge badge-gray">Nessuna</span>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-        <div class="table-card">
-            <h4>Nuovi terapisti</h4>
-            <div class="new-patients-display">
-                <div class="new-patients-number"><?= (int) $newTherapistsThisMonth ?></div>
-                <div class="new-patients-label">Nuovi terapisti questo mese</div>
             </div>
         </div>
     </div>
 
     <div class="full-width-card">
         <div class="card-header-with-action">
-            <h3>Prossimi Appuntamenti</h3>
+            <h3>Prossimi in agenda</h3>
             <?php if (Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')): ?>
                 <a href="<?= Url::to(['/calendar/index']) ?>" class="btn btn-secondary btn-sm">
                     <i class="fas fa-calendar"></i> Vedi calendario
                 </a>
             <?php endif; ?>
         </div>
+        <p class="stat-period" style="margin-bottom: 16px;">Da adesso in poi, non solo oggi</p>
 
         <?php if (empty($upcomingAppointments)): ?>
             <div class="no-data">
