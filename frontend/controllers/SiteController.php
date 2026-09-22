@@ -18,6 +18,8 @@ use frontend\models\ResetPasswordForm;
 use frontend\models\SignupForm;
 use frontend\models\VerifyEmailForm;
 use yii\base\InvalidArgumentException;
+use yii\db\Expression;
+use yii\db\Query;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use yii\web\BadRequestHttpException;
@@ -96,165 +98,116 @@ class SiteController extends BaseController
      */
     public function actionIndex()
     {
-        // Statistiche pazienti attivi
-        // "Pazienti Attivi" = pazienti con almeno un appuntamento (qualsiasi status),
-        // sia privato (ap.patient_id) sia da piano (tp.patient_id via plan_therapies).
-        // La % di crescita confronta "nuovi pazienti attivi" del mese corrente vs mese
-        // precedente: un paziente e' "nuovo attivo nel mese X" se il suo primo
-        // appuntamento (MIN su entrambi i path) cade in X.
-        $patientsTable = Patient::tableName();
-        $totalPatients = Patient::find()
-            ->andWhere(['EXISTS', (new \yii\db\Query())
-                ->from(['ap' => '{{%appointments}}'])
-                ->leftJoin(['pt' => '{{%plan_therapies}}'], 'pt.id = ap.plan_therapy_id')
-                ->leftJoin(['tp' => '{{%therapeutic_plans}}'], 'tp.id = pt.therapeutic_plan_id')
-                ->where(new \yii\db\Expression(
-                    "ap.patient_id = {$patientsTable}.id OR tp.patient_id = {$patientsTable}.id"
-                ))
-            ])
-            ->count();
+        if (!Yii::$app->user->can('view_statistics')) {
+            return $this->render('index', $this->emptyHomeDashboard());
+        }
 
-        // Subquery: per ogni paziente, data del primo appuntamento (UNION dei due path).
-        $firstApptSql = "
-            SELECT patient_id, MIN(appointment_datetime) AS first_appt FROM (
-                SELECT ap.patient_id, ap.appointment_datetime
-                FROM {{%appointments}} ap
-                WHERE ap.patient_id IS NOT NULL
-                UNION ALL
-                SELECT tp.patient_id, ap.appointment_datetime
-                FROM {{%appointments}} ap
-                INNER JOIN {{%plan_therapies}} pt ON pt.id = ap.plan_therapy_id
-                INNER JOIN {{%therapeutic_plans}} tp ON tp.id = pt.therapeutic_plan_id
-                WHERE tp.patient_id IS NOT NULL
-            ) X
-            GROUP BY patient_id
-        ";
-
-        $thisMonthStart = date('Y-m-01 00:00:00');
-        $thisMonthEnd = date('Y-m-t 23:59:59');
+        $today = date('Y-m-d');
+        $monthStart = date('Y-m-01 00:00:00');
         $lastMonthStart = date('Y-m-01 00:00:00', strtotime('-1 month'));
         $lastMonthEnd = date('Y-m-t 23:59:59', strtotime('-1 month'));
 
-        $newPatientsThisMonth = (int) (new \yii\db\Query())
-            ->from(new \yii\db\Expression("({$firstApptSql}) AS fa"))
-            ->where(['between', 'fa.first_appt', $thisMonthStart, $thisMonthEnd])
-            ->count();
-        $lastMonthPatients = (int) (new \yii\db\Query())
-            ->from(new \yii\db\Expression("({$firstApptSql}) AS fa"))
-            ->where(['between', 'fa.first_appt', $lastMonthStart, $lastMonthEnd])
-            ->count();
-        $patientsGrowthPercentage = $lastMonthPatients > 0 ? round((($newPatientsThisMonth - $lastMonthPatients) / $lastMonthPatients) * 100, 2) : 0;
+        // Stessa definizione di /statistics: piano status=active valido oggi.
+        $totalPatients = (int) (new Query())
+            ->from(['p' => Patient::tableName()])
+            ->innerJoin(['tp' => TherapeuticPlan::tableName()], 'p.id = tp.patient_id')
+            ->where(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
+            ->andWhere(['<=', 'tp.start_date', $today])
+            ->andWhere(['>=', 'tp.end_date', $today])
+            ->count('DISTINCT p.id');
 
-        // Statistiche terapisti
-        $totalTherapists = Therapist::find()->where(['is_active' => 1])->count();
-        $newTherapistsThisMonth = Therapist::find()
+        $newPatientsThisMonth = (int) Patient::find()
+            ->where(['>=', 'created_at', $monthStart])
+            ->count();
+        $lastMonthPatients = (int) Patient::find()
+            ->where(['between', 'created_at', $lastMonthStart, $lastMonthEnd])
+            ->count();
+        $patientsGrowthPercentage = $this->percentChange($newPatientsThisMonth, $lastMonthPatients);
+
+        $totalTherapists = (int) Therapist::find()->where(['is_active' => 1])->count();
+        $newTherapistsThisMonth = (int) Therapist::find()
             ->where(['is_active' => 1])
-            ->andWhere(['>=', 'created_at', date('Y-m-01 00:00:00')])
+            ->andWhere(['>=', 'created_at', $monthStart])
             ->count();
 
-        // Statistiche appuntamenti
-        $totalAppointmentsToday = Appointment::find()
-            ->where(['between', 'appointment_datetime', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
-            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-            ->count();
+        $todayStart = $today . ' 00:00:00';
+        $todayEnd = $today . ' 23:59:59';
+        $todayByStatus = (new Query())
+            ->select([
+                'c' => 'COUNT(*)',
+                'status',
+            ])
+            ->from(Appointment::tableName())
+            ->where(['between', 'appointment_datetime', $todayStart, $todayEnd])
+            ->groupBy('status')
+            ->indexBy('status')
+            ->column();
 
-        $completedAppointmentsToday = Appointment::find()
-            ->where(['between', 'appointment_datetime', date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59')])
-            ->andWhere(['status' => Appointment::STATUS_COMPLETED])
-            ->count();
+        $cancelledToday = (int) ($todayByStatus[Appointment::STATUS_CANCELLED] ?? 0);
+        $completedAppointmentsToday = (int) ($todayByStatus[Appointment::STATUS_COMPLETED] ?? 0);
+        $scheduledToday = (int) ($todayByStatus[Appointment::STATUS_SCHEDULED] ?? 0);
+        $totalAppointmentsToday = array_sum(array_map('intval', $todayByStatus)) - $cancelledToday;
+        $expectedAppointmentsToday = $scheduledToday + $completedAppointmentsToday;
+        $absentAppointmentsToday = $totalAppointmentsToday - $expectedAppointmentsToday;
+        $appointmentCompletionRate = $expectedAppointmentsToday > 0
+            ? (int) round(($completedAppointmentsToday / $expectedAppointmentsToday) * 100)
+            : 0;
 
         $upcomingAppointments = Appointment::find()
-            ->alias('a')
-            ->innerJoin('plan_therapies pt', 'pt.id = a.plan_therapy_id')
-            ->innerJoin('therapeutic_plans tp', 'tp.id = pt.therapeutic_plan_id')
-            ->innerJoin('patients p', 'p.id = tp.patient_id')
-            ->innerJoin('therapists t', 't.id = a.therapist_id')
-            ->innerJoin('users u', 'u.id = t.user_id')
-            ->innerJoin('user_profiles up', 'up.user_id = u.id')
-            ->where(['>', 'a.appointment_datetime', date('Y-m-d H:i:s')])
-            ->andWhere(['a.status' => Appointment::STATUS_SCHEDULED])
-            ->andWhere(['is not', 'p.first_name', null])
-            ->andWhere(['is not', 'p.last_name', null])
-            ->andWhere(['is not', 'up.first_name', null])
-            ->andWhere(['is not', 'up.last_name', null])
+            ->with(['patient', 'patientViaPlanTherapy', 'therapist.user.profile'])
+            ->where(['>', 'appointment_datetime', date('Y-m-d H:i:s')])
+            ->andWhere(['status' => Appointment::STATUS_SCHEDULED])
+            ->orderBy(['appointment_datetime' => SORT_ASC])
             ->limit(5)
-            ->orderBy(['a.appointment_datetime' => SORT_ASC])
-            ->with(['patient', 'therapist.user.profile'])
             ->all();
 
-        // Statistiche richieste documenti
-        $pendingDocumentRequests = DocumentRequest::find()
-            ->where(['in', 'status', [DocumentRequest::STATUS_INVIATA, DocumentRequest::STATUS_PRESA_IN_CARICO]])
-            ->count();
+        $pendingDocumentRequests = (int) DocumentRequest::findActive()->count();
 
-        $completedDocumentRequestsThisMonth = DocumentRequest::find()
-            ->where(['status' => DocumentRequest::STATUS_CONSEGNATO])
-            ->andWhere(['>=', 'created_at', date('Y-m-01 00:00:00')])
-            ->count();
+        $activeTherapeuticPlans = (int) TherapeuticPlan::find()->activeAtDate($today)->count();
 
-        $lastMonthCompletedRequests = DocumentRequest::find()
-            ->where(['status' => DocumentRequest::STATUS_CONSEGNATO])
-            ->andWhere(['between', 'created_at', date('Y-m-01 00:00:00', strtotime('-1 month')), date('Y-m-t 23:59:59', strtotime('-1 month'))])
-            ->count();
-
-        $requestsGrowthPercentage = $lastMonthCompletedRequests > 0 ? round((($completedDocumentRequestsThisMonth - $lastMonthCompletedRequests) / $lastMonthCompletedRequests) * 100, 2) : 0;
-
-        // Piani terapeutici attivi: status='active' ed end_date non scaduta
-        $activeTherapeuticPlans = TherapeuticPlan::find()
-            ->where(['status' => 'active'])
-            ->andWhere(['>=', 'end_date', date('Y-m-d')])
-            ->count();
-
-        // Notifiche non lette dell'utente
         $unreadNotifications = 0;
         if (!Yii::$app->user->isGuest) {
-            $unreadNotifications = Notification::find()
-                ->where(['recipient_user_id' => Yii::$app->user->id])
-                ->andWhere(['read_at' => null])
+            $unreadNotifications = (int) Notification::findUnread()
+                ->andWhere(['recipient_user_id' => Yii::$app->user->id])
                 ->count();
         }
 
-        // Appuntamenti degli ultimi 7 giorni (più realistico)
+        $rangeStart = date('Y-m-d 00:00:00', strtotime('-6 days'));
+        $dailyRows = (new Query())
+            ->select([
+                'c' => 'COUNT(*)',
+                'd' => new Expression('DATE(appointment_datetime)'),
+            ])
+            ->from(Appointment::tableName())
+            ->where(['between', 'appointment_datetime', $rangeStart, $todayEnd])
+            ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
+            ->groupBy(new Expression('DATE(appointment_datetime)'))
+            ->indexBy('d')
+            ->column();
+
         $dailyAppointments = [];
         $dayLabels = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = date('Y-m-d', strtotime("-$i days"));
-            $count = Appointment::find()
-                ->where(['between', 'appointment_datetime', "$date 00:00:00", "$date 23:59:59"])
-                ->andWhere(['!=', 'status', Appointment::STATUS_CANCELLED])
-                ->count();
-            $dailyAppointments[] = $count;
+            $dailyAppointments[] = (int) ($dailyRows[$date] ?? 0);
             $dayLabels[] = date('d/m', strtotime($date));
         }
 
-        // Richieste documenti per stato con dati realistici
-        $documentRequestsByStatus = DocumentRequest::find()
-            ->select(['status', 'count(*) as count'])
-            ->groupBy(['status'])
-            ->asArray()
-            ->all();
-
-        // Converto gli ID stato in nomi leggibili e filtro stati con 0 richieste
         $statusLabels = DocumentRequest::getStatusLabels();
         $requestsData = [];
-        $hasRealData = false;
-
-        // Usa solo dati reali dal database
-        if (!empty($documentRequestsByStatus)) {
-            foreach ($documentRequestsByStatus as $item) {
-                $count = (int) $item['count'];
-                if ($count > 0) {  // Solo stati con richieste effettive
-                    $requestsData[] = [
-                        'status_name' => $statusLabels[$item['status']] ?? 'Sconosciuto',
-                        'count' => $count
-                    ];
-                    $hasRealData = true;
-                }
+        foreach (DocumentRequest::find()
+            ->select(['status', 'count' => 'COUNT(*)'])
+            ->groupBy(['status'])
+            ->asArray()
+            ->all() as $item) {
+            $count = (int) $item['count'];
+            if ($count > 0) {
+                $requestsData[] = [
+                    'status_name' => $statusLabels[$item['status']] ?? 'Sconosciuto',
+                    'count' => $count,
+                ];
             }
         }
-
-        // Se non ci sono dati reali, il grafico non verrà mostrato
-        // La vista controllerà se $requestsData è vuoto per nascondere il componente
 
         return $this->render('index', [
             'totalPatients' => $totalPatients,
@@ -264,17 +217,61 @@ class SiteController extends BaseController
             'newTherapistsThisMonth' => $newTherapistsThisMonth,
             'totalAppointmentsToday' => $totalAppointmentsToday,
             'completedAppointmentsToday' => $completedAppointmentsToday,
+            'expectedAppointmentsToday' => $expectedAppointmentsToday,
+            'absentAppointmentsToday' => $absentAppointmentsToday,
+            'appointmentCompletionRate' => $appointmentCompletionRate,
             'upcomingAppointments' => $upcomingAppointments,
             'pendingDocumentRequests' => $pendingDocumentRequests,
-            'completedDocumentRequestsThisMonth' => $completedDocumentRequestsThisMonth,
-            'requestsGrowthPercentage' => $requestsGrowthPercentage,
             'activeTherapeuticPlans' => $activeTherapeuticPlans,
             'unreadNotifications' => $unreadNotifications,
             'dailyAppointments' => $dailyAppointments,
             'dayLabels' => $dayLabels,
             'requestsData' => $requestsData,
-            'hasRealRequestsData' => $hasRealData,
+            'hasRealRequestsData' => $requestsData !== [],
         ]);
+    }
+
+    /**
+     * Placeholder per chi non può vedere le statistiche: niente query pesanti.
+     */
+    protected function emptyHomeDashboard()
+    {
+        return [
+            'totalPatients' => 0,
+            'newPatientsThisMonth' => 0,
+            'patientsGrowthPercentage' => null,
+            'totalTherapists' => 0,
+            'newTherapistsThisMonth' => 0,
+            'totalAppointmentsToday' => 0,
+            'completedAppointmentsToday' => 0,
+            'expectedAppointmentsToday' => 0,
+            'absentAppointmentsToday' => 0,
+            'appointmentCompletionRate' => 0,
+            'upcomingAppointments' => [],
+            'pendingDocumentRequests' => 0,
+            'activeTherapeuticPlans' => 0,
+            'unreadNotifications' => 0,
+            'dailyAppointments' => [],
+            'dayLabels' => [],
+            'requestsData' => [],
+            'hasRealRequestsData' => false,
+        ];
+    }
+
+    /**
+     * Variazione % mese su mese. Null se il mese precedente è 0 (evita 0% fuorviante).
+     *
+     * @param int $current
+     * @param int $previous
+     * @return float|null
+     */
+    protected function percentChange($current, $previous)
+    {
+        if ((int) $previous <= 0) {
+            return null;
+        }
+
+        return round((((int) $current - (int) $previous) / (int) $previous) * 100, 1);
     }
 
     /**

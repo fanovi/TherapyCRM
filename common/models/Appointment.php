@@ -593,6 +593,16 @@ class Appointment extends ActiveRecord
     }
 
     /**
+     * Paziente diretto o, in fallback, quello del piano terapeutico.
+     *
+     * @return Patient|null
+     */
+    public function getResolvedPatient()
+    {
+        return $this->patient ?: $this->patientViaPlanTherapy;
+    }
+
+    /**
      * Gets query for [[OriginalTherapist]].
      *
      * @return \yii\db\ActiveQuery

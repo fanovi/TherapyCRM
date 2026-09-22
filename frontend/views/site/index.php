@@ -6,15 +6,16 @@ use yii\helpers\Url;
 /* @var $this yii\web\View */
 /* @var $totalPatients int */
 /* @var $newPatientsThisMonth int */
-/* @var $patientsGrowthPercentage float */
+/* @var $patientsGrowthPercentage float|null */
 /* @var $totalTherapists int */
 /* @var $newTherapistsThisMonth int */
 /* @var $totalAppointmentsToday int */
 /* @var $completedAppointmentsToday int */
+/* @var $expectedAppointmentsToday int */
+/* @var $absentAppointmentsToday int */
+/* @var $appointmentCompletionRate int */
 /* @var $upcomingAppointments array */
 /* @var $pendingDocumentRequests int */
-/* @var $completedDocumentRequestsThisMonth int */
-/* @var $requestsGrowthPercentage float */
 /* @var $activeTherapeuticPlans int */
 /* @var $unreadNotifications int */
 /* @var $dailyAppointments array */
@@ -28,22 +29,28 @@ $this->params['breadcrumbs'][] = $this->title;
 // Le statistiche in dashboard sono visibili solo a chi ha il permesso view_statistics.
 // La dashboard resta accessibile a tutti, ma i riquadri statistici vengono nascosti.
 $canViewStatistics = Yii::$app->user->can('view_statistics');
+$expectedAppointmentsToday = $expectedAppointmentsToday ?? 0;
+$absentAppointmentsToday = $absentAppointmentsToday ?? 0;
+$appointmentCompletionRate = $appointmentCompletionRate ?? (
+    $expectedAppointmentsToday > 0
+        ? (int) round(($completedAppointmentsToday / $expectedAppointmentsToday) * 100)
+        : 0
+);
+$newTherapistsThisMonth = $newTherapistsThisMonth ?? 0;
+$upcomingAppointments = $upcomingAppointments ?? [];
 
-// Registra Chart.js per i grafici (solo se l'utente vede le statistiche)
 if ($canViewStatistics) {
     $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
     $this->registerCssFile('@web/css/statistics.css');
 }
-
-// Calcola percentuale completamento appuntamenti
-$appointmentCompletionRate = $totalAppointmentsToday > 0
-    ? round(($completedAppointmentsToday / $totalAppointmentsToday) * 100)
-    : 0;
 ?>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6 dashboard-index">
-    <!-- Header con titolo -->
-   
+    <div class="page-header">
+        <h1><?= Html::encode($this->title) ?></h1>
+        <p class="period-text">Panoramica operativa allineata alle statistiche</p>
+    </div>
+
 <!-- CSS aggiuntivo per questa view -->
 <style>
 /* Stat change indicators */
@@ -382,9 +389,8 @@ function loadRequestsChart() {
             var colorMap = {
                 'Inviata': 'rgba(59, 130, 246, 0.8)',
                 'Presa in carico': 'rgba(251, 146, 60, 0.8)',
-                'Stampato': 'rgba(139, 92, 246, 0.8)',
-                'Consegnato': 'rgba(34, 197, 94, 0.8)',
-                'Richieste Presenti': 'rgba(107, 114, 128, 0.8)'
+                'Da ritirare': 'rgba(139, 92, 246, 0.8)',
+                'Evaso': 'rgba(34, 197, 94, 0.8)'
             };
             
             var backgroundColors = labels.map(label => colorMap[label] || 'rgba(107, 114, 128, 0.8)');
@@ -460,29 +466,31 @@ if (typeof Chart !== 'undefined') {
             <div class="stat-box">
                 <div class="stat-value blue"><?= number_format($totalPatients) ?></div>
                 <div class="stat-label">Pazienti Attivi</div>
-                <?php if ($patientsGrowthPercentage != 0): ?>
+                <?php if ($patientsGrowthPercentage !== null && $patientsGrowthPercentage != 0): ?>
                     <div class="stat-change <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>%
+                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>% nuovi vs mese scorso
                     </div>
+                <?php elseif ($patientsGrowthPercentage === null && $newPatientsThisMonth > 0): ?>
+                    <div class="stat-change positive">Nessun nuovo inserimento il mese scorso</div>
                 <?php endif; ?>
             </div>
             <div class="stat-box">
                 <div class="stat-value orange"><?= $pendingDocumentRequests ?></div>
-                <div class="stat-label">Richieste Pendenti</div>
-                <?php if ($requestsGrowthPercentage != 0): ?>
-                    <div class="stat-change <?= $requestsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $requestsGrowthPercentage >= 0 ? '+' : '' ?><?= $requestsGrowthPercentage ?>%
-                    </div>
-                <?php endif; ?>
+                <div class="stat-label">Richieste aperte</div>
             </div>
             <div class="stat-box">
-                <div class="stat-value green"><?= $completedAppointmentsToday ?>/<?= $totalAppointmentsToday ?></div>
-                <div class="stat-label">Appuntamenti Oggi</div>
+                <div class="stat-value green"><?= $completedAppointmentsToday ?>/<?= $expectedAppointmentsToday ?></div>
+                <div class="stat-label">Completati oggi</div>
                 <div class="stat-progress">
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: <?= $appointmentCompletionRate ?>%"></div>
                     </div>
-                    <span class="progress-text"><?= $appointmentCompletionRate ?>%</span>
+                    <span class="progress-text">
+                        <?= $appointmentCompletionRate ?>%
+                        <?php if ($absentAppointmentsToday > 0): ?>
+                            · <?= (int) $absentAppointmentsToday ?> assenze
+                        <?php endif; ?>
+                    </span>
                 </div>
             </div>
             <div class="stat-box">
@@ -529,7 +537,11 @@ if (typeof Chart !== 'undefined') {
                         <div class="system-stat-value"><?= $totalTherapists ?></div>
                         <div class="system-stat-label">Terapisti Attivi</div>
                     </div>
-                    <span class="badge badge-green">Attivo</span>
+                    <?php if ($newTherapistsThisMonth > 0): ?>
+                        <span class="badge badge-green">+<?= (int) $newTherapistsThisMonth ?> questo mese</span>
+                    <?php else: ?>
+                        <span class="badge badge-green">Attivo</span>
+                    <?php endif; ?>
                 </div>
                 <div class="system-stat-item">
                     <div class="system-stat-icon">
@@ -558,36 +570,24 @@ if (typeof Chart !== 'undefined') {
             </div>
         </div>
         <div class="table-card">
-            <h4>Nuovi Pazienti</h4>
+            <h4>Nuovi terapisti</h4>
             <div class="new-patients-display">
-                <div class="new-patients-number"><?= $newPatientsThisMonth ?></div>
-                <div class="new-patients-label">Nuovi pazienti questo mese</div>
-                <?php if ($patientsGrowthPercentage != 0): ?>
-                    <div class="new-patients-growth <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>% rispetto al mese scorso
-                    </div>
-                <?php endif; ?>
+                <div class="new-patients-number"><?= (int) $newTherapistsThisMonth ?></div>
+                <div class="new-patients-label">Nuovi terapisti questo mese</div>
             </div>
         </div>
     </div>
-    <?php else: ?>
-    <div class="summary-card">
-        <h3>Benvenuto</h3>
-        <p class="text-gray">Usa il menu laterale per accedere alle sezioni a cui sei abilitato.</p>
-    </div>
-    <?php endif; ?>
 
-
-    <?php /* TODO */ if (false): ?>
-    <!-- 4. Prossimi appuntamenti -->
     <div class="full-width-card">
         <div class="card-header-with-action">
             <h3>Prossimi Appuntamenti</h3>
-            <a href="<?= Url::to(['/appointment/index']) ?>" class="btn btn-secondary btn-sm">
-                <i class="fas fa-calendar"></i> Vedi tutti
-            </a>
+            <?php if (Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')): ?>
+                <a href="<?= Url::to(['/calendar/index']) ?>" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-calendar"></i> Vedi calendario
+                </a>
+            <?php endif; ?>
         </div>
-        
+
         <?php if (empty($upcomingAppointments)): ?>
             <div class="no-data">
                 <i class="fas fa-calendar-times"></i>
@@ -605,22 +605,23 @@ if (typeof Chart !== 'undefined') {
                 </thead>
                 <tbody>
                     <?php foreach ($upcomingAppointments as $appointment): ?>
+                        <?php $patient = $appointment->getResolvedPatient(); ?>
                         <tr>
                             <td>
                                 <div class="patient-info">
                                     <div class="patient-avatar">
-                                        <?php if ($appointment->patient && $appointment->patient->first_name && $appointment->patient->last_name): ?>
-                                            <?= substr($appointment->patient->first_name, 0, 1) . substr($appointment->patient->last_name, 0, 1) ?>
+                                        <?php if ($patient && $patient->first_name && $patient->last_name): ?>
+                                            <?= Html::encode(substr($patient->first_name, 0, 1) . substr($patient->last_name, 0, 1)) ?>
                                         <?php else: ?>
                                             --
                                         <?php endif; ?>
                                     </div>
                                     <div>
                                         <div class="font-bold">
-                                            <?= $appointment->patient ? Html::encode($appointment->patient->getFullName()) : 'Paziente non trovato' ?>
+                                            <?= $patient ? Html::encode($patient->getFullName()) : 'Paziente non trovato' ?>
                                         </div>
                                         <div class="text-sm text-gray">
-                                            ID: <?= $appointment->patient ? $appointment->patient->id : 'N/A' ?>
+                                            ID: <?= $patient ? $patient->id : 'N/A' ?>
                                         </div>
                                     </div>
                                 </div>
@@ -645,31 +646,34 @@ if (typeof Chart !== 'undefined') {
             </table>
         <?php endif; ?>
     </div>
-    <?php endif; ?>
-    
-    <!-- 5. Azioni rapide -->
-    <?php /* TODO */ if (false): ?>
+
     <div class="export-section">
-        
-       
         <div class="quick-actions">
-            <?= Html::a(
-                '<i class="fas fa-user-plus"></i> Nuovo Paziente',
-                ['/patient/create'],
-                ['class' => 'btn btn-primary']
-            ) ?>
-            <?= Html::a(
-                '<i class="fas fa-calendar-plus"></i> Nuovo Appuntamento',
-                ['/appointment/create'],
-                ['class' => 'btn btn-success']
-            ) ?>
+            <?php if (Yii::$app->user->can('create_patient')): ?>
+                <?= Html::a(
+                    '<i class="fas fa-user-plus"></i> Nuovo Paziente',
+                    ['/patient/create'],
+                    ['class' => 'btn btn-primary']
+                ) ?>
+            <?php endif; ?>
+            <?php if (Yii::$app->user->can('view_calendar') || Yii::$app->user->can('manage_calendar')): ?>
+                <?= Html::a(
+                    '<i class="fas fa-calendar-plus"></i> Calendario',
+                    ['/calendar/index'],
+                    ['class' => 'btn btn-success']
+                ) ?>
+            <?php endif; ?>
             <?= Html::a(
                 '<i class="fas fa-chart-bar"></i> Statistiche',
                 ['/statistics/index'],
                 ['class' => 'btn btn-info']
             ) ?>
         </div>
-      
+    </div>
+    <?php else: ?>
+    <div class="summary-card">
+        <h3>Benvenuto</h3>
+        <p class="text-gray">Usa il menu laterale per accedere alle sezioni a cui sei abilitato.</p>
     </div>
     <?php endif; ?>
 </div>
