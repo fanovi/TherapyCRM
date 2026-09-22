@@ -142,8 +142,20 @@ if ($isUnread) {
                         </div>
                     </div>
 
-                    <!-- Azione -->
-                    <div class="flex-shrink-0 self-center">
+                    <!-- Azioni -->
+                    <div class="flex items-center gap-2 flex-shrink-0 self-center">
+                        <?php if ($isUnread): ?>
+                            <button
+                                type="button"
+                                class="mark-read-btn inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg text-green-700 bg-green-100 border border-green-200 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/40 transition-colors duration-200"
+                                data-id="<?= (int) $model->id ?>">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Segna come letta
+                            </button>
+                        <?php endif; ?>
+
                         <?= Html::a(
                             'Visualizza',
                             ['notification/view', 'id' => $model->id],

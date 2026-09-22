@@ -142,9 +142,91 @@ class NotificationController extends BaseController
     {
         $notification = $this->findModel($id);
 
+        if (!$notification->isViewed()) {
+            $notification->markAsViewed();
+        }
+
+        if (!$notification->isRead()) {
+            $notification->markAsRead();
+        }
+
         return $this->render('view', [
             'model' => $notification,
         ]);
+    }
+
+    /**
+     * Segna una o tutte le notifiche come lette.
+     *
+     * @return Response
+     */
+    public function actionMarkReadApi()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $userId = Yii::$app->user->id;
+        $ids = Yii::$app->request->post('ids', []);
+        $markAll = Yii::$app->request->post('mark_all', false);
+
+        try {
+            if ($markAll) {
+                $updated = Notification::updateAll(
+                    ['read_at' => date('Y-m-d H:i:s')],
+                    [
+                        'and',
+                        ['recipient_user_id' => $userId],
+                        ['read_at' => null],
+                    ]
+                );
+
+                return [
+                    'success' => true,
+                    'message' => $updated === 1
+                        ? 'Notifica segnata come letta'
+                        : "Segnate come lette $updated notifiche",
+                    'updated_count' => $updated,
+                    'action' => 'mark_all',
+                ];
+            }
+
+            if (!empty($ids)) {
+                if (!is_array($ids)) {
+                    $ids = [$ids];
+                }
+
+                $updated = Notification::updateAll(
+                    ['read_at' => date('Y-m-d H:i:s')],
+                    [
+                        'and',
+                        ['recipient_user_id' => $userId],
+                        ['id' => $ids],
+                        ['read_at' => null],
+                    ]
+                );
+
+                return [
+                    'success' => true,
+                    'message' => $updated === 1
+                        ? 'Notifica segnata come letta'
+                        : "Segnate come lette $updated notifiche",
+                    'updated_count' => $updated,
+                    'processed_ids' => $ids,
+                    'action' => 'mark_selected',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Nessuna notifica specificata',
+            ];
+        } catch (\Exception $e) {
+            Yii::error('Errore in actionMarkReadApi: ' . $e->getMessage(), __METHOD__);
+
+            return [
+                'success' => false,
+                'message' => 'Errore interno del server',
+            ];
+        }
     }
 
     /**

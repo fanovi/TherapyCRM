@@ -21,6 +21,7 @@ $this->title = 'Notifiche';
 $this->params['breadcrumbs'][] = $this->title;
 
 $this->registerJsFile('@web/js/notifications.js', ['depends' => [\yii\web\JqueryAsset::class]]);
+$this->registerJsVar('apiMarkReadUrl', Url::to(['notification/mark-read-api']));
 $this->registerJsVar('apiStatsUrl', Url::to(['notification/stats-api']));
 
 $q = isset($q) ? $q : '';
@@ -34,6 +35,17 @@ $q = isset($q) ? $q : '';
         </h2>
 
         <div class="flex items-center gap-3">
+            <?php if ($unreadCount > 0): ?>
+                <button
+                    id="mark-all-read-btn"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Segna tutte come lette
+                </button>
+            <?php endif; ?>
+
             <button
                 id="refresh-btn"
                 class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">

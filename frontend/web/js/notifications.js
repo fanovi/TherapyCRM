@@ -5,7 +5,9 @@
 window.NotificationSystem = (function () {
   "use strict";
 
+  let initialized = false;
   let config = {
+    apiMarkReadUrl: "",
     apiStatsUrl: "",
     csrfToken: "",
     csrfParam: "",
@@ -15,26 +17,137 @@ window.NotificationSystem = (function () {
    * Inizializza il sistema
    */
   function init() {
-    // Ottieni URL dagli attributi data o variabili globali
+    if (initialized) {
+      return;
+    }
+    initialized = true;
+
+    config.apiMarkReadUrl =
+      window.apiMarkReadUrl ||
+      $("[data-api-mark-read-url]").data("api-mark-read-url") ||
+      "";
     config.apiStatsUrl =
       window.apiStatsUrl ||
       $("[data-api-stats-url]").data("api-stats-url") ||
       "";
 
-    // Ottieni token CSRF
     config.csrfToken = $("meta[name=csrf-token]").attr("content") || "";
     config.csrfParam = $("meta[name=csrf-param]").attr("content") || "_csrf";
 
     bindEvents();
-    // console.log("Notification System initialized", config);
   }
 
   /**
    * Collega gli eventi
    */
   function bindEvents() {
-    // Auto-refresh stats ogni 5 minuti
+    $(document).on("click", "#mark-all-read-btn", handleMarkAllRead);
+    $(document).on("click", ".mark-read-btn", handleMarkRead);
+
     setInterval(refreshStats, 300000);
+  }
+
+  function handleMarkRead(e) {
+    e.preventDefault();
+
+    const $btn = $(this);
+    const notificationId = $btn.data("id");
+
+    if (!notificationId) {
+      return;
+    }
+
+    markAsRead([notificationId], $btn);
+  }
+
+  function handleMarkAllRead(e) {
+    e.preventDefault();
+
+    if (!confirm("Sei sicuro di voler segnare tutte le notifiche come lette?")) {
+      return;
+    }
+
+    markAllAsRead($(this));
+  }
+
+  function csrfData(extra) {
+    return Object.assign({}, extra, {
+      [config.csrfParam]: config.csrfToken,
+    });
+  }
+
+  function setButtonLoading($btn, loading, loadingText) {
+    if (!$btn || !$btn.length) {
+      return;
+    }
+
+    if (loading) {
+      $btn.data("original-html", $btn.html());
+      $btn.prop("disabled", true);
+      $btn.html(loadingText || "Attendere...");
+    } else {
+      $btn.prop("disabled", false);
+      const original = $btn.data("original-html");
+      if (original) {
+        $btn.html(original);
+      }
+    }
+  }
+
+  function markAsRead(ids, $triggerBtn) {
+    if (!config.apiMarkReadUrl) {
+      return;
+    }
+
+    setButtonLoading($triggerBtn, true);
+
+    $.ajax({
+      url: config.apiMarkReadUrl,
+      type: "POST",
+      data: csrfData({ ids: ids }),
+      dataType: "json",
+      success: function (response) {
+        if (response.success) {
+          window.location.reload();
+        } else {
+          alert(response.message || "Errore durante l'operazione");
+        }
+      },
+      error: function () {
+        alert("Errore di connessione");
+      },
+      complete: function () {
+        setButtonLoading($triggerBtn, false);
+      },
+    });
+  }
+
+  function markAllAsRead($triggerBtn) {
+    if (!config.apiMarkReadUrl) {
+      return;
+    }
+
+    setButtonLoading($triggerBtn, true, "Elaborazione...");
+
+    $.ajax({
+      url: config.apiMarkReadUrl,
+      type: "POST",
+      data: csrfData({ mark_all: true }),
+      dataType: "json",
+      success: function (response) {
+        if (response.success) {
+          window.location.reload();
+        } else {
+          alert(response.message || "Errore durante l'operazione");
+        }
+      },
+      error: function () {
+        alert("Errore di connessione");
+      },
+      complete: function () {
+        setButtonLoading($triggerBtn, false);
+      },
+    });
   }
 
   /**
@@ -42,7 +155,6 @@ window.NotificationSystem = (function () {
    */
   function refreshStats() {
     if (!config.apiStatsUrl) {
-      // console.warn("URL API statistiche non configurato");
       return;
     }
 
@@ -54,13 +166,7 @@ window.NotificationSystem = (function () {
       success: function (response) {
         if (response.success && response.data) {
           updateStatsDisplay(response.data);
-          // console.log("Statistiche aggiornate:", response.data);
-        } else {
-          // console.warn("Risposta API statistiche non valida:", response);
         }
-      },
-      error: function (xhr, status, error) {
-        // console.error("Errore aggiornamento statistiche:", error);
       },
     });
   }
@@ -70,16 +176,14 @@ window.NotificationSystem = (function () {
    */
   function updateStatsDisplay(data) {
     try {
-      // Aggiorna i contatori nelle card statistiche
       $('[data-stat="total"]').text(data.total_count || 0);
       $('[data-stat="unread"]').text(data.unread_count || 0);
       $('[data-stat="sent"]').text(data.sent_count || 0);
       $('[data-stat="unsent"]').text(data.unsent_count || 0);
 
-      // Aggiorna i contatori nei filtri
       updateFilterCounts(data);
     } catch (e) {
-      // console.error("Errore aggiornamento display statistiche:", e);
+      // ignore display errors
     }
   }
 
@@ -87,7 +191,6 @@ window.NotificationSystem = (function () {
    * Aggiorna i contatori nei filtri
    */
   function updateFilterCounts(data) {
-    // Aggiorna contatori nei link dei filtri
     const $unreadFilter = $('a[href*="status=unread"]');
     if ($unreadFilter.length) {
       const text = $unreadFilter.text().replace(/\(\d+\)/, `(${data.unread_count})`);
@@ -107,16 +210,12 @@ window.NotificationSystem = (function () {
     }
   }
 
-  /**
-   * API pubblica
-   */
   return {
     init: init,
     refreshStats: refreshStats,
   };
 })();
 
-// Auto-inizializzazione quando il DOM è pronto
 $(document).ready(function () {
   if (typeof window.NotificationSystem !== "undefined") {
     window.NotificationSystem.init();
