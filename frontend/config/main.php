@@ -72,6 +72,8 @@ return [
                 'statistics' => 'statistics/index',
                 'statistics/dashboard' => 'statistics/index',
                 'statistics/absences' => 'statistics/absences',
+                'statistics/search-therapists' => 'statistics/search-therapists',
+                'statistics/search-patients' => 'statistics/search-patients',
                 'statistics/patients' => 'statistics/patients',
                 'statistics/treatments' => 'statistics/treatments',
                 'statistics/plans' => 'statistics/plans',

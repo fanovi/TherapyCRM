@@ -23,6 +23,12 @@ $this->params['breadcrumbs'][] = $this->title;
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('@web/css/statistics.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', [
+    'depends' => [\yii\web\YiiAsset::class],
+]);
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', [
+    'depends' => [\yii\web\JqueryAsset::class],
+]);
 
 $monthlyRate = $monthlyRate ?? [];
 $byReason = $byReason ?? [];
@@ -166,14 +172,14 @@ $canExport = Yii::$app->user->can('export_data');
                         '' => 'Terapisti e pazienti',
                         'therapist' => 'Solo terapisti',
                         'patient' => 'Solo pazienti'
-                    ], ['class' => 'form-control'])->label('Chi è assente') ?>
+                    ], ['class' => 'form-control js-select2'])->label('Chi è assente') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'isJustified')->dropDownList([
                         '' => 'Tutte',
                         '1' => 'Solo giustificate',
                         '0' => 'Solo non giustificate'
-                    ], ['class' => 'form-control'])->label('Giustificata') ?>
+                    ], ['class' => 'form-control js-select2'])->label('Giustificata') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'absenceTypeFlag')->dropDownList([
@@ -181,7 +187,7 @@ $canExport = Yii::$app->user->can('export_data');
                         'direct' => 'Terapista — diretta',
                         'substitution' => 'Terapista — sostituzione',
                         'patient' => 'Paziente'
-                    ], ['class' => 'form-control'])->label('Tipo assenza') ?>
+                    ], ['class' => 'form-control js-select2'])->label('Tipo assenza') ?>
                 </div>
             </div>
         </div>
@@ -193,25 +199,31 @@ $canExport = Yii::$app->user->can('export_data');
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'therapistId')->dropDownList(
                         ['' => 'Tutti i terapisti'] + $therapistOptions,
-                        ['class' => 'form-control']
+                        [
+                            'class' => 'form-control js-select2-ajax',
+                            'data-search-url' => Url::to(['search-therapists']),
+                        ]
                     )->label('Terapista') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'patientId')->dropDownList(
                         ['' => 'Tutti i pazienti'] + $patientOptions,
-                        ['class' => 'form-control']
+                        [
+                            'class' => 'form-control js-select2-ajax',
+                            'data-search-url' => Url::to(['search-patients']),
+                        ]
                     )->label('Paziente') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'treatmentTypeId')->dropDownList(
                         ['' => 'Tutti i trattamenti'] + $treatmentOptions,
-                        ['class' => 'form-control']
+                        ['class' => 'form-control js-select2']
                     )->label('Tipo trattamento') ?>
                 </div>
                 <div class="filter-col">
                     <?= $form->field($searchModel, 'settingId')->dropDownList(
                         ['' => 'Tutti i setting'] + $settingOptions,
-                        ['class' => 'form-control']
+                        ['class' => 'form-control js-select2']
                     )->label('Setting') ?>
                 </div>
             </div>
@@ -229,6 +241,85 @@ $canExport = Yii::$app->user->can('export_data');
 
         <?php ActiveForm::end(); ?>
     </div>
+
+<?php
+$select2Language = <<<JS
+{
+    searching: function() { return 'Ricerca...'; },
+    noResults: function() { return 'Nessun risultato'; },
+    errorLoading: function() { return 'Errore nel caricamento'; }
+}
+JS;
+$this->registerJs(<<<JS
+(function() {
+    var language = {$select2Language};
+
+    function placeholderFromSelect(\$el) {
+        return \$el.find('option[value=""]').first().text() || ' ';
+    }
+
+    $('.js-select2').each(function() {
+        var \$el = $(this);
+        \$el.select2({
+            width: '100%',
+            allowClear: true,
+            placeholder: placeholderFromSelect(\$el),
+            language: language
+        });
+    });
+
+    $('.js-select2-ajax').each(function() {
+        var \$el = $(this);
+        \$el.select2({
+            width: '100%',
+            allowClear: true,
+            placeholder: placeholderFromSelect(\$el),
+            language: language,
+            ajax: {
+                url: \$el.data('search-url'),
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        q: params.term || '',
+                        page: params.page || 1
+                    };
+                },
+                processResults: function(data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: data.results || [],
+                        pagination: {
+                            more: !!(data.pagination && data.pagination.more)
+                        }
+                    };
+                },
+                cache: true
+            }
+        });
+    });
+})();
+JS
+, \yii\web\View::POS_READY);
+?>
+<style>
+.filter-form .select2-container {
+    width: 100% !important;
+}
+.filter-form .select2-container--default .select2-selection--single {
+    height: 38px;
+    border-color: #d1d5db;
+    border-radius: 0.375rem;
+    padding: 4px 8px;
+}
+.filter-form .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 28px;
+    color: #1f2937;
+}
+.filter-form .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+}
+</style>
 
     <?php if (!$hasData): ?>
         <div class="no-data-message">

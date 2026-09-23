@@ -66,7 +66,9 @@ class StatisticsController extends BaseController
                             'treatments',
                             'plans',
                             'chart-data',
-                            'export'
+                            'export',
+                            'search-therapists',
+                            'search-patients',
                         ],
                         'allow' => true,
                         'matchCallback' => function ($rule, $action) {
@@ -134,9 +136,8 @@ class StatisticsController extends BaseController
             $bySetting = $this->absenceService->getBySetting($filters);
             $topAbsentees = $this->absenceService->getTopAbsentees($filters);
 
-            // Opzioni per i filtri
-            $therapistOptions = $this->getTherapistOptions();
-            $patientOptions = $this->getPatientOptions();
+            $therapistOptions = $this->getSelectedTherapistOption($searchModel->therapistId);
+            $patientOptions = $this->getSelectedPatientOption($searchModel->patientId);
             $treatmentOptions = $this->getTreatmentOptions();
             $settingOptions = $this->getSettingOptions();
 
@@ -157,6 +158,98 @@ class StatisticsController extends BaseController
             Yii::error("Errore pagina assenze: " . $e->getMessage());
             throw new NotFoundHttpException('Errore nel caricamento dei dati');
         }
+    }
+
+    /**
+     * Ricerca AJAX terapisti per Select2 (cognome nome).
+     */
+    public function actionSearchTherapists($q = '', $page = 1)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q = trim((string) $q);
+        $page = max(1, (int) $page);
+        $pageSize = 20;
+
+        $query = \common\models\Therapist::find()
+            ->joinWith('user.profile')
+            ->where(['therapists.is_active' => 1])
+            ->orderBy([
+                'user_profiles.last_name' => SORT_ASC,
+                'user_profiles.first_name' => SORT_ASC,
+            ]);
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'user_profiles.first_name', $q],
+                ['like', 'user_profiles.last_name', $q],
+                ['like', "CONCAT(user_profiles.first_name, ' ', user_profiles.last_name)", $q],
+                ['like', "CONCAT(user_profiles.last_name, ' ', user_profiles.first_name)", $q],
+            ]);
+        }
+
+        $total = (int) $query->count();
+        $models = $query->offset(($page - 1) * $pageSize)->limit($pageSize)->all();
+
+        $results = [];
+        foreach ($models as $model) {
+            $results[] = [
+                'id' => (int) $model->id,
+                'text' => $this->formatTherapistName($model),
+            ];
+        }
+
+        return [
+            'results' => $results,
+            'pagination' => [
+                'more' => ($page * $pageSize) < $total,
+            ],
+        ];
+    }
+
+    /**
+     * Ricerca AJAX pazienti per Select2 (cognome nome).
+     */
+    public function actionSearchPatients($q = '', $page = 1)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q = trim((string) $q);
+        $page = max(1, (int) $page);
+        $pageSize = 20;
+
+        $query = \common\models\Patient::find()
+            ->orderBy(['last_name' => SORT_ASC, 'first_name' => SORT_ASC]);
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'first_name', $q],
+                ['like', 'last_name', $q],
+                ['like', 'fiscal_code', $q],
+                ['like', 'CONCAT(first_name, " ", last_name)', $q],
+                ['like', 'CONCAT(last_name, " ", first_name)', $q],
+            ]);
+        }
+
+        $total = (int) $query->count();
+        $models = $query->offset(($page - 1) * $pageSize)->limit($pageSize)->all();
+
+        $results = [];
+        foreach ($models as $model) {
+            $results[] = [
+                'id' => (int) $model->id,
+                'text' => $this->formatPersonName($model->last_name, $model->first_name, 'Paziente #' . $model->id),
+            ];
+        }
+
+        return [
+            'results' => $results,
+            'pagination' => [
+                'more' => ($page * $pageSize) < $total,
+            ],
+        ];
     }
 
     /**
@@ -965,11 +1058,7 @@ class StatisticsController extends BaseController
                 ->all(),
             'id',
             function ($model) {
-                $profile = $model->user->profile ?? null;
-                if ($profile) {
-                    return ($profile->first_name ?? 'N/A') . ' ' . ($profile->last_name ?? '');
-                }
-                return 'Terapista #' . $model->id;
+                return $this->formatTherapistName($model);
             }
         );
     }
@@ -983,9 +1072,66 @@ class StatisticsController extends BaseController
                 ->all(),
             'id',
             function ($model) {
-                return ($model->first_name ?? 'N/A') . ' ' . ($model->last_name ?? '');
+                return $this->formatPersonName(
+                    $model->last_name,
+                    $model->first_name,
+                    'Paziente #' . $model->id
+                );
             }
         );
+    }
+
+    protected function getSelectedTherapistOption($id)
+    {
+        if (empty($id)) {
+            return [];
+        }
+
+        $therapist = \common\models\Therapist::find()
+            ->joinWith('user.profile')
+            ->where(['therapists.id' => (int) $id])
+            ->one();
+
+        return $therapist ? [$therapist->id => $this->formatTherapistName($therapist)] : [];
+    }
+
+    protected function getSelectedPatientOption($id)
+    {
+        if (empty($id)) {
+            return [];
+        }
+
+        $patient = \common\models\Patient::findOne((int) $id);
+        if (!$patient) {
+            return [];
+        }
+
+        return [$patient->id => $this->formatPersonName(
+            $patient->last_name,
+            $patient->first_name,
+            'Paziente #' . $patient->id
+        )];
+    }
+
+    protected function formatTherapistName($model)
+    {
+        $profile = $model->user->profile ?? null;
+        if ($profile) {
+            return $this->formatPersonName(
+                $profile->last_name,
+                $profile->first_name,
+                'Terapista #' . $model->id
+            );
+        }
+
+        return 'Terapista #' . $model->id;
+    }
+
+    protected function formatPersonName($lastName, $firstName, $fallback)
+    {
+        $name = trim((string) ($lastName ?? '') . ' ' . (string) ($firstName ?? ''));
+
+        return $name !== '' ? $name : $fallback;
     }
 
     protected function getRegimeOptions()
