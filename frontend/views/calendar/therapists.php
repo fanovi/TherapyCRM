@@ -121,9 +121,7 @@ $this->registerJs(<<<JS
         placeholder: 'Cerca un terapista...',
         allowClear: true,
         width: '100%',
-        minimumInputLength: 1,
         language: {
-            inputTooShort: function() { return 'Digita almeno un carattere'; },
             searching: function() { return 'Ricerca...'; },
             noResults: function() { return 'Nessun terapista trovato'; },
             errorLoading: function() { return 'Errore nel caricamento'; }
