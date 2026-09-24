@@ -11,6 +11,7 @@ use yii\helpers\ArrayHelper;
  *
  * @property int $id
  * @property string $nome
+ * @property string $location_type
  *
  * @property PlanTherapy[] $planTherapies
  * @property RegimeSetting[] $regimeSettings
@@ -18,6 +19,9 @@ use yii\helpers\ArrayHelper;
  */
 class Setting extends ActiveRecord
 {
+    const LOCATION_INTERNAL = 'internal';
+    const LOCATION_EXTERNAL = 'external';
+
     /**
      * {@inheritdoc}
      */
@@ -35,6 +39,8 @@ class Setting extends ActiveRecord
             [['nome'], 'required'],
             [['nome'], 'string', 'max' => 255],
             [['nome'], 'unique'],
+            [['location_type'], 'default', 'value' => self::LOCATION_INTERNAL],
+            [['location_type'], 'in', 'range' => array_keys(self::getLocationTypeLabels())],
         ];
     }
 
@@ -46,6 +52,7 @@ class Setting extends ActiveRecord
         return [
             'id' => 'ID',
             'nome' => 'Nome',
+            'location_type' => 'Tipologia',
         ];
     }
 
@@ -114,4 +121,47 @@ class Setting extends ActiveRecord
     {
         return ArrayHelper::map(static::getByRegime($regimeId), 'id', 'nome');
     }
-} 
+
+    /**
+     * Etichette della tipologia di setting (sessioni in sede / fuori struttura)
+     *
+     * @return array
+     */
+    public static function getLocationTypeLabels()
+    {
+        return [
+            self::LOCATION_INTERNAL => 'Interno',
+            self::LOCATION_EXTERNAL => 'Esterno',
+        ];
+    }
+
+    /**
+     * @return string
+     */
+    public function getLocationTypeLabel()
+    {
+        return self::getLocationTypeLabels()[$this->location_type] ?? $this->location_type;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isExternal()
+    {
+        return $this->location_type === self::LOCATION_EXTERNAL;
+    }
+
+    /**
+     * Id dei settings di una tipologia, da usare nei filtri delle statistiche
+     *
+     * @param string $locationType
+     * @return int[]
+     */
+    public static function getIdsByLocationType($locationType)
+    {
+        return array_map('intval', static::find()
+            ->select('id')
+            ->where(['location_type' => $locationType])
+            ->column());
+    }
+}
