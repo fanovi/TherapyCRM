@@ -32,7 +32,16 @@ Branch: `stats_calendario`
   - [x] Comando dati di prova `yii test-data/generate-plan-stats yes` / `clear-plan-stats yes` (piani marcati `[TEST_STATS_NUOVI_PIANI]`)
   - [x] Test in browser (09-25, dati di prova): dashboard 4 nuovi / +2 rinnovi (non inclusi) / +50%; trend `/statistics/plans` con "Tutti gli stati" = query attesa su 12 mesi; `/statistics` e `/statistics/absences` senza errori
   - [x] Trend "Nuovi piani" di `/statistics/plans`: ignora il filtro Stato (gli altri filtri restano), titolo e nota sotto il grafico spiegano cosa conta; testato in browser con il filtro di default
-- [ ] Pazienti in carico con drill-down Regime → Settings → Trattamenti
+- [x] Pazienti in carico con drill-down Regime → Settings → Trattamenti (09-25)
+  - [x] Clic sulla scheda: pannello sotto il Riepilogo, all'apertura solo i regimi; pazienti distinti a ogni livello (nota nel pannello); ordine per numero decrescente; niente barre, solo il numero
+  - [x] Setting con etichetta Interno/Esterno; riga "Senza terapie" sotto il regime per i piani attivi senza terapie
+  - [x] Clic sul trattamento: elenco pazienti (Paziente con link se `view_patient`, Piano, Scadenza, Ore/sett.)
+  - [x] `StatisticsService::patientsInChargePlansQuery()` = unica definizione di "in carico", usata anche dal totale della scheda
+  - [x] Azioni JSON `site/patients-in-charge-breakdown` e `site/patients-in-charge-list` (403 senza `view_statistics`)
+  - [x] JS generico `frontend/web/js/drilldown-panel.js`, da riusare per Appuntamenti di oggi
+  - [x] `statistics.css` e `drilldown-panel.js` caricati con `appendTimestamp` (prima il browser teneva il CSS vecchio in cache)
+  - [x] Test in browser (09-25, DB locale): totale 18 = L11 10 + FKT 377 8; per ogni trattamento l'elenco ha tante righe quanto il conteggio; Espandi/Comprimi ok; nessun errore in console
+  - [ ] Da provare con un utente senza `view_patient` (nomi senza link) e senza `view_statistics` (403)
 - [ ] Appuntamenti di oggi con drill-down Regime → Settings → Trattamenti
 - [ ] Conteggio appuntamenti interni/esterni
 

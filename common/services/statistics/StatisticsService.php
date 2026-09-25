@@ -3,7 +3,12 @@
 namespace common\services\statistics;
 
 use Yii;
+use common\models\Patient;
+use common\models\PlanTherapy;
+use common\models\Regime;
+use common\models\Setting;
 use common\models\TherapeuticPlan;
+use common\models\TreatmentType;
 use yii\db\Query;
 use yii\db\Expression;
 
@@ -546,6 +551,191 @@ public function getPatientGrowthData($params = [])
             ->notDraft()
             ->startDateRange($from, $to)
             ->count();
+    }
+
+    /**
+     * Piani che rendono un paziente "in carico" alla data: status active e data
+     * compresa tra inizio e fine (alias tp/p). Unica definizione per il totale
+     * della dashboard e per il suo dettaglio.
+     *
+     * @param string $date Data Y-m-d
+     * @return Query
+     */
+    public function patientsInChargePlansQuery($date)
+    {
+        return (new Query())
+            ->from(['tp' => TherapeuticPlan::tableName()])
+            ->innerJoin(['p' => Patient::tableName()], 'p.id = tp.patient_id')
+            ->where(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
+            ->andWhere(['<=', 'tp.start_date', $date])
+            ->andWhere(['>=', 'tp.end_date', $date]);
+    }
+
+    /**
+     * @param string $date Data Y-m-d
+     * @return int Pazienti distinti in carico alla data
+     */
+    public function countPatientsInCharge($date)
+    {
+        return (int) $this->patientsInChargePlansQuery($date)->count('DISTINCT tp.patient_id');
+    }
+
+    /**
+     * Pazienti in carico divisi per regime → setting → trattamento.
+     * Ogni livello conta pazienti distinti: un paziente con più piani o più
+     * terapie compare in più righe, quindi le somme possono superare il totale.
+     * Ordine per numero di pazienti decrescente a ogni livello.
+     *
+     * Nodi: name, count, badge (solo setting), warning (riga "Senza terapie"),
+     * children, params (solo trattamenti: filtri per l'elenco pazienti).
+     *
+     * @param string $date Data Y-m-d
+     * @return array{total: int, nodes: array}
+     */
+    public function getPatientsInChargeBreakdown($date)
+    {
+        $base = $this->patientsInChargePlansQuery($date);
+        $countExpr = 'COUNT(DISTINCT tp.patient_id)';
+
+        $regimeRows = (clone $base)
+            ->select([
+                'regime_id' => 'tp.regime_id',
+                'name' => new Expression("COALESCE(r.nome, 'Senza regime')"),
+                'c' => new Expression($countExpr),
+            ])
+            ->leftJoin(['r' => Regime::tableName()], 'r.id = tp.regime_id')
+            ->groupBy(['tp.regime_id', 'r.nome'])
+            ->all();
+
+        $settingRows = (clone $base)
+            ->select([
+                'regime_id' => 'tp.regime_id',
+                'setting_id' => 's.id',
+                'name' => 's.nome',
+                'location_type' => 's.location_type',
+                'c' => new Expression($countExpr),
+            ])
+            ->innerJoin(['pt' => PlanTherapy::tableName()], 'pt.therapeutic_plan_id = tp.id')
+            ->innerJoin(['s' => Setting::tableName()], 's.id = pt.setting_id')
+            ->groupBy(['tp.regime_id', 's.id', 's.nome', 's.location_type'])
+            ->all();
+
+        $treatmentRows = (clone $base)
+            ->select([
+                'regime_id' => 'tp.regime_id',
+                'setting_id' => 'pt.setting_id',
+                'treatment_type_id' => 'tt.id',
+                'name' => 'tt.name',
+                'c' => new Expression($countExpr),
+            ])
+            ->innerJoin(['pt' => PlanTherapy::tableName()], 'pt.therapeutic_plan_id = tp.id')
+            ->innerJoin(['tt' => TreatmentType::tableName()], 'tt.id = pt.treatment_type_id')
+            ->groupBy(['tp.regime_id', 'pt.setting_id', 'tt.id', 'tt.name'])
+            ->all();
+
+        $noTherapyByRegime = (clone $base)
+            ->select([
+                'c' => new Expression($countExpr),
+                'regime_key' => new Expression('COALESCE(tp.regime_id, 0)'),
+            ])
+            ->leftJoin(['pt' => PlanTherapy::tableName()], 'pt.therapeutic_plan_id = tp.id')
+            ->andWhere(['pt.id' => null])
+            ->groupBy(['tp.regime_id'])
+            ->indexBy('regime_key')
+            ->column();
+
+        $treatmentsBySetting = [];
+        foreach ($treatmentRows as $row) {
+            $treatmentsBySetting[(int) $row['regime_id'] . '|' . (int) $row['setting_id']][] = [
+                'name' => $row['name'],
+                'count' => (int) $row['c'],
+                'params' => [
+                    'regime_id' => $row['regime_id'] === null ? '' : (int) $row['regime_id'],
+                    'setting_id' => (int) $row['setting_id'],
+                    'treatment_type_id' => (int) $row['treatment_type_id'],
+                ],
+            ];
+        }
+
+        $locationLabels = Setting::getLocationTypeLabels();
+        $settingsByRegime = [];
+        foreach ($settingRows as $row) {
+            $settingKey = (int) $row['regime_id'] . '|' . (int) $row['setting_id'];
+            $settingsByRegime[(int) $row['regime_id']][] = [
+                'name' => $row['name'],
+                'count' => (int) $row['c'],
+                'badge' => [
+                    'text' => $locationLabels[$row['location_type']] ?? $row['location_type'],
+                    'variant' => $row['location_type'],
+                ],
+                'children' => $this->sortByCountDesc($treatmentsBySetting[$settingKey] ?? []),
+            ];
+        }
+
+        $nodes = [];
+        foreach ($regimeRows as $row) {
+            $regimeKey = (int) $row['regime_id'];
+            $children = $this->sortByCountDesc($settingsByRegime[$regimeKey] ?? []);
+            $noTherapy = (int) ($noTherapyByRegime[$regimeKey] ?? 0);
+            if ($noTherapy > 0) {
+                $children[] = [
+                    'name' => 'Senza terapie · piano attivo senza terapie inserite',
+                    'count' => $noTherapy,
+                    'warning' => true,
+                ];
+            }
+            $nodes[] = [
+                'name' => $row['name'],
+                'count' => (int) $row['c'],
+                'children' => $children,
+            ];
+        }
+
+        return [
+            'total' => $this->countPatientsInCharge($date),
+            'nodes' => $this->sortByCountDesc($nodes),
+        ];
+    }
+
+    /**
+     * Pazienti in carico con un trattamento in un setting, dentro un regime.
+     * Una riga per paziente e piano; le ore settimanali sommano le terapie
+     * dello stesso trattamento nel piano (es. individuale + gruppo).
+     *
+     * @param string $date Data Y-m-d
+     * @param int|null $regimeId Null = piani senza regime
+     * @param int $settingId
+     * @param int $treatmentTypeId
+     * @return array
+     */
+    public function getPatientsInChargeList($date, $regimeId, $settingId, $treatmentTypeId)
+    {
+        return $this->patientsInChargePlansQuery($date)
+            ->select([
+                'patient_id' => 'p.id',
+                'first_name' => 'p.first_name',
+                'last_name' => 'p.last_name',
+                'start_date' => 'tp.start_date',
+                'end_date' => 'tp.end_date',
+                'weekly_hours' => new Expression('SUM(pt.weekly_hours)'),
+            ])
+            ->innerJoin(['pt' => PlanTherapy::tableName()], 'pt.therapeutic_plan_id = tp.id')
+            ->andWhere(['tp.regime_id' => $regimeId])
+            ->andWhere(['pt.setting_id' => $settingId, 'pt.treatment_type_id' => $treatmentTypeId])
+            ->groupBy(['p.id', 'p.first_name', 'p.last_name', 'tp.id', 'tp.start_date', 'tp.end_date'])
+            ->orderBy(['p.last_name' => SORT_ASC, 'p.first_name' => SORT_ASC, 'tp.start_date' => SORT_ASC])
+            ->all();
+    }
+
+    /**
+     * Ordina i nodi per count decrescente, a parità per nome.
+     */
+    private function sortByCountDesc(array $nodes)
+    {
+        usort($nodes, function ($a, $b) {
+            return [$b['count'], $a['name']] <=> [$a['count'], $b['name']];
+        });
+        return $nodes;
     }
 
     /**

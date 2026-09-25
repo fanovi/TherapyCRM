@@ -1,6 +1,8 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Json;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $totalPatients int */
@@ -51,7 +53,28 @@ $upcomingAppointments = $upcomingAppointments ?? [];
 
 if ($canViewStatistics) {
     $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
-    $this->registerCssFile('@web/css/statistics.css');
+    // appendTimestamp: dopo un deploy il browser non deve usare CSS/JS vecchi dalla cache.
+    $this->registerCssFile('@web/css/statistics.css', ['appendTimestamp' => true]);
+    $this->registerJsFile('@web/js/drilldown-panel.js', ['appendTimestamp' => true]);
+    $this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
+        'toggle' => '#patients-in-charge-toggle',
+        'panel' => '#patients-in-charge-panel',
+        'treeUrl' => Url::to(['site/patients-in-charge-breakdown']),
+        'listUrl' => Url::to(['site/patients-in-charge-list']),
+        'columns' => [
+            ['key' => 'name', 'label' => 'Paziente', 'link' => 'url'],
+            ['key' => 'plan', 'label' => 'Piano'],
+            ['key' => 'end', 'label' => 'Scadenza'],
+            ['key' => 'hours', 'label' => 'Ore/sett.', 'align' => 'right'],
+        ],
+    ]) . ', {
+        summary: function (data) {
+            return "Oggi " + data.date + " · " + data.total + (data.total === 1 ? " paziente" : " pazienti") + " · clic su un trattamento per l\'elenco pazienti.";
+        },
+        listTitle: function (path, node) {
+            return path.join(" › ") + " · " + node.count + (node.count === 1 ? " paziente" : " pazienti");
+        }
+    }));', \yii\web\View::POS_READY);
 }
 ?>
 
@@ -479,11 +502,15 @@ if (typeof Chart !== 'undefined') {
     <div class="summary-card">
         <h3>Riepilogo</h3>
         <div class="stats-grid">
-            <div class="stat-box">
+            <button type="button" class="stat-box stat-box-toggle" id="patients-in-charge-toggle" aria-expanded="false" aria-controls="patients-in-charge-panel">
                 <div class="stat-value blue"><?= number_format($totalPatients) ?></div>
                 <div class="stat-label">Pazienti in carico</div>
                 <div class="stat-period">Oggi · piano in corso</div>
-            </div>
+                <div class="stat-toggle-hint">
+                    <span data-role="hint">Mostra dettaglio</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </div>
+            </button>
             <div class="stat-box">
                 <div class="stat-value orange"><?= $pendingDocumentRequests ?></div>
                 <div class="stat-label">Richieste aperte</div>
@@ -533,6 +560,32 @@ if (typeof Chart !== 'undefined') {
                 <?php endif; ?>
             </div>
         </div>
+
+        <section id="patients-in-charge-panel" class="drilldown-panel" aria-label="Dettaglio pazienti in carico" hidden>
+            <div class="drilldown-header">
+                <div>
+                    <h4>Pazienti in carico per regime</h4>
+                    <p data-role="summary">Regime → setting → trattamento</p>
+                </div>
+                <div class="drilldown-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="expand-all">Espandi tutto</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="collapse-all">Comprimi</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="close" aria-label="Chiudi dettaglio">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="drilldown-note">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+                <span>Ogni riga conta pazienti distinti. Un paziente con più piani o più terapie compare in più righe, quindi le somme possono superare il totale.</span>
+            </div>
+            <div class="drilldown-head">
+                <span></span>
+                <span>Regime / setting / trattamento</span>
+                <span class="text-right">Pazienti</span>
+            </div>
+            <div data-role="body"></div>
+        </section>
     </div>
 
     <!-- 2. Grafici principali -->

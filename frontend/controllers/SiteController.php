@@ -23,7 +23,10 @@ use yii\db\Expression;
 use yii\db\Query;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use yii\helpers\Url;
 use yii\web\BadRequestHttpException;
+use yii\web\ForbiddenHttpException;
+use yii\web\Response;
 use Yii;
 
 /**
@@ -104,19 +107,13 @@ class SiteController extends BaseController
         }
 
         $today = date('Y-m-d');
+        $statisticsService = new StatisticsService();
 
         // Stessa definizione di /statistics: piano status=active valido oggi.
-        $totalPatients = (int) (new Query())
-            ->from(['p' => Patient::tableName()])
-            ->innerJoin(['tp' => TherapeuticPlan::tableName()], 'p.id = tp.patient_id')
-            ->where(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
-            ->andWhere(['<=', 'tp.start_date', $today])
-            ->andWhere(['>=', 'tp.end_date', $today])
-            ->count('DISTINCT p.id');
+        $totalPatients = $statisticsService->countPatientsInCharge($today);
 
         // Nuovi piani: piani 'new' con inizio nel mese corrente (anche futuro), bozze escluse.
         // La variazione confronta gli stessi giorni (1..oggi) del mese precedente.
-        $statisticsService = new StatisticsService();
         $monthStart = date('Y-m-01');
         $monthEnd = date('Y-m-t');
         $lastMonthStart = date('Y-m-01', strtotime('first day of last month'));
@@ -258,6 +255,66 @@ class SiteController extends BaseController
             'requestsData' => $requestsData,
             'hasRealRequestsData' => $requestsData !== [],
         ]);
+    }
+
+    /**
+     * Dettaglio della scheda "Pazienti in carico": regime → setting → trattamento.
+     *
+     * @return array
+     * @throws ForbiddenHttpException
+     */
+    public function actionPatientsInChargeBreakdown()
+    {
+        if (!Yii::$app->user->can('view_statistics')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare le statistiche.');
+        }
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $today = date('Y-m-d');
+        $breakdown = (new StatisticsService())->getPatientsInChargeBreakdown($today);
+        $breakdown['date'] = Yii::$app->formatter->asDate($today, 'php:d/m/Y');
+
+        return $breakdown;
+    }
+
+    /**
+     * Elenco dei pazienti in carico per un trattamento del dettaglio.
+     * regime_id vuoto = piani senza regime.
+     *
+     * @param int $setting_id
+     * @param int $treatment_type_id
+     * @param string $regime_id
+     * @return array
+     * @throws ForbiddenHttpException
+     */
+    public function actionPatientsInChargeList($setting_id, $treatment_type_id, $regime_id = '')
+    {
+        if (!Yii::$app->user->can('view_statistics')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare le statistiche.');
+        }
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $rows = (new StatisticsService())->getPatientsInChargeList(
+            date('Y-m-d'),
+            $regime_id === '' ? null : (int) $regime_id,
+            (int) $setting_id,
+            (int) $treatment_type_id
+        );
+
+        $canViewPatient = Yii::$app->user->can('view_patient');
+        $formatter = Yii::$app->formatter;
+        $patients = [];
+        foreach ($rows as $row) {
+            $patients[] = [
+                'name' => trim($row['first_name'] . ' ' . $row['last_name']),
+                'url' => $canViewPatient ? Url::to(['patient/view', 'id' => $row['patient_id']]) : null,
+                'plan' => $formatter->asDate($row['start_date'], 'php:d/m/Y') . ' – ' . $formatter->asDate($row['end_date'], 'php:d/m/Y'),
+                'end' => $formatter->asDate($row['end_date'], 'php:d/m/Y'),
+                'hours' => rtrim(rtrim(number_format((float) $row['weekly_hours'], 2, ',', ''), '0'), ','),
+            ];
+        }
+
+        return ['rows' => $patients];
     }
 
     /**
