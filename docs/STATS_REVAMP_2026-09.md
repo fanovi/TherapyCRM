@@ -22,8 +22,8 @@ Branch: `stats_calendario`
 - [x] Form: radio tipologia + select piani del paziente (AJAX `get-patient-plans`)
 - [x] View: link "rinnovo di" / "rinnovato da"; index: colonna e filtro tipologia
 - [x] Aggiornati `renew()` e TestDataController
-- [ ] Test in browser di form, view e index
-- [ ] Migration eseguite (codice e migration piani vanno rilasciati insieme)
+- [x] Test in browser di form, view e index
+- [x] Migration eseguite (codice e migration piani vanno rilasciati insieme)
 
 ## Dashboard principale (dati odierni)
 
