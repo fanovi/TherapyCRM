@@ -9,6 +9,7 @@ use common\models\Patient;
 use common\models\TherapeuticPlan;
 use common\models\Therapist;
 use common\models\User;
+use common\services\statistics\StatisticsService;
 use frontend\models\ChangePasswordForm;
 use frontend\models\ContactForm;
 use frontend\models\LoginForm;
@@ -103,9 +104,6 @@ class SiteController extends BaseController
         }
 
         $today = date('Y-m-d');
-        $monthStart = date('Y-m-01 00:00:00');
-        $lastMonthStart = date('Y-m-01 00:00:00', strtotime('-1 month'));
-        $lastMonthEnd = date('Y-m-t 23:59:59', strtotime('-1 month'));
 
         // Stessa definizione di /statistics: piano status=active valido oggi.
         $totalPatients = (int) (new Query())
@@ -116,13 +114,20 @@ class SiteController extends BaseController
             ->andWhere(['>=', 'tp.end_date', $today])
             ->count('DISTINCT p.id');
 
-        $newPatientsThisMonth = (int) Patient::find()
-            ->where(['>=', 'created_at', $monthStart])
-            ->count();
-        $lastMonthPatients = (int) Patient::find()
-            ->where(['between', 'created_at', $lastMonthStart, $lastMonthEnd])
-            ->count();
-        $patientsGrowthPercentage = $this->percentChange($newPatientsThisMonth, $lastMonthPatients);
+        // Nuovi piani: piani 'new' con inizio nel mese corrente (anche futuro), bozze escluse.
+        // La variazione confronta gli stessi giorni (1..oggi) del mese precedente.
+        $statisticsService = new StatisticsService();
+        $monthStart = date('Y-m-01');
+        $monthEnd = date('Y-m-t');
+        $lastMonthStart = date('Y-m-01', strtotime('first day of last month'));
+        $lastMonthSameDay = date('Y-m-d', strtotime($lastMonthStart . ' +' . (min((int) date('j'), (int) date('t', strtotime($lastMonthStart))) - 1) . ' days'));
+
+        $newPlansThisMonth = $statisticsService->countPlansByType(TherapeuticPlan::PLAN_TYPE_NEW, $monthStart, $monthEnd);
+        $renewalPlansThisMonth = $statisticsService->countPlansByType(TherapeuticPlan::PLAN_TYPE_RENEWAL, $monthStart, $monthEnd);
+        $newPlansChange = $this->percentChange(
+            $statisticsService->countPlansByType(TherapeuticPlan::PLAN_TYPE_NEW, $monthStart, $today),
+            $statisticsService->countPlansByType(TherapeuticPlan::PLAN_TYPE_NEW, $lastMonthStart, $lastMonthSameDay)
+        );
 
         $totalTherapists = (int) Therapist::find()->where(['is_active' => 1])->count();
 
@@ -231,8 +236,9 @@ class SiteController extends BaseController
 
         return $this->render('index', [
             'totalPatients' => $totalPatients,
-            'newPatientsThisMonth' => $newPatientsThisMonth,
-            'patientsGrowthPercentage' => $patientsGrowthPercentage,
+            'newPlansThisMonth' => $newPlansThisMonth,
+            'renewalPlansThisMonth' => $renewalPlansThisMonth,
+            'newPlansChange' => $newPlansChange,
             'totalTherapists' => $totalTherapists,
             'totalAppointmentsToday' => $totalAppointmentsToday,
             'completedAppointmentsToday' => $completedAppointmentsToday,
@@ -261,8 +267,9 @@ class SiteController extends BaseController
     {
         return [
             'totalPatients' => 0,
-            'newPatientsThisMonth' => 0,
-            'patientsGrowthPercentage' => null,
+            'newPlansThisMonth' => 0,
+            'renewalPlansThisMonth' => 0,
+            'newPlansChange' => null,
             'totalTherapists' => 0,
             'totalAppointmentsToday' => 0,
             'completedAppointmentsToday' => 0,
@@ -285,7 +292,7 @@ class SiteController extends BaseController
     }
 
     /**
-     * Variazione % mese su mese. Null se il mese precedente è 0 (evita 0% fuorviante).
+     * Variazione % tra due periodi. Null se il periodo precedente è 0 (evita 0% fuorviante).
      *
      * @param int $current
      * @param int $previous

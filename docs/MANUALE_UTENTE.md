@@ -102,7 +102,7 @@ Dopo il login, si viene portati alla **Dashboard** (pagina principale).
 La dashboard presenta un riepilogo generale dell'attivita del centro:
 
 - **Pazienti totali** - Numero di pazienti attivi nel sistema
-- **Nuovi pazienti del mese** - Pazienti registrati nel mese corrente
+- **Nuovi piani del mese** - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; accanto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso
 - **Terapisti attivi** - Numero di terapisti operativi
 - **Piani terapeutici attivi** - Piani attualmente in corso
 - **Piani in scadenza** - Piani che scadranno a breve (da rinnovare)

@@ -27,7 +27,11 @@ Branch: `stats_calendario`
 
 ## Dashboard principale (dati odierni)
 
-- [ ] Scheda "Nuovi piani" mensile (piani `new` con start_date nel mese corrente)
+- [x] Scheda "Nuovi piani" mensile al posto di "Nuovi pazienti": piani `new` con start_date nel mese corrente (anche futura), bozze escluse, stato attuale ignorato; riga "· N rinnovi"; variazione % sugli stessi giorni (1..oggi) del mese precedente. Conteggio in `StatisticsService::countPlansByType()` (scope `ofType()`/`notDraft()`)
+  - [x] Stessa definizione in `/statistics`: `getPlansSummary()['new_this_month']` e trend "Nuovi piani" di `/statistics/plans` (prima per `created_at`, tutte le tipologie)
+  - [x] Comando dati di prova `yii test-data/generate-plan-stats yes` / `clear-plan-stats yes` (piani marcati `[TEST_STATS_NUOVI_PIANI]`)
+  - [x] Test in browser (09-25, dati di prova): dashboard 4 nuovi / +2 rinnovi (non inclusi) / +50%; trend `/statistics/plans` con "Tutti gli stati" = query attesa su 12 mesi; `/statistics` e `/statistics/absences` senza errori
+  - [x] Trend "Nuovi piani" di `/statistics/plans`: ignora il filtro Stato (gli altri filtri restano), titolo e nota sotto il grafico spiegano cosa conta; testato in browser con il filtro di default
 - [ ] Pazienti in carico con drill-down Regime → Settings → Trattamenti
 - [ ] Appuntamenti di oggi con drill-down Regime → Settings → Trattamenti
 - [ ] Conteggio appuntamenti interni/esterni
@@ -44,6 +48,14 @@ Branch: `stats_calendario`
 - [ ] Checkbox "solo piani in corso" (default on; off = split piani vecchi/in corso)
 - [ ] Appuntamenti previsti per regime
 - [ ] Assenze terapisti per coordinamento (gruppo) con filtro
+
+## Correzioni collaterali
+
+- [x] Calcolo "mese scorso"/"-N mesi" sbagliato dal 29 al 31 del mese (`strtotime('-1 month')`): corretto con `first day of` in SiteController, StatisticsService, AbsenceStatisticsService, StatisticsController
+- [ ] Stesso bug in `frontend/views/complaint/index.php:48` (fuori dalle statistiche, non toccato)
+- [x] Rimosso `TherapeuticPlanQuery::renewed()` (usava `STATUS_RENEWED` inesistente, nessun chiamante)
+- [x] `TestDataController::generateTherapeuticPlans()` imposta `plan_type`
+- [ ] Manuale (`manuale-gestionale.php`, `docs/MANUALE_UTENTE.md`): aggiornata solo la voce Nuovi piani; l'elenco della dashboard va riscritto a fine revamp
 
 ## Decisioni aperte
 

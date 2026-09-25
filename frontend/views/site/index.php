@@ -4,8 +4,9 @@ use yii\helpers\Html;
 
 /* @var $this yii\web\View */
 /* @var $totalPatients int */
-/* @var $newPatientsThisMonth int */
-/* @var $patientsGrowthPercentage float|null */
+/* @var $newPlansThisMonth int */
+/* @var $renewalPlansThisMonth int */
+/* @var $newPlansChange float|null */
 /* @var $totalTherapists int */
 /* @var $totalAppointmentsToday int */
 /* @var $completedAppointmentsToday int */
@@ -515,15 +516,20 @@ if (typeof Chart !== 'undefined') {
                 </div>
             </div>
             <div class="stat-box">
-                <div class="stat-value gray"><?= $newPatientsThisMonth ?></div>
-                <div class="stat-label">Nuovi pazienti</div>
-                <div class="stat-period">Da inizio mese</div>
-                <?php if ($patientsGrowthPercentage !== null && $patientsGrowthPercentage != 0): ?>
-                    <div class="stat-change <?= $patientsGrowthPercentage >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $patientsGrowthPercentage >= 0 ? '+' : '' ?><?= $patientsGrowthPercentage ?>% vs mese scorso
+                <div class="stat-value gray"><?= (int) $newPlansThisMonth ?></div>
+                <div class="stat-label">Nuovi piani</div>
+                <div class="stat-period">Mese corrente</div>
+                <?php if ($renewalPlansThisMonth > 0): ?>
+                    <div class="stat-period">
+                        + <?= (int) $renewalPlansThisMonth ?> <?= $renewalPlansThisMonth == 1 ? 'rinnovo (non incluso)' : 'rinnovi (non inclusi)' ?>
                     </div>
-                <?php elseif ($patientsGrowthPercentage === null && $newPatientsThisMonth > 0): ?>
-                    <div class="stat-change positive">Nessun inserimento il mese scorso</div>
+                <?php endif; ?>
+                <?php if ($newPlansChange !== null && $newPlansChange != 0): ?>
+                    <div class="stat-change <?= $newPlansChange >= 0 ? 'positive' : 'negative' ?>">
+                        <?= $newPlansChange >= 0 ? '+' : '' ?><?= $newPlansChange ?>% vs stesso periodo mese scorso
+                    </div>
+                <?php elseif ($newPlansChange === null && $newPlansThisMonth > 0): ?>
+                    <div class="stat-change positive">Nessun nuovo piano nello stesso periodo del mese scorso</div>
                 <?php endif; ?>
             </div>
         </div>

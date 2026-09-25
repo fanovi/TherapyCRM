@@ -77,13 +77,26 @@ class TherapeuticPlanQuery extends ActiveQuery
     }
 
     /**
-     * Filter renewed plans
+     * Filter by plan type (nuovo/rinnovo)
+     *
+     * @param string|array $type TherapeuticPlan::PLAN_TYPE_*
+     * @return $this
+     */
+    public function ofType($type)
+    {
+        return $this->andWhere(['plan_type' => $type]);
+    }
+
+    /**
+     * Esclude le bozze: un piano in bozza non e' ancora confermato.
+     * Gli altri stati descrivono cosa e' successo dopo l'avvio, quindi
+     * un piano sospeso/interrotto/scaduto resta "partito".
      *
      * @return $this
      */
-    public function renewed()
+    public function notDraft()
     {
-        return $this->status(TherapeuticPlan::STATUS_RENEWED);
+        return $this->andWhere(['!=', 'status', TherapeuticPlan::STATUS_DRAFT]);
     }
 
     /**

@@ -418,7 +418,8 @@ $hasData = $totalPlans > 0 || !empty($plansStats['by_duration']) || !empty($plan
 
         <!-- 6. Trend mensile -->
         <div class="full-width-card">
-            <h3>Trend Creazione Piani (Ultimi 12 Mesi)</h3>
+            <h3>Nuovi Piani per Mese di Inizio (Ultimi 12 Mesi)</h3>
+            <p class="text-sm text-gray-600 mb-3">Piani di tipo nuovo (rinnovi e bozze esclusi) contati nel mese della data di inizio. Il filtro Stato non si applica: un piano conta anche se oggi è sospeso, interrotto o scaduto. Si applicano gli altri filtri (durata, periodo, paziente, terapista).</p>
             <div class="chart-container large">
                 <canvas id="trend-chart"></canvas>
             </div>

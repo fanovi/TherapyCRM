@@ -3,6 +3,7 @@
 namespace common\services\statistics;
 
 use Yii;
+use common\models\TherapeuticPlan;
 use yii\db\Query;
 use yii\db\Expression;
 
@@ -194,11 +195,8 @@ class StatisticsService
             ->andWhere(['<=', 'start_date', date('Y-m-d')])
             ->count();
 
-        // Nuovi questo mese
-        $newThisMonth = (new Query())
-            ->from('therapeutic_plans')
-            ->where(['>=', 'created_at', date('Y-m-01 00:00:00')])
-            ->count();
+        // Nuovi questo mese (stessa definizione della dashboard principale)
+        $newThisMonth = $this->countPlansByType(TherapeuticPlan::PLAN_TYPE_NEW, date('Y-m-01'), date('Y-m-t'));
 
         return [
             'total' => (int)$total,
@@ -219,7 +217,7 @@ class StatisticsService
  */
 public function getPatientGrowthData($params = [])
 {
-    $dateFrom = $params['dateFrom'] ?? date('Y-m-01', strtotime('-11 months'));
+    $dateFrom = $params['dateFrom'] ?? date('Y-m-01', strtotime('first day of -11 months'));
     
     // Usa YEAR e MONTH separatamente per evitare problemi con GROUP BY
     $query = (new Query())
@@ -378,17 +376,20 @@ public function getPatientGrowthData($params = [])
             ->orderBy('avg_duration')
             ->all();
 
-        // Trend mensili
+        // Trend mensili nuovi piani: stessa definizione di countPlansByType()
         $monthlyTrends = (new Query())
             ->select([
-                new Expression("DATE_FORMAT(tp.created_at, '%Y-%m') as month"),
+                new Expression("DATE_FORMAT(tp.start_date, '%Y-%m') as month"),
                 'COUNT(*) as count'
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('patients p', 'tp.patient_id = p.id')
-            ->where(['>=', 'tp.created_at', date('Y-m-01', strtotime('-11 months'))]);
+            ->where(['tp.plan_type' => TherapeuticPlan::PLAN_TYPE_NEW])
+            ->andWhere(['!=', 'tp.status', TherapeuticPlan::STATUS_DRAFT])
+            ->andWhere(['between', 'tp.start_date', date('Y-m-01', strtotime('first day of -11 months')), date('Y-m-t')]);
         
-        $this->applyPlanFilters($monthlyTrends, $searchModel);
+        // Il filtro Stato non si applica: un piano nuovo resta "partito" anche se oggi e' scaduto/sospeso
+        $this->applyPlanFilters($monthlyTrends, $searchModel, false);
         
         $monthlyTrends = $monthlyTrends
             ->groupBy('month')
@@ -417,7 +418,7 @@ public function getPatientGrowthData($params = [])
      */
     public function getTimeSeriesData($type, $params = [])
     {
-        $dateFrom = $params['dateFrom'] ?? date('Y-m-01', strtotime('-11 months'));
+        $dateFrom = $params['dateFrom'] ?? date('Y-m-01', strtotime('first day of -11 months'));
         $dateTo = $params['dateTo'] ?? date('Y-m-t');
 
         switch ($type) {
@@ -526,6 +527,25 @@ public function getPatientGrowthData($params = [])
             'actions_today' => $actionsToday,
             'top_actions' => $topActions
         ];
+    }
+
+    /**
+     * Conta i piani di una tipologia con data di inizio nel periodo (estremi inclusi).
+     * Esclude solo le bozze: lo stato attuale non conta, cosi' il numero di un
+     * mese non cambia quando i piani vengono sospesi, interrotti o scadono.
+     *
+     * @param string $type TherapeuticPlan::PLAN_TYPE_*
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return int
+     */
+    public function countPlansByType($type, $from, $to)
+    {
+        return (int) TherapeuticPlan::find()
+            ->ofType($type)
+            ->notDraft()
+            ->startDateRange($from, $to)
+            ->count();
     }
 
     /**

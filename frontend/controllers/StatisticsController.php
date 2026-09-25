@@ -601,7 +601,7 @@ class StatisticsController extends BaseController
 
         $trendData = $this->absenceService->getTrendData($searchModel);
 
-        $from = $searchModel->dateFrom ?: date('Y-m-01', strtotime('-11 months'));
+        $from = $searchModel->dateFrom ?: date('Y-m-01', strtotime('first day of -11 months'));
         $to = $searchModel->dateTo ?: date('Y-m-d');
         $spanDays = (int) round((strtotime($to) - strtotime($from)) / 86400);
         $byDay = $spanDays <= 62;

@@ -37,6 +37,10 @@ use yii\db\Query;
  *                                 # Wipe completo + reseed con roster definito
  *                                 # (1 super_admin, 5 admin, 3 coordinator,
  *                                 #  20 therapist, 50 paziente con piano + 20 appuntamenti)
+ * yii test-data/generate-plan-stats yes
+ *                                 # Piani di prova per la scheda "Nuovi piani" (non cancella nulla)
+ * yii test-data/clear-plan-stats yes
+ *                                 # Rimuove i piani/pazienti creati da generate-plan-stats
  */
 class TestDataController extends Controller
 {
@@ -320,6 +324,7 @@ class TestDataController extends Controller
                 $plan->patient_id = $patient->id;
                 $plan->start_date = date('Y-m-d', strtotime('-' . rand(0, 90) . ' days'));
                 $plan->duration_days = 180;
+                $plan->plan_type = TherapeuticPlan::PLAN_TYPE_NEW;
                 $plan->status = 'active';
                 $plan->diagnosis = 'Diagnosi di test per ' . $patient->first_name;
                 $plan->objectives = 'Obiettivi terapeutici personalizzati';
@@ -1837,6 +1842,212 @@ class TestDataController extends Controller
         } else {
             $this->stdout("   ✓ Nessun DEFINER orfano\n");
         }
+    }
+
+    /** Marcatore nelle note dei piani creati da generate-plan-stats. */
+    const PLAN_STATS_MARKER = '[TEST_STATS_NUOVI_PIANI]';
+
+    /** Prefisso codice fiscale dei pazienti creati da generate-plan-stats. */
+    const PLAN_STATS_FISCAL_PREFIX = 'TSTPIANI';
+
+    /**
+     * Genera piani di prova per la scheda "Nuovi piani" della dashboard e per
+     * il trend "Nuovi piani" di /statistics/plans. Non tocca i dati esistenti:
+     * crea pazienti e piani marcati, rimovibili con clear-plan-stats.
+     *
+     * Casi coperti (date relative a oggi):
+     *   - mese corrente: nuovi dal giorno 1, a oggi e a fine mese (inizio futuro),
+     *     uno sospeso (contato), una bozza (esclusa), due rinnovi
+     *   - mese precedente: nuovi scaduto e interrotto (contati), uno a fine mese
+     *     (fuori dal confronto "stessi giorni"), una bozza, un rinnovo
+     *   - mesi da -2 a -11: 1-3 nuovi piani al mese per il grafico trend
+     *
+     * Alla fine confronta i conteggi del service prima/dopo con quelli attesi.
+     *
+     *     php yii test-data/generate-plan-stats yes
+     */
+    public function actionGeneratePlanStats($confirm = null)
+    {
+        $dsn = Yii::$app->db->dsn;
+        if ($confirm !== 'yes') {
+            $this->stdout("Crea pazienti e piani di prova marcati " . self::PLAN_STATS_MARKER . " sul DB: $dsn\n");
+            $this->stdout("Per confermare: php yii test-data/generate-plan-stats yes\n");
+            return ExitCode::OK;
+        }
+
+        if (TherapeuticPlan::find()->where(['like', 'notes', self::PLAN_STATS_MARKER])->exists()) {
+            $this->stderr("Dati di prova già presenti: lancia prima php yii test-data/clear-plan-stats yes\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        // Regime per nome, non per id (gli id variano tra i db); ABA escluso per le sue regole di validazione
+        $regime = Regime::find()->where(['not like', 'nome', 'ABA'])->orderBy(['id' => SORT_ASC])->one();
+        $creator = User::find()->orderBy(['id' => SORT_ASC])->one();
+        if (!$regime || !$creator) {
+            $this->stderr("Servono almeno un regime non ABA e un utente\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $today = date('Y-m-d');
+        $day = (int) date('j');
+        // Giorno $d del mese a distanza $offset da quello corrente, limitato alla fine del mese
+        $dateAt = function ($offset, $d) {
+            $first = strtotime('first day of ' . ($offset >= 0 ? '+' : '') . $offset . ' months');
+            return date('Y-m-', $first) . sprintf('%02d', min($d, (int) date('t', $first)));
+        };
+
+        // [chiave paziente, inizio, tipologia, stato, durata giorni, chiave piano rinnovato]
+        $rows = [
+            ['cur1', $dateAt(0, 1), 'new', 'active', 180, null],
+            ['cur2', $today, 'new', 'active', 180, null],
+            ['cur3', $dateAt(0, 31), 'new', 'active', 180, null],
+            ['cur4', $dateAt(0, 1), 'new', 'suspended', 180, null],
+            ['cur5', $dateAt(0, 1), 'new', 'draft', 180, null],
+            ['prev1', $dateAt(-1, 1), 'new', 'expired', 10, null],
+            ['prev2', $dateAt(-1, 1), 'new', 'terminated', 180, null],
+            ['prev3', $dateAt(-1, 31), 'new', 'active', 180, null],
+            ['prev4', $dateAt(-1, 1), 'new', 'draft', 180, null],
+            // Catene di rinnovo: piano originale 6 mesi fa, rinnovo nel mese corrente/precedente
+            ['ren1', $dateAt(-6, 1), 'new', 'expired', 60, null],
+            ['ren1', $dateAt(0, 1), 'renewal', 'active', 180, 'ren1#0'],
+            ['ren2', $dateAt(-6, 1), 'new', 'expired', 60, null],
+            ['ren2', $today, 'renewal', 'active', 180, 'ren2#0'],
+            ['ren3', $dateAt(-6, 1), 'new', 'expired', 60, null],
+            ['ren3', $dateAt(-1, 1), 'renewal', 'active', 180, 'ren3#0'],
+        ];
+        for ($offset = -2; $offset >= -11; $offset--) {
+            for ($i = 0; $i <= (-$offset) % 3; $i++) {
+                $rows[] = ["old{$offset}_{$i}", $dateAt($offset, 5 + $i * 7), 'new', 'expired', 30, null];
+            }
+        }
+
+        $service = new \common\services\statistics\StatisticsService();
+        $lastMonthStart = $dateAt(-1, 1);
+        $lastMonthSameDay = $dateAt(-1, $day);
+        $periods = [
+            'Nuovi piani mese corrente' => ['new', $dateAt(0, 1), $dateAt(0, 31)],
+            'Rinnovi mese corrente' => ['renewal', $dateAt(0, 1), $dateAt(0, 31)],
+            'Nuovi dal 1 a oggi (base %)' => ['new', $dateAt(0, 1), $today],
+            "Nuovi mese scorso fino al giorno $day (base %)" => ['new', $lastMonthStart, $lastMonthSameDay],
+            'Nuovi mese scorso intero' => ['new', $lastMonthStart, $dateAt(-1, 31)],
+        ];
+        $before = [];
+        foreach ($periods as $label => [$type, $from, $to]) {
+            $before[$label] = $service->countPlansByType($type, $from, $to);
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            $patients = [];
+            $plans = [];
+            foreach ($rows as [$key, $start, $type, $status, $duration, $renewalOf]) {
+                if (!isset($patients[$key])) {
+                    $patient = new Patient();
+                    $patient->first_name = 'Statpiani';
+                    // Solo lettere nel cognome (regola del model)
+                    $patient->last_name = 'Prova ' . strtoupper(str_replace(['_', '-'], ' ', preg_replace('/\d+/', '', $key))) . ' ' . chr(65 + count($patients) % 26) . chr(65 + intdiv(count($patients), 26));
+                    $patient->birth_date = date('Y-m-d', strtotime('-8 years'));
+                    $patient->fiscal_code = self::PLAN_STATS_FISCAL_PREFIX . sprintf('%04d', count($patients) + 1);
+                    if (!$patient->save()) {
+                        throw new \RuntimeException("Errore paziente $key: " . json_encode($patient->getFirstErrors()));
+                    }
+                    $patients[$key] = $patient;
+                }
+
+                $plan = new TherapeuticPlan();
+                $plan->patient_id = $patients[$key]->id;
+                $plan->start_date = $start;
+                $plan->duration_days = $duration;
+                $plan->regime_id = $regime->id;
+                $plan->plan_type = $type;
+                $plan->renewal_of_id = $renewalOf !== null ? $plans[$renewalOf]->id : null;
+                $plan->status = $status;
+                if ($status === TherapeuticPlan::STATUS_SUSPENDED) {
+                    $plan->suspension_date = $today;
+                    $plan->suspension_reason = 'Sospensione di prova';
+                }
+                if ($status === TherapeuticPlan::STATUS_TERMINATED) {
+                    $plan->termination_date = date('Y-m-d', strtotime($start . ' +5 days'));
+                    $plan->termination_reason = 'Interruzione di prova';
+                }
+                if ($status !== TherapeuticPlan::STATUS_DRAFT) {
+                    $plan->approval_date = $start;
+                }
+                $plan->notes = self::PLAN_STATS_MARKER . " $key $type $status";
+                $plan->created_by = $creator->id;
+                if (!$plan->save()) {
+                    throw new \RuntimeException("Errore piano $key ($start): " . json_encode($plan->getFirstErrors()));
+                }
+
+                $n = 0;
+                while (isset($plans["$key#$n"])) {
+                    $n++;
+                }
+                $plans["$key#$n"] = $plan;
+            }
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            $this->stderr('Generazione annullata: ' . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $this->stdout('Creati ' . count($patients) . ' pazienti e ' . count($plans) . " piani (regime: {$regime->nome}) su $dsn\n\n");
+
+        // Atteso: stessa regola del service (tipologia, bozze escluse, inizio nel periodo)
+        $ok = true;
+        foreach ($periods as $label => [$type, $from, $to]) {
+            $expected = 0;
+            foreach ($rows as [, $start, $rowType, $status]) {
+                if ($rowType === $type && $status !== TherapeuticPlan::STATUS_DRAFT && $start >= $from && $start <= $to) {
+                    $expected++;
+                }
+            }
+            $after = $service->countPlansByType($type, $from, $to);
+            $delta = $after - $before[$label];
+            $ok = $ok && $delta === $expected;
+            $this->stdout(sprintf("%-45s prima %3d  dopo %3d  (+%d, attesi +%d) %s\n", $label, $before[$label], $after, $delta, $expected, $delta === $expected ? 'OK' : 'KO'));
+        }
+        $this->stdout($ok ? "\nConteggi coerenti.\n" : "\nATTENZIONE: conteggi diversi dagli attesi.\n");
+
+        return $ok ? ExitCode::OK : ExitCode::UNSPECIFIED_ERROR;
+    }
+
+    /**
+     * Rimuove pazienti e piani creati da generate-plan-stats.
+     *
+     *     php yii test-data/clear-plan-stats yes
+     */
+    public function actionClearPlanStats($confirm = null)
+    {
+        $plans = TherapeuticPlan::find()->where(['like', 'notes', self::PLAN_STATS_MARKER]);
+        $patients = Patient::find()->where(['like', 'fiscal_code', self::PLAN_STATS_FISCAL_PREFIX . '%', false]);
+        if ($confirm !== 'yes') {
+            $this->stdout('Da rimuovere su ' . Yii::$app->db->dsn . ': ' . $plans->count() . ' piani, ' . $patients->count() . " pazienti\n");
+            $this->stdout("Per confermare: php yii test-data/clear-plan-stats yes\n");
+            return ExitCode::OK;
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            // Prima i rinnovi, poi i piani rinnovati
+            $deletedPlans = 0;
+            foreach ($plans->orderBy(['renewal_of_id' => SORT_DESC, 'id' => SORT_DESC])->all() as $plan) {
+                $deletedPlans += (int) $plan->delete();
+            }
+            $deletedPatients = 0;
+            foreach ($patients->all() as $patient) {
+                $deletedPatients += (int) $patient->delete();
+            }
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            $this->stderr('Pulizia annullata: ' . $e->getMessage() . "\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $this->stdout("Rimossi $deletedPlans piani e $deletedPatients pazienti\n");
+        return ExitCode::OK;
     }
 
     /**

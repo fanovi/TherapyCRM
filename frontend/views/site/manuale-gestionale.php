@@ -172,7 +172,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm">Cosa mostra la Dashboard</h4>
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
                     <li><strong>Pazienti totali</strong> - Numero di pazienti attivi nel sistema</li>
-                    <li><strong>Nuovi pazienti del mese</strong> - Pazienti registrati nel mese corrente</li>
+                    <li><strong>Nuovi piani del mese</strong> - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; accanto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso</li>
                     <li><strong>Terapisti attivi</strong> - Numero di terapisti operativi</li>
                     <li><strong>Piani terapeutici attivi</strong> - Piani attualmente in corso</li>
                     <li><strong>Piani in scadenza</strong> - Piani che scadranno a breve</li>

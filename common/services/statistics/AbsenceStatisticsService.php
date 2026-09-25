@@ -416,7 +416,7 @@ class AbsenceStatisticsService
     {
         $filters = $this->extractFilters($searchModel);
 
-        $from = $filters['dateFrom'] ?? date('Y-m-01', strtotime('-11 months'));
+        $from = $filters['dateFrom'] ?? date('Y-m-01', strtotime('first day of -11 months'));
         $to = $filters['dateTo'] ?? date('Y-m-d');
         $spanDays = (int) round((strtotime($to) - strtotime($from)) / 86400);
         $byDay = $spanDays <= 62;
@@ -670,7 +670,7 @@ class AbsenceStatisticsService
     {
         // Se non ci sono filtri di date, usa gli ultimi 3 mesi come default
         if (empty($filters['dateFrom']) && empty($filters['dateTo'])) {
-            $filters['dateFrom'] = date('Y-m-01', strtotime('-3 months'));
+            $filters['dateFrom'] = date('Y-m-01', strtotime('first day of -3 months'));
         }
 
         // Top terapisti assenti
