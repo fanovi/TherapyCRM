@@ -19,23 +19,55 @@ import {
 } from "@/types/therapy";
 
 /**
+ * Origin del gestionale per ciascun host da cui viene servita la SPA.
+ * La stessa build gira in produzione e in stage, quindi l'ambiente si
+ * ricava a runtime dall'hostname. Tenere allineato con la whitelist CORS
+ * di TherapeuticPlanManagerController.
+ */
+const APP_ORIGINS: Record<string, string> = {
+  // Produzione
+  "app.gruppovitolo.local": "https://app.gruppovitolo.local",
+  "calendar.gruppovitolo.local": "https://app.gruppovitolo.local",
+  // Stage
+  "app-cgm.badil.it": "https://app-cgm.badil.it",
+  "calendar-cgm.badil.it": "https://app-cgm.badil.it",
+};
+
+// Host non mappati (localhost, dev server Vite) puntano allo stage, così
+// uno sviluppo locale non scrive mai sui dati di produzione.
+const FALLBACK_APP_ORIGIN = "https://app-cgm.badil.it";
+
+/**
+ * NON RIMUOVERE — usata da TherapeuticPlanManagerAPI per inizializzare
+ * appOrigin/baseURL.
+ */
+function resolveAppOrigin(): string {
+  return APP_ORIGINS[window.location.hostname] ?? FALLBACK_APP_ORIGIN;
+}
+
+/**
  * Servizio API centralizzato per TherapeuticPlanManagerController
  * Base URL: /therapeutic-plan-manager/
  */
 class TherapeuticPlanManagerAPI {
-  private baseURL = "https://app.gruppovitolo.local/therapeutic-plan-manager"; //"https://app-cgm.badil.it/therapeutic-plan-manager"; //app-cgm.badil.it
+  private appOrigin = resolveAppOrigin();
+  private baseURL = `${this.appOrigin}/therapeutic-plan-manager`;
 
   /**
    * Restituisce l'origin dell'app (senza /therapeutic-plan-manager).
    * Usato per costruire link esterni come /calendar/{id}.
    */
   getAppOrigin(): string {
-    return this.baseURL.replace(/\/therapeutic-plan-manager\/?$/, "");
+    return this.appOrigin;
   }
 
-  // Cache per i settings
-  private settingsCache: { id: number; nome: string }[] | null = null;
-  private settingsCacheTimestamp: number = 0;
+  // Cache dei settings per regime: la chiave e' il regimeId, "all" per la
+  // lista completa. Una cache unica restituiva a tutte le modali la prima
+  // lista caricata, a prescindere dal regime richiesto.
+  private settingsCache = new Map<
+    string,
+    { data: { id: number; nome: string }[]; timestamp: number }
+  >();
   private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 ore
 
   // Cache dei giorni di chiusura per range. I calendari terapista e paziente
@@ -913,18 +945,19 @@ class TherapeuticPlanManagerAPI {
   // === GESTIONE SETTINGS ===
 
   /**
-   * Ottiene tutti i settings disponibili con cache automatica
-   * I settings vengono cachati per 24 ore per evitare chiamate ripetute
+   * Ottiene i settings (filtrati per regime se indicato) con cache automatica
+   * I settings vengono cachati per 24 ore, separatamente per ogni regime
    */
   async getSettings(
     regimeId?: number,
   ): Promise<{ id: number; nome: string }[]> {
-    // Controlla se la cache è valida
+    // Controlla se la cache per questo regime è valida
     const now = Date.now();
-    const cacheAge = now - this.settingsCacheTimestamp;
+    const cacheKey = regimeId ? String(regimeId) : "all";
+    const cached = this.settingsCache.get(cacheKey);
 
-    if (this.settingsCache && cacheAge < this.CACHE_DURATION) {
-      return this.settingsCache;
+    if (cached && now - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data;
     }
 
     // Cache non valida o assente, carica da API
@@ -942,18 +975,17 @@ class TherapeuticPlanManagerAPI {
     }
 
     // Aggiorna cache
-    this.settingsCache = response.data || [];
-    this.settingsCacheTimestamp = now;
+    const data = response.data || [];
+    this.settingsCache.set(cacheKey, { data, timestamp: now });
 
-    return this.settingsCache;
+    return data;
   }
 
   /**
    * Pulisce la cache dei settings (utile per refresh forzato)
    */
   clearSettingsCache(): void {
-    this.settingsCache = null;
-    this.settingsCacheTimestamp = 0;
+    this.settingsCache.clear();
   }
 
   // === GESTIONE ASSENZE TERAPISTA ===
