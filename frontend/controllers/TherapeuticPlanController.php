@@ -91,6 +91,13 @@ class TherapeuticPlanController extends BaseController
                             }
                         ],
                         [
+                            'actions' => ['get-patient-plans'],
+                            'allow' => true,
+                            'matchCallback' => function ($rule, $action) {
+                                return Yii::$app->user->can('create_therapeutic_plan') || Yii::$app->user->can('update_therapeutic_plan');
+                            }
+                        ],
+                        [
                             'actions' => ['get-settings-list'],
                             'allow' => true,
                             'matchCallback' => function ($rule, $action) {
@@ -1009,6 +1016,47 @@ class TherapeuticPlanController extends BaseController
         return [
             'success' => true,
             'data' => $data
+        ];
+    }
+
+    /**
+     * Piani del paziente selezionabili come "piano rinnovato" nel form
+     *
+     * @param int $patientId
+     * @param int|null $excludeId piano in modifica, da escludere
+     * @return array
+     */
+    public function actionGetPatientPlans($patientId, $excludeId = null)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $query = TherapeuticPlan::find()
+            ->with('regime')
+            ->where(['patient_id' => (int) $patientId])
+            ->orderBy(['start_date' => SORT_DESC, 'id' => SORT_DESC]);
+
+        if ($excludeId) {
+            $query->andWhere(['!=', 'id', (int) $excludeId]);
+        }
+
+        $data = [];
+        foreach ($query->all() as $plan) {
+            $data[] = [
+                'id' => $plan->id,
+                'label' => sprintf(
+                    '#%d - %s - dal %s al %s (%s)',
+                    $plan->id,
+                    $plan->regime->nome ?? '',
+                    Yii::$app->formatter->asDate($plan->start_date),
+                    Yii::$app->formatter->asDate($plan->end_date),
+                    strip_tags($plan->getStatusLabel())
+                ),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => $data,
         ];
     }
 }

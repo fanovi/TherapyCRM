@@ -1480,6 +1480,7 @@ class TestDataController extends Controller
             $plan->start_date = $startDate;
             $plan->duration_days = 365;
             $plan->regime_id = $regime->id;
+            $plan->plan_type = TherapeuticPlan::PLAN_TYPE_NEW;
             $plan->district_id = $patient->district_id;
             $plan->status = 'active';
             $plan->approval_date = $startDate;

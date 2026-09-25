@@ -18,6 +18,8 @@ use common\services\statistics\TreatmentStatisticsService;
  * @property int $duration_days
  * @property string $end_date (generated column)
  * @property int $regime_id
+ * @property string|null $plan_type
+ * @property int|null $renewal_of_id
  * @property string|null $approval_date
  * @property string|null $protocol_number
  * @property int|null $district_id
@@ -36,6 +38,8 @@ use common\services\statistics\TreatmentStatisticsService;
  * @property Regime $regime
  * @property District $district
  * @property PlanTherapy[] $planTherapies
+ * @property TherapeuticPlan|null $renewalOf
+ * @property TherapeuticPlan[] $renewals
  */
 class TherapeuticPlan extends ActiveRecord
 {
@@ -49,6 +53,10 @@ class TherapeuticPlan extends ActiveRecord
     const STATUS_COMPLETED  = 'completed';
     const STATUS_TERMINATED = 'terminated';
     const STATUS_EXPIRED    = 'expired';
+
+    // Nuovo piano o rinnovo, indicato in fase di creazione (statistiche "Nuovi piani").
+    const PLAN_TYPE_NEW     = 'new';
+    const PLAN_TYPE_RENEWAL = 'renewal';
 
     /**
      * @var array temporary storage for therapies during validation
@@ -112,6 +120,15 @@ class TherapeuticPlan extends ActiveRecord
             [['district_id'], 'exist', 'skipOnError' => true, 'targetClass' => District::class, 'targetAttribute' => ['district_id' => 'id']],
             // Custom validation for ABA requirements
             ['regime_id', 'validateABARequirements'],
+            [['plan_type'], 'required', 'message' => 'Indica se si tratta di un nuovo piano o di un rinnovo.'],
+            [['plan_type'], 'in', 'range' => array_keys(self::getPlanTypeLabels())],
+            // Il piano rinnovato ha senso solo per i rinnovi ed e' facoltativo
+            [['renewal_of_id'], 'filter', 'filter' => function ($value) {
+                return $this->plan_type === self::PLAN_TYPE_RENEWAL && $value !== '' ? $value : null;
+            }],
+            [['renewal_of_id'], 'integer'],
+            [['renewal_of_id'], 'exist', 'skipOnError' => true, 'targetClass' => self::class, 'targetAttribute' => ['renewal_of_id' => 'id']],
+            [['renewal_of_id'], 'validateRenewalOf'],
             [['status'], 'string'],
             // Default STATUS_ACTIVE; se data fine già passata -> STATUS_EXPIRED.
             [['status'], 'default', 'value' => function ($model) {
@@ -151,6 +168,36 @@ class TherapeuticPlan extends ActiveRecord
                 return $('#status').val() === 'terminated';
             }"],
         ];
+    }
+
+    /**
+     * Il piano rinnovato deve essere un piano precedente dello stesso paziente
+     * @param string $attribute
+     */
+    public function validateRenewalOf($attribute)
+    {
+        if ($this->hasErrors($attribute) || empty($this->$attribute)) {
+            return;
+        }
+
+        if (!$this->isNewRecord && (int) $this->$attribute === (int) $this->id) {
+            $this->addError($attribute, 'Un piano non può essere il rinnovo di se stesso.');
+            return;
+        }
+
+        $previous = self::findOne($this->$attribute);
+        if (!$previous) {
+            return;
+        }
+
+        if ((int) $previous->patient_id !== (int) $this->patient_id) {
+            $this->addError($attribute, 'Il piano rinnovato deve appartenere allo stesso paziente.');
+            return;
+        }
+
+        if ($this->start_date && $previous->start_date >= $this->start_date) {
+            $this->addError($attribute, 'Il piano rinnovato deve iniziare prima del nuovo piano.');
+        }
     }
 
     /**
@@ -261,6 +308,8 @@ class TherapeuticPlan extends ActiveRecord
             'duration_days' => 'Durata (giorni)',
             'end_date' => 'Data Fine',
             'regime_id' => 'Regime',
+            'plan_type' => 'Tipologia Piano',
+            'renewal_of_id' => 'Rinnovo del Piano',
             'notes' => 'Note',
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
@@ -274,6 +323,34 @@ class TherapeuticPlan extends ActiveRecord
             'termination_date' => 'Data Interruzione',
             'termination_reason' => 'Motivo Interruzione',
         ];
+    }
+
+    /**
+     * Etichette della tipologia di piano
+     * @return array
+     */
+    public static function getPlanTypeLabels()
+    {
+        return [
+            self::PLAN_TYPE_NEW => 'Nuovo piano',
+            self::PLAN_TYPE_RENEWAL => 'Rinnovo',
+        ];
+    }
+
+    /**
+     * @return string
+     */
+    public function getPlanTypeLabel()
+    {
+        return self::getPlanTypeLabels()[$this->plan_type] ?? 'Non specificato';
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRenewal()
+    {
+        return $this->plan_type === self::PLAN_TYPE_RENEWAL;
     }
 
     /**
@@ -337,6 +414,26 @@ class TherapeuticPlan extends ActiveRecord
     public function getPlanTherapies()
     {
         return $this->hasMany(PlanTherapy::class, ['therapeutic_plan_id' => 'id']);
+    }
+
+    /**
+     * Piano di cui questo piano e' il rinnovo
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getRenewalOf()
+    {
+        return $this->hasOne(self::class, ['id' => 'renewal_of_id']);
+    }
+
+    /**
+     * Piani che rinnovano questo piano
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getRenewals()
+    {
+        return $this->hasMany(self::class, ['renewal_of_id' => 'id']);
     }
 
     /**
@@ -468,6 +565,8 @@ class TherapeuticPlan extends ActiveRecord
         $newPlan = new static();
         $newPlan->patient_id = $this->patient_id;
         $newPlan->regime_id = $this->regime_id;
+        $newPlan->plan_type = self::PLAN_TYPE_RENEWAL;
+        $newPlan->renewal_of_id = $this->id;
         $newPlan->start_date = date('Y-m-d');
         $newPlan->duration_days = $newDurationDays;
         $newPlan->notes = $this->notes;

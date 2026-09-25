@@ -30,7 +30,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
     {
         return [
             [['id', 'patient_id', 'regime_id', 'district_id', 'duration_days', 'created_by'], 'integer'],
-            [['start_date', 'end_date', 'approval_date', 'protocol_number', 'notes', 'status', 'patientLastName', 'patientFirstName'], 'safe'],
+            [['start_date', 'end_date', 'approval_date', 'protocol_number', 'notes', 'status', 'plan_type', 'patientLastName', 'patientFirstName'], 'safe'],
         ];
     }
 
@@ -75,6 +75,7 @@ class TherapeuticPlanSearch extends TherapeuticPlan
                     'regime_id',
                     'district_id',
                     'status',
+                    'plan_type',
                     'created_at',
                     'patientLastName' => [
                         'asc' => ['patients.last_name' => SORT_ASC, 'patients.first_name' => SORT_ASC],
@@ -111,7 +112,8 @@ class TherapeuticPlanSearch extends TherapeuticPlan
 
         $query->andFilterWhere(['like', 'therapeutic_plans.protocol_number', $this->protocol_number])
             ->andFilterWhere(['like', 'therapeutic_plans.notes', $this->notes])
-            ->andFilterWhere(['therapeutic_plans.status' => $this->status]);
+            ->andFilterWhere(['therapeutic_plans.status' => $this->status])
+            ->andFilterWhere(['therapeutic_plans.plan_type' => $this->plan_type]);
 
         // Date filters
         if (!empty($this->start_date)) {

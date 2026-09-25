@@ -209,6 +209,29 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     ],
                     [
+                        'attribute' => 'plan_type',
+                        'label' => 'Tipologia Piano',
+                        'value' => function ($model) {
+                            $html = Html::encode($model->getPlanTypeLabel());
+                            if ($model->renewalOf) {
+                                $html .= ' del ' . Html::a(
+                                    'piano #' . $model->renewalOf->id . ' (dal ' . Yii::$app->formatter->asDate($model->renewalOf->start_date) . ')',
+                                    ['view', 'id' => $model->renewalOf->id],
+                                    ['class' => 'text-brand-500 hover:underline']
+                                );
+                            }
+                            $renewals = [];
+                            foreach ($model->renewals as $renewal) {
+                                $renewals[] = Html::a('#' . $renewal->id, ['view', 'id' => $renewal->id], ['class' => 'text-brand-500 hover:underline']);
+                            }
+                            if ($renewals) {
+                                $html .= '<br><span class="text-xs text-gray-500 dark:text-gray-400">Rinnovato dal piano ' . implode(', ', $renewals) . '</span>';
+                            }
+                            return $html;
+                        },
+                        'format' => 'raw'
+                    ],
+                    [
                         'attribute' => 'approval_date',
                         'label' => 'Data Approvazione',
                         'value' => function ($model) {

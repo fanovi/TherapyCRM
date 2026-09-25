@@ -146,6 +146,40 @@ use yii\helpers\Url;
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                <!-- Tipologia Piano -->
+                <div class="form-group">
+                    <?= $form->field($model, 'plan_type')->radioList(
+                        \common\models\TherapeuticPlan::getPlanTypeLabels(),
+                        [
+                            'id' => 'plan-type-radio',
+                            'class' => 'flex flex-wrap gap-6 pt-2',
+                            'itemOptions' => [
+                                'class' => 'plan-type-radio mr-2 text-brand-500 focus:ring-brand-500',
+                                'labelOptions' => ['class' => 'inline-flex items-center text-sm text-gray-700 dark:text-gray-300 cursor-pointer'],
+                            ],
+                        ]
+                    )->label('Tipologia Piano <span class="text-red-500">*</span>', ['encode' => false]) ?>
+                </div>
+
+                <!-- Piano rinnovato (solo per i rinnovi) -->
+                <div class="form-group <?= $model->isRenewal() ? '' : 'hidden' ?>" id="renewal-of-wrapper">
+                    <?= $form->field($model, 'renewal_of_id')->dropDownList(
+                        $model->renewal_of_id ? [$model->renewal_of_id => '#' . $model->renewal_of_id] : [],
+                        [
+                            'prompt' => 'Piano non presente nel gestionale',
+                            'id' => 'renewal-of-select',
+                            'data-url' => Url::to(['therapeutic-plan/get-patient-plans']),
+                            'data-exclude-id' => $model->isNewRecord ? '' : $model->id,
+                            'data-selected' => $model->renewal_of_id,
+                        ]
+                    )->label('Rinnovo del Piano') ?>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Facoltativo: seleziona il piano che viene rinnovato, se presente nel gestionale.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                 <!-- Data Approvazione -->
                 <div class="form-group">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -765,6 +799,57 @@ use yii\helpers\Url;
 </div>
 
 <script>
+    // Mostra la select del piano rinnovato solo per i rinnovi
+    function togglePlanType() {
+        const checked = document.querySelector('.plan-type-radio:checked');
+        const isRenewal = checked && checked.value === '<?= \common\models\TherapeuticPlan::PLAN_TYPE_RENEWAL ?>';
+        document.getElementById('renewal-of-wrapper').classList.toggle('hidden', !isRenewal);
+    }
+
+    // Carica i piani del paziente selezionabili come piano rinnovato
+    function loadPatientPlans(patientId) {
+        const select = document.getElementById('renewal-of-select');
+        const selected = select.value || select.dataset.selected || '';
+        select.innerHTML = '<option value="">Piano non presente nel gestionale</option>';
+
+        if (!patientId) {
+            return;
+        }
+
+        $.ajax({
+            url: select.dataset.url,
+            type: 'GET',
+            dataType: 'json',
+            data: { patientId: patientId, excludeId: select.dataset.excludeId },
+            success: function(response) {
+                if (!response.success) {
+                    return;
+                }
+                response.data.forEach(function(plan) {
+                    const option = document.createElement('option');
+                    option.value = plan.id;
+                    option.textContent = plan.label;
+                    select.appendChild(option);
+                });
+                if (selected && select.querySelector('option[value="' + selected + '"]')) {
+                    select.value = selected;
+                } else if (response.data.length === 1) {
+                    // Un solo piano precedente: e' quasi certamente quello rinnovato
+                    select.value = response.data[0].id;
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading patient plans:', error);
+            }
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('plan-type-radio')) {
+            togglePlanType();
+        }
+    });
+
     // Variabile globale per salvare i settings correnti del regime selezionato
     window.currentRegimeSettings = {};
 
@@ -915,7 +1000,11 @@ $this->registerJs('
         \$('#selected-patient').removeClass('hidden');
         \$('#patient-search').addClass('hidden');
         \$('#patient-error').addClass('hidden');
+        if (selectedPatientId != patient.id) {
+            \$('#renewal-of-select').val('').attr('data-selected', '');
+        }
         selectedPatientId = patient.id;
+        loadPatientPlans(patient.id);
         
         // Aggiorna i requisiti ABA se il regime è selezionato
         const regimeSelect = document.getElementById('regime-select');
@@ -937,6 +1026,8 @@ $this->registerJs('
         \$('#patient-search').removeClass('hidden').val('').focus();
         \$('#patient-search-results').addClass('hidden');
         selectedPatientId = null;
+        \$('#renewal-of-select').attr('data-selected', '');
+        loadPatientPlans(null);
     });
     
     // Hide search results when clicking outside

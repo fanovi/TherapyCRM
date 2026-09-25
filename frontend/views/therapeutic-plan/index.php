@@ -148,6 +148,25 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     ],
                     [
+                        'attribute' => 'plan_type',
+                        'label' => 'Tipologia',
+                        'headerOptions' => ['class' => 'px-4 py-3'],
+                        'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
+                        'filterOptions' => ['class' => 'px-2 py-2'],
+                        'filter' => Html::activeDropDownList(
+                            $searchModel,
+                            'plan_type',
+                            \common\models\TherapeuticPlan::getPlanTypeLabels(),
+                            [
+                                'prompt' => 'Tutti',
+                                'class' => 'w-full px-2 py-1 text-xs border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                            ]
+                        ),
+                        'content' => function ($model) {
+                            return Html::encode($model->getPlanTypeLabel());
+                        }
+                    ],
+                    [
                         'attribute' => 'district_id',
                         'label' => 'Distretto',
                         'value' => function ($model) {
