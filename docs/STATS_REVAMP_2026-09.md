@@ -5,7 +5,7 @@ Branch: `stats_calendario`
 ## Settings
 
 - [x] Classificazione Interno/Esterno (`setting.location_type`, esterni: Domiciliare e Scuola), migration `m260924_120000_add_location_type_to_setting`
-- [ ] Nuovo setting "Regime misti" (interno di default)
+- [x] Nuovo setting "Regime misto" (interno) legato al regime ABA (id ricavato per nome), migration `m260925_100000_add_regime_misti_setting` (da eseguire dopo quella di `location_type`)
 - [ ] Rimuovere ABA SP (id 7), ABA PT (id 8), ABA RBT (id 9) — **in attesa**: in prod sono usati (642 terapie di cui 356 su piani attivi, 144 pattern, 52 appuntamenti futuri); il cliente li corregge a mano, poi si procede
   - [ ] Avvisare il cliente su cosa correggere
   - [ ] Ricontrollare in prod che non siano più usati su piani attivi, pattern e appuntamenti futuri
@@ -14,7 +14,7 @@ Branch: `stats_calendario`
 ## Calendario
 
 - [x] Cache `getSettings()` in `api.ts` separata per regime (prima la prima lista caricata valeva per tutte le modali)
-- [ ] Test in browser del fix cache settings
+- [x] Test in browser del fix cache settings
 
 ## Piani terapeutici
 
