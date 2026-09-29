@@ -415,6 +415,7 @@ const TherapistNotificationsScreen = () => {
       title="Notifiche"
       subtitle={`${notifications.length} notifiche`}
       showNotifications={false} // Non mostrare il dropdown qui
+      scrollable={false}
       headerRight={
         <IconButton
           icon="refresh"

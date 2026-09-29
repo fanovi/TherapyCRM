@@ -41,6 +41,8 @@ import {
   getAbsenceReasons,
   removeAbsence,
   canRemoveAbsence,
+  getAbsentGroupPatients,
+  completeAppointment,
 } from '../../api/calendar';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {therapistService} from '../../services/therapistService';
@@ -105,6 +107,8 @@ const TherapistCalendarScreen = () => {
     appointment: null,
   });
   const [removeAbsenceNotes, setRemoveAbsenceNotes] = useState('');
+  // Per i gruppi: appointment_id del paziente da ripristinare, oppure 'all'
+  const [removeAbsenceTarget, setRemoveAbsenceTarget] = useState(null);
   const [isSubmittingRemoveAbsence, setIsSubmittingRemoveAbsence] = useState(false);
 
   // Stato per la modale di aggiunta note
@@ -269,49 +273,107 @@ const TherapistCalendarScreen = () => {
     setMenuVisible({});
   };
 
+  const isAbsentStatus = status =>
+    status === 'assente_giustificato' || status === 'assente_non_giustificato';
+
   const handleRemoveAbsence = appointment => {
     setRemoveAbsenceDialog({
       visible: true,
       appointment,
     });
     setRemoveAbsenceNotes('');
+
+    // Con un solo paziente assente nel gruppo lo preselezioniamo
+    const absentPatients = getAbsentGroupPatients(appointment);
+    setRemoveAbsenceTarget(
+      appointment.is_group && absentPatients.length === 1
+        ? absentPatients[0].appointment_id
+        : null,
+    );
     setMenuVisible({});
   };
 
   const confirmRemoveAbsence = async () => {
     const {appointment} = removeAbsenceDialog;
 
+    // Per i gruppi si ripristina l'appuntamento del singolo paziente (o di
+    // tutti gli assenti), non quello di riferimento del gruppo
+    let targets = [{id: appointment.id, name: appointment.patient.name}];
+    if (appointment.is_group) {
+      targets = getAbsentGroupPatients(appointment)
+        .filter(
+          patient =>
+            removeAbsenceTarget === 'all' ||
+            patient.appointment_id === removeAbsenceTarget,
+        )
+        .map(patient => ({id: patient.appointment_id, name: patient.name}));
+    }
+
+    if (targets.length === 0) {
+      Alert.alert('Errore', 'Seleziona un paziente del gruppo');
+      return;
+    }
+
     setIsSubmittingRemoveAbsence(true);
 
     try {
-      const response = await removeAbsence(
-        appointment.id,
-        removeAbsenceNotes.trim(),
-      );
+      const restored = [];
+      const failures = [];
 
-      if (response.success) {
-        Alert.alert(
-          'Assenza Rimossa',
-          `L'appuntamento di ${appointment.patient.name} del ${moment(
-            appointment.datetime,
-          ).format('DD/MM/YYYY')} alle ${
-            appointment.time
-          } è stato ripristinato come confermato.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                loadAppointments();
-                loadMarkedDates();
-              },
+      for (const target of targets) {
+        try {
+          const response = await removeAbsence(
+            target.id,
+            removeAbsenceNotes.trim(),
+          );
+
+          if (response.success) {
+            restored.push(target.name);
+          } else {
+            failures.push(
+              `${target.name}: ${
+                response.error || "Errore durante la rimozione dell'assenza"
+              }`,
+            );
+          }
+        } catch (error) {
+          if (error.type === 'AUTH_ERROR') {
+            throw error;
+          }
+          failures.push(
+            `${target.name}: ${
+              error.message ||
+              "Impossibile rimuovere l'assenza. Riprova più tardi."
+            }`,
+          );
+        }
+      }
+
+      if (restored.length > 0) {
+        const when = `del ${moment(appointment.datetime).format(
+          'DD/MM/YYYY',
+        )} alle ${appointment.time}`;
+        let message =
+          restored.length === 1
+            ? `L'appuntamento di ${restored[0]} ${when} è stato ripristinato come confermato.`
+            : `Gli appuntamenti di ${restored.join(
+                ', ',
+              )} ${when} sono stati ripristinati come confermati.`;
+        if (failures.length > 0) {
+          message += `\n\nNon ripristinati:\n${failures.join('\n')}`;
+        }
+
+        Alert.alert('Assenza Rimossa', message, [
+          {
+            text: 'OK',
+            onPress: () => {
+              loadAppointments();
+              loadMarkedDates();
             },
-          ],
-        );
+          },
+        ]);
       } else {
-        Alert.alert(
-          'Errore',
-          response.error || "Errore durante la rimozione dell'assenza",
-        );
+        Alert.alert('Errore', failures.join('\n'));
       }
     } catch (error) {
       console.error('Errore rimozione assenza:', error);
@@ -329,6 +391,81 @@ const TherapistCalendarScreen = () => {
     } finally {
       setIsSubmittingRemoveAbsence(false);
       setRemoveAbsenceDialog({visible: false, appointment: null});
+    }
+  };
+
+  // Per i gruppi si completano i pazienti ancora confermati: gli assenti
+  // restano assenti
+  const getCompletableTargets = appointment =>
+    appointment.is_group
+      ? (appointment.group_patients || [])
+          .filter(patient => patient.status === 'confermato')
+          .map(patient => ({id: patient.appointment_id, name: patient.name}))
+      : [{id: appointment.id, name: appointment.patient.name}];
+
+  const handleCompleteAppointment = appointment => {
+    const targets = getCompletableTargets(appointment);
+    const who =
+      targets.length === 1
+        ? targets[0].name
+        : `${targets.length} pazienti del gruppo`;
+
+    Alert.alert(
+      'Completa Appuntamento',
+      `Confermi il completamento dell'appuntamento delle ${appointment.time} per ${who}?`,
+      [
+        {text: 'Annulla', style: 'cancel'},
+        {text: 'Conferma', onPress: () => confirmCompleteAppointment(targets)},
+      ],
+    );
+  };
+
+  const confirmCompleteAppointment = async targets => {
+    const completed = [];
+    const failures = [];
+
+    try {
+      for (const target of targets) {
+        try {
+          const response = await completeAppointment(target.id);
+
+          if (response.success) {
+            completed.push(target.name);
+          } else {
+            failures.push(
+              `${target.name}: ${
+                response.error ||
+                "Errore durante il completamento dell'appuntamento"
+              }`,
+            );
+          }
+        } catch (error) {
+          if (error.type === 'AUTH_ERROR') {
+            throw error;
+          }
+          failures.push(
+            `${target.name}: ${
+              error.message ||
+              "Impossibile completare l'appuntamento. Riprova più tardi."
+            }`,
+          );
+        }
+      }
+    } catch (error) {
+      console.log('Errore di autenticazione, logout automatico in corso...');
+      return;
+    }
+
+    if (completed.length > 0) {
+      let message = `Appuntamento completato per ${completed.join(', ')}.`;
+      if (failures.length > 0) {
+        message += `\n\nNon completati:\n${failures.join('\n')}`;
+      }
+      Alert.alert('Appuntamento Completato', message);
+      loadAppointments();
+      loadMarkedDates();
+    } else {
+      Alert.alert('Errore', failures.join('\n'));
     }
   };
 
@@ -591,13 +728,15 @@ const TherapistCalendarScreen = () => {
     }
 
     const canComplete =
-      appointment.status === 'confermato' &&
+      (appointment.is_group
+        ? getCompletableTargets(appointment).length > 0
+        : appointment.status === 'confermato') &&
       now.isAfter(appointmentStart) &&
       now.isBefore(fifteenMinutesAfterEnd);
 
-    const canRemoveAbsenceCheck = canRemoveAbsence(appointment, {
-      isTherapist: true,
-    });
+    const canRemoveAbsenceCheck = appointment.is_group
+      ? getAbsentGroupPatients(appointment).length > 0
+      : canRemoveAbsence(appointment, {isTherapist: true});
 
     const showMenu = canMarkAbsent || canRemoveAbsenceCheck || true; // Sempre mostrare per le note
 
@@ -745,16 +884,13 @@ const TherapistCalendarScreen = () => {
                               style={[
                                 styles.groupPatientName,
                                 {
-                                  color:
-                                    patient.status === 'absent_justified' ||
-                                    patient.status === 'absent_not_justified'
-                                      ? '#999'
-                                      : theme.colors.onSurface,
+                                  color: isAbsentStatus(patient.status)
+                                    ? '#999'
+                                    : theme.colors.onSurface,
                                 },
                               ]}>
                               {patient.name}
-                              {(patient.status === 'absent_justified' ||
-                                patient.status === 'absent_not_justified') &&
+                              {isAbsentStatus(patient.status) &&
                                 ' (già assente)'}
                             </Text>
                             <Chip
@@ -997,7 +1133,16 @@ const TherapistCalendarScreen = () => {
   // Il controllo del terapista non è più necessario perché viene gestito dal backend
 
   return (
-    <ScreenTemplate title="Agenda" subtitle="I tuoi appuntamenti">
+    <ScreenTemplate
+      title="Agenda"
+      subtitle="I tuoi appuntamenti"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.colors.secondary]}
+        />
+      }>
       <View style={styles.container}>
         {/* Calendario */}
         <Card style={styles.calendarCard}>
@@ -1039,13 +1184,7 @@ const TherapistCalendarScreen = () => {
               renderItem={renderAppointmentItem}
               keyExtractor={item => item.id.toString()}
               ListEmptyComponent={renderEmptyState}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  colors={[theme.colors.secondary]}
-                />
-              }
+              scrollEnabled={false}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContainer}
             />
@@ -1101,8 +1240,84 @@ const TherapistCalendarScreen = () => {
             </Paragraph>
 
             <Paragraph>
-              L'appuntamento verrà ripristinato come confermato.
+              {removeAbsenceDialog.appointment?.is_group
+                ? "Seleziona di chi rimuovere l'assenza: l'appuntamento verrà ripristinato come confermato."
+                : "L'appuntamento verrà ripristinato come confermato."}
             </Paragraph>
+
+            {removeAbsenceDialog.appointment?.is_group && (
+              <View style={styles.patientListContainer}>
+                {getAbsentGroupPatients(removeAbsenceDialog.appointment)
+                  .length > 1 && (
+                  <TouchableOpacity
+                    style={[
+                      styles.patientListItem,
+                      removeAbsenceTarget === 'all' &&
+                        styles.patientListItemSelected,
+                    ]}
+                    onPress={() => setRemoveAbsenceTarget('all')}>
+                    <View style={styles.patientListItemContent}>
+                      <RadioButton
+                        value="all"
+                        status={
+                          removeAbsenceTarget === 'all' ? 'checked' : 'unchecked'
+                        }
+                        color={theme.colors.primary}
+                        onPress={() => setRemoveAbsenceTarget('all')}
+                      />
+                      <View style={styles.patientListItemText}>
+                        <Text style={styles.patientListItemTitle}>
+                          Tutti i pazienti assenti (
+                          {
+                            getAbsentGroupPatients(
+                              removeAbsenceDialog.appointment,
+                            ).length
+                          }
+                          )
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                {getAbsentGroupPatients(removeAbsenceDialog.appointment).map(
+                  patient => (
+                    <TouchableOpacity
+                      key={patient.appointment_id}
+                      style={[
+                        styles.patientListItem,
+                        removeAbsenceTarget === patient.appointment_id &&
+                          styles.patientListItemSelected,
+                      ]}
+                      onPress={() =>
+                        setRemoveAbsenceTarget(patient.appointment_id)
+                      }>
+                      <View style={styles.patientListItemContent}>
+                        <RadioButton
+                          value={String(patient.appointment_id)}
+                          status={
+                            removeAbsenceTarget === patient.appointment_id
+                              ? 'checked'
+                              : 'unchecked'
+                          }
+                          color={theme.colors.primary}
+                          onPress={() =>
+                            setRemoveAbsenceTarget(patient.appointment_id)
+                          }
+                        />
+                        <View style={styles.patientListItemText}>
+                          <Text style={styles.patientListItemTitle}>
+                            {patient.name}
+                          </Text>
+                          <Text style={styles.patientListItemDescription}>
+                            {getAppointmentStatusLabel(patient.status)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ),
+                )}
+              </View>
+            )}
 
             <Divider style={styles.divider} />
 
@@ -1134,7 +1349,11 @@ const TherapistCalendarScreen = () => {
               onPress={confirmRemoveAbsence}
               buttonColor={theme.colors.primary}
               loading={isSubmittingRemoveAbsence}
-              disabled={isSubmittingRemoveAbsence}
+              disabled={
+                isSubmittingRemoveAbsence ||
+                (removeAbsenceDialog.appointment?.is_group &&
+                  !removeAbsenceTarget)
+              }
               mode="contained">
               {isSubmittingRemoveAbsence ? 'Ripristino...' : 'Conferma'}
             </Button>

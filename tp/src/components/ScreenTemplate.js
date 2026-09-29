@@ -19,6 +19,7 @@ const ScreenTemplate = ({
   showBackButton = false,
   onBackPress,
   message,
+  refreshControl,
 }) => {
   const theme = useTheme();
   const navigation = useNavigation();
@@ -140,7 +141,8 @@ const ScreenTemplate = ({
       <ContentComponent
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={scrollable ? styles.scrollContent : undefined}>
+        contentContainerStyle={scrollable ? styles.scrollContent : undefined}
+        refreshControl={scrollable ? refreshControl : undefined}>
         {children}
       </ContentComponent>
 

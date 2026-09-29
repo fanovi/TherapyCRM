@@ -201,7 +201,8 @@ const TherapistPatientsScreen = () => {
   return (
     <ScreenTemplate
       title="Pazienti"
-      subtitle={`${patients.length} pazienti attivi`}>
+      subtitle={`${patients.length} pazienti attivi`}
+      scrollable={false}>
       {error && (
         <View
           style={[
@@ -217,25 +218,29 @@ const TherapistPatientsScreen = () => {
         </View>
       )}
 
-      {patients.length === 0 && !error ? (
-        <View style={styles.emptyContainer}>
-          <Text
-            style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>
-            Nessun paziente attivo al momento
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={patients}
-          renderItem={renderPatient}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlatList
+        data={patients}
+        renderItem={renderPatient}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          !error ? (
+            <View style={styles.emptyContainer}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  {color: theme.colors.onSurfaceVariant},
+                ]}>
+                Nessun paziente attivo al momento
+              </Text>
+            </View>
+          ) : null
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      />
     </ScreenTemplate>
   );
 };
@@ -272,6 +277,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   listContainer: {
+    flexGrow: 1,
     padding: 16,
   },
   patientCard: {

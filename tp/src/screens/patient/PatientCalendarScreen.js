@@ -557,7 +557,10 @@ const PatientCalendarScreen = () => {
   }
 
   return (
-    <ScreenTemplate title="Calendario" subtitle="I tuoi appuntamenti">
+    <ScreenTemplate
+      title="Calendario"
+      subtitle="I tuoi appuntamenti"
+      scrollable={false}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}

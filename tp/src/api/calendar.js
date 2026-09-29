@@ -609,6 +609,51 @@ export const removeAbsence = async (appointmentId, notes = '') => {
 };
 
 /**
+ * Segna un appuntamento come completato da parte del terapista
+ * @param {number} appointmentId - ID dell'appuntamento
+ * @returns {Promise<Object>} - Risposta dell'API
+ */
+export const completeAppointment = async appointmentId => {
+  try {
+    const response = await apiClient.post('/calendar/complete-appointment', {
+      appointment_id: appointmentId,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Errore completamento appuntamento:', error);
+
+    if (error.type === 'AUTH_ERROR') {
+      throw error;
+    }
+    throw {
+      type: 'COMPLETE_APPOINTMENT_ERROR',
+      message:
+        error.type === 'NETWORK_ERROR'
+          ? "Errore di connessione durante il completamento dell'appuntamento"
+          : error.message ||
+            "Errore imprevisto durante il completamento dell'appuntamento",
+      originalError: error,
+    };
+  }
+};
+
+/**
+ * Pazienti assenti di un appuntamento di gruppo.
+ * Lo stato del gruppo è aggregato (confermato/parziale/assente/completato,
+ * vedi CalendarController::determineGroupStatus): le assenze si leggono
+ * sui singoli group_patients, ciascuno con il proprio appointment_id.
+ * @param {Object} appointment - Appuntamento (di gruppo)
+ * @returns {Array<Object>} - group_patients con stato assente
+ */
+export const getAbsentGroupPatients = appointment =>
+  (appointment?.group_patients || []).filter(
+    patient =>
+      patient.status === 'assente_giustificato' ||
+      patient.status === 'assente_non_giustificato',
+  );
+
+/**
  * Verifica se un appuntamento con assenza può essere ripristinato
  * @param {Object} appointment - Oggetto appuntamento
  * @param {Object} [options] - Opzioni di contesto
