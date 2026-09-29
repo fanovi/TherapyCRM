@@ -85,8 +85,8 @@ android {
         applicationId "com.tp.cgm.badil"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 19
-        versionName "1.15"
+        versionCode 20
+        versionName "1.16"
         missingDimensionStrategy 'react-native-capture-protection', 'base'
     }
     signingConfigs {
