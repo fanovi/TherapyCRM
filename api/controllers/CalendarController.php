@@ -2254,12 +2254,13 @@ class CalendarController extends ActiveController
             $appointmentEndTime->modify('+' . $appointment->duration_minutes . ' minutes');
             $now = new \DateTime();
 
-            // Se sono passati più di 15 minuti dalla fine dell'appuntamento, non può essere completato manualmente
-            $fifteenMinutesAfterEnd = clone $appointmentEndTime;
-            $fifteenMinutesAfterEnd->modify('+60 minutes');
+            // Se sono passati più di 60 minuti dalla fine dell'appuntamento, non può essere completato manualmente
+            // (stessa finestra del bottone "Completa" nell'app, TherapistCalendarScreen.js)
+            $sixtyMinutesAfterEnd = clone $appointmentEndTime;
+            $sixtyMinutesAfterEnd->modify('+60 minutes');
 
-            if ($now > $fifteenMinutesAfterEnd) {
-                throw new BadRequestHttpException('Non è possibile completare un appuntamento terminato da più di 15 minuti');
+            if ($now > $sixtyMinutesAfterEnd) {
+                throw new BadRequestHttpException('Non è possibile completare un appuntamento terminato da più di 60 minuti');
             }
 
             // Verifica che l'appuntamento sia già iniziato

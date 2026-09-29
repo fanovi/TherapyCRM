@@ -693,7 +693,8 @@ const TherapistCalendarScreen = () => {
       appointment.duration_minutes,
       'minutes',
     );
-    const fifteenMinutesAfterEnd = moment(appointmentEnd).add(15, 'minutes');
+    // Stessa finestra del server (CalendarController::actionCompleteAppointment)
+    const sixtyMinutesAfterEnd = moment(appointmentEnd).add(60, 'minutes');
 
     // Logica semplice per segnare assente
     const appointmentDate = moment(appointment.datetime);
@@ -732,7 +733,7 @@ const TherapistCalendarScreen = () => {
         ? getCompletableTargets(appointment).length > 0
         : appointment.status === 'confermato') &&
       now.isAfter(appointmentStart) &&
-      now.isBefore(fifteenMinutesAfterEnd);
+      now.isBefore(sixtyMinutesAfterEnd);
 
     const canRemoveAbsenceCheck = appointment.is_group
       ? getAbsentGroupPatients(appointment).length > 0
