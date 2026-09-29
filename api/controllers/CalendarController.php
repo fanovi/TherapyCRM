@@ -1609,7 +1609,10 @@ class CalendarController extends ActiveController
 
             $therapistId = $this->getAuthenticatedTherapistId();
             if ($therapistId) {
-                // Terapista autenticato - ok
+                // Terapista autenticato: può ripristinare solo i propri appuntamenti
+                if ($appointment->therapist_id != $therapistId) {
+                    throw new BadRequestHttpException('Non sei autorizzato a modificare questo appuntamento');
+                }
                 $therapist = Therapist::findOne($therapistId);
                 if ($therapist && $therapist->user && $therapist->user->profile) {
                     $removedBy = 'Terapista ' . $therapist->user->profile->last_name . ' ' . $therapist->user->profile->first_name;
@@ -2685,6 +2688,10 @@ class CalendarController extends ActiveController
 
             // Verifica che l'appuntamento esista e appartenga al terapista autenticato
             $therapistId = $this->getAuthenticatedTherapistId();
+            if (!$therapistId) {
+                // Senza terapista il filtro diventerebbe "therapist_id IS NULL"
+                throw new BadRequestHttpException('Utente non associato a nessun terapista');
+            }
             $appointment = Appointment::find()
                 ->where(['id' => $appointmentId, 'therapist_id' => $therapistId])
                 ->one();
