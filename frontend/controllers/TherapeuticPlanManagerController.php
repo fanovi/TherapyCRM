@@ -176,8 +176,6 @@ class TherapeuticPlanManagerController extends Controller
             }
             $therapist = $this->findTherapist($data['therapistId']);
 
-            $this->validateTherapist($data);
-
             // Giorno di chiusura della struttura
             $holidayConflict = $this->checkHolidayConflict($data['appointmentDateTime']);
             if ($holidayConflict) {
@@ -281,8 +279,20 @@ class TherapeuticPlanManagerController extends Controller
                 }
             }
 
+            // Terapista assente: non blocca, ma serve la conferma esplicita dell'operatore
+            // (poi si procede alla sostituzione). Controllato dopo i blocchi veri, cosi'
+            // la conferma non viene chiesta per un appuntamento che verrebbe comunque rifiutato.
+            $absence = $this->findTherapistAbsence($data['therapistId'], $data['appointmentDateTime'], $data['durationMinutes']);
+            if ($absence && !$this->isTherapistAbsenceConfirmed($data)) {
+                return $this->therapistAbsentResponse($absence);
+            }
+
             // Crea appuntamento
             $appointment = $this->createSingleAppointment($data, $planTherapy, $patientId, $appointmentType);
+
+            if ($absence) {
+                $this->notifyAppointmentWithAbsentTherapist($appointment, $absence);
+            }
 
             // Verifica limite settimanale
             $weeklyLimitInfo = $this->checkWeeklyLimit($therapist, $data['appointmentDateTime'], $data['durationMinutes']);
@@ -397,11 +407,21 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
+            // Terapista assente: richiede conferma, poi si procede alla sostituzione
+            $absence = $this->findTherapistAbsence($data['therapistId'], $data['appointmentDateTime'], $data['durationMinutes']);
+            if ($absence && !$this->isTherapistAbsenceConfirmed($data)) {
+                return $this->therapistAbsentResponse($absence);
+            }
+
             // Aggiungi il treatmentTypeId ai dati per createPrivateSingleAppointment
             $data['treatmentTypeId'] = $treatmentType->id;
 
             // Crea appuntamento privato
             $appointment = $this->createPrivateSingleAppointment($data);
+
+            if ($absence) {
+                $this->notifyAppointmentWithAbsentTherapist($appointment, $absence);
+            }
 
             // NON verifichiamo limiti settimanali per appuntamenti privati
             Yii::info("Appuntamento privato creato: ID {$appointment->id}", __METHOD__);
@@ -2775,7 +2795,6 @@ class TherapeuticPlanManagerController extends Controller
             $data = $this->getRequestData();
             Yii::info('Dati ricevuti per update appointment: ' . json_encode($data), __METHOD__);
             $this->validateUpdateAppointmentFields($data);
-            $this->validateTherapist($data);
 
             $appointment = Appointment::findOne($data['appointmentId']);
             if (!$appointment) {
@@ -2799,12 +2818,29 @@ class TherapeuticPlanManagerController extends Controller
                 return $this->holidayConflictResponse($holidayConflict);
             }
 
+            // Terapista assente: richiede conferma, ma solo se cambiano terapista,
+            // data/ora o durata. Le modifiche che non toccano lo slot (es. note) di
+            // un appuntamento gia' dentro un'assenza passano senza domande.
+            $absence = $this->slotChangedOnUpdate($appointment, $data)
+                ? $this->findTherapistAbsence($data['therapistId'], $data['appointmentDateTime'], $data['durationMinutes'])
+                : null;
+            if ($absence && !$this->isTherapistAbsenceConfirmed($data)) {
+                return $this->therapistAbsentResponse($absence);
+            }
+
             // Gestione diversa per appuntamenti privati vs piano terapeutico
             if ($appointment->appointment_source === Appointment::SOURCE_PRIVATE) {
-                return $this->updatePrivateAppointment($appointment, $data);
+                $result = $this->updatePrivateAppointment($appointment, $data);
             } else {
-                return $this->updateTherapeuticPlanAppointment($appointment, $data);
+                $result = $this->updateTherapeuticPlanAppointment($appointment, $data);
             }
+
+            if ($absence && !empty($result['success'])) {
+                $appointment->refresh();
+                $this->notifyAppointmentWithAbsentTherapist($appointment, $absence, true);
+            }
+
+            return $result;
         } catch (Exception $e) {
             Yii::error('Errore aggiornamento appuntamento: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
@@ -4010,17 +4046,179 @@ class TherapeuticPlanManagerController extends Controller
         ];
     }
 
+    /**
+     * Blocco assenza terapista per gli appuntamenti generati da pattern ricorrente:
+     * le occorrenze che cadono in un'assenza approvata vengono scartate.
+     * Per singolo appuntamento, spostamento e modifica l'assenza non blocca
+     * piu' ma richiede conferma (vedi therapistAbsenceRequiresConfirmation()).
+     *
+     * @param array $data therapistId, appointmentDateTime, durationMinutes (opzionale)
+     * @throws BadRequestHttpException
+     */
     private function validateTherapist($data)
     {
-        $absences = Absence::find()
-            ->where(['therapist_id' => $data['therapistId']])
-            ->andWhere(['<=', 'start_date', $data['appointmentDateTime']])
-            ->andWhere(['>=', 'end_date', $data['appointmentDateTime']])
-            ->andWhere(['status' => 'approved'])
-            ->exists();
+        $absence = $this->findTherapistAbsence(
+            $data['therapistId'],
+            $data['appointmentDateTime'],
+            $data['durationMinutes'] ?? 0
+        );
 
-        if ($absences) {
+        if ($absence) {
             throw new BadRequestHttpException('Terapista non disponibile per le date selezionate');
+        }
+    }
+
+    /**
+     * Restituisce l'assenza approvata del terapista che copre l'appuntamento.
+     * - Assenza tutto il giorno (start_time null): copre ogni orario dei giorni
+     *   start_date..end_date, ultimo giorno incluso.
+     * - Assenza oraria: copre se si sovrappone all'intervallo dell'appuntamento.
+     *
+     * @param int $therapistId
+     * @param string $appointmentDateTime
+     * @param int $durationMinutes
+     * @return Absence|null
+     */
+    private function findTherapistAbsence($therapistId, $appointmentDateTime, $durationMinutes = 0)
+    {
+        $timestamp = strtotime((string) $appointmentDateTime);
+        if (!$therapistId || $timestamp === false) {
+            return null;
+        }
+
+        $date = date('Y-m-d', $timestamp);
+        $startTime = date('H:i:s', $timestamp);
+        $endTime = date('H:i:s', $timestamp + max(0, (int) $durationMinutes) * 60);
+
+        $hourlyOverlap = (int) $durationMinutes > 0
+            ? ['and', ['<', 'start_time', $endTime], ['>', 'end_time', $startTime]]
+            : ['and', ['<=', 'start_time', $startTime], ['>', 'end_time', $startTime]];
+
+        return Absence::find()
+            ->where(['therapist_id' => $therapistId])
+            ->andWhere(['status' => Absence::STATUS_APPROVED])
+            ->andWhere(['<=', 'start_date', $date])
+            ->andWhere(['>=', 'end_date', $date])
+            ->andWhere(['or', ['start_time' => null], $hourlyOverlap])
+            ->orderBy(['start_time' => SORT_ASC])
+            ->one();
+    }
+
+    /**
+     * True se il client ha gia' confermato di voler procedere nonostante
+     * l'assenza del terapista.
+     *
+     * @param array $data
+     * @return bool
+     */
+    private function isTherapistAbsenceConfirmed($data)
+    {
+        return filter_var($data['confirmTherapistAbsence'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Response che chiede conferma per un appuntamento con terapista assente,
+     * nella stessa forma degli altri conflitti (error + code + conflict).
+     *
+     * @param Absence $absence
+     * @return array
+     */
+    private function therapistAbsentResponse(Absence $absence)
+    {
+        $info = $this->describeTherapistAbsence($absence);
+
+        return [
+            'success' => false,
+            'error' => "Il terapista {$info['therapistName']} è assente {$info['period']}{$info['timeRange']} per: {$info['typeLabel']}{$info['reason']}.",
+            'code' => 'THERAPIST_ABSENT',
+            'conflict' => [
+                'type' => 'therapist_absent',
+                'absenceId' => $absence->id,
+                'absenceType' => $absence->type,
+                'typeLabel' => $info['typeLabel'],
+                'startDate' => $absence->start_date,
+                'endDate' => $absence->end_date,
+                'startTime' => $absence->start_time,
+                'endTime' => $absence->end_time,
+                'reason' => $absence->reason,
+                'therapistName' => $info['therapistName'],
+            ],
+        ];
+    }
+
+    /**
+     * Testi leggibili di un'assenza (per messaggi e notifiche).
+     *
+     * @param Absence $absence
+     * @return array therapistName, typeLabel, period, timeRange, reason
+     */
+    private function describeTherapistAbsence(Absence $absence)
+    {
+        $therapist = Therapist::findOne($absence->therapist_id);
+        $startDate = date('d/m/Y', strtotime($absence->start_date));
+        $endDate = date('d/m/Y', strtotime($absence->end_date));
+
+        return [
+            'therapistName' => $therapist ? $this->getTherapistDisplayName($therapist) : "#{$absence->therapist_id}",
+            'typeLabel' => $absence->getTypeLabel(),
+            'period' => $startDate === $endDate ? "il {$startDate}" : "dal {$startDate} al {$endDate}",
+            'timeRange' => ($absence->start_time && $absence->end_time)
+                ? ' dalle ' . substr($absence->start_time, 0, 5) . ' alle ' . substr($absence->end_time, 0, 5)
+                : '',
+            'reason' => $absence->reason ? " ({$absence->reason})" : '',
+        ];
+    }
+
+    /**
+     * Notifica (solo gestionale) direzione + coordinatori del terapista quando un
+     * appuntamento viene creato o spostato su un terapista assente, cosi' da
+     * procedere alla sostituzione. Un errore di invio non annulla l'operazione.
+     *
+     * @param Appointment $appointment appuntamento salvato
+     * @param Absence $absence
+     * @param bool $isUpdate true per spostamento/modifica, false per creazione
+     */
+    private function notifyAppointmentWithAbsentTherapist(Appointment $appointment, Absence $absence, $isUpdate = false)
+    {
+        try {
+            $info = $this->describeTherapistAbsence($absence);
+            $patient = $appointment->patient;
+            $patientName = $patient ? $patient->getFullName() : 'N/D';
+            $dateTime = strtotime($appointment->appointment_datetime);
+
+            $user = Yii::$app->user->identity;
+            $insertedBy = ($user && $user->profile)
+                ? 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name
+                : 'Operatore';
+
+            $title = 'Appuntamento con terapista assente';
+            $message = 'Appuntamento del ' . date('d/m/Y', $dateTime) . ' alle ' . date('H:i', $dateTime)
+                . " per il paziente {$patientName} " . ($isUpdate ? 'spostato' : 'inserito')
+                . " con il terapista {$info['therapistName']}, assente {$info['period']}{$info['timeRange']}"
+                . " ({$info['typeLabel']}). Da sostituire.\n"
+                . "{$insertedBy}";
+
+            $data = [
+                'appointment_id' => $appointment->id,
+                'absence_id' => $absence->id,
+                'therapist_id' => $absence->therapist_id,
+                'type' => 'appointment_with_absent_therapist',
+            ];
+
+            // Direzione: solo gestionale (skipPush=true).
+            NotificationHelper::sendToManagement($title, $message, Notification::TYPE_INFO, $data, true);
+
+            // Coordinatori dei gruppi del terapista assente: solo gestionale (skipPush=true).
+            NotificationHelper::sendToTherapistCoordinators(
+                $absence->therapist_id,
+                $title,
+                $message,
+                Notification::TYPE_INFO,
+                $data,
+                true
+            );
+        } catch (\Exception $e) {
+            Yii::error('Errore invio notifiche appuntamento con terapista assente: ' . $e->getMessage(), __METHOD__);
         }
     }
 
@@ -4425,7 +4623,11 @@ class TherapeuticPlanManagerController extends Controller
     private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $groupSessionId = null, $appointmentType = null)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
-        $this->validateTherapist(['therapistId' => $pattern->therapist_id, 'appointmentDateTime' => $appointmentDateTime]);
+        $this->validateTherapist([
+            'therapistId' => $pattern->therapist_id,
+            'appointmentDateTime' => $appointmentDateTime,
+            'durationMinutes' => $pattern->duration_minutes,
+        ]);
 
         // Validazione data rispetto al piano terapeutico
         $this->validateStartDate($appointmentDateTime, $pattern->plan_therapy_id);
@@ -4600,6 +4802,32 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         return $unchanged ? null : $this->checkHolidayConflict($newDateTime);
+    }
+
+    /**
+     * True se l'aggiornamento cambia lo slot dell'appuntamento: terapista,
+     * data/ora o durata.
+     *
+     * @param Appointment $appointment
+     * @param array $data
+     * @return bool
+     */
+    private function slotChangedOnUpdate($appointment, $data)
+    {
+        if ((int) $data['therapistId'] !== (int) $appointment->therapist_id) {
+            return true;
+        }
+        if ((int) $data['durationMinutes'] !== (int) $appointment->duration_minutes) {
+            return true;
+        }
+
+        try {
+            return (new DateTime($data['appointmentDateTime']))->format('Y-m-d H:i:s')
+                !== (new DateTime($appointment->appointment_datetime))->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            // Formato non valido: lo segnala la validazione del modello
+            return true;
+        }
     }
 
     /**
@@ -6132,7 +6360,6 @@ class TherapeuticPlanManagerController extends Controller
         try {
             $data = $this->getRequestData();
             $this->validateABAAppointmentFields($data);
-            $this->validateTherapist($data);
 
             // Giorno di chiusura della struttura
             $holidayConflict = $this->checkHolidayConflict($data['appointmentDateTime']);
@@ -6233,6 +6460,12 @@ class TherapeuticPlanManagerController extends Controller
                 ];
             }
 
+            // Terapista assente: richiede conferma, poi si procede alla sostituzione
+            $absence = $this->findTherapistAbsence($data['therapistId'], $data['appointmentDateTime'], $data['durationMinutes']);
+            if ($absence && !$this->isTherapistAbsenceConfirmed($data)) {
+                return $this->therapistAbsentResponse($absence);
+            }
+
             // Assegna tutti i valori all'appuntamento
             $appointment->plan_therapy_id = $actualPlanTherapyId;
             $appointment->appointment_source = Appointment::SOURCE_THERAPEUTIC_PLAN;
@@ -6252,6 +6485,10 @@ class TherapeuticPlanManagerController extends Controller
 
             if (!$appointment->save()) {
                 throw new Exception('Errore nel salvataggio: ' . json_encode($appointment->errors));
+            }
+
+            if ($absence) {
+                $this->notifyAppointmentWithAbsentTherapist($appointment, $absence);
             }
 
             return [

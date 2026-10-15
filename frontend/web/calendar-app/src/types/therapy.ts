@@ -196,6 +196,8 @@ export interface CreateAppointmentRequest {
   isGroup?: boolean;
   id_setting?: number;
   appointmentCategory?: "regular" | "recovery";
+  /** true = crea anche se il terapista e' assente (conferma gia' data dall'operatore) */
+  confirmTherapistAbsence?: boolean;
 }
 
 export interface CreatePatternRequest {

@@ -487,6 +487,9 @@ class TherapeuticPlanManagerAPI {
 
   /**
    * Crea un singolo appuntamento
+   *
+   * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
    */
   async createAppointment(request: CreateAppointmentRequest): Promise<{
     appointmentId: number;
@@ -502,6 +505,7 @@ class TherapeuticPlanManagerAPI {
           response.error || "Conflitto appuntamento rilevato",
         ) as any;
         error.conflict = response.conflict;
+        error.code = response.code;
         throw error;
       }
 
@@ -539,6 +543,9 @@ class TherapeuticPlanManagerAPI {
 
   /**
    * Aggiorna un appuntamento esistente
+   *
+   * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
    */
   async updateAppointment(appointmentData: {
     appointmentId: number;
@@ -549,6 +556,7 @@ class TherapeuticPlanManagerAPI {
     applyToGroup?: boolean;
     id_setting?: number;
     appointmentCategory?: "regular" | "recovery";
+    confirmTherapistAbsence?: boolean;
   }): Promise<{
     appointmentId: number;
     planTherapyId?: number;
@@ -561,6 +569,7 @@ class TherapeuticPlanManagerAPI {
         planTherapyId?: number;
       };
       error?: string;
+      code?: string;
       conflict?: any;
     }>("update-appointment", appointmentData);
 
@@ -569,6 +578,7 @@ class TherapeuticPlanManagerAPI {
       if (response.conflict) {
         const error = new Error(response.error || "Conflitto rilevato");
         (error as any).conflict = response.conflict;
+        (error as any).code = response.code;
         throw error;
       }
       throw new Error(
@@ -815,6 +825,7 @@ class TherapeuticPlanManagerAPI {
     appointmentDateTime: string;
     durationMinutes: number;
     notes?: string;
+    confirmTherapistAbsence?: boolean;
   }): Promise<{
     appointmentId: number;
   }> {
@@ -830,6 +841,7 @@ class TherapeuticPlanManagerAPI {
           response.error || "Conflitto appuntamento rilevato",
         ) as any;
         error.conflict = response.conflict;
+        error.code = response.code;
         throw error;
       }
 
@@ -871,6 +883,9 @@ class TherapeuticPlanManagerAPI {
   /**
    * Crea un appuntamento in modalità ABA
    * Permette appointment_type diversi nello stesso slot
+   *
+   * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
    */
   async createABAAppointment(request: {
     planTherapyId: number;
@@ -884,6 +899,8 @@ class TherapeuticPlanManagerAPI {
     isGroup?: boolean;
     groupSessionId?: string | null;
     id_setting?: number;
+    appointmentCategory?: "regular" | "recovery";
+    confirmTherapistAbsence?: boolean;
   }): Promise<{
     appointmentId: number;
     groupSessionId?: string | null;
@@ -896,6 +913,7 @@ class TherapeuticPlanManagerAPI {
           response.error || "Conflitto appuntamento ABA rilevato",
         ) as any;
         error.conflict = response.conflict;
+        error.code = response.code;
         throw error;
       }
 

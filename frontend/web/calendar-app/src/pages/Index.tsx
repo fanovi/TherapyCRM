@@ -21,6 +21,11 @@ import {
   ActivePatientPlan,
 } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+import {
+  confirmTherapistAbsence,
+  isTherapistAbsenceCancelled,
+  withTherapistAbsenceConfirm,
+} from "@/components/TherapistAbsenceConfirmDialog";
 import { CalendarViewType } from "@/components/CalendarViewSelector";
 import { Loader2, Lock, LockOpen } from "lucide-react";
 import { ToastContainer, useToast } from "@/components/Toast";
@@ -64,6 +69,9 @@ const Index = () => {
     date: Date;
     time: string;
   } | null>(null);
+  // Slot (terapista|data|ora) per cui l'operatore ha gia' confermato al clic che
+  // il terapista e' assente: al salvataggio non si richiede una seconda conferma.
+  const absenceConfirmedSlotRef = useRef<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -839,6 +847,8 @@ const Index = () => {
         " " +
         selectedSlot.time +
         ":00";
+      const absencePreConfirmed =
+        absenceConfirmedSlotRef.current === absenceSlotKey(selectedSlot.date, selectedSlot.time);
 
       let result;
       let appointmentsCreated = 1;
@@ -893,7 +903,11 @@ const Index = () => {
             appointmentCategory: appointmentData.appointment_category,
           };
 
-          result = await therapyAPI.createABAAppointment(request);
+          result = await withTherapistAbsenceConfirm(
+            (confirmTherapistAbsence) =>
+              therapyAPI.createABAAppointment({ ...request, confirmTherapistAbsence }),
+            absencePreConfirmed
+          );
         } else {
           const request = {
             planTherapyId: selectedSpecialization?.id,
@@ -907,7 +921,11 @@ const Index = () => {
             appointmentCategory: appointmentData.appointment_category,
           };
 
-          const singleResult = await therapyAPI.createAppointment(request);
+          const singleResult = await withTherapistAbsenceConfirm(
+            (confirmTherapistAbsence) =>
+              therapyAPI.createAppointment({ ...request, confirmTherapistAbsence }),
+            absencePreConfirmed
+          );
           result = singleResult;
           weeklyLimitExceeded = singleResult.weeklyLimitExceeded || [];
         }
@@ -974,6 +992,9 @@ const Index = () => {
         );
       }
     } catch (err) {
+      if (isTherapistAbsenceCancelled(err)) {
+        return;
+      }
       console.error("Errore nella creazione dell'appuntamento:", err);
       setRefreshKey((prev) => prev + 1);
       restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
@@ -1080,7 +1101,11 @@ const Index = () => {
           id_setting: appointmentData.id_setting,
         };
 
-        const result = await therapyAPI.createPrivateAppointment(request);
+        const result = await withTherapistAbsenceConfirm(
+          (confirmTherapistAbsence) =>
+            therapyAPI.createPrivateAppointment({ ...request, confirmTherapistAbsence }),
+          absenceConfirmedSlotRef.current === absenceSlotKey(selectedSlot.date, selectedSlot.time)
+        );
 
         // Aggiorna stato locale senza refresh
         const newAppointment: Appointment = {
@@ -1128,6 +1153,9 @@ const Index = () => {
       setIsPrivateModalOpen(false);
       setSelectedSlot(null);
     } catch (err) {
+      if (isTherapistAbsenceCancelled(err)) {
+        return;
+      }
       console.error("Errore nella creazione dell'appuntamento privato:", err);
       setRefreshKey((prev) => prev + 1);
       restoreScrollPosition(scrollPos); // <-- RIPRISTINA POSIZIONE
@@ -1152,7 +1180,11 @@ const Index = () => {
     }
   };
 
-  const handleSlotClick = (date: Date, time: string) => {
+  // Chiave dello slot per ricordare la conferma "terapista assente" data al clic
+  const absenceSlotKey = (date: Date, time: string) =>
+    `${selectedTherapist?.id}|${toLocalDateString(date)}|${time}`;
+
+  const handleSlotClick = async (date: Date, time: string) => {
     // Nella vista terapista o in modalità read-only, non è possibile creare appuntamenti
     if (isTherapistView || forceReadOnly) {
       showInfo(
@@ -1162,9 +1194,9 @@ const Index = () => {
       return;
     }
 
-    // Verifica se lo slot (data + orario) e' bloccato da una assenza
-    // (full-day o oraria). isDateBlocked solo per la giornata intera; per
-    // gli slot uso isSlotBlocked che considera anche start_time/end_time.
+    // Slot (data + orario) dentro un'assenza del terapista (full-day o oraria):
+    // non blocca, ma chiede conferma. Poi si procede alla sostituzione.
+    absenceConfirmedSlotRef.current = null;
     if (isSlotBlocked(date, time)) {
       const dateString = toLocalDateString(date);
       const blockedAbsence = therapistAbsences.find((absence) =>
@@ -1179,12 +1211,14 @@ const Index = () => {
           : "";
         const reasonMsg = blockedAbsence.reason ? ` (${blockedAbsence.reason})` : "";
 
-        showError(
-          "Slot non disponibile",
-          `Il terapista ${selectedTherapist?.name} è assente in questa data${orarioMsg} per: ${typeLabel}${reasonMsg}. Non è possibile creare appuntamenti.`
+        const confirmed = await confirmTherapistAbsence(
+          `Il terapista ${selectedTherapist?.name} è assente in questa data${orarioMsg} per: ${typeLabel}${reasonMsg}. Vuoi creare comunque l'appuntamento? Potrai poi effettuare la sostituzione.`
         );
+        if (!confirmed) {
+          return;
+        }
+        absenceConfirmedSlotRef.current = absenceSlotKey(date, time);
       }
-      return;
     }
 
     setSelectedSlot({ date, time });
@@ -1523,7 +1557,9 @@ const Index = () => {
         id_setting: appointment.setting_id,
       };
 
-      await therapyAPI.updateAppointment(request);
+      await withTherapistAbsenceConfirm((confirmTherapistAbsence) =>
+        therapyAPI.updateAppointment({ ...request, confirmTherapistAbsence })
+      );
 
       // Aggiorna stato locale senza refresh - FullCalendar ha già spostato visivamente
       setAppointments((prev) =>
@@ -1553,6 +1589,10 @@ const Index = () => {
 
       return true;
     } catch (err) {
+      // Conferma "terapista assente" annullata: FullCalendar fa il revert visivo
+      if (isTherapistAbsenceCancelled(err)) {
+        return false;
+      }
       console.error("Errore nello spostamento dell'appuntamento:", err);
 
       // Gestione errori - FullCalendar farà revert visivo automaticamente

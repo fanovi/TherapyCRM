@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { Appointment, Patient, Therapist } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+import {
+  isTherapistAbsenceCancelled,
+  withTherapistAbsenceConfirm,
+} from "@/components/TherapistAbsenceConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { TherapistSubstitutionModal } from "./TherapistSubstitutionModal";
 import { AddPatientToGroupCombobox } from "./AddPatientToGroupCombobox";
@@ -321,7 +325,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           groupSessionId: appointment.groupSessionId,
           id_setting: appointment.id_setting,
         };
-        await therapyAPI.createABAAppointment(abaRequest);
+        await withTherapistAbsenceConfirm((confirmTherapistAbsence) =>
+          therapyAPI.createABAAppointment({ ...abaRequest, confirmTherapistAbsence })
+        );
       } else {
         // Usa createAppointment passando il groupSessionId esistente
         const request = {
@@ -335,7 +341,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
           groupSessionId: appointment.groupSessionId,
           id_setting: appointment.id_setting, // Usa lo stesso setting dell'appuntamento di gruppo esistente
         };
-        await therapyAPI.createAppointment(request);
+        await withTherapistAbsenceConfirm((confirmTherapistAbsence) =>
+          therapyAPI.createAppointment({ ...request, confirmTherapistAbsence })
+        );
       }
 
       showSuccess(
@@ -346,6 +354,9 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       onAppointmentUpdate(appointment.id.toString(), { refresh: true });
       onClose();
     } catch (error) {
+      if (isTherapistAbsenceCancelled(error)) {
+        return;
+      }
       console.error("Errore aggiunta al gruppo:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Errore sconosciuto";
@@ -369,6 +380,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     if (!appointment || candidates.length === 0) return;
 
     const errors: string[] = [];
+    // Conferma "terapista assente" chiesta una sola volta per tutto il batch
+    let absenceConfirmed = false;
+    const rememberConfirm = (confirmTherapistAbsence: boolean) => {
+      absenceConfirmed = absenceConfirmed || confirmTherapistAbsence;
+      return confirmTherapistAbsence;
+    };
     for (const c of candidates) {
       try {
         const planTherapyData = await therapyAPI.getPlanTherapyForTherapist(
@@ -378,7 +395,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         );
 
         if (isABARegime) {
-          await therapyAPI.createABAAppointment({
+          await withTherapistAbsenceConfirm((confirmTherapistAbsence) => therapyAPI.createABAAppointment({
             planTherapyId: planTherapyData.planTherapyId,
             treatmentTypeId: planTherapyData.treatmentTypeId,
             therapistId: appointment.therapist!.id,
@@ -393,9 +410,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             isGroup: true,
             groupSessionId: appointment.groupSessionId,
             id_setting: appointment.id_setting,
-          });
+            confirmTherapistAbsence: rememberConfirm(confirmTherapistAbsence),
+          }), absenceConfirmed);
         } else {
-          await therapyAPI.createAppointment({
+          await withTherapistAbsenceConfirm((confirmTherapistAbsence) => therapyAPI.createAppointment({
             planTherapyId: planTherapyData.planTherapyId,
             treatmentTypeId: planTherapyData.treatmentTypeId,
             therapistId: appointment.therapist!.id,
@@ -405,9 +423,15 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             isGroup: true,
             groupSessionId: appointment.groupSessionId,
             id_setting: appointment.id_setting,
-          } as any);
+            confirmTherapistAbsence: rememberConfirm(confirmTherapistAbsence),
+          } as any), absenceConfirmed);
         }
       } catch (e) {
+        // Conferma annullata: non si aggiungono nemmeno i candidati successivi
+        if (isTherapistAbsenceCancelled(e)) {
+          errors.push(`${c.name}: terapista assente, operazione annullata`);
+          break;
+        }
         const msg = e instanceof Error ? e.message : "errore sconosciuto";
         errors.push(`${c.name}: ${msg}`);
       }
@@ -527,16 +551,19 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     try {
       const appointmentDateTime = `${formData.date} ${formData.time}:00`;
 
-      const result = await therapyAPI.updateAppointment({
-        appointmentId: selectedAppointmentId, // Usa l'ID dell'appuntamento del paziente selezionato
-        therapistId: formData.therapistId,
-        appointmentDateTime,
-        durationMinutes: formData.duration,
-        notes: formData.notes,
-        applyToGroup: applyToWholeGroup && isGroupAppointment,
-        id_setting: formData.id_setting,
-        appointmentCategory: formData.appointment_category,
-      });
+      const result = await withTherapistAbsenceConfirm((confirmTherapistAbsence) =>
+        therapyAPI.updateAppointment({
+          appointmentId: selectedAppointmentId, // Usa l'ID dell'appuntamento del paziente selezionato
+          therapistId: formData.therapistId,
+          appointmentDateTime,
+          durationMinutes: formData.duration,
+          notes: formData.notes,
+          applyToGroup: applyToWholeGroup && isGroupAppointment,
+          id_setting: formData.id_setting,
+          appointmentCategory: formData.appointment_category,
+          confirmTherapistAbsence,
+        })
+      );
 
       showSuccess(
         "Appuntamento aggiornato",
@@ -564,6 +591,10 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       setIsEditing(false);
       onClose();
     } catch (error) {
+      // Conferma "terapista assente" annullata: il modal resta aperto in modifica
+      if (isTherapistAbsenceCancelled(error)) {
+        return;
+      }
       console.error("Errore aggiornamento appuntamento:", error);
 
       if (error instanceof Error && "conflict" in error) {

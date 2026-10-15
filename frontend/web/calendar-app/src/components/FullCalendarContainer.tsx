@@ -642,63 +642,17 @@ const FullCalendarContainer: React.FC<FullCalendarContainerProps> = ({
       return;
     }
 
-    // Verifica se lo slot (data + range orario) cade durante una assenza.
-    // Per assenze full-day blocca tutto il giorno; per assenze orarie blocca
-    // solo se c'e' overlap col range dell'assenza nel singolo giorno.
-    // NB: data LOCALE (non toISOString) per evitare off-by-one in CEST.
-    const checkDate = selectInfo.start;
-    const pad = (n: number) => (n < 10 ? "0" + n : String(n));
-    const selectedDateStr =
-      checkDate.getFullYear() + "-" + pad(checkDate.getMonth() + 1) + "-" + pad(checkDate.getDate());
-    const slotStartHHMM = pad(selectInfo.start.getHours()) + ":" + pad(selectInfo.start.getMinutes());
-    const slotEndHHMM = pad(selectInfo.end.getHours()) + ":" + pad(selectInfo.end.getMinutes());
-
-    const ABSENCE_TYPE_LABELS: Record<string, string> = {
-      vacation: "Ferie",
-      sick_leave: "Congedo Malattia",
-      personal: "Personale",
-      training: "Formazione",
-      other: "Altro",
-    };
-
-    const absenceOverlapsSlot = (absence: TherapistAbsence) => {
-      if (absence.status !== "approved") return false;
-      if (selectedDateStr < absence.start_date || selectedDateStr > absence.end_date) return false;
-      const hourly = !!absence.start_time && !!absence.end_time;
-      if (!hourly) return true;
-      const absStart = absence.start_time!.substring(0, 5);
-      const absEnd = absence.end_time!.substring(0, 5);
-      // overlap: slot.start < abs.end AND abs.start < slot.end
-      return slotStartHHMM < absEnd && absStart < slotEndHHMM;
-    };
-
-    const blockedAbsence = therapistAbsences.find(absenceOverlapsSlot);
-
-    if (blockedAbsence && therapistId) {
-      const typeLabel = ABSENCE_TYPE_LABELS[blockedAbsence.type] || blockedAbsence.type;
-      const hourly = !!blockedAbsence.start_time && !!blockedAbsence.end_time;
-      const orarioMsg = hourly
-        ? ` dalle ${blockedAbsence.start_time!.substring(0, 5)} alle ${blockedAbsence.end_time!.substring(0, 5)}`
-        : "";
-      const reasonMsg = blockedAbsence.reason ? ` (${blockedAbsence.reason})` : "";
-
-      toast({
-        title: hourly ? "Slot non disponibile" : "Data non disponibile",
-        description: `Il terapista è assente${orarioMsg} per: ${typeLabel}${reasonMsg}. Non è possibile creare appuntamenti.`,
-        variant: "destructive",
-      });
-
-      const calendarApi = calendarRef.current?.getApi();
-      calendarApi?.unselect();
-      return;
-    }
+    // Le assenze del terapista non bloccano la selezione: la conferma
+    // "terapista assente" la chiede onSlotClick (Index.tsx) prima di aprire
+    // il modal di creazione.
 
     // Verifica se c'è già un evento in questo slot
     const selectedStart = selectInfo.start.getTime();
     const selectedEnd = selectInfo.end.getTime();
 
     const hasConflict = displayEvents.some((event) => {
-      if (event.extendedProps?.isHoliday) {
+      // Chiusure e assenze non sono appuntamenti: non occupano lo slot
+      if (event.extendedProps?.isHoliday || event.extendedProps?.isAbsence) {
         return false;
       }
       const eventStart = new Date(event.start as string).getTime();
