@@ -237,7 +237,7 @@ export const TherapistSubstitutionModal: React.FC<
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md py-4">
+      <DialogContent className="max-w-md py-4 grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserX className="h-5 w-5 text-purple-600" />
@@ -423,7 +423,7 @@ export const TherapistSubstitutionModal: React.FC<
                         className="w-full justify-between font-normal"
                       >
                         {selectedTherapist ? (
-                          <span className="flex items-center gap-2 truncate">
+                          <span className="flex items-center gap-2 truncate min-w-0">
                             {selectedTherapist.isAvailable ? (
                               <UserCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
                             ) : (
