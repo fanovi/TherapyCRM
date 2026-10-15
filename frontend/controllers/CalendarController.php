@@ -71,18 +71,82 @@ class CalendarController extends Controller
             ? (int) $id_therapist
             : null;
         $selectedTherapistName = null;
+        $prevTherapist = null;
+        $nextTherapist = null;
 
         if ($idTherapist !== null) {
             if (!$this->isTherapistAllowed($idTherapist)) {
                 throw new ForbiddenHttpException('Non hai i permessi per visualizzare il calendario di questo terapista.');
             }
             $selectedTherapistName = $this->getTherapistLabel($idTherapist);
+            list($prevTherapist, $nextTherapist) = $this->getTherapistNeighbors($idTherapist);
         }
 
         return $this->render('therapists', [
             'idTherapist' => $idTherapist,
             'selectedTherapistName' => $selectedTherapistName,
+            'prevTherapist' => $prevTherapist,
+            'nextTherapist' => $nextTherapist,
         ]);
+    }
+
+    /**
+     * Terapista precedente e successivo nella lista della ricerca, in modo circolare
+     * (dal primo si torna all'ultimo e viceversa).
+     *
+     * @param int $id
+     * @return array [prev, next], ciascuno ['id' => int, 'name' => string] o null
+     */
+    private function getTherapistNeighbors($id)
+    {
+        $therapists = $this->findAllowedTherapistsQuery()->all();
+        $count = count($therapists);
+        if ($count < 2) {
+            return [null, null];
+        }
+
+        $index = null;
+        foreach ($therapists as $i => $therapist) {
+            if ((int) $therapist->id === (int) $id) {
+                $index = $i;
+                break;
+            }
+        }
+        if ($index === null) {
+            return [null, null];
+        }
+
+        $prev = $therapists[($index - 1 + $count) % $count];
+        $next = $therapists[($index + 1) % $count];
+
+        return [
+            ['id' => (int) $prev->id, 'name' => $this->formatTherapistName($prev)],
+            ['id' => (int) $next->id, 'name' => $this->formatTherapistName($next)],
+        ];
+    }
+
+    /**
+     * Terapisti attivi visibili all'utente corrente, ordinati per cognome e nome.
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    private function findAllowedTherapistsQuery()
+    {
+        $query = Therapist::find()
+            ->joinWith('user.profile')
+            ->where(['therapists.is_active' => 1])
+            ->orderBy([
+                'user_profiles.last_name' => SORT_ASC,
+                'user_profiles.first_name' => SORT_ASC,
+                'therapists.id' => SORT_ASC,
+            ]);
+
+        $allowedIds = $this->getAllowedTherapistIds();
+        if ($allowedIds !== null) {
+            $query->andWhere(['therapists.id' => $allowedIds]);
+        }
+
+        return $query;
     }
 
     /**
@@ -96,18 +160,7 @@ class CalendarController extends Controller
         $page = max(1, (int) $page);
         $pageSize = 20;
 
-        $query = Therapist::find()
-            ->joinWith('user.profile')
-            ->where(['therapists.is_active' => 1])
-            ->orderBy([
-                'user_profiles.last_name' => SORT_ASC,
-                'user_profiles.first_name' => SORT_ASC,
-            ]);
-
-        $allowedIds = $this->getAllowedTherapistIds();
-        if ($allowedIds !== null) {
-            $query->andWhere(['therapists.id' => $allowedIds]);
-        }
+        $query = $this->findAllowedTherapistsQuery();
 
         if ($q !== '') {
             $query->andWhere([

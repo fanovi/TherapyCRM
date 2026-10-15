@@ -6,6 +6,8 @@ use yii\helpers\Url;
 /* @var $this yii\web\View */
 /* @var $idTherapist int|null */
 /* @var $selectedTherapistName string|null */
+/* @var $prevTherapist array|null ['id' => int, 'name' => string] */
+/* @var $nextTherapist array|null ['id' => int, 'name' => string] */
 
 $this->title = 'Calendario terapisti';
 $this->params['breadcrumbs'][] = ['label' => 'Terapisti', 'url' => ['/therapist/index']];
@@ -57,6 +59,26 @@ if ($idTherapist && $selectedTherapistName) {
             ]) ?>
         </div>
 
+        <?php if ($idTherapist && $iframeSrc && $prevTherapist && $nextTherapist): ?>
+            <div class="flex items-center justify-between gap-3 border-t border-gray-100 px-5 py-3 sm:px-6 dark:border-gray-800">
+                <a href="<?= Html::encode(Url::to(['therapists', 'id_therapist' => $prevTherapist['id']])) ?>"
+                   class="therapist-nav-link inline-flex flex-1 items-center gap-2 text-sm text-gray-600 dark:text-gray-400"
+                   title="Terapista precedente: <?= Html::encode($prevTherapist['name']) ?>">
+                    <span class="therapist-nav-arrow text-xl" aria-hidden="true">&lsaquo;</span>
+                    <span class="therapist-nav-name"><?= Html::encode($prevTherapist['name']) ?></span>
+                </a>
+                <span class="therapist-nav-current text-center text-sm font-semibold uppercase text-gray-800 dark:text-white/90">
+                    <?= Html::encode($selectedTherapistName) ?>
+                </span>
+                <a href="<?= Html::encode(Url::to(['therapists', 'id_therapist' => $nextTherapist['id']])) ?>"
+                   class="therapist-nav-link inline-flex flex-1 items-center justify-end gap-2 text-sm text-gray-600 dark:text-gray-400"
+                   title="Terapista successivo: <?= Html::encode($nextTherapist['name']) ?>">
+                    <span class="therapist-nav-name"><?= Html::encode($nextTherapist['name']) ?></span>
+                    <span class="therapist-nav-arrow text-xl" aria-hidden="true">&rsaquo;</span>
+                </a>
+            </div>
+        <?php endif; ?>
+
         <?php if ($idTherapist && $iframeSrc): ?>
             <div class="border-t border-gray-100 dark:border-gray-800">
                 <div class="calendar-iframe-wrapper">
@@ -84,6 +106,32 @@ if ($idTherapist && $selectedTherapistName) {
     .calendar-iframe-wrapper iframe {
         border: none;
         border-radius: 0 0 1rem 1rem;
+    }
+
+    .therapist-nav-link {
+        min-width: 0;
+        transition: color 0.15s ease;
+    }
+
+    .therapist-nav-link:hover {
+        color: var(--color-brand-500);
+    }
+
+    .dark .therapist-nav-link:hover {
+        color: var(--color-brand-400);
+    }
+
+    .therapist-nav-arrow {
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .therapist-nav-name,
+    .therapist-nav-current {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .select2-container {
