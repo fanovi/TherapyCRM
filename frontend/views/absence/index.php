@@ -21,11 +21,12 @@ $absenceTypes = \common\models\Absence::getTypeLabels();
 
 $calendarIcon = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
 
-$datePickerFilter = static function ($model, $attribute) use ($calendarIcon) {
+$datePickerFilter = static function ($model, $attribute, $title = null) use ($calendarIcon) {
     $id = Html::getInputId($model, $attribute);
     $input = Html::activeTextInput($model, $attribute, [
         'type' => 'date',
         'id' => $id,
+        'title' => $title,
         'class' => 'absence-date-filter w-full h-9 pl-2 pr-8 text-sm border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white cursor-pointer',
         'onclick' => 'this.showPicker && this.showPicker()',
     ]);
@@ -145,7 +146,7 @@ CSS
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => $datePickerFilter($searchModel, 'start_date'),
+                        'filter' => $datePickerFilter($searchModel, 'start_date', 'Dal: assenze in corso o successive a questa data'),
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [
@@ -154,7 +155,7 @@ CSS
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[180px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'filter' => $datePickerFilter($searchModel, 'end_date'),
+                        'filter' => $datePickerFilter($searchModel, 'end_date', 'Al: assenze in corso o precedenti a questa data'),
                         'format' => ['date', 'php:d/m/Y'],
                     ],
                     [

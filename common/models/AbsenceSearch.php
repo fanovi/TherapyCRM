@@ -99,12 +99,13 @@ class AbsenceSearch extends Absence
             ]);
         }
 
-        // Date range filter
+        // Date range filter: mostra le assenze che si sovrappongono al periodo
+        // [start_date, end_date] del filtro, non solo quelle contenute in esso
         if (!empty($this->start_date)) {
-            $query->andWhere(['>=', 'absences.start_date', $this->start_date]);
+            $query->andWhere(['>=', 'absences.end_date', $this->start_date]);
         }
         if (!empty($this->end_date)) {
-            $query->andWhere(['<=', 'absences.end_date', $this->end_date]);
+            $query->andWhere(['<=', 'absences.start_date', $this->end_date]);
         }
 
         return $dataProvider;
