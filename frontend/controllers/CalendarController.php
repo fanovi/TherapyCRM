@@ -71,38 +71,36 @@ class CalendarController extends Controller
             ? (int) $id_therapist
             : null;
         $selectedTherapistName = null;
-        $prevTherapist = null;
-        $nextTherapist = null;
+        $therapistNav = null;
 
         if ($idTherapist !== null) {
             if (!$this->isTherapistAllowed($idTherapist)) {
                 throw new ForbiddenHttpException('Non hai i permessi per visualizzare il calendario di questo terapista.');
             }
             $selectedTherapistName = $this->getTherapistLabel($idTherapist);
-            list($prevTherapist, $nextTherapist) = $this->getTherapistNeighbors($idTherapist);
+            $therapistNav = $this->getTherapistNavigation($idTherapist);
         }
 
         return $this->render('therapists', [
             'idTherapist' => $idTherapist,
             'selectedTherapistName' => $selectedTherapistName,
-            'prevTherapist' => $prevTherapist,
-            'nextTherapist' => $nextTherapist,
+            'therapistNav' => $therapistNav,
         ]);
     }
 
     /**
      * Terapista precedente e successivo nella lista della ricerca, in modo circolare
-     * (dal primo si torna all'ultimo e viceversa).
+     * (dal primo si torna all'ultimo e viceversa), con la posizione del corrente.
      *
      * @param int $id
-     * @return array [prev, next], ciascuno ['id' => int, 'name' => string] o null
+     * @return array|null ['prev' => [id, name], 'next' => [id, name], 'position' => int, 'total' => int]
      */
-    private function getTherapistNeighbors($id)
+    private function getTherapistNavigation($id)
     {
         $therapists = $this->findAllowedTherapistsQuery()->all();
         $count = count($therapists);
         if ($count < 2) {
-            return [null, null];
+            return null;
         }
 
         $index = null;
@@ -113,15 +111,17 @@ class CalendarController extends Controller
             }
         }
         if ($index === null) {
-            return [null, null];
+            return null;
         }
 
         $prev = $therapists[($index - 1 + $count) % $count];
         $next = $therapists[($index + 1) % $count];
 
         return [
-            ['id' => (int) $prev->id, 'name' => $this->formatTherapistName($prev)],
-            ['id' => (int) $next->id, 'name' => $this->formatTherapistName($next)],
+            'prev' => ['id' => (int) $prev->id, 'name' => $this->formatTherapistName($prev)],
+            'next' => ['id' => (int) $next->id, 'name' => $this->formatTherapistName($next)],
+            'position' => $index + 1,
+            'total' => $count,
         ];
     }
 
