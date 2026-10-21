@@ -132,12 +132,33 @@ class TherapeuticPlanManagerController extends Controller
                 // Genera appuntamenti (passa anche $data per weekInterval)
                 $result = $this->generateAppointments($pattern, $therapist, $planTherapy, $patient, $data);
 
+                // Terapista assente in alcune occorrenze: non blocca, ma serve la
+                // conferma esplicita dell'operatore. Senza conferma si annulla tutto
+                // e si restituisce l'elenco delle date (stessa forma del singolo).
+                $absentOccurrences = $result['absentOccurrences'];
+                unset($result['absentOccurrences']);
+                if ($absentOccurrences && !$this->isTherapistAbsenceConfirmed($data)) {
+                    $transaction->rollBack();
+                    return $this->therapistAbsentSeriesResponse($absentOccurrences);
+                }
+
                 $response = array_merge($response, $result);
                 $response['success'] = true;
                 $response['message'] = 'Pattern creato con successo';
                 $response['data']['patternId'] = $pattern->id;
+                $response['absentOccurrences'] = array_map(function ($occurrence) {
+                    return [
+                        'appointmentId' => $occurrence['appointment']->id,
+                        'date' => date('Y-m-d', strtotime($occurrence['appointment']->appointment_datetime)),
+                        'absenceId' => $occurrence['absence']->id,
+                    ];
+                }, $absentOccurrences);
 
                 $transaction->commit();
+
+                if ($absentOccurrences) {
+                    $this->notifySeriesWithAbsentTherapist($absentOccurrences, $patient);
+                }
 
                 Yii::info("Pattern creato con successo: ID {$pattern->id}, Appuntamenti creati: {$result['appointmentsCreated']}", __METHOD__);
 
@@ -4172,24 +4193,130 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
-     * Blocco assenza terapista per gli appuntamenti generati da pattern ricorrente:
-     * le occorrenze che cadono in un'assenza approvata vengono scartate.
-     * Per singolo appuntamento, spostamento e modifica l'assenza non blocca
-     * piu' ma richiede conferma (vedi therapistAbsenceRequiresConfirmation()).
+     * Raggruppa le occorrenze di una serie create con terapista assente per
+     * assenza, con le date (d/m/Y) ordinate.
      *
-     * @param array $data therapistId, appointmentDateTime, durationMinutes (opzionale)
-     * @throws BadRequestHttpException
+     * @param array $absentOccurrences elementi ['appointment' => Appointment, 'absence' => Absence]
+     * @return array elementi ['absence' => Absence, 'dates' => string[]]
      */
-    private function validateTherapist($data)
+    private function groupAbsentOccurrencesByAbsence(array $absentOccurrences)
     {
-        $absence = $this->findTherapistAbsence(
-            $data['therapistId'],
-            $data['appointmentDateTime'],
-            $data['durationMinutes'] ?? 0
-        );
+        $groups = [];
+        foreach ($absentOccurrences as $occurrence) {
+            $absenceId = $occurrence['absence']->id;
+            if (!isset($groups[$absenceId])) {
+                $groups[$absenceId] = ['absence' => $occurrence['absence'], 'dates' => []];
+            }
+            $groups[$absenceId]['dates'][] = date('d/m/Y', strtotime($occurrence['appointment']->appointment_datetime));
+        }
 
-        if ($absence) {
-            throw new BadRequestHttpException('Terapista non disponibile per le date selezionate');
+        return array_values($groups);
+    }
+
+    /**
+     * Response che chiede conferma per una serie ricorrente con alcune occorrenze
+     * in cui il terapista e' assente. Stessa forma di therapistAbsentResponse()
+     * (code THERAPIST_ABSENT), con l'elenco delle date.
+     *
+     * @param array $absentOccurrences elementi ['appointment' => Appointment, 'absence' => Absence]
+     * @return array
+     */
+    private function therapistAbsentSeriesResponse(array $absentOccurrences)
+    {
+        $groups = $this->groupAbsentOccurrencesByAbsence($absentOccurrences);
+        $therapistName = $this->describeTherapistAbsence($groups[0]['absence'])['therapistName'];
+
+        $parts = [];
+        $dates = [];
+        foreach ($groups as $group) {
+            $info = $this->describeTherapistAbsence($group['absence']);
+            $parts[] = implode(', ', $group['dates']) . " ({$info['typeLabel']}{$info['reason']})";
+            $dates = array_merge($dates, $group['dates']);
+        }
+
+        $count = count($absentOccurrences);
+        $intro = $count === 1
+            ? "Il terapista {$therapistName} è assente in 1 data della serie"
+            : "Il terapista {$therapistName} è assente in {$count} date della serie";
+
+        return [
+            'success' => false,
+            'error' => "{$intro}: " . implode('; ', $parts) . '.',
+            'code' => 'THERAPIST_ABSENT',
+            'conflict' => [
+                'type' => 'therapist_absent',
+                'therapistName' => $therapistName,
+                'dates' => $dates,
+                'absenceIds' => array_map(function ($group) {
+                    return $group['absence']->id;
+                }, $groups),
+            ],
+        ];
+    }
+
+    /**
+     * Notifica (solo gestionale) direzione + coordinatori del terapista quando una
+     * serie ricorrente viene creata con alcune occorrenze su un terapista assente.
+     * Una notifica per assenza con l'elenco delle date, per non generarne una per
+     * occorrenza. Un errore di invio non annulla l'operazione.
+     *
+     * @param array $absentOccurrences elementi ['appointment' => Appointment, 'absence' => Absence]
+     * @param Patient $patient
+     */
+    private function notifySeriesWithAbsentTherapist(array $absentOccurrences, $patient)
+    {
+        try {
+            $patientName = $patient ? $patient->getFullName() : 'N/D';
+
+            $user = Yii::$app->user->identity;
+            $insertedBy = ($user && $user->profile)
+                ? 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name
+                : 'Operatore';
+
+            $title = 'Appuntamenti ricorrenti con terapista assente';
+
+            foreach ($this->groupAbsentOccurrencesByAbsence($absentOccurrences) as $group) {
+                $absence = $group['absence'];
+                $info = $this->describeTherapistAbsence($absence);
+                $time = date('H:i', strtotime($absentOccurrences[0]['appointment']->appointment_datetime));
+
+                $message = 'Serie ricorrente inserita per il paziente ' . $patientName
+                    . " con il terapista {$info['therapistName']}, assente {$info['period']}{$info['timeRange']}"
+                    . " ({$info['typeLabel']}). Appuntamenti da sostituire alle {$time} dei giorni: "
+                    . implode(', ', $group['dates']) . ".\n"
+                    . "{$insertedBy}";
+
+                $appointmentIds = [];
+                foreach ($absentOccurrences as $occurrence) {
+                    if ($occurrence['absence']->id === $absence->id) {
+                        $appointmentIds[] = $occurrence['appointment']->id;
+                    }
+                }
+
+                $data = [
+                    'appointment_id' => $appointmentIds[0],
+                    'appointment_ids' => $appointmentIds,
+                    'pattern_id' => $absentOccurrences[0]['appointment']->pattern_id,
+                    'absence_id' => $absence->id,
+                    'therapist_id' => $absence->therapist_id,
+                    'type' => 'appointment_with_absent_therapist',
+                ];
+
+                // Direzione: solo gestionale (skipPush=true).
+                NotificationHelper::sendToManagement($title, $message, Notification::TYPE_INFO, $data, true);
+
+                // Coordinatori dei gruppi del terapista assente: solo gestionale (skipPush=true).
+                NotificationHelper::sendToTherapistCoordinators(
+                    $absence->therapist_id,
+                    $title,
+                    $message,
+                    Notification::TYPE_INFO,
+                    $data,
+                    true
+                );
+            }
+        } catch (\Exception $e) {
+            Yii::error('Errore invio notifiche serie con terapista assente: ' . $e->getMessage(), __METHOD__);
         }
     }
 
@@ -4634,7 +4761,9 @@ class TherapeuticPlanManagerController extends Controller
         $result = [
             'appointmentsCreated' => 0,
             'conflicts' => [],
-            'weeklyLimitExceeded' => []
+            'weeklyLimitExceeded' => [],
+            // Occorrenze create con il terapista assente: ['appointment' => Appointment, 'absence' => Absence]
+            'absentOccurrences' => []
         ];
 
         $currentDate = new DateTime($pattern->valid_from);
@@ -4789,6 +4918,11 @@ class TherapeuticPlanManagerController extends Controller
                     $result['weeklyLimitExceeded'][] = $weeklyLimitInfo;
                 }
 
+                // Terapista assente: l'occorrenza si crea comunque (come il singolo),
+                // la conferma la chiede actionCreatePattern. Controllato dopo i blocchi
+                // veri, cosi' non si segnalano date che verrebbero comunque scartate.
+                $absence = $this->findTherapistAbsence($pattern->therapist_id, $appointmentDateTime, $pattern->duration_minutes);
+
                 // Crea appuntamento (nuovo group_session_id per ciascuna occorrenza se isGroup)
                 $occurrenceGroupSessionId = !empty($data['isGroup'])
                     ? Appointment::generateGroupSessionId()
@@ -4796,6 +4930,9 @@ class TherapeuticPlanManagerController extends Controller
                 try {
                     $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $occurrenceGroupSessionId, $abaAppointmentType);
                     $result['appointmentsCreated']++;
+                    if ($absence) {
+                        $result['absentOccurrences'][] = ['appointment' => $appointment, 'absence' => $absence];
+                    }
                     Yii::info("Appuntamento creato con successo: ID {$appointment->id}, DateTime: {$appointmentDateTime}", __METHOD__);
                 } catch (Exception $e) {
                     Yii::error("Errore nella creazione dell'appuntamento per {$appointmentDateTime}: " . $e->getMessage(), __METHOD__);
@@ -4822,11 +4959,6 @@ class TherapeuticPlanManagerController extends Controller
     private function createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $groupSessionId = null, $appointmentType = null)
     {
         Yii::info("Creazione appuntamento da pattern - DateTime: {$appointmentDateTime}, Pattern ID: {$pattern->id}", __METHOD__);
-        $this->validateTherapist([
-            'therapistId' => $pattern->therapist_id,
-            'appointmentDateTime' => $appointmentDateTime,
-            'durationMinutes' => $pattern->duration_minutes,
-        ]);
 
         // Validazione data rispetto al piano terapeutico
         $this->validateStartDate($appointmentDateTime, $pattern->plan_therapy_id);

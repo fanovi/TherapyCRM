@@ -856,6 +856,7 @@ const Index = () => {
 
       let result;
       let appointmentsCreated = 1;
+      let absentOccurrencesCount = 0;
       let weeklyLimitExceeded: any[] = [];
 
       // console.log("appointmentData", appointmentData);
@@ -879,9 +880,15 @@ const Index = () => {
           // validTo verrà ricavato dal backend dal piano terapeutico
         };
 
-        const patternResult = await therapyAPI.createPattern(patternRequest);
+        // Niente conferma riusata dal clic sullo slot: vale solo per la prima
+        // data, il server elenca tutte le date della serie con il terapista assente.
+        const patternResult = await withTherapistAbsenceConfirm(
+          (confirmTherapistAbsence) =>
+            therapyAPI.createPattern({ ...patternRequest, confirmTherapistAbsence })
+        );
         result = { appointmentId: patternResult.data.patternId };
         appointmentsCreated = patternResult.appointmentsCreated;
+        absentOccurrencesCount = patternResult.absentOccurrences?.length || 0;
         weeklyLimitExceeded = patternResult.weeklyLimitExceeded || [];
 
         if (patternResult.conflicts && patternResult.conflicts.length > 0) {
@@ -981,7 +988,10 @@ const Index = () => {
       if (appointmentData.isRecurring) {
         showSuccess(
           "Pattern ricorrente creato",
-          `${appointmentsCreated} appuntamenti sono stati creati con successo`
+          `${appointmentsCreated} appuntamenti sono stati creati con successo` +
+            (absentOccurrencesCount > 0
+              ? `, di cui ${absentOccurrencesCount} con terapista assente da sostituire`
+              : "")
         );
       } else {
         showSuccess(

@@ -528,6 +528,9 @@ class TherapeuticPlanManagerAPI {
 
   /**
    * Crea un pattern di appuntamenti ricorrenti
+   *
+   * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
    */
   async createPattern(
     request: CreatePatternRequest,
@@ -542,7 +545,12 @@ class TherapeuticPlanManagerAPI {
         "error" in response
           ? response.error
           : "Errore nella creazione del pattern";
-      throw new Error(errorMessage || "Errore nella creazione del pattern");
+      const error = new Error(
+        errorMessage || "Errore nella creazione del pattern",
+      ) as any;
+      error.code = (response as any).code;
+      error.conflict = (response as any).conflict;
+      throw error;
     }
 
     return response as CreatePatternResponse;

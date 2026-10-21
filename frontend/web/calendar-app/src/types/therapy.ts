@@ -219,6 +219,8 @@ export interface CreatePatternRequest {
   weekInterval?: number; // 1 = settimanale (default), 2 = ogni 2 settimane
   isGroup?: boolean;
   id_setting?: number;
+  /** true = crea anche le occorrenze con terapista assente (conferma gia' data dall'operatore) */
+  confirmTherapistAbsence?: boolean;
 }
 
 export interface UpdateAppointmentRequest {
@@ -252,6 +254,12 @@ export interface CreatePatternResponse {
   appointmentsCreated: number;
   conflicts: ConflictInfo[];
   weeklyLimitExceeded: WeeklyLimitInfo[];
+  /** Occorrenze create con il terapista assente, da sostituire */
+  absentOccurrences?: Array<{
+    appointmentId: number;
+    date: string;
+    absenceId: number;
+  }>;
   data: {
     patternId: number;
   };
