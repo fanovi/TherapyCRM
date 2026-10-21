@@ -651,8 +651,11 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       confirmMessage = `Sei sicuro di voler eliminare solo l'appuntamento di ${currentPatientAppointment.patient?.name}?`;
     } else if (deleteAllFuture) {
       if (appointment.isRecurring && appointment.patternId) {
-        confirmMessage =
-          "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
+        confirmMessage = appointment.groupSessionId
+          ? `Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie di ${
+              currentPatientAppointment?.patient?.name || appointment.patient?.name
+            }? Gli altri partecipanti del gruppo non vengono toccati.`
+          : "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
       } else if (appointment.isPrivate && appointment.privateCycleId) {
         confirmMessage =
           "Sei sicuro di voler eliminare tutti gli appuntamenti del ciclo privato?";
@@ -668,9 +671,12 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       if (deleteAllFuture) {
         if (appointment.isRecurring && appointment.patternId) {
           const appointmentDate = appointment.datetime.split(" ")[0];
+          // appointmentId limita la cancellazione al paziente selezionato: in un
+          // gruppo ricorrente il pattern e' condiviso da tutti i partecipanti
           await therapyAPI.deletePatternAppointments({
-            patternId: appointment.patternId,
+            patternId: currentPatientAppointment?.patternId ?? appointment.patternId,
             fromDate: appointmentDate,
+            appointmentId: selectedAppointmentId,
           });
         } else if (appointment.isPrivate && appointment.privateCycleId) {
           await therapyAPI.deletePrivateCycleAppointments(

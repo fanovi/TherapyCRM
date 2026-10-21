@@ -228,6 +228,8 @@ export interface UpdateAppointmentRequest {
 export interface DeletePatternRequest {
   patternId: number;
   fromDate: string; // YYYY-MM-DD - cancella dal questo appuntamento in poi
+  appointmentId?: number; // limita la cancellazione al paziente di questa occorrenza
+  applyToGroup?: boolean; // serie di gruppo: cancella per tutti i partecipanti
 }
 
 // Tipi per le risposte API

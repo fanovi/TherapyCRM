@@ -3557,6 +3557,15 @@ class TherapeuticPlanManagerController extends Controller
                 throw new NotFoundHttpException('Pattern non trovato');
             }
 
+            // Un pattern di gruppo e' condiviso da tutti i partecipanti: spostarlo
+            // per un solo paziente lo farebbe uscire dallo slot lasciandogli il
+            // group_session_id. Si modifica solo per l'intero gruppo, esplicitamente.
+            if ($this->isSharedPattern($pattern->id) && empty($data['applyToGroup'])) {
+                throw new BadRequestHttpException(
+                    'La serie è condivisa da un gruppo: la modifica è possibile solo per tutto il gruppo (applyToGroup).'
+                );
+            }
+
             // Trova appuntamenti futuri del pattern
             $appointments = Appointment::find()
                 ->where([
@@ -3858,6 +3867,12 @@ class TherapeuticPlanManagerController extends Controller
     /**
      * Cancella tutti gli appuntamenti futuri di un pattern ricorrente
      *
+     * Con appointmentId la cancellazione riguarda solo il paziente di quella
+     * occorrenza (sua plan_therapy), estensioni personali della serie comprese:
+     * in un gruppo ricorrente gli altri partecipanti condividono il pattern e
+     * non vanno toccati. applyToGroup=true cancella l'intero pattern per tutti.
+     * Senza appointmentId un pattern di gruppo non viene cancellato.
+     *
      * @return array
      */
     public function actionDeletePatternAppointments()
@@ -3880,14 +3895,42 @@ class TherapeuticPlanManagerController extends Controller
                 throw new NotFoundHttpException('Pattern non trovato');
             }
 
-            // Trova tutti gli appuntamenti del pattern dalla data specificata in poi
-            $appointments = Appointment::find()
+            $applyToGroup = !empty($data['applyToGroup']);
+            $appointmentId = (int) ($data['appointmentId'] ?? 0);
+
+            $patternIds = [$pattern->id];
+            $planTherapyId = null;
+
+            if (!$applyToGroup && $appointmentId) {
+                $clicked = Appointment::findOne($appointmentId);
+                if (!$clicked) {
+                    throw new NotFoundHttpException('Appuntamento non trovato');
+                }
+                if ((int) $clicked->pattern_id !== (int) $pattern->id) {
+                    throw new BadRequestHttpException('L\'appuntamento non appartiene alla serie indicata');
+                }
+                $planTherapyId = $clicked->plan_therapy_id;
+                $patternIds = $this->getPatientSeriesPatternIds($pattern, $planTherapyId);
+            } elseif (!$applyToGroup && $this->isSharedPattern($pattern->id)) {
+                throw new BadRequestHttpException(
+                    'La serie è condivisa da un gruppo: indicare l\'appuntamento del paziente (appointmentId) oppure applyToGroup.'
+                );
+            }
+
+            // Trova gli appuntamenti della serie dalla data specificata in poi,
+            // limitati al paziente quando la cancellazione e' per singolo paziente
+            $query = Appointment::find()
                 ->where([
-                    'pattern_id' => $pattern->id,
+                    'pattern_id' => $patternIds,
                     'status' => Appointment::STATUS_SCHEDULED
                 ])
-                ->andWhere(['>=', 'appointment_datetime', $data['fromDate'] . ' 00:00:00'])
-                ->all();
+                ->andWhere(['>=', 'appointment_datetime', $data['fromDate'] . ' 00:00:00']);
+
+            if ($planTherapyId !== null) {
+                $query->andWhere(['plan_therapy_id' => $planTherapyId]);
+            }
+
+            $appointments = $query->all();
 
             if (empty($appointments)) {
                 return [
@@ -3902,6 +3945,7 @@ class TherapeuticPlanManagerController extends Controller
 
             try {
                 $deletedCount = 0;
+                $touchedGroupSessionIds = [];
 
                 foreach ($appointments as $appointment) {
                     // Cancella logicamente l'appuntamento
@@ -3911,16 +3955,28 @@ class TherapeuticPlanManagerController extends Controller
                         throw new Exception('Errore cancellazione appuntamento ID: ' . $appointment->id);
                     }
 
+                    if ($appointment->group_session_id !== null) {
+                        $touchedGroupSessionIds[$appointment->group_session_id] = true;
+                    }
+
                     // Traccia cancellazione
                     if (isset(Yii::$app->activityLog)) {
                         Yii::$app->activityLog->record(
                             'delete_appointment',
-                            'Appuntamento cancellato (cancellazione pattern)',
+                            $planTherapyId !== null
+                                ? 'Appuntamento cancellato (serie, solo paziente)'
+                                : 'Appuntamento cancellato (cancellazione pattern)',
                             $appointment->id
                         );
                     }
 
                     $deletedCount++;
+                }
+
+                // Le sessioni di gruppo rimaste con un solo partecipante non sono
+                // piu' gruppi (ticket #296)
+                foreach (array_keys($touchedGroupSessionIds) as $groupSessionId) {
+                    $this->dissolveGroupIfSingleMember($groupSessionId);
                 }
 
                 $transaction->commit();
@@ -3940,6 +3996,59 @@ class TherapeuticPlanManagerController extends Controller
             Yii::error('Errore cancellazione appuntamenti pattern: ' . $e->getMessage(), __METHOD__);
             return $this->errorResponse($e->getMessage());
         }
+    }
+
+    /**
+     * Un pattern e' condiviso quando i suoi appuntamenti appartengono a piu'
+     * plan_therapy, cioe' a piu' pazienti di un gruppo ricorrente.
+     *
+     * @param int $patternId
+     * @return bool
+     */
+    private function isSharedPattern($patternId)
+    {
+        $planTherapyCount = (int) Appointment::find()
+            ->where(['pattern_id' => $patternId])
+            ->andWhere(['is not', 'plan_therapy_id', null])
+            ->select('plan_therapy_id')
+            ->distinct()
+            ->count();
+
+        return $planTherapyCount > 1;
+    }
+
+    /**
+     * Pattern che compongono la serie di un paziente: quello indicato piu' gli
+     * eventuali pattern di estensione creati da createPatientRecurringExtension
+     * (stessa plan_therapy, terapista, giorno e ora, validi dopo la fine del
+     * pattern di gruppo). Non c'e' un collegamento esplicito tra i due, quindi
+     * li si riconosce da questi campi.
+     *
+     * @param AppointmentPattern $pattern
+     * @param int|null $planTherapyId
+     * @return int[]
+     */
+    private function getPatientSeriesPatternIds($pattern, $planTherapyId)
+    {
+        $patternIds = [(int) $pattern->id];
+
+        if ($planTherapyId === null) {
+            return $patternIds;
+        }
+
+        $extensionIds = AppointmentPattern::find()
+            ->select('id')
+            ->where([
+                'plan_therapy_id' => $planTherapyId,
+                'therapist_id' => $pattern->therapist_id,
+                'day_of_week' => $pattern->day_of_week,
+                'start_time' => $pattern->start_time,
+            ])
+            ->andWhere(['>', 'valid_from', $pattern->valid_to])
+            ->andWhere(['!=', 'id', $pattern->id])
+            ->column();
+
+        return array_merge($patternIds, array_map('intval', $extensionIds));
     }
 
     /**
