@@ -1962,8 +1962,8 @@ const Index = () => {
                   )}
                 </div>
                 <p className="text-xs text-orange-600 mt-2">
-                  ⚡ Non è possibile creare appuntamenti durante i periodi di
-                  assenza
+                  ⚡ Gli appuntamenti nei periodi di assenza richiedono conferma
+                  e vanno poi sostituiti
                 </p>
               </div>
             </div>
