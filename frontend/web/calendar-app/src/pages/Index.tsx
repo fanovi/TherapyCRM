@@ -460,11 +460,15 @@ const Index = () => {
     therapist: Therapist
   ) => {
     try {
+      // Terapista fuori specializzazione ("Tutti i terapisti", #336): la
+      // planTherapy va cercata per trattamento, non per le sue specializzazioni.
       await therapyAPI.getPlanTherapyForTherapist(
         patient.id,
         therapist.id,
         undefined,
-        undefined,
+        therapist.specializationMatch === false
+          ? selectedSpecialization?.treatment_type_id
+          : undefined,
         patient.planTherapy?.therapeuticPlanId
       );
       setCanCreateNormalAppointments(true);
