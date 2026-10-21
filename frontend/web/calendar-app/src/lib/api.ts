@@ -175,16 +175,24 @@ class TherapeuticPlanManagerAPI {
    * Ottiene la lista dei terapisti filtrati per tipo di trattamento.
    * Se patientId viene passato e il paziente ha un piano ABA attivo,
    * il backend filtra automaticamente per is_aba=1.
+   *
+   * NON RIMUOVERE — usato da TherapistSelector. Con all=true (toggle "Tutti i
+   * terapisti") include anche i terapisti fuori specializzazione, marcati
+   * con specializationMatch=false: per loro solo appuntamenti singoli (#336).
    */
   async getTherapistsByTreatment(
     treatmentTypeId: number,
     patientId?: number,
+    all?: boolean,
   ): Promise<Therapist[]> {
     const params: Record<string, string | number> = {
       treatmentTypeId,
     };
     if (patientId) {
       params.patientId = patientId;
+    }
+    if (all) {
+      params.all = 1;
     }
     const response = await this.get<APIResponse<Therapist[]>>(
       "get-therapists-by-treatment",
@@ -489,7 +497,8 @@ class TherapeuticPlanManagerAPI {
    * Crea un singolo appuntamento
    *
    * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
-   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm;
+   * e con forceTherapist per il terapista fuori specializzazione, #336).
    */
   async createAppointment(request: CreateAppointmentRequest): Promise<{
     appointmentId: number;
@@ -885,7 +894,8 @@ class TherapeuticPlanManagerAPI {
    * Permette appointment_type diversi nello stesso slot
    *
    * NON RIMUOVERE — usato dal calendario (anche con confirmTherapistAbsence: il
-   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm).
+   * server risponde code THERAPIST_ABSENT, vedi withTherapistAbsenceConfirm;
+   * e con forceTherapist per il terapista fuori specializzazione, #336).
    */
   async createABAAppointment(request: {
     planTherapyId: number;
@@ -901,6 +911,7 @@ class TherapeuticPlanManagerAPI {
     id_setting?: number;
     appointmentCategory?: "regular" | "recovery";
     confirmTherapistAbsence?: boolean;
+    forceTherapist?: boolean;
   }): Promise<{
     appointmentId: number;
     groupSessionId?: string | null;

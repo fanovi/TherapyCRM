@@ -33,6 +33,11 @@ export interface Therapist {
   color?: string;
   isAvailable?: boolean;
   unavailabilityReason?: string;
+  /**
+   * false = terapista fuori specializzazione per il trattamento selezionato
+   * (lista "Tutti i terapisti"): ammessi solo appuntamenti singoli (#336).
+   */
+  specializationMatch?: boolean;
 }
 
 export interface ResolveSpecializationResponse {
@@ -198,6 +203,8 @@ export interface CreateAppointmentRequest {
   appointmentCategory?: "regular" | "recovery";
   /** true = crea anche se il terapista e' assente (conferma gia' data dall'operatore) */
   confirmTherapistAbsence?: boolean;
+  /** true = terapista fuori specializzazione, solo per il singolo (#336) */
+  forceTherapist?: boolean;
 }
 
 export interface CreatePatternRequest {

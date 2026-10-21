@@ -64,6 +64,17 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   >("terapia");
   const [loading, setLoading] = useState(false);
 
+  // Terapista fuori specializzazione ("Tutti i terapisti" nel selettore):
+  // ammesso solo l'appuntamento singolo, il ricorrente resta vincolato (#336).
+  const isOutOfSpecTherapist = selectedTherapist?.specializationMatch === false;
+
+  useEffect(() => {
+    if (isOpen && isOutOfSpecTherapist && formData.isRecurring) {
+      setFormData((prev) => ({ ...prev, isRecurring: false }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isOutOfSpecTherapist]);
+
   // Stati per settings
   const [settings, setSettings] = useState<{ id: number; nome: string }[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -264,6 +275,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
       onConfirm({
         ...formData,
+        isRecurring: isOutOfSpecTherapist ? false : formData.isRecurring,
         therapyType,
         appointmentType: isABARegime ? appointmentType : "terapia",
         isGroup: formData.isGroup, // Passa il valore isGroup
@@ -411,6 +423,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <Checkbox
                 id="recurring"
                 checked={formData.isRecurring}
+                disabled={isOutOfSpecTherapist}
                 onCheckedChange={(checked) =>
                   setFormData({ ...formData, isRecurring: checked as boolean })
                 }
@@ -419,6 +432,13 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                 Appuntamento ricorrente
               </Label>
             </div>
+
+            {isOutOfSpecTherapist && (
+              <div className="ml-6 p-2 bg-amber-50 rounded text-xs text-amber-700">
+                Terapista fuori specializzazione: è possibile creare solo un
+                appuntamento singolo
+              </div>
+            )}
 
             {/* Selezione frequenza ricorrenza */}
             {formData.isRecurring && (

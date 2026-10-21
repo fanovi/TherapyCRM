@@ -1811,10 +1811,16 @@ class TherapeuticPlanManagerController extends Controller
     /**
      * Ottiene i terapisti per un tipo di trattamento specifico
      *
+     * Con $all=1 (toggle "Tutti i terapisti" in creazione) toglie solo il filtro
+     * sulla specializzazione; restano attivo, coordinatore e flag di capacità.
+     * Ogni terapista riporta specializationMatch: se false è "fuori
+     * specializzazione" e può ricevere solo appuntamenti singoli (ticket #336).
+     *
      * @param int $treatmentTypeId
+     * @param int $all
      * @return array
      */
-    public function actionGetTherapistsByTreatment($treatmentTypeId)
+    public function actionGetTherapistsByTreatment($treatmentTypeId, $all = 0)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
@@ -1840,8 +1846,12 @@ class TherapeuticPlanManagerController extends Controller
                 ->innerJoin('{{%users}} u', 'u.id = t.user_id')
                 ->innerJoin('{{%user_profiles}} up', 'up.user_id = u.id')
                 ->where(['t.is_active' => true])
-                ->andWhere(['exists', $hasSpecMatch])
                 ->orderBy(['up.last_name' => SORT_ASC]);
+
+            $showAll = filter_var($all, FILTER_VALIDATE_BOOLEAN);
+            if (!$showAll) {
+                $query->andWhere(['exists', $hasSpecMatch]);
+            }
 
             // Filter by capability flags per tipo trattamento.
             // - SUP   → terapisti con can_supervise=1
@@ -1874,13 +1884,19 @@ class TherapeuticPlanManagerController extends Controller
 
             $therapists = $query->all();
 
+            $matchingTherapistIds = $showAll
+                ? $this->getTherapistIdsMatchingTreatment((int)$treatmentTypeId)
+                : null;
+
             $result = [];
             foreach ($therapists as $therapist) {
                 $profile = $therapist->user->profile;
                 $result[] = [
                     'id' => $therapist->id,
                     'name' => $profile->getFullName(),
-                    'email' => $therapist->user->email
+                    'email' => $therapist->user->email,
+                    'specializationMatch' => $matchingTherapistIds === null
+                        || in_array((int)$therapist->id, $matchingTherapistIds, true),
                 ];
             }
 
@@ -4226,6 +4242,80 @@ class TherapeuticPlanManagerController extends Controller
     }
 
     /**
+     * True se il client chiede di forzare un terapista fuori specializzazione
+     * (toggle "Tutti i terapisti"). Ammesso solo sugli appuntamenti singoli:
+     * il ricorrente (actionCreatePattern) non legge questo parametro.
+     *
+     * @param array $data
+     * @return bool
+     */
+    private function isTherapistForced($data)
+    {
+        return filter_var($data['forceTherapist'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Id dei terapisti che possiedono almeno una specializzazione che offre
+     * il tipo di trattamento (stesso criterio di actionGetTherapistsByTreatment).
+     *
+     * @param int $treatmentTypeId
+     * @return int[]
+     */
+    private function getTherapistIdsMatchingTreatment($treatmentTypeId)
+    {
+        $ids = (new \yii\db\Query())
+            ->select('ts.therapist_id')
+            ->from(['ts' => '{{%therapist_specializations}}'])
+            ->innerJoin(
+                ['st' => '{{%specialization_treatments}}'],
+                'st.specialization_id = ts.specialization_id'
+            )
+            ->where(['st.treatment_type_id' => (int)$treatmentTypeId])
+            ->distinct()
+            ->column();
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * Appuntamento singolo con terapista forzato (ticket #336): se il terapista
+     * non possiede una specializzazione che offre il trattamento della terapia,
+     * salta la validazione di compatibilità e storicizza la specializzazione
+     * del TRATTAMENTO (non quella del terapista). Se il terapista è compatibile
+     * non fa nulla: vale la risoluzione normale del model.
+     *
+     * @param Appointment $appointment con plan_therapy_id e therapist_id valorizzati
+     * @throws BadRequestHttpException se la specializzazione del trattamento non è univoca
+     */
+    private function applyForcedTherapistSpecialization(Appointment $appointment)
+    {
+        $treatmentTypeId = (int)PlanTherapy::find()
+            ->select('treatment_type_id')
+            ->where(['id' => $appointment->plan_therapy_id])
+            ->scalar();
+        if (!$treatmentTypeId) {
+            return;
+        }
+
+        if (in_array((int)$appointment->therapist_id, $this->getTherapistIdsMatchingTreatment($treatmentTypeId), true)) {
+            return;
+        }
+
+        $specIds = SpecializationTreatment::find()
+            ->select('specialization_id')
+            ->where(['treatment_type_id' => $treatmentTypeId])
+            ->distinct()
+            ->column();
+
+        if (count($specIds) !== 1) {
+            throw new BadRequestHttpException('Impossibile determinare la specializzazione del trattamento per il terapista forzato.');
+        }
+
+        $appointment->specialization_id = (int)$specIds[0];
+        $appointment->skipSpecializationCompatibilityValidation = true;
+    }
+
+    /**
      * Response che chiede conferma per un appuntamento con terapista assente,
      * nella stessa forma degli altri conflitti (error + code + conflict).
      *
@@ -4833,6 +4923,10 @@ class TherapeuticPlanManagerController extends Controller
         } elseif ($appointment->id_setting === null) {
             $setting = PlanHelper::getPlanTherapySettingFromAppointment($appointment);
             $appointment->id_setting = $setting->id;
+        }
+
+        if ($this->isTherapistForced($data)) {
+            $this->applyForcedTherapistSpecialization($appointment);
         }
 
         Yii::info('Tentativo salvataggio singolo appuntamento: ' . json_encode($appointment->attributes), __METHOD__);
@@ -6591,6 +6685,10 @@ class TherapeuticPlanManagerController extends Controller
             $appointment->created_by = $this->getCurrentUserId();
             $appointment->id_setting = $data['id_setting'] ?? 1;
             $appointment->group_session_id = $groupSessionId;
+
+            if ($this->isTherapistForced($data)) {
+                $this->applyForcedTherapistSpecialization($appointment);
+            }
 
             if (!$appointment->save()) {
                 throw new Exception('Errore nel salvataggio: ' . json_encode($appointment->errors));

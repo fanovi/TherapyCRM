@@ -901,6 +901,7 @@ const Index = () => {
             isGroup: appointmentData.isGroup,
             id_setting: appointmentData.id_setting,
             appointmentCategory: appointmentData.appointment_category,
+            forceTherapist: selectedTherapist.specializationMatch === false,
           };
 
           result = await withTherapistAbsenceConfirm(
@@ -919,6 +920,7 @@ const Index = () => {
             isGroup: appointmentData.isGroup,
             id_setting: appointmentData.id_setting,
             appointmentCategory: appointmentData.appointment_category,
+            forceTherapist: selectedTherapist.specializationMatch === false,
           };
 
           const singleResult = await withTherapistAbsenceConfirm(

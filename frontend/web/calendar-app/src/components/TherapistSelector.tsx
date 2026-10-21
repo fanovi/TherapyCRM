@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Therapist, Specialization, TreatmentType } from "@/types/therapy";
 import { therapyAPI } from "@/lib/api";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Users, Filter, Loader2 } from "lucide-react";
 
 interface TherapistSelectorProps {
@@ -43,6 +44,9 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
     Specialization[]
   >([]);
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
+  // "Tutti i terapisti": include anche quelli fuori specializzazione
+  // (specializationMatch=false), ammessi solo per appuntamenti singoli (#336).
+  const [showAllTherapists, setShowAllTherapists] = useState(false);
 
   // Carica le specializzazioni o i tipi di trattamento.
   // Dipende da planId: quando l'operatore cambia piano dal selettore
@@ -108,7 +112,8 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
             isPrivateMode
               ? selectedTreatmentType.id
               : selectedSpecialization.treatment_type_id,
-            patientId
+            patientId,
+            !isPrivateMode && showAllTherapists
           );
           // } else if (selectedSpecialization) {
           //   // In modalità normale, carica terapisti per specializzazione
@@ -150,7 +155,7 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
     };
 
     loadTherapists();
-  }, [selectedSpecialization, selectedTreatmentType, isPrivateMode]);
+  }, [selectedSpecialization, selectedTreatmentType, isPrivateMode, showAllTherapists]);
 
   const handleSpecializationChange = (value: string) => {
     const specialization = availableSpecializations.find(
@@ -307,11 +312,27 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
                         style={{ backgroundColor: therapist.color }}
                       />
                       {therapist.name}
+                      {therapist.specializationMatch === false && (
+                        <span className="text-xs text-amber-600">
+                          (fuori spec. - solo singolo)
+                        </span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!isPrivateMode && selectedSpecialization && (
+              <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                <Checkbox
+                  checked={showAllTherapists}
+                  onCheckedChange={(checked) =>
+                    setShowAllTherapists(checked === true)
+                  }
+                />
+                Tutti i terapisti (anche fuori specializzazione)
+              </label>
+            )}
           </div>
         </div>
 
@@ -330,6 +351,11 @@ export const TherapistSelector: React.FC<TherapistSelectorProps> = ({
                   <Badge variant="secondary">
                     {selectedTherapist.specialization}
                   </Badge>
+                  {selectedTherapist.specializationMatch === false && (
+                    <Badge variant="outline" className="border-amber-500 text-amber-700">
+                      Fuori spec. - solo singolo
+                    </Badge>
+                  )}
                   <span className="text-sm text-gray-600">
                     {selectedTherapist.email}
                   </span>
