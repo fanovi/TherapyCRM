@@ -206,6 +206,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       // la scelta "applica azioni a tutto il gruppo" fatta su un appuntamento
       // resterebbe attiva anche sul successivo (ticket #296).
       setApplyToWholeGroup(true);
+      setDeleteAllFuture(false);
 
       // console.log("📝 AppointmentEditModal ricevuto appointment:", appointment);
       // console.log("📝 appointment.groupSessionId:", appointment.groupSessionId);
@@ -214,9 +215,13 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       if (appointment.groupPatients && appointment.groupPatients.length > 0) {
         setGroupPatients(appointment.groupPatients);
 
-        // Se è un gruppo, seleziona il primo paziente per default
+        // Se è un gruppo, seleziona il paziente della pagina (vista paziente)
+        // se partecipa, altrimenti il primo: le azioni sul singolo non devono
+        // finire su un altro partecipante
         if (appointment.groupPatients.length > 1) {
-          const firstPatient = appointment.groupPatients[0];
+          const firstPatient =
+            appointment.groupPatients.find((gp) => gp.id === patient?.id) ??
+            appointment.groupPatients[0];
           setSelectedPatientId(firstPatient.id);
           setSelectedAppointmentId(firstPatient.appointmentId);
           loadPatientAppointmentDetails(firstPatient.appointmentId);
@@ -643,23 +648,27 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   const handleDelete = async () => {
     if (!appointment || !selectedAppointmentId) return;
 
-    let confirmMessage = "Sei sicuro di voler eliminare questo appuntamento?";
+    // La spunta "cancella futuri" vale solo dove e' visibile: su un gruppo con
+    // "tutto il gruppo" attivo resterebbe nascosta ma ancora impostata
+    const deleteSeries =
+      deleteAllFuture && (!isGroupAppointment || !applyToWholeGroup);
+    const patientName =
+      currentPatientAppointment?.patient?.name || appointment.patient?.name;
 
-    if (isGroupAppointment && applyToWholeGroup) {
-      confirmMessage = `Sei sicuro di voler eliminare tutti i ${appointment.groupPatients?.length} appuntamenti del gruppo?`;
-    } else if (isGroupAppointment && !applyToWholeGroup) {
-      confirmMessage = `Sei sicuro di voler eliminare solo l'appuntamento di ${currentPatientAppointment.patient?.name}?`;
-    } else if (deleteAllFuture) {
+    let confirmMessage = `Sei sicuro di voler eliminare l'appuntamento di ${patientName}?`;
+
+    if (deleteSeries) {
       if (appointment.isRecurring && appointment.patternId) {
         confirmMessage = appointment.groupSessionId
-          ? `Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie di ${
-              currentPatientAppointment?.patient?.name || appointment.patient?.name
-            }? Gli altri partecipanti del gruppo non vengono toccati.`
-          : "Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente?";
+          ? `Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie di ${patientName}? Gli altri partecipanti del gruppo non vengono toccati.`
+          : `Sei sicuro di voler eliminare questo appuntamento e tutti gli appuntamenti futuri della serie ricorrente di ${patientName}?`;
       } else if (appointment.isPrivate && appointment.privateCycleId) {
-        confirmMessage =
-          "Sei sicuro di voler eliminare tutti gli appuntamenti del ciclo privato?";
+        confirmMessage = `Sei sicuro di voler eliminare tutti gli appuntamenti del ciclo privato di ${patientName}?`;
       }
+    } else if (isGroupAppointment && applyToWholeGroup) {
+      confirmMessage = `Sei sicuro di voler eliminare tutti i ${appointment.groupPatients?.length} appuntamenti del gruppo?`;
+    } else if (isGroupAppointment && !applyToWholeGroup) {
+      confirmMessage = `Sei sicuro di voler eliminare solo l'appuntamento di ${patientName}?`;
     }
 
     if (!confirm(confirmMessage)) {
@@ -668,7 +677,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
     setLoading(true);
     try {
-      if (deleteAllFuture) {
+      if (deleteSeries) {
         if (appointment.isRecurring && appointment.patternId) {
           const appointmentDate = appointment.datetime.split(" ")[0];
           // appointmentId limita la cancellazione al paziente selezionato: in un
@@ -698,7 +707,7 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
       }
 
       // Determina le opzioni per l'aggiornamento UI
-      if (deleteAllFuture) {
+      if (deleteSeries) {
         // Eliminazione pattern/ciclo - serve reload completo
         onAppointmentDelete(appointment.id.toString(), { needsReload: true });
       } else if (isGroupAppointment && applyToWholeGroup && appointment.groupPatients) {
@@ -1331,10 +1340,16 @@ export const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           {!isEditing && canModifyAppointment && (
             <>
-              {/* Checkbox per cancellazione ricorrenti */}
-              {((appointment?.isRecurring && appointment?.patternId) ||
+              {/* Checkbox per cancellazione ricorrenti: su un gruppo ricorrente
+                  solo con un singolo paziente selezionato (la serie degli altri
+                  partecipanti resta) */}
+              {(((appointment?.isRecurring && appointment?.patternId) ||
                 (appointment?.isPrivate && appointment?.privateCycleId)) &&
-                !isGroupAppointment && (
+                !isGroupAppointment ||
+                (isGroupAppointment &&
+                  !applyToWholeGroup &&
+                  appointment?.isRecurring &&
+                  appointment?.patternId)) && (
                   <div className="mb-3">
                     <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                       <input
