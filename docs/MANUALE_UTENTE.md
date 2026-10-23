@@ -99,19 +99,32 @@ Dopo il login, si viene portati alla **Dashboard** (pagina principale).
 
 ### 2.1 Cosa Mostra la Dashboard
 
-La dashboard presenta un riepilogo generale dell'attivita del centro:
+La dashboard presenta i dati del centro **di oggi**. Le statistiche sono visibili solo a chi ha il permesso di vedere le statistiche; gli altri utenti vedono la pagina di benvenuto.
 
-- **Pazienti totali** - Numero di pazienti attivi nel sistema
-- **Nuovi piani del mese** - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; accanto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso
-- **Terapisti attivi** - Numero di terapisti operativi
-- **Piani terapeutici attivi** - Piani attualmente in corso
-- **Piani in scadenza** - Piani che scadranno a breve (da rinnovare)
-- **Ore settimanali di trattamento** - Ore di terapia erogate nella settimana
-- **Grafico crescita pazienti** - Andamento degli ultimi 6 mesi
-- **Top 5 trattamenti** - Le tipologie di terapia piu richieste
-- **Appuntamenti ultimi 7 giorni** - Distribuzione giornaliera
-- **Richieste documenti per stato** - Panoramica delle richieste pendenti
-- **Assenze del mese** - Riepilogo assenze
+**Riepilogo** (quattro schede):
+- **Pazienti in carico** - Pazienti con un piano attivo oggi. Cliccando la scheda si apre il dettaglio per regime (vedi sotto)
+- **Richieste aperte** - Richieste documenti ancora da lavorare, con quelle pronte da ritirare
+- **Appuntamenti di oggi** - Completati sul totale dei previsti (programmati + completati), quanti restano, le assenze e la divisione tra appuntamenti **interni** (in sede) ed **esterni** (domicilio e scuola). Cliccando la scheda si apre il dettaglio per regime
+- **Nuovi piani** - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; sotto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso
+
+**Andamento e distribuzione:** appuntamenti degli ultimi 7 giorni e stato delle richieste documenti.
+
+**Da seguire:** piani in scadenza nei prossimi 30 giorni; riquadro Ufficio con documenti da ritirare, notifiche da leggere e piani in corso oggi.
+
+**Prossimi in agenda:** i prossimi appuntamenti programmati, da adesso in poi.
+
+#### Il dettaglio per regime
+
+Le schede con la scritta **"Mostra dettaglio"** aprono sotto il riepilogo un pannello a livelli:
+
+1. All'apertura si vedono i **regimi** con il loro numero
+2. Cliccando un regime si vedono i **setting** (con l'etichetta Interno/Esterno), cliccando un setting i **trattamenti**
+3. Cliccando un trattamento si apre l'**elenco** (pazienti o appuntamenti) di quella riga
+4. **Espandi tutto** apre tutti i livelli, **Comprimi** li richiude
+
+Nel pannello di Pazienti in carico ogni riga conta pazienti distinti: un paziente con piu piani o piu terapie compare in piu righe, quindi le somme possono superare il totale. La riga **"Senza terapie"** indica piani attivi senza terapie inserite. Nel pannello degli Appuntamenti di oggi si contano appuntamenti (una seduta di gruppo vale un appuntamento per paziente); gli appuntamenti dei cicli privati, che non hanno un piano, sono nella riga **"Cicli privati"**.
+
+Lo stesso pannello si ritrova nelle statistiche (vedi [10.1](#101-dashboard-statistiche) e [10.2](#102-statistiche-assenze)).
 
 ### 2.2 Navigazione
 
@@ -301,11 +314,12 @@ La lista mostra:
 
 1. Cliccare **"Nuovo Piano"**
 2. **Selezionare il paziente** dall'elenco a tendina
-3. **Scegliere il regime** (tipo/frequenza di terapia)
-4. **Impostare le date:**
+3. **Indicare la tipologia:** **Nuovo piano** oppure **Rinnovo**. Per un rinnovo, scegliere dall'elenco il piano del paziente che si sta rinnovando (facoltativo)
+4. **Scegliere il regime** (tipo/frequenza di terapia)
+5. **Impostare le date:**
    - Data inizio
    - Data fine
-5. **Aggiungere le terapie** (una o piu):
+6. **Aggiungere le terapie** (una o piu):
 
    Per ogni terapia cliccare "Aggiungi Terapia" e specificare:
    - **Tipo di trattamento** (es. Logopedia, Psicomotricita, ecc.)
@@ -314,7 +328,9 @@ La lista mostra:
    - **Terapista** - Chi condurra le sedute
    - **Ciclo** - Tipo di ciclo (regolare, recupero, avanzamento, ecc.)
 
-6. Cliccare **"Salva"**
+7. Cliccare **"Salva"**
+
+> La tipologia serve alle statistiche: la scheda "Nuovi piani" conta solo i nuovi piani, i rinnovi sono indicati a parte.
 
 **Cosa succede dopo il salvataggio:**
 - Il sistema genera automaticamente gli **appuntamenti ricorrenti** in base alla frequenza e al periodo
@@ -336,16 +352,13 @@ La lista mostra:
 
 ### 5.5 Setting e Regimi
 
-I **regimi** definiscono le configurazioni predefinite per i piani terapeutici:
-- Combinazioni di terapie standard
-- Frequenze predefinite
-- Durate delle sedute
-- Setting terapeutici disponibili:
-  - **Ambulatoriale** - Sedute presso il centro
-  - **Domiciliare** - Sedute a domicilio del paziente
-  - **Piccolo Gruppo** - Sedute di gruppo ristretto
-  - **Centro Diurno** - Presso il centro diurno
-  - **Semiconvitto** - Modalita semiconvitto
+I **regimi** definiscono le configurazioni predefinite per i piani terapeutici (combinazioni di terapie, frequenze, durate delle sedute).
+
+Il **setting** indica dove si svolge la terapia. Ogni setting e classificato come:
+- **Interno** - Sedute svolte in sede (ambulatoriale, centro diurno, semiconvitto, ecc.)
+- **Esterno** - Sedute svolte fuori dalla struttura: **Domiciliare** e **Scuola**
+
+La classificazione e usata dalle statistiche per contare gli appuntamenti interni ed esterni. Per il regime ABA e disponibile anche il setting **Regime misto**.
 
 ### 5.6 Scadenza e Rinnovo
 
@@ -361,7 +374,7 @@ Quando un piano si avvicina alla scadenza:
 
 3. Alla scadenza, il piano viene automaticamente marcato come **"Scaduto"**
 
-4. Per rinnovare, creare un **nuovo piano terapeutico** per lo stesso paziente
+4. Per rinnovare, creare un **nuovo piano terapeutico** per lo stesso paziente scegliendo la tipologia **Rinnovo** e il piano rinnovato. Nella scheda dei due piani compaiono i collegamenti **"Rinnovo di"** e **"Rinnovato da"**; nell'elenco dei piani la tipologia ha una colonna e un filtro.
 
 ---
 
@@ -591,41 +604,40 @@ Cliccando si apre l'elenco delle notifiche recenti. Per vedere tutte le notifich
 
 **Menu:** Statistiche
 
-La pagina principale delle statistiche offre una panoramica con:
+Le schede del riepilogo si riferiscono al **mese corrente**:
 
-- **Metriche chiave:**
-  - Totale pazienti (attivi, nuovi del mese, con trattamenti multipli)
-  - Terapisti attivi
-  - Piani terapeutici (totali, attivi, in scadenza, nuovi del mese)
-  - Ore settimanali di trattamento
+- **Pazienti Attivi** - Pazienti con un piano il cui periodo tocca il mese, in qualunque stato tranne bozza e in attesa (conta anche un piano scaduto, sospeso o interrotto durante il mese; un piano interrotto non conta piu dal mese successivo all'interruzione). Cliccando la scheda si apre il dettaglio per regime → setting → trattamento → elenco pazienti, come in dashboard (vedi [2.1](#21-cosa-mostra-la-dashboard))
+- **Presenze / Assenze** - Dal primo del mese a oggi: presenze = appuntamenti completati, assenze = assenze del paziente (giustificate e non), con la percentuale di presenza. Le assenze dei terapisti sono nell'analisi assenze. Il dettaglio mostra per ogni riga due colonne, Presenze e Assenze; cliccando un trattamento si vede l'elenco degli appuntamenti
+- **Piani in Scadenza** - Piani attivi che scadono nei prossimi 30 giorni. Cliccando la scheda si apre l'**analisi dei piani** (vedi [10.5](#105-statistiche-piani-terapeutici))
 
-- **Grafici:**
-  - Andamento crescita pazienti (ultimi 6 mesi)
-  - Top 5 tipologie di trattamento
-  - Distribuzione appuntamenti degli ultimi 7 giorni
-  - Richieste documenti per stato
-  - Assenze del mese
+Sotto il riepilogo: grafici di andamento e collegamenti rapidi alle analisi di assenze, pazienti, trattamenti e piani.
 
 ### 10.2 Statistiche Assenze
 
-**Menu:** Statistiche > Assenze
+**Menu:** Statistiche > Analisi Assenze
 
-Analisi dettagliata delle assenze con:
-- **Tasso di assenza mensile** - Percentuale di appuntamenti saltati
-- **Assenze per motivazione** - Distribuzione per malattia, ferie, permessi, ecc.
-- **Assenze per terapista** - Chi ha il maggior numero di assenze
-- **Assenze per tipo di trattamento** - Quali terapie hanno piu assenze
-- **Classifica assenteisti** - Terapisti con piu assenze
-- **Andamento nel tempo** - Tendenza delle assenze
+Di default mostra il mese in corso fino a oggi.
 
 **Filtri disponibili:**
-- Periodo (data inizio - data fine)
-- Terapista specifico
-- Paziente specifico
-- Tipo di trattamento
-- Motivazione
+- **Periodo** (data inizio - data fine)
+- **Solo piani in corso** - Spuntato di default: considera solo le assenze dei piani attivi oggi (piu i cicli privati, che non hanno un piano). Togliendo la spunta si includono anche i piani non in corso (conclusi, interrotti, sospesi) e la scheda "Eventi di assenza" mostra quante assenze sono su piani in corso e quante su piani non in corso
+- **Chi e assente** (terapisti, pazienti), **Giustificata**, **Tipo assenza** (terapista diretta, sostituzione, paziente)
+- **Terapista**, **Paziente**, **Tipo trattamento**, **Setting**
+- **Coordinamento** - Limita la pagina alle assenze dei terapisti del gruppo e a quelle dei pazienti seguiti da loro. Conta il gruppo a cui il terapista era assegnato alla data dell'assenza
 
-**Esportazione:** Cliccare **"Esporta in Excel"** per scaricare i dati filtrati in formato .xlsx.
+**Cosa mostra:**
+- **Volume assenze** - Eventi di assenza (terapista/paziente), giustificate, **appuntamenti previsti** e tasso di assenza. Cliccando "Appuntamenti previsti" si apre il dettaglio per regime → setting → trattamento → elenco appuntamenti. Gli appuntamenti previsti contano una seduta di gruppo una volta per paziente; il tasso di assenza e calcolato sugli slot (una seduta di gruppo = uno slot), indicati nella scheda
+- **Capacita e recupero** - Ore previste, perse, non recuperate e recuperate
+- **Quando si concentrano** - Per fascia oraria e giorno della settimana
+- **Assenze per setting**
+- **Assenze terapisti per coordinamento** - Per ogni gruppo: eventi, terapisti assenti, ore perse; in fondo i terapisti senza coordinamento. Un terapista assegnato a piu gruppi conta in ognuno
+- **Chi genera l'assenza e perche** - Origine e motivazioni piu frequenti
+- **Assenze per trattamento**, **Chi e assente piu spesso**, **Andamento nel periodo**
+- **Elenco assenze** - Le singole assenze, dalla piu recente, una riga per evento (un'assenza del terapista su una seduta di gruppo e una riga con tutti i pazienti). Cliccando una riga si apre il dettaglio:
+  - per le assenze del terapista: periodo, tipo, motivo, note, chi l'ha inserita e quando, chi l'ha approvata; per una sostituzione, a chi e passato l'appuntamento
+  - per le assenze del paziente: origine (app del terapista o gestionale), chi l'ha inserita e quando, tipo, motivo e note. Chi e quando sono disponibili per le assenze segnate da febbraio 2026 in poi
+
+**Esportazione:** Cliccare **"Esporta report Excel"** per scaricare le stesse assenze dell'elenco, con i filtri applicati. Colonne: data, ora, chi e assente, tipo, paziente, terapista, trattamento, setting, piano (in corso, non in corso, senza piano), giustificata, motivo, recupero, inserita da, inserita il.
 
 ### 10.3 Statistiche Pazienti
 
@@ -655,6 +667,7 @@ Analisi dettagliata delle assenze con:
 - Analisi durata piani
 - Tasso di scadenza
 - Piani in scadenza nei prossimi 30 giorni
+- **Nuovi piani per mese di inizio** - Ultimi 12 mesi, stessa definizione della scheda "Nuovi piani": solo nuovi piani (non rinnovi), bozze escluse. Il grafico ignora il filtro Stato, cosi il numero di un mese non cambia quando i piani scadono o vengono interrotti; gli altri filtri restano applicati
 
 ### 10.6 Esportazione Dati
 

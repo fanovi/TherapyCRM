@@ -21,6 +21,10 @@ class AbsenceStatisticsSearch extends Model
     public $absenceSource; // 'therapist' o 'patient'
     public $isJustified;
     public $absenceTypeFlag; // 'direct', 'substitution', 'patient'
+    /** @var int 1 = solo assenze su piani in corso oggi (più i cicli privati); default attivo */
+    public $onlyActivePlans = 1;
+    /** @var int|null Gruppo di coordinamento (coordinator_groups.id) */
+    public $coordinationGroupId;
 
     /**
      * {@inheritdoc}
@@ -32,7 +36,8 @@ class AbsenceStatisticsSearch extends Model
             [['dateFrom'], 'compare', 'compareAttribute' => 'dateTo', 'operator' => '<=', 'when' => function ($model) {
                 return !empty($model->dateTo);
             }],
-            [['therapistId', 'patientId', 'treatmentTypeId', 'settingId'], 'integer', 'min' => 1],
+            [['therapistId', 'patientId', 'treatmentTypeId', 'settingId', 'coordinationGroupId'], 'integer', 'min' => 1],
+            [['onlyActivePlans'], 'boolean'],
             [['absenceSource'], 'in', 'range' => ['therapist', 'patient']],
             [['absenceTypeFlag'], 'in', 'range' => ['direct', 'substitution', 'patient']],
             [['absenceTypeFlag'], 'validateSourceAndType'],
@@ -55,7 +60,34 @@ class AbsenceStatisticsSearch extends Model
             'absenceSource' => 'Chi è assente',
             'isJustified' => 'Giustificata',
             'absenceTypeFlag' => 'Tipo assenza',
+            'onlyActivePlans' => 'Solo piani in corso',
+            'coordinationGroupId' => 'Coordinamento',
         ];
+    }
+
+    /**
+     * Filtri per AbsenceStatisticsService, nel formato di applyFilters().
+     * Unica mappatura: usata da controller, service ed export, così un filtro
+     * nuovo va aggiunto solo qui.
+     *
+     * @return array
+     */
+    public function toFilters()
+    {
+        $filters = [];
+        foreach (['dateFrom', 'dateTo', 'therapistId', 'patientId', 'treatmentTypeId', 'settingId', 'absenceSource', 'absenceTypeFlag', 'coordinationGroupId'] as $attribute) {
+            if (!empty($this->$attribute)) {
+                $filters[$attribute] = $this->$attribute;
+            }
+        }
+        if ($this->isJustified !== null && $this->isJustified !== '') {
+            $filters['isJustified'] = $this->isJustified;
+        }
+        if (!empty($this->onlyActivePlans)) {
+            $filters['onlyActivePlans'] = 1;
+        }
+
+        return $filters;
     }
 
     /**
@@ -63,20 +95,7 @@ class AbsenceStatisticsSearch extends Model
      */
     public function getStatisticsQuery()
     {
-        $service = new \common\services\statistics\AbsenceStatisticsService();
-        
-        $filters = [];
-        if ($this->dateFrom) $filters['dateFrom'] = $this->dateFrom;
-        if ($this->dateTo) $filters['dateTo'] = $this->dateTo;
-        if ($this->therapistId) $filters['therapistId'] = $this->therapistId;
-        if ($this->patientId) $filters['patientId'] = $this->patientId;
-        if ($this->treatmentTypeId) $filters['treatmentTypeId'] = $this->treatmentTypeId;
-        if ($this->settingId) $filters['settingId'] = $this->settingId;
-        if ($this->absenceSource) $filters['absenceSource'] = $this->absenceSource;
-        if ($this->absenceTypeFlag) $filters['absenceTypeFlag'] = $this->absenceTypeFlag;
-        if ($this->isJustified !== null) $filters['isJustified'] = $this->isJustified;
-        
-        return $service->getBaseAbsencesQuery($filters);
+        return (new \common\services\statistics\AbsenceStatisticsService())->getBaseAbsencesQuery($this->toFilters());
     }
 
     /**

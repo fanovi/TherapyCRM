@@ -12,6 +12,8 @@ use frontend\models\AbsenceStatisticsSearch;
 use frontend\models\PatientStatisticsSearch;
 use frontend\models\TreatmentStatisticsSearch;
 use frontend\models\PlanStatisticsSearch;
+use common\helpers\DrilldownHelper;
+use common\models\CoordinatorGroup;
 use common\services\statistics\StatisticsService;
 use common\services\statistics\AbsenceStatisticsService;
 use common\services\statistics\PatientStatisticsService;
@@ -69,6 +71,13 @@ class StatisticsController extends BaseController
                             'export',
                             'search-therapists',
                             'search-patients',
+                            'active-patients-breakdown',
+                            'active-patients-list',
+                            'attendance-breakdown',
+                            'attendance-list',
+                            'planned-appointments-breakdown',
+                            'planned-appointments-list',
+                            'absence-detail',
                         ],
                         'allow' => true,
                         'matchCallback' => function ($rule, $action) {
@@ -103,8 +112,7 @@ class StatisticsController extends BaseController
             // Dati vuoti di fallback
             $emptySummary = [
                 'patients' => ['active' => 0, 'total' => 0, 'new_this_month' => 0, 'multi_treatment' => 0],
-                'absences' => ['total_this_month' => 0, 'justified_this_month' => 0, 'with_recovery' => 0, 'unjustified_rate' => 0],
-                'treatments' => ['active_types' => 0, 'total_weekly_hours' => 0, 'top_treatment' => 'N/A'],
+                'attendance' => ['present' => 0, 'absent' => 0, 'justified' => 0],
                 'plans' => ['total' => 0, 'active' => 0, 'expiring_soon' => 0, 'new_this_month' => 0]
             ];
 
@@ -115,6 +123,180 @@ class StatisticsController extends BaseController
                 'error' => 'Errore nel caricamento dei dati: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Dettaglio della scheda "Pazienti attivi" (mese corrente): regime → setting → trattamento.
+     *
+     * @return array
+     */
+    public function actionActivePatientsBreakdown()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $breakdown = $this->statisticsService->getActivePatientsBreakdown(date('Y-m-01'), date('Y-m-t'));
+        $breakdown['period'] = $this->currentMonthLabel();
+
+        return $breakdown;
+    }
+
+    /**
+     * Elenco dei pazienti attivi nel mese corrente per un trattamento del dettaglio.
+     * regime_id vuoto = piani senza regime.
+     *
+     * @param int $setting_id
+     * @param int $treatment_type_id
+     * @param string $regime_id
+     * @return array
+     */
+    public function actionActivePatientsList($setting_id, $treatment_type_id, $regime_id = '')
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $rows = $this->statisticsService->getActivePatientsList(
+            date('Y-m-01'),
+            date('Y-m-t'),
+            $regime_id === '' ? null : (int) $regime_id,
+            (int) $setting_id,
+            (int) $treatment_type_id
+        );
+
+        return ['rows' => DrilldownHelper::patientRows($rows)];
+    }
+
+    /**
+     * Dettaglio della scheda "Assenze/Presenze" (mese corrente fino a oggi):
+     * regime → setting → trattamento con presenze e assenze dei pazienti.
+     *
+     * @return array
+     */
+    public function actionAttendanceBreakdown()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $breakdown = $this->statisticsService->getAttendanceBreakdown(date('Y-m-01'), date('Y-m-d'));
+        $breakdown['period'] = $this->currentMonthLabel();
+
+        return $breakdown;
+    }
+
+    /**
+     * Elenco di presenze e assenze del mese corrente per un trattamento del dettaglio.
+     *
+     * @param string $group Chiave del primo livello (regime, cicli privati, senza piano)
+     * @param int $setting_id 0 = senza setting
+     * @param int $treatment_type_id 0 = senza trattamento
+     * @return array
+     */
+    public function actionAttendanceList($group, $setting_id, $treatment_type_id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $rows = $this->statisticsService->getAttendanceList(
+            date('Y-m-01'),
+            date('Y-m-d'),
+            (string) $group,
+            (int) $setting_id,
+            (int) $treatment_type_id
+        );
+
+        return ['rows' => DrilldownHelper::appointmentRows($rows)];
+    }
+
+    /**
+     * Dettaglio della scheda "Appuntamenti previsti" dell'Analisi assenze:
+     * regime → setting → trattamento con i filtri della pagina.
+     *
+     * @return array
+     */
+    public function actionPlannedAppointmentsBreakdown()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $filters = $this->extractFilters($this->createAbsenceSearchModel());
+
+        return $this->statisticsService->buildAppointmentsBreakdown(
+            $this->absenceService->plannedAppointmentsQuery($filters)
+        );
+    }
+
+    /**
+     * Elenco degli appuntamenti previsti per un trattamento del dettaglio.
+     *
+     * @param string $group Chiave del primo livello (regime, cicli privati, senza piano)
+     * @param int $setting_id 0 = senza setting
+     * @param int $treatment_type_id 0 = senza trattamento
+     * @return array
+     */
+    public function actionPlannedAppointmentsList($group, $setting_id, $treatment_type_id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $filters = $this->extractFilters($this->createAbsenceSearchModel());
+        $rows = $this->statisticsService->buildAppointmentsList(
+            $this->absenceService->plannedAppointmentsQuery($filters),
+            (string) $group,
+            (int) $setting_id,
+            (int) $treatment_type_id
+        );
+
+        return ['rows' => DrilldownHelper::appointmentRows($rows)];
+    }
+
+    /**
+     * Dettaglio di una singola assenza (chi, quando, motivo) per l'elenco dell'Analisi assenze.
+     *
+     * @param int $appointment_id
+     * @param string $type patient | therapist_direct | therapist_substitution
+     * @param int|null $absence_id
+     * @return array
+     * @throws NotFoundHttpException
+     */
+    public function actionAbsenceDetail($appointment_id, $type, $absence_id = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if (!in_array($type, ['patient', 'therapist_direct', 'therapist_substitution'], true)) {
+            throw new BadRequestHttpException('Tipo assenza non valido');
+        }
+
+        $rows = $this->absenceService->getAbsenceDetail(
+            (int) $appointment_id,
+            $type,
+            $absence_id !== null && $absence_id !== '' ? (int) $absence_id : null
+        );
+        if ($rows === null) {
+            throw new NotFoundHttpException('Appuntamento non trovato');
+        }
+
+        return ['rows' => array_map(function ($row) {
+            return ['label' => $row[0], 'value' => $row[1]];
+        }, $rows)];
+    }
+
+    /**
+     * Gruppi di coordinamento per il filtro dell'Analisi assenze (attivi prima).
+     *
+     * @return array id => nome
+     */
+    protected function getCoordinationGroupOptions()
+    {
+        $options = [];
+        foreach (CoordinatorGroup::find()->orderBy(['is_active' => SORT_DESC, 'name' => SORT_ASC])->all() as $group) {
+            $options[$group->id] = $group->name . ($group->is_active ? '' : ' (non attivo)');
+        }
+
+        return $options;
+    }
+
+    /**
+     * Es. "ottobre 2026", per i riepiloghi dei pannelli di dettaglio.
+     *
+     * @return string
+     */
+    protected function currentMonthLabel()
+    {
+        return Yii::$app->formatter->asDate(date('Y-m-01'), 'LLLL yyyy');
     }
 
     /**
@@ -135,11 +317,18 @@ class StatisticsController extends BaseController
             $byTreatmentType = $this->absenceService->getByTreatmentType($filters);
             $bySetting = $this->absenceService->getBySetting($filters);
             $topAbsentees = $this->absenceService->getTopAbsentees($filters);
+            $byCoordinationGroup = $this->absenceService->getByCoordinationGroup($filters);
+            $absencesList = new \yii\data\ActiveDataProvider([
+                'query' => $this->absenceService->getAbsenceEventsQuery($filters),
+                'pagination' => ['pageSize' => 25, 'pageParam' => 'absences-page'],
+                'sort' => false,
+            ]);
 
             $therapistOptions = $this->getSelectedTherapistOption($searchModel->therapistId);
             $patientOptions = $this->getSelectedPatientOption($searchModel->patientId);
             $treatmentOptions = $this->getTreatmentOptions();
             $settingOptions = $this->getSettingOptions();
+            $coordinationOptions = $this->getCoordinationGroupOptions();
 
             return $this->render('absences', [
                 'searchModel' => $searchModel,
@@ -149,6 +338,9 @@ class StatisticsController extends BaseController
                 'byTreatmentType' => $byTreatmentType,
                 'bySetting' => $bySetting,
                 'topAbsentees' => $topAbsentees,
+                'byCoordinationGroup' => $byCoordinationGroup,
+                'absencesList' => $absencesList,
+                'coordinationOptions' => $coordinationOptions,
                 'therapistOptions' => $therapistOptions,
                 'patientOptions' => $patientOptions,
                 'treatmentOptions' => $treatmentOptions,
@@ -313,40 +505,15 @@ class StatisticsController extends BaseController
         }
     }
 
-    // Helper per estrarre filtri
+    /**
+     * Filtri delle statistiche assenze dal search model (vedi AbsenceStatisticsSearch::toFilters()).
+     *
+     * @param AbsenceStatisticsSearch $searchModel
+     * @return array
+     */
     protected function extractFilters($searchModel)
     {
-        $filters = [];
-
-        if ($searchModel->dateFrom) {
-            $filters['dateFrom'] = $searchModel->dateFrom;
-        }
-        if ($searchModel->dateTo) {
-            $filters['dateTo'] = $searchModel->dateTo;
-        }
-        if ($searchModel->therapistId) {
-            $filters['therapistId'] = $searchModel->therapistId;
-        }
-        if ($searchModel->patientId) {
-            $filters['patientId'] = $searchModel->patientId;
-        }
-        if ($searchModel->treatmentTypeId) {
-            $filters['treatmentTypeId'] = $searchModel->treatmentTypeId;
-        }
-        if ($searchModel->settingId) {
-            $filters['settingId'] = $searchModel->settingId;
-        }
-        if ($searchModel->absenceSource) {
-            $filters['absenceSource'] = $searchModel->absenceSource;
-        }
-        if ($searchModel->absenceTypeFlag) {
-            $filters['absenceTypeFlag'] = $searchModel->absenceTypeFlag;
-        }
-        if ($searchModel->isJustified !== null && $searchModel->isJustified !== '') {
-            $filters['isJustified'] = $searchModel->isJustified;
-        }
-
-        return $filters;
+        return $searchModel->toFilters();
     }
 
     /**
@@ -815,54 +982,42 @@ class StatisticsController extends BaseController
     {
         $searchModel = $this->createAbsenceSearchModel();
 
-        // Usa la nuova query
-        $query = $searchModel->getStatisticsQuery();
-        $rawData = $query->all();
-
-        // Una assenza terapista di gruppo produce una riga per paziente:
-        // accorpa lo slot senza perdere i nominativi o i trattamenti coinvolti.
-        $groupedData = [];
-        foreach ($rawData as $absence) {
-            $key = $absence['absence_group_key'];
-            if (!isset($groupedData[$key])) {
-                $groupedData[$key] = $absence;
-                $groupedData[$key]['_patients'] = [];
-                $groupedData[$key]['_treatments'] = [];
-            }
-
-            $patientName = trim(
-                ($absence['patient_name'] ?: '') . ' ' . ($absence['patient_surname'] ?: '')
-            );
-            if ($patientName !== '' && $patientName !== 'N/A') {
-                $groupedData[$key]['_patients'][$patientName] = true;
-            }
-            if (!empty($absence['treatment_name'])) {
-                $groupedData[$key]['_treatments'][$absence['treatment_name']] = true;
-            }
-        }
+        // Stessi eventi dell'elenco della pagina (una riga per evento, come la scheda
+        // "Eventi di assenza"): una seduta di gruppo è una riga con tutti i pazienti.
+        $events = $this->absenceService->getAbsenceEventsQuery($this->extractFilters($searchModel))->all();
+        $insertion = $this->absenceService->getAbsenceEventsInsertion($events);
+        $settingOptions = $this->getSettingOptions();
+        $formatter = Yii::$app->formatter;
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Headers aggiornati
-        $headers = ['Data', 'Ora', 'Paziente', 'Terapista', 'Trattamento', 'Motivo', 'Chi è assente', 'Tipo', 'Giustificata', 'Recupero'];
+        $headers = ['Data', 'Ora', 'Chi è assente', 'Tipo', 'Paziente', 'Terapista', 'Trattamento', 'Setting', 'Piano', 'Giustificata', 'Motivo', 'Recupero', 'Inserita da', 'Inserita il'];
         $sheet->fromArray($headers, null, 'A1');
 
-        // Dati
         $row = 2;
-        foreach ($groupedData as $absence) {
-            $patients = implode(', ', array_keys($absence['_patients']));
-            $treatments = implode(', ', array_keys($absence['_treatments']));
-            $sheet->setCellValue("A{$row}", $absence['absence_date']);
-            $sheet->setCellValue("B{$row}", date('H:i', strtotime($absence['appointment_datetime'])));
-            $sheet->setCellValue("C{$row}", $patients);
-            $sheet->setCellValue("D{$row}", ($absence['therapist_name'] ?: '') . ' ' . ($absence['therapist_surname'] ?: ''));
-            $sheet->setCellValue("E{$row}", $treatments);
-            $sheet->setCellValue("F{$row}", $absence['absence_reason'] ?: '');
-            $sheet->setCellValue("G{$row}", $absence['generated_by'] === 'therapist' ? 'Terapista' : 'Paziente');
-            $sheet->setCellValue("H{$row}", $absence['absence_type_flag'] === 'direct' ? 'Diretta' : ($absence['absence_type_flag'] === 'substitution' ? 'Sostituzione' : 'Paziente'));
-            $sheet->setCellValue("I{$row}", $absence['is_justified'] ? 'Sì' : 'No');
-            $sheet->setCellValue("J{$row}", $absence['has_recovery'] === 'SI' ? 'Sì' : 'No');
+        foreach ($events as $event) {
+            if ($event['plan_in_progress'] === null) {
+                $plan = 'Senza piano (ciclo privato)';
+            } else {
+                $plan = (int) $event['plan_in_progress'] === 1 ? 'In corso' : 'Non in corso';
+            }
+            $info = $insertion[$event['absence_group_key']];
+
+            $sheet->setCellValue("A{$row}", $formatter->asDate($event['appointment_datetime'], 'php:d/m/Y'));
+            $sheet->setCellValue("B{$row}", date('H:i', strtotime($event['appointment_datetime'])));
+            $sheet->setCellValue("C{$row}", $event['generated_by'] === 'therapist' ? 'Terapista' : 'Paziente');
+            $sheet->setCellValue("D{$row}", $event['absence_type_flag'] === 'direct' ? 'Diretta' : ($event['absence_type_flag'] === 'substitution' ? 'Sostituzione' : 'Paziente'));
+            $sheet->setCellValue("E{$row}", (string) $event['patients'] . ((int) $event['is_group'] ? ' (gruppo)' : ''));
+            $sheet->setCellValue("F{$row}", (string) $event['therapist']);
+            $sheet->setCellValue("G{$row}", (string) $event['treatments']);
+            $sheet->setCellValue("H{$row}", $settingOptions[$event['setting_id']] ?? '');
+            $sheet->setCellValue("I{$row}", $plan);
+            $sheet->setCellValue("J{$row}", $event['is_justified'] ? 'Sì' : 'No');
+            $sheet->setCellValue("K{$row}", $this->absenceService->absenceEventReason($event));
+            $sheet->setCellValue("L{$row}", $event['has_recovery'] === 'SI' ? 'Sì' : 'No');
+            $sheet->setCellValue("M{$row}", $info['by']);
+            $sheet->setCellValue("N{$row}", $info['at'] ? $formatter->asDatetime($info['at'], 'php:d/m/Y H:i') : '');
             $row++;
         }
 

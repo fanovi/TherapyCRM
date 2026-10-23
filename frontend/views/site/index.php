@@ -16,6 +16,7 @@ use yii\helpers\Url;
 /* @var $expectedAppointmentsToday int */
 /* @var $absentAppointmentsToday int */
 /* @var $appointmentCompletionRate int */
+/* @var $appointmentsTodayByLocation array */
 /* @var $upcomingAppointments array */
 /* @var $pendingDocumentRequests int */
 /* @var $pickupDocumentRequests int */
@@ -46,6 +47,7 @@ $appointmentCompletionRate = $appointmentCompletionRate ?? (
         : 0
 );
 $scheduledAppointmentsToday = $scheduledAppointmentsToday ?? 0;
+$appointmentsTodayByLocation = $appointmentsTodayByLocation ?? ['internal' => 0, 'external' => 0, 'none' => 0];
 $pickupDocumentRequests = $pickupDocumentRequests ?? 0;
 $expiringPlansCount = $expiringPlansCount ?? 0;
 $expiringPlans = $expiringPlans ?? [];
@@ -73,6 +75,26 @@ if ($canViewStatistics) {
         },
         listTitle: function (path, node) {
             return path.join(" › ") + " · " + node.count + (node.count === 1 ? " paziente" : " pazienti");
+        }
+    }));', \yii\web\View::POS_READY);
+    $this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
+        'toggle' => '#today-appointments-toggle',
+        'panel' => '#today-appointments-panel',
+        'treeUrl' => Url::to(['site/today-appointments-breakdown']),
+        'listUrl' => Url::to(['site/today-appointments-list']),
+        'emptyListText' => 'Nessun appuntamento.',
+        'columns' => [
+            ['key' => 'time', 'label' => 'Ora'],
+            ['key' => 'patient', 'label' => 'Paziente', 'link' => 'url'],
+            ['key' => 'therapist', 'label' => 'Terapista'],
+            ['key' => 'status', 'label' => 'Stato'],
+        ],
+    ]) . ', {
+        summary: function (data) {
+            return "Oggi " + data.date + " · " + data.total + (data.total === 1 ? " appuntamento previsto" : " appuntamenti previsti") + " · clic su un trattamento per l\'elenco appuntamenti.";
+        },
+        listTitle: function (path, node) {
+            return path.join(" › ") + " · " + node.count + (node.count === 1 ? " appuntamento" : " appuntamenti");
         }
     }));', \yii\web\View::POS_READY);
 }
@@ -521,7 +543,7 @@ if (typeof Chart !== 'undefined') {
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="stat-box">
+            <button type="button" class="stat-box stat-box-toggle" id="today-appointments-toggle" aria-expanded="false" aria-controls="today-appointments-panel">
                 <div class="stat-value green"><?= $completedAppointmentsToday ?>/<?= $expectedAppointmentsToday ?></div>
                 <div class="stat-label">Appuntamenti di oggi</div>
                 <div class="stat-period">
@@ -537,11 +559,23 @@ if (typeof Chart !== 'undefined') {
                     <span class="progress-text">
                         <?= $appointmentCompletionRate ?>%
                         <?php if ($absentAppointmentsToday > 0): ?>
-                            · <?= (int) $absentAppointmentsToday ?> assenze
+                            · <?= (int) $absentAppointmentsToday ?> <?= $absentAppointmentsToday == 1 ? 'assenza' : 'assenze' ?>
                         <?php endif; ?>
                     </span>
                 </div>
-            </div>
+                <?php if ($expectedAppointmentsToday > 0): ?>
+                    <div class="stat-period">
+                        <?= (int) $appointmentsTodayByLocation['internal'] ?> interni · <?= (int) $appointmentsTodayByLocation['external'] ?> esterni
+                        <?php if (!empty($appointmentsTodayByLocation['none'])): ?>
+                            · <?= (int) $appointmentsTodayByLocation['none'] ?> senza setting
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                <div class="stat-toggle-hint">
+                    <span data-role="hint">Mostra dettaglio</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </div>
+            </button>
             <div class="stat-box">
                 <div class="stat-value gray"><?= (int) $newPlansThisMonth ?></div>
                 <div class="stat-label">Nuovi piani</div>
@@ -583,6 +617,32 @@ if (typeof Chart !== 'undefined') {
                 <span></span>
                 <span>Regime / setting / trattamento</span>
                 <span class="text-right">Pazienti</span>
+            </div>
+            <div data-role="body"></div>
+        </section>
+
+        <section id="today-appointments-panel" class="drilldown-panel" aria-label="Dettaglio appuntamenti di oggi" hidden>
+            <div class="drilldown-header">
+                <div>
+                    <h4>Appuntamenti di oggi per regime</h4>
+                    <p data-role="summary">Regime → setting → trattamento</p>
+                </div>
+                <div class="drilldown-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="expand-all">Espandi tutto</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="collapse-all">Comprimi</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-action="close" aria-label="Chiudi dettaglio">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="drilldown-note">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+                <span>Conta gli appuntamenti previsti (programmati e completati), senza assenze e annullati. Una seduta di gruppo conta un appuntamento per paziente. Setting e trattamento sono quelli dell'appuntamento.</span>
+            </div>
+            <div class="drilldown-head">
+                <span></span>
+                <span>Regime / setting / trattamento</span>
+                <span class="text-right">Appuntamenti</span>
             </div>
             <div data-role="body"></div>
         </section>

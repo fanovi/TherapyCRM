@@ -2,8 +2,10 @@
  * Pannello di dettaglio a livelli per le schede della dashboard
  * (es. Pazienti in carico: regime → setting → trattamento).
  *
- * Il server restituisce { total, date, nodes } con nodi
- * { name, count, badge?: {text, variant}, warning?, children?, params? }.
+ * Il server restituisce { total, nodes, ... } con nodi
+ * { name, count, counts?, badge?: {text, variant}, warning?, children?, params? }.
+ * Con counts (es. [presenze, assenze]) la riga mostra una colonna per valore
+ * al posto di count; il pannello va marcato con la classe has-split-counts.
  * Un nodo con params apre l'elenco (listUrl + params) sotto la riga.
  *
  * Uso:
@@ -12,7 +14,9 @@
  *     treeUrl: '...', listUrl: '...',
  *     summary: function (data) { return '...'; },
  *     listTitle: function (path, node) { return '...'; },
- *     columns: [{ key: 'name', label: 'Paziente', link: 'url' }, ...]
+ *     columns: [{ key: 'name', label: 'Paziente', link: 'url' }, ...],
+ *     emptyListText: 'Nessun paziente.',   // facoltativo
+ *     emptyTreeText: 'Nessun dato per oggi.'   // facoltativo
  *   });
  */
 (function (window, document) {
@@ -119,7 +123,7 @@
     Panel.prototype.renderTree = function (nodes) {
         this.body.innerHTML = '';
         if (!nodes.length) {
-            this.status(this.body, 'Nessun dato per oggi.');
+            this.status(this.body, this.options.emptyTreeText || 'Nessun dato per oggi.');
             return;
         }
         var self = this;
@@ -158,7 +162,9 @@
             label.appendChild(el('span', 'drilldown-badge badge-' + node.badge.variant, node.badge.text));
         }
         row.appendChild(label);
-        row.appendChild(el('span', 'drilldown-count', node.count));
+        (node.counts || [node.count]).forEach(function (value, index) {
+            row.appendChild(el('span', 'drilldown-count count-' + index + (value === 0 ? ' is-zero' : ''), value));
+        });
         wrapper.appendChild(row);
 
         var content = el('div', isLeaf ? 'drilldown-list' : 'drilldown-children');
@@ -245,7 +251,7 @@
 
         var scroll = el('div', 'drilldown-list-scroll');
         if (!rows.length) {
-            scroll.appendChild(el('div', 'drilldown-status', 'Nessun paziente.'));
+            scroll.appendChild(el('div', 'drilldown-status', this.options.emptyListText || 'Nessun paziente.'));
         } else {
             var table = el('table', 'drilldown-table');
             var headRow = table.appendChild(el('thead')).appendChild(el('tr'));

@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 
 /* @var $this yii\web\View */
@@ -13,14 +14,62 @@ $this->params['breadcrumbs'][] = $this->title;
 
 // Registra Chart.js
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerCssFile('@web/css/statistics.css');
+// appendTimestamp: dopo un deploy il browser non deve usare CSS/JS vecchi dalla cache.
+$this->registerCssFile('@web/css/statistics.css', ['appendTimestamp' => true]);
+$this->registerJsFile('@web/js/drilldown-panel.js', ['appendTimestamp' => true]);
 // Inizializza variabili se non definite
 $summary = $summary ?? [
     'patients' => ['active' => 0, 'total' => 0, 'new_this_month' => 0, 'multi_treatment' => 0],
-    'absences' => ['total_this_month' => 0, 'justified_this_month' => 0, 'with_recovery' => 0, 'unjustified_rate' => 0],
-    'treatments' => ['active_types' => 0, 'total_weekly_hours' => 0, 'top_treatment' => 'N/A'],
+    'attendance' => ['present' => 0, 'absent' => 0, 'justified' => 0],
     'plans' => ['total' => 0, 'active' => 0, 'expiring_soon' => 0, 'new_this_month' => 0]
 ];
+$attendance = $summary['attendance'] ?? ['present' => 0, 'absent' => 0, 'justified' => 0];
+$attendanceTotal = $attendance['present'] + $attendance['absent'];
+$attendanceRate = $attendanceTotal > 0 ? (int) round($attendance['present'] / $attendanceTotal * 100) : null;
+$monthLabel = Yii::$app->formatter->asDate(date('Y-m-01'), 'LLLL yyyy');
+
+$this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
+    'toggle' => '#active-patients-toggle',
+    'panel' => '#active-patients-panel',
+    'treeUrl' => Url::to(['statistics/active-patients-breakdown']),
+    'listUrl' => Url::to(['statistics/active-patients-list']),
+    'emptyTreeText' => 'Nessun paziente attivo nel mese.',
+    'columns' => [
+        ['key' => 'name', 'label' => 'Paziente', 'link' => 'url'],
+        ['key' => 'plan', 'label' => 'Piano'],
+        ['key' => 'end', 'label' => 'Scadenza'],
+        ['key' => 'hours', 'label' => 'Ore/sett.', 'align' => 'right'],
+    ],
+]) . ', {
+    summary: function (data) {
+        return "Mese di " + data.period + " · " + data.total + (data.total === 1 ? " paziente" : " pazienti") + " · clic su un trattamento per l\'elenco pazienti.";
+    },
+    listTitle: function (path, node) {
+        return path.join(" › ") + " · " + node.count + (node.count === 1 ? " paziente" : " pazienti");
+    }
+}));', \yii\web\View::POS_READY);
+$this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
+    'toggle' => '#attendance-toggle',
+    'panel' => '#attendance-panel',
+    'treeUrl' => Url::to(['statistics/attendance-breakdown']),
+    'listUrl' => Url::to(['statistics/attendance-list']),
+    'emptyTreeText' => 'Nessuna presenza o assenza nel mese.',
+    'emptyListText' => 'Nessun appuntamento.',
+    'columns' => [
+        ['key' => 'date', 'label' => 'Data'],
+        ['key' => 'time', 'label' => 'Ora'],
+        ['key' => 'patient', 'label' => 'Paziente', 'link' => 'url'],
+        ['key' => 'therapist', 'label' => 'Terapista'],
+        ['key' => 'status', 'label' => 'Stato'],
+    ],
+]) . ', {
+    summary: function (data) {
+        return "Mese di " + data.period + " fino a oggi · " + data.total + (data.total === 1 ? " appuntamento" : " appuntamenti") + " · clic su un trattamento per l\'elenco.";
+    },
+    listTitle: function (path, node) {
+        return path.join(" › ") + " · " + node.counts[0] + (node.counts[0] === 1 ? " presenza" : " presenze") + ", " + node.counts[1] + (node.counts[1] === 1 ? " assenza" : " assenze");
+    }
+}));', \yii\web\View::POS_READY);
 $topTreatments = $topTreatments ?? [];
 $patientGrowth = $patientGrowth ?? [];
 ?>
@@ -44,28 +93,96 @@ $patientGrowth = $patientGrowth ?? [];
         <!-- 1. Riepilogo principale KPI -->
         <div class="summary-card">
             <h3>Riepilogo Sistema</h3>
-            <div class="stats-grid">
-                <div class="stat-box">
+            <div class="stats-grid stats-grid-3">
+                <button type="button" class="stat-box stat-box-toggle" id="active-patients-toggle" aria-expanded="false" aria-controls="active-patients-panel">
                     <div class="stat-value blue"><?= $summary['patients']['active'] ?? 0 ?></div>
                     <div class="stat-label">Pazienti Attivi</div>
-                    <small>Totale: <?= $summary['patients']['total'] ?? 0 ?></small>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value red"><?= $summary['absences']['total_this_month'] ?? 0 ?></div>
-                    <div class="stat-label">Assenze Questo Mese</div>
-                    <small>Non giustificate: <?= $summary['absences']['unjustified_rate'] ?? 0 ?>%</small>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value green"><?= $summary['treatments']['active_types'] ?? 0 ?></div>
-                    <div class="stat-label">Trattamenti Attivi</div>
-                    <small>Ore settimanali: <?= $summary['treatments']['total_weekly_hours'] ?? 0 ?></small>
-                </div>
-                <div class="stat-box">
+                    <div class="stat-period">Mese di <?= Html::encode($monthLabel) ?> · piano nel mese</div>
+                    <small>Totale anagrafica: <?= $summary['patients']['total'] ?? 0 ?></small>
+                    <div class="stat-toggle-hint">
+                        <span data-role="hint">Mostra dettaglio</span>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </div>
+                </button>
+                <button type="button" class="stat-box stat-box-toggle" id="attendance-toggle" aria-expanded="false" aria-controls="attendance-panel">
+                    <div class="stat-value"><span class="green"><?= (int) $attendance['present'] ?></span> / <span class="red"><?= (int) $attendance['absent'] ?></span></div>
+                    <div class="stat-label">Presenze / Assenze</div>
+                    <div class="stat-period">Mese di <?= Html::encode($monthLabel) ?> fino a oggi · assenze dei pazienti</div>
+                    <small>
+                        <?= $attendanceRate !== null ? 'Presenza ' . $attendanceRate . '%' : 'Nessun appuntamento' ?>
+                        <?php if ($attendance['absent'] > 0): ?>
+                            · <?= (int) $attendance['justified'] ?> <?= $attendance['justified'] == 1 ? 'assenza giustificata' : 'assenze giustificate' ?>
+                        <?php endif; ?>
+                    </small>
+                    <div class="stat-toggle-hint">
+                        <span data-role="hint">Mostra dettaglio</span>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </div>
+                </button>
+                <a class="stat-box stat-box-toggle" href="<?= Url::to(['plans']) ?>">
                     <div class="stat-value orange"><?= $summary['plans']['expiring_soon'] ?? 0 ?></div>
                     <div class="stat-label">Piani in Scadenza</div>
+                    <div class="stat-period">Prossimi 30 giorni</div>
                     <small>Piani attivi: <?= $summary['plans']['active'] ?? 0 ?></small>
-                </div>
+                    <div class="stat-toggle-hint">
+                        <span>Vai all'analisi piani</span>
+                        <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    </div>
+                </a>
             </div>
+
+            <section id="active-patients-panel" class="drilldown-panel" aria-label="Dettaglio pazienti attivi" hidden>
+                <div class="drilldown-header">
+                    <div>
+                        <h4>Pazienti attivi per regime</h4>
+                        <p data-role="summary">Regime → setting → trattamento</p>
+                    </div>
+                    <div class="drilldown-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="expand-all">Espandi tutto</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="collapse-all">Comprimi</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="close" aria-label="Chiudi dettaglio">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="drilldown-note">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <span>Pazienti con un piano il cui periodo tocca il mese, in qualunque stato tranne bozza e in attesa (per i piani interrotti conta la data di interruzione). Ogni riga conta pazienti distinti: un paziente con più piani o più terapie compare in più righe, quindi le somme possono superare il totale.</span>
+                </div>
+                <div class="drilldown-head">
+                    <span></span>
+                    <span>Regime / setting / trattamento</span>
+                    <span class="text-right">Pazienti</span>
+                </div>
+                <div data-role="body"></div>
+            </section>
+
+            <section id="attendance-panel" class="drilldown-panel has-split-counts" aria-label="Dettaglio presenze e assenze" hidden>
+                <div class="drilldown-header">
+                    <div>
+                        <h4>Presenze e assenze per regime</h4>
+                        <p data-role="summary">Regime → setting → trattamento</p>
+                    </div>
+                    <div class="drilldown-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="expand-all">Espandi tutto</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="collapse-all">Comprimi</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="close" aria-label="Chiudi dettaglio">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="drilldown-note">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <span>Presenze = appuntamenti completati; assenze = assenze del paziente, giustificate e non. Le assenze dei terapisti sono nell'Analisi assenze. Una seduta di gruppo conta un appuntamento per paziente.</span>
+                </div>
+                <div class="drilldown-head">
+                    <span></span>
+                    <span>Regime / setting / trattamento</span>
+                    <span class="text-right">Presenze</span>
+                    <span class="text-right">Assenze</span>
+                </div>
+                <div data-role="body"></div>
+            </section>
         </div>
 
         <!-- 2. Grafici principali -->
@@ -172,6 +289,15 @@ $patientGrowth = $patientGrowth ?? [];
 
 .stat-value.orange {
     color: #f97316;
+}
+
+/* Scheda Presenze / Assenze: due numeri colorati nella stessa riga */
+.stat-value .green {
+    color: #10b981;
+}
+
+.stat-value .red {
+    color: #ef4444;
 }
 
 .analysis-row {

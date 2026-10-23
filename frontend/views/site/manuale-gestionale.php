@@ -156,7 +156,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
         </div>
         <div x-show="openSection === 'dashboard'" x-collapse class="mb-4">
             <div class="section-card !mt-0 !rounded-t-none border-t-0 space-y-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Dopo il login, si viene portati alla <strong>Dashboard</strong> (pagina principale) che mostra un riepilogo dell'attivita del centro.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Dopo il login, si viene portati alla <strong>Dashboard</strong> (pagina principale) che mostra i dati del centro <strong>di oggi</strong>. Le statistiche sono visibili solo a chi ha il permesso di vedere le statistiche; gli altri utenti vedono la pagina di benvenuto.</p>
 
                 <!-- Placeholder img-03 -->
                 <div class="my-4">
@@ -165,20 +165,33 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                     <div class="manual-img-placeholder" style="display:none;">
                         <svg class="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         <span class="font-medium">img/manuale/gestionale/img-03.jpg</span>
-                        <span class="text-xs mt-1 opacity-60">Dashboard principale del gestionale</span>
+                        <span class="text-xs mt-1 opacity-60">Dashboard principale: riepilogo con Pazienti in carico, Richieste aperte, Appuntamenti di oggi, Nuovi piani</span>
                     </div>
                 </div>
 
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm">Cosa mostra la Dashboard</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Riepilogo</strong> (quattro schede):</p>
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
-                    <li><strong>Pazienti totali</strong> - Numero di pazienti attivi nel sistema</li>
-                    <li><strong>Nuovi piani del mese</strong> - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; accanto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso</li>
-                    <li><strong>Terapisti attivi</strong> - Numero di terapisti operativi</li>
-                    <li><strong>Piani terapeutici attivi</strong> - Piani attualmente in corso</li>
-                    <li><strong>Piani in scadenza</strong> - Piani che scadranno a breve</li>
-                    <li><strong>Ore settimanali di trattamento</strong> - Ore di terapia erogate nella settimana</li>
-                    <li><strong>Grafici</strong> - Crescita pazienti, top trattamenti, appuntamenti settimanali, richieste documenti, assenze</li>
+                    <li><strong>Pazienti in carico</strong> - Pazienti con un piano attivo oggi. Cliccando la scheda si apre il dettaglio per regime</li>
+                    <li><strong>Richieste aperte</strong> - Richieste documenti ancora da lavorare, con quelle pronte da ritirare</li>
+                    <li><strong>Appuntamenti di oggi</strong> - Completati sul totale dei previsti (programmati + completati), quanti restano, le assenze e la divisione tra appuntamenti <strong>interni</strong> (in sede) ed <strong>esterni</strong> (domicilio e scuola). Cliccando la scheda si apre il dettaglio per regime</li>
+                    <li><strong>Nuovi piani</strong> - Piani nuovi (non rinnovi) con data di inizio nel mese corrente, bozze escluse; sotto il numero dei rinnovi e la variazione rispetto allo stesso periodo del mese scorso</li>
                 </ul>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li><strong>Andamento e distribuzione</strong> - Appuntamenti degli ultimi 7 giorni e stato delle richieste documenti</li>
+                    <li><strong>Da seguire</strong> - Piani in scadenza nei prossimi 30 giorni; riquadro Ufficio con documenti da ritirare, notifiche da leggere e piani in corso oggi</li>
+                    <li><strong>Prossimi in agenda</strong> - I prossimi appuntamenti programmati, da adesso in poi</li>
+                </ul>
+
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">Il dettaglio per regime</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Le schede con la scritta <strong>"Mostra dettaglio"</strong> aprono sotto il riepilogo un pannello a livelli:</p>
+                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="flex items-start gap-2"><span class="step-num">1</span><span>All'apertura si vedono i <strong>regimi</strong> con il loro numero</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">2</span><span>Cliccando un regime si vedono i <strong>setting</strong> (con l'etichetta Interno/Esterno), cliccando un setting i <strong>trattamenti</strong></span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">3</span><span>Cliccando un trattamento si apre l'<strong>elenco</strong> (pazienti o appuntamenti) di quella riga</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">4</span><span><strong>Espandi tutto</strong> apre tutti i livelli, <strong>Comprimi</strong> li richiude</span></div>
+                </div>
+                <div class="info-box">Nel pannello di Pazienti in carico ogni riga conta pazienti distinti: un paziente con piu piani o piu terapie compare in piu righe, quindi le somme possono superare il totale. La riga <strong>"Senza terapie"</strong> indica piani attivi senza terapie inserite. Nel pannello degli Appuntamenti di oggi si contano appuntamenti (una seduta di gruppo vale un appuntamento per paziente); gli appuntamenti dei cicli privati, che non hanno un piano, sono nella riga <strong>"Cicli privati"</strong>. Lo stesso pannello si ritrova nelle statistiche.</div>
 
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">Navigazione</h4>
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
@@ -366,10 +379,11 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                 <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                     <div class="flex items-start gap-2"><span class="step-num">1</span><span>Cliccare <strong>"Nuovo Piano"</strong></span></div>
                     <div class="flex items-start gap-2"><span class="step-num">2</span><span><strong>Selezionare il paziente</strong> dall'elenco</span></div>
-                    <div class="flex items-start gap-2"><span class="step-num">3</span><span><strong>Scegliere il regime</strong> (tipo/frequenza di terapia)</span></div>
-                    <div class="flex items-start gap-2"><span class="step-num">4</span><span><strong>Impostare le date</strong> di inizio e fine</span></div>
-                    <div class="flex items-start gap-2"><span class="step-num">5</span><span><strong>Aggiungere le terapie:</strong> per ognuna specificare tipo di trattamento, frequenza settimanale, durata seduta, terapista assegnato e tipo di ciclo</span></div>
-                    <div class="flex items-start gap-2"><span class="step-num">6</span><span>Cliccare <strong>"Salva"</strong></span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">3</span><span><strong>Indicare la tipologia:</strong> <strong>Nuovo piano</strong> oppure <strong>Rinnovo</strong>. Per un rinnovo, scegliere il piano del paziente che si sta rinnovando (facoltativo)</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">4</span><span><strong>Scegliere il regime</strong> (tipo/frequenza di terapia)</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">5</span><span><strong>Impostare le date</strong> di inizio e fine</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">6</span><span><strong>Aggiungere le terapie:</strong> per ognuna specificare tipo di trattamento, frequenza settimanale, durata seduta, terapista assegnato e tipo di ciclo</span></div>
+                    <div class="flex items-start gap-2"><span class="step-num">7</span><span>Cliccare <strong>"Salva"</strong></span></div>
                 </div>
 
                 <!-- Placeholder img-12 -->
@@ -386,10 +400,10 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                 <div class="info-box"><strong>Cosa succede dopo il salvataggio:</strong> Il sistema genera automaticamente gli appuntamenti ricorrenti, che compaiono nel calendario. Vengono pianificate le notifiche automatiche di scadenza (a 90, 60, 30 e 15 giorni dalla fine).</div>
 
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">5.4 Setting e Regimi</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-400">I <strong>regimi</strong> definiscono configurazioni predefinite. I <strong>setting terapeutici</strong> disponibili sono: Ambulatoriale, Domiciliare, Piccolo Gruppo, Centro Diurno, Semiconvitto.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">I <strong>regimi</strong> definiscono configurazioni predefinite (combinazioni di terapie, frequenze, durate delle sedute). Il <strong>setting</strong> indica dove si svolge la terapia ed e classificato come <strong>Interno</strong> (sedute in sede: ambulatoriale, centro diurno, semiconvitto, ecc.) o <strong>Esterno</strong> (fuori dalla struttura: <strong>Domiciliare</strong> e <strong>Scuola</strong>). La classificazione e usata dalle statistiche per contare gli appuntamenti interni ed esterni. Per il regime ABA e disponibile anche il setting <strong>Regime misto</strong>.</p>
 
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">5.5 Scadenza e Rinnovo</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Quando un piano si avvicina alla scadenza, il sistema invia notifiche automatiche alla famiglia a 90, 60, 30 e 15 giorni. Alla scadenza il piano viene marcato come "Scaduto". Per rinnovare, creare un nuovo piano.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Quando un piano si avvicina alla scadenza, il sistema invia notifiche automatiche alla famiglia a 90, 60, 30 e 15 giorni. Alla scadenza il piano viene marcato come "Scaduto". Per rinnovare, creare un nuovo piano scegliendo la tipologia <strong>Rinnovo</strong> e il piano rinnovato: nella scheda dei due piani compaiono i collegamenti <strong>"Rinnovo di"</strong> e <strong>"Rinnovato da"</strong>, e nell'elenco dei piani la tipologia ha una colonna e un filtro. La tipologia serve alle statistiche: la scheda "Nuovi piani" conta solo i nuovi piani.</p>
             </div>
         </div>
 
@@ -582,17 +596,36 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                     <div class="manual-img-placeholder" style="display:none;">
                         <svg class="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         <span class="font-medium">img/manuale/gestionale/img-18.jpg</span>
-                        <span class="text-xs mt-1 opacity-60">Pagina principale statistiche</span>
+                        <span class="text-xs mt-1 opacity-60">Dashboard statistiche: Pazienti attivi, Presenze / Assenze, Piani in scadenza</span>
                     </div>
                 </div>
 
-                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm">Sezioni Disponibili</h4>
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm">Dashboard Statistiche</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Le schede del riepilogo si riferiscono al <strong>mese corrente</strong>:</p>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li><strong>Pazienti Attivi</strong> - Pazienti con un piano il cui periodo tocca il mese, in qualunque stato tranne bozza e in attesa (conta anche un piano scaduto, sospeso o interrotto durante il mese; un piano interrotto non conta piu dal mese successivo all'interruzione). Cliccando la scheda si apre il dettaglio per regime, come in dashboard</li>
+                    <li><strong>Presenze / Assenze</strong> - Dal primo del mese a oggi: presenze = appuntamenti completati, assenze = assenze del paziente (giustificate e non), con la percentuale di presenza. Il dettaglio mostra per ogni riga Presenze e Assenze; le assenze dei terapisti sono nell'analisi assenze</li>
+                    <li><strong>Piani in Scadenza</strong> - Piani attivi che scadono nei prossimi 30 giorni. Cliccando la scheda si apre l'analisi dei piani</li>
+                </ul>
+
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">Analisi Assenze</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Di default mostra il mese in corso fino a oggi. Oltre a periodo, chi e assente, giustificata, tipo, terapista, paziente, trattamento e setting, i filtri comprendono:</p>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li><strong>Solo piani in corso</strong> - Spuntato di default: solo le assenze dei piani attivi oggi (piu i cicli privati). Togliendo la spunta si includono anche i piani non in corso (conclusi, interrotti, sospesi) e la scheda "Eventi di assenza" mostra quante assenze sono su piani in corso e quante su piani non in corso</li>
+                    <li><strong>Coordinamento</strong> - Limita la pagina alle assenze dei terapisti del gruppo e a quelle dei pazienti seguiti da loro, secondo il gruppo a cui il terapista era assegnato alla data dell'assenza</li>
+                </ul>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li><strong>Appuntamenti previsti</strong> - Cliccando la scheda si apre il dettaglio per regime. Una seduta di gruppo conta un appuntamento per paziente; il tasso di assenza e calcolato sugli slot (seduta di gruppo = uno slot), indicati nella scheda</li>
+                    <li><strong>Assenze terapisti per coordinamento</strong> - Per ogni gruppo: eventi, terapisti assenti, ore perse; in fondo i terapisti senza coordinamento</li>
+                    <li><strong>Elenco assenze</strong> - Le singole assenze, dalla piu recente, una riga per evento. Cliccando una riga si apre il dettaglio: per i terapisti periodo, tipo, motivo, chi l'ha inserita e approvata (e, per una sostituzione, a chi e passato l'appuntamento); per i pazienti origine (app del terapista o gestionale), chi l'ha inserita e quando, motivo e note. Chi e quando sono disponibili per le assenze segnate da febbraio 2026 in poi</li>
+                    <li><strong>Export Excel</strong> - Le stesse assenze dell'elenco, con data, ora, chi e assente, tipo, paziente, terapista, trattamento, setting, piano (in corso, non in corso, senza piano), giustificata, motivo, recupero, inserita da e inserita il</li>
+                </ul>
+
+                <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">Altre Sezioni</h4>
                 <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc list-inside">
-                    <li><strong>Dashboard Statistiche</strong> - Metriche chiave e grafici: pazienti, terapisti, piani, ore settimanali, crescita, top trattamenti</li>
-                    <li><strong>Statistiche Assenze</strong> - Tasso assenza mensile, assenze per motivazione/terapista/trattamento, andamento nel tempo</li>
                     <li><strong>Statistiche Pazienti</strong> - Distribuzione demografica, pazienti per distretto, andamento iscrizioni. Di default mostra solo pazienti con piano terapeutico attivo (checkbox disattivabile)</li>
                     <li><strong>Statistiche Trattamenti</strong> - Trattamenti piu richiesti, combinazioni, ore per tipo, utilizzo terapisti</li>
-                    <li><strong>Statistiche Piani</strong> - Piani per stato/regime, durata, tasso scadenza, piani in scadenza prossimi 30 giorni</li>
+                    <li><strong>Statistiche Piani</strong> - Piani per stato/regime, durata, tasso scadenza, piani in scadenza prossimi 30 giorni. Il grafico <strong>Nuovi piani per mese di inizio</strong> conta solo i nuovi piani (non rinnovi, bozze escluse) e ignora il filtro Stato, cosi il numero di un mese non cambia quando i piani scadono</li>
                 </ul>
 
                 <h4 class="font-semibold text-gray-700 dark:text-gray-300 text-sm mt-4">Esportazione</h4>
@@ -605,7 +638,7 @@ $imgBase = Yii::getAlias('@web') . '/img/manuale/gestionale';
                     <div class="manual-img-placeholder" style="display:none;">
                         <svg class="w-8 h-8 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         <span class="font-medium">img/manuale/gestionale/img-19.jpg</span>
-                        <span class="text-xs mt-1 opacity-60">Pagina statistiche assenze con grafici</span>
+                        <span class="text-xs mt-1 opacity-60">Analisi assenze: filtri, schede, coordinamento ed elenco assenze con dettaglio</span>
                     </div>
                 </div>
             </div>

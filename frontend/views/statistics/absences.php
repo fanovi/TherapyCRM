@@ -1,7 +1,10 @@
 <?php
 
+use common\helpers\GridViewHelper;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\widgets\ActiveForm;
+use yii\widgets\LinkPager;
 use yii\helpers\Url;
 
 /* @var $this yii\web\View */
@@ -12,6 +15,9 @@ use yii\helpers\Url;
 /* @var $byTreatmentType array */
 /* @var $bySetting array */
 /* @var $topAbsentees array */
+/* @var $byCoordinationGroup array */
+/* @var $absencesList yii\data\ActiveDataProvider */
+/* @var $coordinationOptions array */
 /* @var $therapistOptions array */
 /* @var $patientOptions array */
 /* @var $treatmentOptions array */
@@ -22,7 +28,9 @@ $this->params['breadcrumbs'][] = ['label' => 'Statistiche', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerCssFile('@web/css/statistics.css');
+// appendTimestamp: dopo un deploy il browser non deve usare CSS/JS vecchi dalla cache.
+$this->registerCssFile('@web/css/statistics.css', ['appendTimestamp' => true]);
+$this->registerJsFile('@web/js/drilldown-panel.js', ['appendTimestamp' => true]);
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', [
     'depends' => [\yii\web\YiiAsset::class],
 ]);
@@ -36,6 +44,12 @@ $byGenerator = $byGenerator ?? [];
 $byTreatmentType = $byTreatmentType ?? [];
 $bySetting = $bySetting ?? [];
 $topAbsentees = $topAbsentees ?? ['therapists' => [], 'patients' => []];
+$byCoordinationGroup = $byCoordinationGroup ?? [];
+$coordinationOptions = $coordinationOptions ?? [];
+// Filtri correnti, da passare alle richieste del pannello Appuntamenti previsti.
+$filterParams = ['AbsenceStatisticsSearch' => array_filter($searchModel->attributes, function ($value) {
+    return $value !== null && $value !== '';
+})];
 
 $defaultFrom = date('Y-m-01');
 $defaultTo = date('Y-m-d');
@@ -47,7 +61,8 @@ $hasActiveFilters = $customPeriod ||
                     ($searchModel->isJustified !== null && $searchModel->isJustified !== '') ||
                     !empty($searchModel->absenceTypeFlag) || !empty($searchModel->therapistId) ||
                     !empty($searchModel->patientId) || !empty($searchModel->treatmentTypeId) ||
-                    !empty($searchModel->settingId);
+                    !empty($searchModel->settingId) || !empty($searchModel->coordinationGroupId) ||
+                    empty($searchModel->onlyActivePlans);
 
 $formatDate = function ($value) {
     return $value ? Yii::$app->formatter->asDate($value, 'php:d/m/Y') : '';
@@ -74,6 +89,10 @@ $patientAbsences = (int) ($monthlyRate['patient_absences'] ?? 0);
 $withRecovery = (int) ($monthlyRate['with_recovery'] ?? 0);
 $withoutRecovery = (int) ($monthlyRate['without_recovery'] ?? max(0, $totalAbsences - $withRecovery));
 $totalAppointments = (int) ($monthlyRate['total_appointments'] ?? 0);
+$totalSlots = (int) ($monthlyRate['total_slots'] ?? 0);
+$inProgressPlanAbsences = (int) ($monthlyRate['in_progress_plan_absences'] ?? 0);
+$oldPlanAbsences = (int) ($monthlyRate['old_plan_absences'] ?? 0);
+$noPlanAbsences = (int) ($monthlyRate['no_plan_absences'] ?? 0);
 $absenceRate = (float) ($monthlyRate['absence_rate'] ?? 0);
 $lostHours = (int) ($monthlyRate['lost_hours'] ?? 0);
 $unrecoveredHours = (int) ($monthlyRate['unrecovered_hours'] ?? 0);
@@ -127,6 +146,13 @@ $canExport = Yii::$app->user->can('export_data');
         <div class="filter-section">
             <h4>Periodo da analizzare</h4>
             <p class="section-intro">Di default è il mese in corso fino a oggi. Cambia le date per confrontare un altro intervallo.</p>
+            <div class="filter-checkbox">
+                <?= Html::activeCheckbox($searchModel, 'onlyActivePlans', [
+                    'label' => 'Solo piani in corso',
+                    'uncheck' => '0',
+                ]) ?>
+                <span class="filter-hint">Considera solo le assenze dei piani attivi oggi (più i cicli privati). Togli la spunta per includere anche i piani non in corso (conclusi, interrotti, sospesi): il numero di assenze sarà diviso tra piani in corso e non in corso.</span>
+            </div>
             <div class="filter-row">
                 <div class="filter-col">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700">Data inizio</label>
@@ -226,6 +252,12 @@ $canExport = Yii::$app->user->can('export_data');
                         ['class' => 'form-control js-select2']
                     )->label('Setting') ?>
                 </div>
+                <div class="filter-col">
+                    <?= $form->field($searchModel, 'coordinationGroupId')->dropDownList(
+                        ['' => 'Tutti i coordinamenti'] + $coordinationOptions,
+                        ['class' => 'form-control js-select2']
+                    )->label('Coordinamento') ?>
+                </div>
             </div>
         </div>
 
@@ -302,7 +334,147 @@ $this->registerJs(<<<JS
 JS
 , \yii\web\View::POS_READY);
 ?>
+<?php
+$this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
+    'toggle' => '#planned-appointments-toggle',
+    'panel' => '#planned-appointments-panel',
+    'treeUrl' => Url::to(array_merge(['planned-appointments-breakdown'], $filterParams)),
+    'listUrl' => Url::to(array_merge(['planned-appointments-list'], $filterParams)),
+    'emptyTreeText' => 'Nessun appuntamento previsto nel periodo.',
+    'emptyListText' => 'Nessun appuntamento.',
+    'columns' => [
+        ['key' => 'date', 'label' => 'Data'],
+        ['key' => 'time', 'label' => 'Ora'],
+        ['key' => 'patient', 'label' => 'Paziente', 'link' => 'url'],
+        ['key' => 'therapist', 'label' => 'Terapista'],
+        ['key' => 'status', 'label' => 'Stato'],
+    ],
+]) . ', {
+    summary: function (data) {
+        return data.total + (data.total === 1 ? " appuntamento previsto" : " appuntamenti previsti") + " · clic su un trattamento per l\'elenco.";
+    },
+    listTitle: function (path, node) {
+        return path.join(" › ") + " · " + node.count + (node.count === 1 ? " appuntamento" : " appuntamenti");
+    }
+}));', \yii\web\View::POS_READY);
+
+// Elenco assenze: clic (o Invio) su una riga apre sotto il dettaglio caricato dal server.
+$this->registerJs(<<<'JS'
+(function () {
+    var table = document.querySelector('.absences-list-table');
+    if (!table) {
+        return;
+    }
+    var columns = table.querySelectorAll('thead th').length;
+
+    function toggle(row) {
+        var next = row.nextElementSibling;
+        if (next && next.classList.contains('absence-detail-row')) {
+            next.remove();
+            row.setAttribute('aria-expanded', 'false');
+            return;
+        }
+        var detailRow = document.createElement('tr');
+        detailRow.className = 'absence-detail-row';
+        var cell = document.createElement('td');
+        cell.colSpan = columns;
+        cell.textContent = 'Caricamento…';
+        detailRow.appendChild(cell);
+        row.after(detailRow);
+        row.setAttribute('aria-expanded', 'true');
+
+        fetch(row.getAttribute('data-detail-url'), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.json();
+        }).then(function (data) {
+            var list = document.createElement('dl');
+            list.className = 'absence-detail';
+            (data.rows || []).forEach(function (item) {
+                var dt = document.createElement('dt');
+                dt.textContent = item.label;
+                var dd = document.createElement('dd');
+                dd.textContent = item.value;
+                list.appendChild(dt);
+                list.appendChild(dd);
+            });
+            cell.textContent = '';
+            cell.appendChild(list);
+        }).catch(function () {
+            cell.textContent = 'Impossibile caricare il dettaglio. Riprova.';
+        });
+    }
+
+    table.addEventListener('click', function (event) {
+        var row = event.target.closest('tr.absence-row');
+        if (row) {
+            toggle(row);
+        }
+    });
+    table.addEventListener('keydown', function (event) {
+        var row = event.target.closest('tr.absence-row');
+        if (row && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            toggle(row);
+        }
+    });
+})();
+JS
+, \yii\web\View::POS_READY);
+?>
 <style>
+.filter-checkbox {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+}
+.filter-checkbox label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+.filter-hint {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+.absences-list-table tr.absence-row {
+    cursor: pointer;
+}
+.absences-list-table tr.absence-row[aria-expanded="true"] td {
+    background: #ebf8ff;
+}
+.absences-list-table tr.absence-row:focus-visible {
+    outline: 2px solid #2b6cb0;
+    outline-offset: -2px;
+}
+.absences-list-table tr.absence-detail-row td {
+    background: #f7fafc;
+    padding: 12px 16px;
+}
+.absence-detail {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 16px;
+    margin: 0;
+    font-size: 0.875rem;
+}
+.absence-detail dt {
+    font-weight: 600;
+    color: #4a5568;
+}
+.absence-detail dd {
+    margin: 0;
+    color: #2d3748;
+    white-space: pre-line;
+}
 .filter-form .select2-container {
     width: 100% !important;
 }
@@ -340,23 +512,61 @@ JS
                     <div class="stat-value blue"><?= $totalAbsences ?></div>
                     <div class="stat-label">Eventi di assenza</div>
                     <div class="stat-period"><?= $therapistAbsences ?> terapista · <?= $patientAbsences ?> paziente</div>
+                    <?php if (empty($searchModel->onlyActivePlans)): ?>
+                        <div class="stat-period">
+                            <?= $inProgressPlanAbsences ?> su piani in corso · <?= $oldPlanAbsences ?> su piani non in corso
+                            <?php if ($noPlanAbsences > 0): ?>
+                                · <?= $noPlanAbsences ?> senza piano
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="stat-box">
                     <div class="stat-value green"><?= $justifiedAbsences ?></div>
                     <div class="stat-label">Giustificate</div>
                     <div class="stat-period"><?= $unjustifiedAbsences ?> non giustificate</div>
                 </div>
-                <div class="stat-box">
+                <button type="button" class="stat-box stat-box-toggle" id="planned-appointments-toggle" aria-expanded="false" aria-controls="planned-appointments-panel">
                     <div class="stat-value gray"><?= $totalAppointments ?></div>
-                    <div class="stat-label">Slot previsti</div>
-                    <div class="stat-period">Sedute nel periodo</div>
-                </div>
+                    <div class="stat-label">Appuntamenti previsti</div>
+                    <div class="stat-period">Nel periodo, senza gli annullati</div>
+                    <div class="stat-toggle-hint">
+                        <span data-role="hint">Dettaglio per regime</span>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </div>
+                </button>
                 <div class="stat-box">
                     <div class="stat-value red"><?= $fmtPct($absenceRate) ?>%</div>
                     <div class="stat-label">Tasso di assenza</div>
-                    <div class="stat-period">Slot con assenza / slot previsti</div>
+                    <div class="stat-period">Slot con assenza / <?= $totalSlots ?> slot previsti (gruppo = 1 slot)</div>
                 </div>
             </div>
+
+            <section id="planned-appointments-panel" class="drilldown-panel" aria-label="Appuntamenti previsti per regime" hidden>
+                <div class="drilldown-header">
+                    <div>
+                        <h4>Appuntamenti previsti per regime</h4>
+                        <p data-role="summary">Regime → setting → trattamento</p>
+                    </div>
+                    <div class="drilldown-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="expand-all">Espandi tutto</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="collapse-all">Comprimi</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="close" aria-label="Chiudi dettaglio">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="drilldown-note">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <span>Appuntamenti del periodo con i filtri della pagina (programmati, completati, assenze; senza gli annullati). Una seduta di gruppo conta un appuntamento per paziente. Setting e trattamento sono quelli dell'appuntamento.</span>
+                </div>
+                <div class="drilldown-head">
+                    <span></span>
+                    <span>Regime / setting / trattamento</span>
+                    <span class="text-right">Appuntamenti</span>
+                </div>
+                <div data-role="body"></div>
+            </section>
         </div>
 
         <div class="summary-card">
@@ -444,6 +654,33 @@ JS
                             <td class="text-center"><?= (int) $setting['patient_absences'] ?></td>
                             <td class="text-center"><?= $fmtHours($setting['lost_hours'] ?? 0) ?></td>
                             <td class="text-center"><?= $fmtPct($settingShare) ?>%</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($byCoordinationGroup)): ?>
+        <div class="full-width-card">
+            <h3>Assenze terapisti per coordinamento</h3>
+            <p class="section-intro">Assenze dei terapisti divise per gruppo di coordinamento. Un terapista conta nei gruppi a cui era assegnato alla data dell'assenza.</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Coordinamento</th>
+                        <th class="text-center">Eventi</th>
+                        <th class="text-center">Terapisti assenti</th>
+                        <th class="text-center">Ore perse</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($byCoordinationGroup as $group): ?>
+                        <tr>
+                            <td class="font-bold"><?= Html::encode($group['group_name']) ?></td>
+                            <td class="text-center"><span class="badge badge-gray"><?= (int) $group['events'] ?></span></td>
+                            <td class="text-center"><?= (int) $group['therapists'] ?></td>
+                            <td class="text-center"><?= $fmtHours($group['lost_hours']) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -610,6 +847,56 @@ JS
                 <canvas id="trend-chart"></canvas>
             </div>
         </div>
+
+        <?php if ($absencesList->getTotalCount() > 0): ?>
+        <div class="full-width-card" id="absences-list">
+            <h3>Elenco assenze</h3>
+            <p class="section-intro">Le assenze del periodo con i filtri della pagina, dalla più recente: una riga per evento, come il conteggio "Eventi di assenza" e l'export. Un'assenza del terapista su una seduta di gruppo è una riga sola con tutti i pazienti. Clicca una riga per vedere chi l'ha inserita, quando e il motivo.</p>
+            <table class="data-table absences-list-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Chi è assente</th>
+                        <th>Paziente</th>
+                        <th>Terapista</th>
+                        <th>Trattamento</th>
+                        <th>Setting</th>
+                        <th>Giustificata</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($absencesList->getModels() as $row): ?>
+                        <?php
+                        if ($row['absence_type'] === 'patient') {
+                            $who = 'Paziente';
+                        } elseif ($row['absence_type'] === 'therapist_substitution') {
+                            $who = 'Terapista (sostituito)';
+                        } else {
+                            $who = 'Terapista';
+                        }
+                        $detailUrl = Url::to(['absence-detail', 'appointment_id' => $row['appointment_id'], 'type' => $row['absence_type'], 'absence_id' => $row['absence_id']]);
+                        ?>
+                        <tr class="absence-row" tabindex="0" role="button" aria-expanded="false" data-detail-url="<?= Html::encode($detailUrl) ?>">
+                            <td><?= Yii::$app->formatter->asDatetime($row['appointment_datetime'], 'php:d/m/Y H:i') ?></td>
+                            <td>
+                                <span class="badge-small <?= $row['generated_by'] === 'therapist' ? 'badge-purple' : 'badge-orange' ?>"><?= $who ?></span>
+                            </td>
+                            <td><?= Html::encode($row['patients'] ?: '—') ?><?= (int) $row['is_group'] ? ' <span class="text-muted">(gruppo)</span>' : '' ?></td>
+                            <td><?= Html::encode($row['therapist'] ?: '—') ?></td>
+                            <td><?= Html::encode($row['treatments'] ?: '—') ?></td>
+                            <td><?= Html::encode($settingOptions[$row['setting_id']] ?? '—') ?></td>
+                            <td><?= $row['is_justified'] ? 'Sì' : 'No' ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php
+            $pagerConfig = GridViewHelper::getPaginationConfig();
+            unset($pagerConfig['class']);
+            echo LinkPager::widget(array_merge($pagerConfig, ['pagination' => $absencesList->getPagination()]));
+            ?>
+        </div>
+        <?php endif; ?>
 
         <?php endif; ?>
 

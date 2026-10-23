@@ -456,8 +456,13 @@
   gap: 16px;
 }
 
+.stats-grid.stats-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 @media (max-width: 768px) {
-  .stats-grid {
+  .stats-grid,
+  .stats-grid.stats-grid-3 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -867,6 +872,12 @@
   transition: box-shadow 0.15s;
 }
 
+/* Scheda che porta a un'altra pagina (es. Piani in scadenza → analisi piani) */
+a.stat-box-toggle,
+a.stat-box-toggle:hover {
+  text-decoration: none;
+}
+
 .stat-box-toggle:hover,
 .stat-box-toggle[aria-expanded="true"] {
   box-shadow: 0 0 0 2px #3182ce;
@@ -958,6 +969,16 @@
   grid-template-columns: 24px minmax(0, 1fr) 64px;
   column-gap: 12px;
   align-items: center;
+}
+
+/* Pannello con più numeri per riga (nodi con counts, es. presenze/assenze) */
+.drilldown-panel.has-split-counts .drilldown-head,
+.drilldown-panel.has-split-counts .drilldown-row {
+  grid-template-columns: 24px minmax(0, 1fr) 80px 80px;
+}
+
+.drilldown-panel.has-split-counts .drilldown-count.count-1:not(.is-zero) {
+  color: #c53030;
 }
 
 .drilldown-head {

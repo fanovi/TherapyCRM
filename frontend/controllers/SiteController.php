@@ -2,6 +2,7 @@
 
 namespace frontend\controllers;
 
+use common\helpers\DrilldownHelper;
 use common\models\Appointment;
 use common\models\DocumentRequest;
 use common\models\Notification;
@@ -151,6 +152,8 @@ class SiteController extends BaseController
             ? (int) round(($completedAppointmentsToday / $expectedAppointmentsToday) * 100)
             : 0;
 
+        $appointmentsTodayByLocation = $statisticsService->countExpectedAppointmentsByLocation($today);
+
         $upcomingAppointments = Appointment::find()
             ->with(['patient', 'patientViaPlanTherapy', 'therapist.user.profile'])
             ->where(['>', 'appointment_datetime', date('Y-m-d H:i:s')])
@@ -243,6 +246,7 @@ class SiteController extends BaseController
             'expectedAppointmentsToday' => $expectedAppointmentsToday,
             'absentAppointmentsToday' => $absentAppointmentsToday,
             'appointmentCompletionRate' => $appointmentCompletionRate,
+            'appointmentsTodayByLocation' => $appointmentsTodayByLocation,
             'upcomingAppointments' => $upcomingAppointments,
             'pendingDocumentRequests' => $pendingDocumentRequests,
             'pickupDocumentRequests' => $pickupDocumentRequests,
@@ -301,20 +305,54 @@ class SiteController extends BaseController
             (int) $treatment_type_id
         );
 
-        $canViewPatient = Yii::$app->user->can('view_patient');
-        $formatter = Yii::$app->formatter;
-        $patients = [];
-        foreach ($rows as $row) {
-            $patients[] = [
-                'name' => trim($row['first_name'] . ' ' . $row['last_name']),
-                'url' => $canViewPatient ? Url::to(['patient/view', 'id' => $row['patient_id']]) : null,
-                'plan' => $formatter->asDate($row['start_date'], 'php:d/m/Y') . ' – ' . $formatter->asDate($row['end_date'], 'php:d/m/Y'),
-                'end' => $formatter->asDate($row['end_date'], 'php:d/m/Y'),
-                'hours' => rtrim(rtrim(number_format((float) $row['weekly_hours'], 2, ',', ''), '0'), ','),
-            ];
-        }
+        return ['rows' => DrilldownHelper::patientRows($rows)];
+    }
 
-        return ['rows' => $patients];
+    /**
+     * Dettaglio della scheda "Appuntamenti di oggi": regime → setting → trattamento
+     * sugli appuntamenti previsti (programmati + completati).
+     *
+     * @return array
+     * @throws ForbiddenHttpException
+     */
+    public function actionTodayAppointmentsBreakdown()
+    {
+        if (!Yii::$app->user->can('view_statistics')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare le statistiche.');
+        }
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $today = date('Y-m-d');
+        $breakdown = (new StatisticsService())->getExpectedAppointmentsBreakdown($today);
+        $breakdown['date'] = Yii::$app->formatter->asDate($today, 'php:d/m/Y');
+
+        return $breakdown;
+    }
+
+    /**
+     * Elenco degli appuntamenti previsti oggi per un trattamento del dettaglio.
+     *
+     * @param string $group Chiave del primo livello (regime, cicli privati, senza piano)
+     * @param int $setting_id 0 = senza setting
+     * @param int $treatment_type_id 0 = senza trattamento
+     * @return array
+     * @throws ForbiddenHttpException
+     */
+    public function actionTodayAppointmentsList($group, $setting_id, $treatment_type_id)
+    {
+        if (!Yii::$app->user->can('view_statistics')) {
+            throw new ForbiddenHttpException('Non hai i permessi per visualizzare le statistiche.');
+        }
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $rows = (new StatisticsService())->getExpectedAppointmentsList(
+            date('Y-m-d'),
+            (string) $group,
+            (int) $setting_id,
+            (int) $treatment_type_id
+        );
+
+        return ['rows' => DrilldownHelper::appointmentRows($rows)];
     }
 
     /**
@@ -334,6 +372,7 @@ class SiteController extends BaseController
             'expectedAppointmentsToday' => 0,
             'absentAppointmentsToday' => 0,
             'appointmentCompletionRate' => 0,
+            'appointmentsTodayByLocation' => ['internal' => 0, 'external' => 0, 'none' => 0],
             'upcomingAppointments' => [],
             'pendingDocumentRequests' => 0,
             'pickupDocumentRequests' => 0,

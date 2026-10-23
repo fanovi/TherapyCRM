@@ -3,12 +3,15 @@
 namespace common\services\statistics;
 
 use Yii;
+use common\models\Appointment;
 use common\models\Patient;
 use common\models\PlanTherapy;
 use common\models\Regime;
 use common\models\Setting;
 use common\models\TherapeuticPlan;
+use common\models\Therapist;
 use common\models\TreatmentType;
+use common\models\UserProfile;
 use yii\db\Query;
 use yii\db\Expression;
 
@@ -17,6 +20,9 @@ use yii\db\Expression;
  */
 class StatisticsService
 {
+    /** Stati di assenza del paziente (le assenze del terapista sono therapist_absent). */
+    const PATIENT_ABSENT_STATUSES = [Appointment::STATUS_ABSENT_JUSTIFIED, Appointment::STATUS_ABSENT_NOT_JUSTIFIED];
+
     /**
      * Ottiene i dati di riepilogo per la dashboard
      */
@@ -27,11 +33,8 @@ class StatisticsService
         // Statistiche pazienti
         $summary['patients'] = $this->getPatientsSummary();
 
-        // Statistiche assenze
-        $summary['absences'] = $this->getAbsencesSummary();
-
-        // Statistiche trattamenti
-        $summary['treatments'] = $this->getTreatmentsSummary();
+        // Presenze e assenze dei pazienti nel mese corrente fino a oggi
+        $summary['attendance'] = $this->getAttendanceSummary(date('Y-m-01'), date('Y-m-d'));
 
         // Statistiche piani
         $summary['plans'] = $this->getPlansSummary();
@@ -44,16 +47,8 @@ class StatisticsService
      */
     protected function getPatientsSummary()
     {
-        $query = new Query();
-
-        // Pazienti attivi (con piano terapeutico attivo)
-        $activeCount = $query
-            ->from('patients p')
-            ->innerJoin('therapeutic_plans tp', 'p.id = tp.patient_id')
-            ->where(['tp.status' => 'active'])
-            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-            ->count('DISTINCT p.id');
+        // Pazienti attivi nel mese corrente (stessa definizione del dettaglio della scheda)
+        $activeCount = $this->countActivePatients(date('Y-m-01'), date('Y-m-t'));
 
         // Pazienti totali
         $totalCount = (new Query())
@@ -89,88 +84,6 @@ class StatisticsService
             'total' => (int)$totalCount,
             'new_this_month' => (int)$newThisMonth,
             'multi_treatment' => (int)$multiTreatment
-        ];
-    }
-
-    /**
-     * Riepilogo assenze con la nuova logica
-     */
-    protected function getAbsencesSummary()
-    {
-        $absenceService = new AbsenceStatisticsService();
-
-        // Query base per assenze del mese corrente
-        $monthFilters = [
-            'dateFrom' => date('Y-m-01'),
-            'dateTo' => date('Y-m-t')
-        ];
-
-        $query = $absenceService->getBaseAbsencesQuery($monthFilters);
-
-        // Conta totali
-        $totals = $query
-            ->select([
-                'total' => new Expression('COUNT(DISTINCT absence_group_key)'),
-                'justified' => new Expression('COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'),
-                'with_recovery' => new Expression("COUNT(DISTINCT CASE WHEN has_recovery = 'SI' THEN absence_group_key END)")
-            ])
-            ->one();
-
-        // Calcola tasso non giustificate
-        $unjustifiedCount = $totals['total'] - $totals['justified'];
-        $unjustifiedRate = $totals['total'] > 0 ? round(($unjustifiedCount / $totals['total']) * 100, 1) : 0;
-
-        return [
-            'total_this_month' => (int)$totals['total'],
-            'justified_this_month' => (int)$totals['justified'],
-            'with_recovery' => (int)$totals['with_recovery'],
-            'unjustified_rate' => $unjustifiedRate
-        ];
-    }
-
-    /**
-     * Riepilogo trattamenti
-     */
-    protected function getTreatmentsSummary()
-    {
-        // Tipi di trattamento attivi
-        $activeTypes = (new Query())
-            ->select('COUNT(DISTINCT pt.treatment_type_id)')
-            ->from('plan_therapies pt')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['tp.status' => 'active'])
-            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-            ->scalar();
-
-        // Ore settimanali totali
-        $totalHours = (new Query())
-            ->select('SUM(pt.weekly_hours)')
-            ->from('plan_therapies pt')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['tp.status' => 'active'])
-            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-            ->scalar();
-
-        // Trattamento più frequente
-        $topTreatment = (new Query())
-            ->select(['tt.name', 'COUNT(DISTINCT tp.patient_id) as patient_count'])
-            ->from('treatment_types tt')
-            ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
-            ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
-            ->where(['tp.status' => 'active'])
-            ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-            ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-            ->groupBy('tt.id, tt.name')
-            ->orderBy(['patient_count' => SORT_DESC])
-            ->limit(1)
-            ->one();
-
-        return [
-            'active_types' => (int)$activeTypes,
-            'total_weekly_hours' => round((float)$totalHours, 1),
-            'top_treatment' => $topTreatment ? $topTreatment['name'] : 'N/A'
         ];
     }
 
@@ -563,12 +476,52 @@ public function getPatientGrowthData($params = [])
      */
     public function patientsInChargePlansQuery($date)
     {
+        return $this->plansInPeriodQuery($date, $date)
+            ->andWhere(['tp.status' => TherapeuticPlan::STATUS_ACTIVE]);
+    }
+
+    /**
+     * Piani che rendono un paziente "attivo" nel periodo: periodo del piano che
+     * si sovrappone a quello dato, qualunque stato tranne bozza e in attesa.
+     * Per i piani interrotti la fine è termination_date, non la end_date prevista:
+     * un piano scaduto o interrotto a metà mese conta per quel mese e non per i
+     * successivi. Usata dalla scheda "Pazienti attivi" della dashboard statistiche.
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return Query
+     */
+    public function activePatientsPlansQuery($from, $to)
+    {
+        return $this->plansInPeriodQuery($from, $to)
+            ->andWhere(['not in', 'tp.status', [TherapeuticPlan::STATUS_DRAFT, TherapeuticPlan::STATUS_PENDING]]);
+    }
+
+    /**
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return int Pazienti distinti attivi nel periodo
+     */
+    public function countActivePatients($from, $to)
+    {
+        return (int) $this->activePatientsPlansQuery($from, $to)->count('DISTINCT tp.patient_id');
+    }
+
+    /**
+     * Piani con periodo che si sovrappone a [from, to] (alias tp/p). La fine
+     * effettiva è termination_date se il piano è stato interrotto, altrimenti end_date.
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return Query
+     */
+    private function plansInPeriodQuery($from, $to)
+    {
         return (new Query())
             ->from(['tp' => TherapeuticPlan::tableName()])
             ->innerJoin(['p' => Patient::tableName()], 'p.id = tp.patient_id')
-            ->where(['tp.status' => TherapeuticPlan::STATUS_ACTIVE])
-            ->andWhere(['<=', 'tp.start_date', $date])
-            ->andWhere(['>=', 'tp.end_date', $date]);
+            ->where(['<=', 'tp.start_date', $to])
+            ->andWhere(['>=', new Expression('COALESCE(tp.termination_date, tp.end_date)'), $from]);
     }
 
     /**
@@ -594,7 +547,28 @@ public function getPatientGrowthData($params = [])
      */
     public function getPatientsInChargeBreakdown($date)
     {
-        $base = $this->patientsInChargePlansQuery($date);
+        return $this->buildPatientsBreakdown($this->patientsInChargePlansQuery($date));
+    }
+
+    /**
+     * Pazienti attivi nel periodo divisi per regime → setting → trattamento,
+     * come getPatientsInChargeBreakdown() ma su activePatientsPlansQuery().
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return array{total: int, nodes: array}
+     */
+    public function getActivePatientsBreakdown($from, $to)
+    {
+        return $this->buildPatientsBreakdown($this->activePatientsPlansQuery($from, $to));
+    }
+
+    /**
+     * @param Query $base Piani da considerare (alias tp/p)
+     * @return array{total: int, nodes: array}
+     */
+    private function buildPatientsBreakdown(Query $base)
+    {
         $countExpr = 'COUNT(DISTINCT tp.patient_id)';
 
         $regimeRows = (clone $base)
@@ -679,7 +653,7 @@ public function getPatientGrowthData($params = [])
             $noTherapy = (int) ($noTherapyByRegime[$regimeKey] ?? 0);
             if ($noTherapy > 0) {
                 $children[] = [
-                    'name' => 'Senza terapie · piano attivo senza terapie inserite',
+                    'name' => 'Senza terapie · piano senza terapie inserite',
                     'count' => $noTherapy,
                     'warning' => true,
                 ];
@@ -692,7 +666,7 @@ public function getPatientGrowthData($params = [])
         }
 
         return [
-            'total' => $this->countPatientsInCharge($date),
+            'total' => (int) (clone $base)->count('DISTINCT tp.patient_id'),
             'nodes' => $this->sortByCountDesc($nodes),
         ];
     }
@@ -710,7 +684,31 @@ public function getPatientGrowthData($params = [])
      */
     public function getPatientsInChargeList($date, $regimeId, $settingId, $treatmentTypeId)
     {
-        return $this->patientsInChargePlansQuery($date)
+        return $this->buildPatientsList($this->patientsInChargePlansQuery($date), $regimeId, $settingId, $treatmentTypeId);
+    }
+
+    /**
+     * Pazienti attivi nel periodo con un trattamento in un setting, dentro un
+     * regime; righe come getPatientsInChargeList().
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @param int|null $regimeId Null = piani senza regime
+     * @param int $settingId
+     * @param int $treatmentTypeId
+     * @return array
+     */
+    public function getActivePatientsList($from, $to, $regimeId, $settingId, $treatmentTypeId)
+    {
+        return $this->buildPatientsList($this->activePatientsPlansQuery($from, $to), $regimeId, $settingId, $treatmentTypeId);
+    }
+
+    /**
+     * @param Query $base Piani da considerare (alias tp/p)
+     */
+    private function buildPatientsList(Query $base, $regimeId, $settingId, $treatmentTypeId)
+    {
+        return $base
             ->select([
                 'patient_id' => 'p.id',
                 'first_name' => 'p.first_name',
@@ -724,6 +722,314 @@ public function getPatientGrowthData($params = [])
             ->andWhere(['pt.setting_id' => $settingId, 'pt.treatment_type_id' => $treatmentTypeId])
             ->groupBy(['p.id', 'p.first_name', 'p.last_name', 'tp.id', 'tp.start_date', 'tp.end_date'])
             ->orderBy(['p.last_name' => SORT_ASC, 'p.first_name' => SORT_ASC, 'tp.start_date' => SORT_ASC])
+            ->all();
+    }
+
+    /**
+     * Appuntamenti previsti nel giorno: programmati + completati (alias a), cioè
+     * il denominatore della scheda "Appuntamenti di oggi". Assenze e annullati
+     * esclusi. Una seduta di gruppo conta una riga per paziente.
+     *
+     * @param string $date Data Y-m-d
+     * @return Query
+     */
+    public function expectedAppointmentsQuery($date)
+    {
+        return (new Query())
+            ->from(['a' => Appointment::tableName()])
+            ->where(['a.status' => [Appointment::STATUS_SCHEDULED, Appointment::STATUS_COMPLETED]])
+            ->andWhere(['between', 'a.appointment_datetime', $date . ' 00:00:00', $date . ' 23:59:59']);
+    }
+
+    /**
+     * Appuntamenti previsti nel giorno divisi per setting interno/esterno;
+     * 'none' = senza setting (righe vecchie), così le tre voci sommano al totale.
+     *
+     * @param string $date Data Y-m-d
+     * @return array{internal: int, external: int, none: int}
+     */
+    public function countExpectedAppointmentsByLocation($date)
+    {
+        $rows = $this->expectedAppointmentsQuery($date)
+            ->select(['c' => new Expression('COUNT(*)'), 'location' => new Expression("COALESCE(s.location_type, 'none')")])
+            ->leftJoin(['s' => Setting::tableName()], 's.id = a.id_setting')
+            ->groupBy(['location'])
+            ->indexBy('location')
+            ->column();
+
+        return [
+            Setting::LOCATION_INTERNAL => (int) ($rows[Setting::LOCATION_INTERNAL] ?? 0),
+            Setting::LOCATION_EXTERNAL => (int) ($rows[Setting::LOCATION_EXTERNAL] ?? 0),
+            'none' => (int) ($rows['none'] ?? 0),
+        ];
+    }
+
+    /**
+     * Chiave e nome del primo livello del dettaglio appuntamenti: regime del
+     * piano ('r<id>', 'r0' = piano senza regime), 'private' per i cicli privati,
+     * 'none' per gli appuntamenti senza piano né ciclo. Richiede i join tp e r.
+     *
+     * @return array{key: string, name: string}
+     */
+    private function appointmentGroupExpressions()
+    {
+        return [
+            'key' => "CASE WHEN tp.id IS NOT NULL THEN CONCAT('r', COALESCE(tp.regime_id, 0))"
+                . " WHEN a.private_cycle_id IS NOT NULL THEN 'private' ELSE 'none' END",
+            'name' => "CASE WHEN tp.id IS NOT NULL THEN COALESCE(r.nome, 'Senza regime')"
+                . " WHEN a.private_cycle_id IS NOT NULL THEN 'Cicli privati' ELSE 'Senza piano' END",
+        ];
+    }
+
+    /**
+     * Appuntamenti del periodo con presenza o assenza del paziente (alias a):
+     * completati, assenti giustificati e non giustificati. Base della scheda
+     * "Assenze/Presenze" della dashboard statistiche; le assenze dei terapisti
+     * sono escluse (hanno la loro analisi). Una seduta di gruppo conta una
+     * riga per paziente.
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return Query
+     */
+    public function attendanceAppointmentsQuery($from, $to)
+    {
+        return (new Query())
+            ->from(['a' => Appointment::tableName()])
+            ->where(['a.status' => array_merge([Appointment::STATUS_COMPLETED], self::PATIENT_ABSENT_STATUSES)])
+            ->andWhere(['between', 'a.appointment_datetime', $from . ' 00:00:00', $to . ' 23:59:59']);
+    }
+
+    /**
+     * Presenze e assenze dei pazienti nel periodo.
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return array{present: int, absent: int, justified: int}
+     */
+    public function getAttendanceSummary($from, $to)
+    {
+        $row = $this->attendanceAppointmentsQuery($from, $to)
+            ->select([
+                'present' => new Expression('COALESCE(SUM(a.status = :completed), 0)', [':completed' => Appointment::STATUS_COMPLETED]),
+                'justified' => new Expression('COALESCE(SUM(a.status = :justified), 0)', [':justified' => Appointment::STATUS_ABSENT_JUSTIFIED]),
+                'c' => new Expression('COUNT(*)'),
+            ])
+            ->one();
+
+        return [
+            'present' => (int) $row['present'],
+            'absent' => (int) $row['c'] - (int) $row['present'],
+            'justified' => (int) $row['justified'],
+        ];
+    }
+
+    /**
+     * Presenze e assenze nel periodo divise per regime → setting → trattamento,
+     * come getExpectedAppointmentsBreakdown(); ogni nodo ha anche
+     * counts = [presenze, assenze] (count = la loro somma).
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @return array{total: int, nodes: array}
+     */
+    public function getAttendanceBreakdown($from, $to)
+    {
+        return $this->buildAppointmentsBreakdown($this->attendanceAppointmentsQuery($from, $to), true);
+    }
+
+    /**
+     * Appuntamenti con presenza o assenza nel periodo per un nodo trattamento,
+     * in ordine di data e ora.
+     *
+     * @param string $from Data Y-m-d
+     * @param string $to Data Y-m-d
+     * @param string $group Chiave del primo livello (vedi appointmentGroupExpressions())
+     * @param int $settingId 0 = appuntamenti senza setting
+     * @param int $treatmentTypeId 0 = appuntamenti senza trattamento
+     * @return array
+     */
+    public function getAttendanceList($from, $to, $group, $settingId, $treatmentTypeId)
+    {
+        return $this->buildAppointmentsList($this->attendanceAppointmentsQuery($from, $to), $group, $settingId, $treatmentTypeId);
+    }
+
+    /**
+     * Aggiunge piano e regime agli appuntamenti (alias pt, tp, r).
+     *
+     * @param Query $base Appuntamenti (alias a)
+     * @return Query
+     */
+    private function withPlanAndRegime(Query $base)
+    {
+        return $base
+            ->leftJoin(['pt' => PlanTherapy::tableName()], 'pt.id = a.plan_therapy_id')
+            ->leftJoin(['tp' => TherapeuticPlan::tableName()], 'tp.id = pt.therapeutic_plan_id')
+            ->leftJoin(['r' => Regime::tableName()], 'r.id = tp.regime_id');
+    }
+
+    /**
+     * Appuntamenti previsti nel giorno divisi per regime → setting → trattamento.
+     * Setting e trattamento sono quelli salvati sull'appuntamento, il regime è
+     * quello del piano; cicli privati e appuntamenti senza piano hanno un nodo
+     * proprio al primo livello. I conteggi sono appuntamenti, quindi si sommano.
+     *
+     * Nodi come getPatientsInChargeBreakdown(); i params dei trattamenti filtrano
+     * getExpectedAppointmentsList() (setting_id/treatment_type_id 0 = assente).
+     *
+     * @param string $date Data Y-m-d
+     * @return array{total: int, nodes: array}
+     */
+    public function getExpectedAppointmentsBreakdown($date)
+    {
+        return $this->buildAppointmentsBreakdown($this->expectedAppointmentsQuery($date), false);
+    }
+
+    /**
+     * Dettaglio regime → setting → trattamento di un insieme qualsiasi di
+     * appuntamenti (usato anche dall'Analisi assenze per gli appuntamenti previsti).
+     *
+     * @param Query $base Appuntamenti (alias a; non usare gli alias pt, tp, r, s, tt)
+     * @param bool $splitAttendance true = ogni nodo ha counts [presenze, assenze]
+     * @return array{total: int, nodes: array}
+     */
+    public function buildAppointmentsBreakdown(Query $base, $splitAttendance = false)
+    {
+        $group = $this->appointmentGroupExpressions();
+        $rows = $this->withPlanAndRegime($base)
+            ->select([
+                'group_key' => new Expression($group['key']),
+                'group_name' => new Expression($group['name']),
+                'setting_key' => new Expression('COALESCE(a.id_setting, 0)'),
+                'setting_name' => new Expression("COALESCE(s.nome, 'Senza setting')"),
+                'location_type' => 's.location_type',
+                'treatment_key' => new Expression('COALESCE(a.treatment_type_id, 0)'),
+                'treatment_name' => new Expression("COALESCE(tt.name, 'Senza trattamento')"),
+                'c' => new Expression('COUNT(*)'),
+                'present' => new Expression('SUM(a.status = :completed)', [':completed' => Appointment::STATUS_COMPLETED]),
+            ])
+            ->leftJoin(['s' => Setting::tableName()], 's.id = a.id_setting')
+            ->leftJoin(['tt' => TreatmentType::tableName()], 'tt.id = a.treatment_type_id')
+            // Alias diversi dai nomi colonna (es. pt.setting_id): nel GROUP BY MySQL darebbe la precedenza alla colonna.
+            ->groupBy(['group_key', 'group_name', 'setting_key', 'setting_name', 's.location_type', 'treatment_key', 'treatment_name'])
+            ->all();
+
+        $locationLabels = Setting::getLocationTypeLabels();
+        $groups = [];
+        $total = 0;
+        foreach ($rows as $row) {
+            $count = (int) $row['c'];
+            $present = (int) $row['present'];
+            $total += $count;
+            $groupKey = $row['group_key'];
+            $settingKey = (int) $row['setting_key'];
+
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = ['name' => $row['group_name'], 'count' => 0, 'present' => 0, 'settings' => []];
+            }
+            $groups[$groupKey]['count'] += $count;
+            $groups[$groupKey]['present'] += $present;
+
+            if (!isset($groups[$groupKey]['settings'][$settingKey])) {
+                $groups[$groupKey]['settings'][$settingKey] = [
+                    'name' => $row['setting_name'],
+                    'count' => 0,
+                    'present' => 0,
+                    'children' => [],
+                ];
+                if ($row['location_type'] !== null) {
+                    $groups[$groupKey]['settings'][$settingKey]['badge'] = [
+                        'text' => $locationLabels[$row['location_type']] ?? $row['location_type'],
+                        'variant' => $row['location_type'],
+                    ];
+                }
+            }
+            $groups[$groupKey]['settings'][$settingKey]['count'] += $count;
+            $groups[$groupKey]['settings'][$settingKey]['present'] += $present;
+            $groups[$groupKey]['settings'][$settingKey]['children'][] = [
+                'name' => $row['treatment_name'],
+                'count' => $count,
+                'present' => $present,
+                'params' => [
+                    'group' => $groupKey,
+                    'setting_id' => $settingKey,
+                    'treatment_type_id' => (int) $row['treatment_key'],
+                ],
+            ];
+        }
+
+        // 'present' serve solo al calcolo: diventa counts [presenze, assenze] o sparisce.
+        $finish = function (array $node) use ($splitAttendance) {
+            if ($splitAttendance) {
+                $node['counts'] = [$node['present'], $node['count'] - $node['present']];
+            }
+            unset($node['present']);
+            return $node;
+        };
+
+        $nodes = [];
+        foreach ($groups as $groupNode) {
+            $settings = [];
+            foreach ($groupNode['settings'] as $setting) {
+                $setting['children'] = $this->sortByCountDesc(array_map($finish, $setting['children']));
+                $settings[] = $finish($setting);
+            }
+            $nodes[] = $finish([
+                'name' => $groupNode['name'],
+                'count' => $groupNode['count'],
+                'present' => $groupNode['present'],
+                'children' => $this->sortByCountDesc($settings),
+            ]);
+        }
+
+        return [
+            'total' => $total,
+            'nodes' => $this->sortByCountDesc($nodes),
+        ];
+    }
+
+    /**
+     * Appuntamenti previsti nel giorno per un nodo trattamento del dettaglio,
+     * in ordine di orario.
+     *
+     * @param string $date Data Y-m-d
+     * @param string $group Chiave del primo livello (vedi appointmentGroupExpressions())
+     * @param int $settingId 0 = appuntamenti senza setting
+     * @param int $treatmentTypeId 0 = appuntamenti senza trattamento
+     * @return array
+     */
+    public function getExpectedAppointmentsList($date, $group, $settingId, $treatmentTypeId)
+    {
+        return $this->buildAppointmentsList($this->expectedAppointmentsQuery($date), $group, $settingId, $treatmentTypeId);
+    }
+
+    /**
+     * Appuntamenti di un nodo trattamento di buildAppointmentsBreakdown().
+     *
+     * @param Query $base Appuntamenti (alias a; non usare gli alias pt, tp, r, p, th, up)
+     */
+    public function buildAppointmentsList(Query $base, $group, $settingId, $treatmentTypeId)
+    {
+        $groupExpr = $this->appointmentGroupExpressions()['key'];
+
+        return $this->withPlanAndRegime($base)
+            ->select([
+                'appointment_datetime' => 'a.appointment_datetime',
+                'status' => 'a.status',
+                'group_session_id' => 'a.group_session_id',
+                'patient_id' => 'p.id',
+                'patient_first_name' => 'p.first_name',
+                'patient_last_name' => 'p.last_name',
+                'therapist_first_name' => 'up.first_name',
+                'therapist_last_name' => 'up.last_name',
+            ])
+            ->leftJoin(['p' => Patient::tableName()], 'p.id = COALESCE(a.patient_id, tp.patient_id)')
+            ->leftJoin(['th' => Therapist::tableName()], 'th.id = a.therapist_id')
+            ->leftJoin(['up' => UserProfile::tableName()], 'up.user_id = th.user_id')
+            ->andWhere(new Expression($groupExpr . ' = :group', [':group' => (string) $group]))
+            ->andWhere(['a.id_setting' => $settingId ?: null])
+            ->andWhere(['a.treatment_type_id' => $treatmentTypeId ?: null])
+            ->orderBy(['a.appointment_datetime' => SORT_ASC, 'p.last_name' => SORT_ASC, 'p.first_name' => SORT_ASC])
             ->all();
     }
 
