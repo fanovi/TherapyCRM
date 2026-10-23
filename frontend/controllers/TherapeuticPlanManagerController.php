@@ -713,9 +713,11 @@ class TherapeuticPlanManagerController extends Controller
             ];
         }
 
-        // Parametri opzionali
-        $startDate = Yii::$app->request->get('startDate');
-        $endDate = Yii::$app->request->get('endDate');
+        // Parametri opzionali. Accettati anche in snake_case: il calendario
+        // li inviava cosi' e il filtro non veniva mai applicato (#339); un
+        // bundle ancora in cache potrebbe continuare a farlo.
+        $startDate = Yii::$app->request->get('startDate') ?: Yii::$app->request->get('start_date');
+        $endDate = Yii::$app->request->get('endDate') ?: Yii::$app->request->get('end_date');
 
         // Query di base
         $query = Absence::find()

@@ -1028,7 +1028,11 @@ class TherapeuticPlanManagerAPI {
   // === GESTIONE ASSENZE TERAPISTA ===
 
   /**
-   * Ottiene le assenze di un terapista per un range di date
+   * NON RIMUOVERE — usato da Index per il banner assenze e il blocco slot.
+   *
+   * Ottiene le assenze approvate di un terapista. I parametri vanno in
+   * camelCase (startDate/endDate), come li legge actionGetTherapistAbsences.
+   * Senza endDate il backend non applica limite superiore (end_date >= startDate).
    */
   async getTherapistAbsences(
     therapistId: number,
@@ -1040,10 +1044,10 @@ class TherapeuticPlanManagerAPI {
     };
 
     if (startDate) {
-      params.start_date = startDate;
+      params.startDate = startDate;
     }
     if (endDate) {
-      params.end_date = endDate;
+      params.endDate = endDate;
     }
 
     const response = await this.get<APIResponse<TherapistAbsencesResponse>>(

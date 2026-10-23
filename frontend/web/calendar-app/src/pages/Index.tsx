@@ -201,22 +201,31 @@ const Index = () => {
     );
   };
 
+  // Assenze da mostrare nel banner: approvate e non ancora concluse
+  // (end_date >= oggi), dalla piu' vicina alla piu' lontana. Le assenze
+  // gia' passate non vanno mostrate (ticket #339).
+  const todayString = toLocalDateString(new Date());
+  const upcomingAbsences = therapistAbsences
+    .filter(
+      (absence) =>
+        absence.status === "approved" && absence.end_date >= todayString
+    )
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
   // Vista terapista: non ci sono selezioni da gestire, solo visualizzazione
 
   const planId = patient?.planTherapy?.therapeuticPlanId;
-  // Funzione per caricare le assenze del terapista
+  // Funzione per caricare le assenze del terapista.
+  // Senza endDate il backend non applica limite superiore (end_date >= startDate).
   const loadTherapistAbsences = async (
     therapistId: number,
     startDate?: Date,
     endDate?: Date
   ) => {
     try {
-      const startDateStr = startDate
-        ? startDate.toISOString().split("T")[0]
-        : undefined;
-      const endDateStr = endDate
-        ? endDate.toISOString().split("T")[0]
-        : undefined;
+      // Timezone locale: toISOString() (UTC) sfora di -1 giorno in CEST.
+      const startDateStr = startDate ? toLocalDateString(startDate) : undefined;
+      const endDateStr = endDate ? toLocalDateString(endDate) : undefined;
 
       const absences = await therapyAPI.getTherapistAbsences(
         therapistId,
@@ -724,12 +733,10 @@ const Index = () => {
   // Carica le assenze quando il terapista selezionato cambia
   useEffect(() => {
     if (selectedTherapist) {
-      // Calcola un range di 6 mesi: 3 mesi prima e 3 mesi dopo la data corrente
-      const now = new Date();
-      const startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      const endDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
-
-      loadTherapistAbsences(selectedTherapist.id, startDate, endDate);
+      // Solo assenze in corso o future (end_date >= oggi), senza limite
+      // superiore: quelle lontane devono continuare a bloccare gli slot.
+      // Le assenze gia' concluse non servono al calendario (ticket #339).
+      loadTherapistAbsences(selectedTherapist.id, new Date());
     } else {
       setTherapistAbsences([]);
     }
@@ -1899,8 +1906,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* Mostra avviso assenze attive */}
-        {selectedTherapist && therapistAbsences.length > 0 && (
+        {/* Avviso assenze in corso o future (le concluse non si mostrano, #339) */}
+        {selectedTherapist && upcomingAbsences.length > 0 && (
           <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
             <div className="flex items-start gap-3">
               <div className="text-orange-600 text-xl">⚠️</div>
@@ -1909,17 +1916,9 @@ const Index = () => {
                   Assenze programmate per {selectedTherapist.name}
                 </p>
                 <div className="space-y-2">
-                  {therapistAbsences
-                    .filter((absence) => absence.status === "approved")
+                  {upcomingAbsences
                     .slice(0, 3) // Mostra solo le prime 3 assenze
                     .map((absence) => {
-                      const absenceTypeLabels = {
-                        vacation: "Ferie",
-                        sick: "Malattia",
-                        training: "Formazione",
-                        other: "Altro",
-                      };
-
                       const startDate = new Date(
                         absence.start_date
                       ).toLocaleDateString("it-IT");
@@ -1937,7 +1936,7 @@ const Index = () => {
                           className="text-sm text-orange-700"
                         >
                           <span className="font-medium">
-                            {absenceTypeLabels[absence.type]}
+                            {ABSENCE_TYPE_LABELS[absence.type] || absence.type}
                           </span>
                           : {dateRange}
                           {absence.reason && (
@@ -1949,15 +1948,11 @@ const Index = () => {
                         </div>
                       );
                     })}
-                  {therapistAbsences.filter(
-                    (absence) => absence.status === "approved"
-                  ).length > 3 && (
+                  {upcomingAbsences.length > 3 && (
                     <div className="text-sm text-orange-600">
-                      ... e altre{" "}
-                      {therapistAbsences.filter(
-                        (absence) => absence.status === "approved"
-                      ).length - 3}{" "}
-                      assenze
+                      {upcomingAbsences.length - 3 === 1
+                        ? "... e un'altra assenza"
+                        : `... e altre ${upcomingAbsences.length - 3} assenze`}
                     </div>
                   )}
                 </div>
