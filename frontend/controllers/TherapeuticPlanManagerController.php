@@ -4765,7 +4765,9 @@ class TherapeuticPlanManagerController extends Controller
             'conflicts' => [],
             'weeklyLimitExceeded' => [],
             // Occorrenze create con il terapista assente: ['appointment' => Appointment, 'absence' => Absence]
-            'absentOccurrences' => []
+            'absentOccurrences' => [],
+            // Occorrenze di gruppo unite a una seduta gia' presente nello slot
+            'joinedSessions' => []
         ];
 
         $currentDate = new DateTime($pattern->valid_from);
@@ -4830,13 +4832,25 @@ class TherapeuticPlanManagerController extends Controller
                     continue;
                 }
 
+                // Occorrenza di gruppo: se nello slot c'e' gia' una seduta dello stesso
+                // gruppo (o la coda di un componente), ci si unisce invece di saltare
+                $joinTarget = !empty($data['isGroup'])
+                    ? $this->findJoinableGroupSlot($pattern, $planTherapy, $appointmentDateTime, $abaAppointmentType)
+                    : null;
+                $conflictGroupSessionId = $joinTarget
+                    ? $joinTarget['groupSessionId']
+                    : ($data['groupSessionId'] ?? null);
+                $conflictExcludeId = $joinTarget && $joinTarget['single']
+                    ? $joinTarget['single']->id
+                    : null;
+
                 // Verifica conflitti terapista
                 $conflict = $this->checkTherapistConflict(
                     $pattern->therapist_id,
                     $appointmentDateTime,
                     $pattern->duration_minutes,
-                    null,
-                    $data['groupSessionId'] ?? null
+                    $conflictExcludeId,
+                    $conflictGroupSessionId
                 );
 
                 if ($conflict) {
@@ -4859,8 +4873,8 @@ class TherapeuticPlanManagerController extends Controller
                         $appointmentDateTime,
                         $abaAppointmentType,
                         $planTherapy->treatment_type_id,
-                        null,
-                        $data['groupSessionId'] ?? null,
+                        $conflictExcludeId,
+                        $conflictGroupSessionId,
                         $pattern->duration_minutes
                     );
 
@@ -4925,18 +4939,43 @@ class TherapeuticPlanManagerController extends Controller
                 // veri, cosi' non si segnalano date che verrebbero comunque scartate.
                 $absence = $this->findTherapistAbsence($pattern->therapist_id, $appointmentDateTime, $pattern->duration_minutes);
 
-                // Crea appuntamento (nuovo group_session_id per ciascuna occorrenza se isGroup)
-                $occurrenceGroupSessionId = !empty($data['isGroup'])
-                    ? Appointment::generateGroupSessionId()
-                    : null;
+                // Crea appuntamento (nuovo group_session_id per ciascuna occorrenza se isGroup,
+                // quello della seduta esistente se ci si unisce)
+                if ($joinTarget) {
+                    $occurrenceGroupSessionId = $joinTarget['groupSessionId'] ?? Appointment::generateGroupSessionId();
+                } else {
+                    $occurrenceGroupSessionId = !empty($data['isGroup'])
+                        ? Appointment::generateGroupSessionId()
+                        : null;
+                }
+                // Il singolo diventa di gruppo solo se l'occorrenza viene davvero creata:
+                // savepoint per non lasciare né il singolo promosso né un gruppo da 1
+                $joinTransaction = $joinTarget ? Yii::$app->db->beginTransaction() : null;
                 try {
                     $appointment = $this->createAppointmentFromPattern($pattern, $appointmentDateTime, $planTherapy, $patient, $occurrenceGroupSessionId, $abaAppointmentType);
+                    if ($joinTarget) {
+                        if ($joinTarget['single']) {
+                            $joinTarget['single']->group_session_id = $occurrenceGroupSessionId;
+                            if (!$joinTarget['single']->save(false)) {
+                                throw new Exception("Errore nell'unione al singolo {$joinTarget['single']->id}");
+                            }
+                        }
+                        $joinTransaction->commit();
+                        $result['joinedSessions'][] = [
+                            'date' => $currentDate->format('Y-m-d'),
+                            'time' => $startTime,
+                            'groupSessionId' => $occurrenceGroupSessionId,
+                        ];
+                    }
                     $result['appointmentsCreated']++;
                     if ($absence) {
                         $result['absentOccurrences'][] = ['appointment' => $appointment, 'absence' => $absence];
                     }
                     Yii::info("Appuntamento creato con successo: ID {$appointment->id}, DateTime: {$appointmentDateTime}", __METHOD__);
                 } catch (Exception $e) {
+                    if ($joinTransaction && $joinTransaction->isActive) {
+                        $joinTransaction->rollBack();
+                    }
                     Yii::error("Errore nella creazione dell'appuntamento per {$appointmentDateTime}: " . $e->getMessage(), __METHOD__);
                     // Continua con il prossimo appuntamento invece di fermarsi
                 }
@@ -5235,6 +5274,88 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         return $query->one();
+    }
+
+    /**
+     * Cerca nello slot del terapista una seduta a cui un'occorrenza di gruppo
+     * puo' unirsi invece di essere saltata per conflitto (ticket #340).
+     *
+     * Lo slot deve contenere solo appuntamenti dello stesso gruppo con stesso
+     * orario, durata, tipologia, setting (e appointment_type per l'ABA). Vale
+     * anche un singolo, purche' il suo paziente frequenti gia' quello slot in
+     * gruppo (stessa plan_therapy, terapista, giorno e ora con group_session_id):
+     * e' il caso delle code personali sciolte dalla pulizia dei gruppi da 1.
+     *
+     * @return array|null ['groupSessionId' => string|null, 'single' => Appointment|null]
+     */
+    private function findJoinableGroupSlot($pattern, $planTherapy, $appointmentDateTime, $abaAppointmentType = null)
+    {
+        $endTime = (new DateTime($appointmentDateTime))
+            ->modify("+{$pattern->duration_minutes} minutes")
+            ->format('Y-m-d H:i:s');
+
+        $slotAppointments = Appointment::find()
+            ->where(['therapist_id' => $pattern->therapist_id])
+            ->andWhere(['not in', 'status', [
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_ABSENT_JUSTIFIED,
+                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                Appointment::STATUS_THERAPIST_ABSENT,
+            ]])
+            ->andWhere(['<', 'appointment_datetime', $endTime])
+            ->andWhere(['>', 'DATE_ADD(appointment_datetime, INTERVAL duration_minutes MINUTE)', $appointmentDateTime])
+            ->with(['planTherapy'])
+            ->all();
+
+        if (empty($slotAppointments)) {
+            return null;
+        }
+
+        $settingId = $pattern->id_setting ?: $planTherapy->setting_id;
+        $groupSessionIds = [];
+        foreach ($slotAppointments as $slotAppointment) {
+            if (strtotime($slotAppointment->appointment_datetime) !== strtotime($appointmentDateTime)
+                || (int) $slotAppointment->duration_minutes !== (int) $pattern->duration_minutes
+                || $slotAppointment->appointment_source !== Appointment::SOURCE_THERAPEUTIC_PLAN
+                || !$slotAppointment->planTherapy
+                || (int) $slotAppointment->planTherapy->treatment_type_id !== (int) $planTherapy->treatment_type_id
+                || (int) $slotAppointment->id_setting !== (int) $settingId
+                || ($abaAppointmentType !== null && $slotAppointment->appointment_type !== $abaAppointmentType)
+            ) {
+                return null;
+            }
+            $groupSessionIds[$slotAppointment->group_session_id ?? ''] = true;
+        }
+
+        // Tutto lo slot deve essere una sola seduta
+        if (count($groupSessionIds) !== 1) {
+            return null;
+        }
+
+        $groupSessionId = (string) key($groupSessionIds);
+        if ($groupSessionId !== '') {
+            return ['groupSessionId' => $groupSessionId, 'single' => null];
+        }
+
+        if (count($slotAppointments) !== 1) {
+            return null;
+        }
+
+        $single = $slotAppointments[0];
+        $attendsSlotInGroup = Appointment::find()
+            ->where([
+                'plan_therapy_id' => $single->plan_therapy_id,
+                'therapist_id' => $single->therapist_id,
+            ])
+            ->andWhere(['is not', 'group_session_id', null])
+            ->andWhere(['!=', 'id', $single->id])
+            ->andWhere(
+                'DAYOFWEEK(appointment_datetime) = DAYOFWEEK(:dtDay) AND TIME(appointment_datetime) = TIME(:dtTime)',
+                [':dtDay' => $appointmentDateTime, ':dtTime' => $appointmentDateTime]
+            )
+            ->exists();
+
+        return $attendsSlotInGroup ? ['groupSessionId' => null, 'single' => $single] : null;
     }
 
     /**
