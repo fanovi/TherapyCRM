@@ -3243,7 +3243,7 @@ class TherapeuticPlanManagerController extends Controller
 
         // Calcola l'ultimo giorno del mese della data di inizio
         $endDate = new DateTime("$currentYear-$currentMonth-01");
-        $endDate->modify('last day of this month');
+        $endDate->modify('last day of this month')->setTime(23, 59, 59);
 
         Yii::info("Date calcolate - corrente: {$currentDate->format('Y-m-d H:i:s')}, inizio: {$startDate->format('Y-m-d H:i:s')}, fine: {$endDate->format('Y-m-d')}, intervallo: ogni {$weekInterval} settimana/e", __METHOD__);
 
