@@ -228,6 +228,9 @@ CSS
                         'format' => 'raw',
                         'content' => function($model) {
                             $statusClass = $model->isApproved() ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-200 dark:text-yellow-900';
+                            if ($model->isCancelled()) {
+                                $statusClass = 'bg-gray-200 text-gray-700 dark:bg-gray-200 dark:text-gray-900';
+                            }
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $model->getStatusLabel() . '</span>';
                         }
                     ],
@@ -237,7 +240,7 @@ CSS
                         'headerOptions' => ['class' => 'px-4 py-3 min-w-[150px]'],
                         'contentOptions' => ['class' => 'px-4 py-4 whitespace-nowrap'],
                         'filterOptions' => ['class' => 'px-2 py-2'],
-                        'template' => '{view} {update} {delete}',
+                        'template' => '{view} {update} {revoke} {delete}',
                         'buttons' => [
                             'view' => function ($url, $model, $key) {
                                 return Html::a('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>',
@@ -249,11 +252,20 @@ CSS
                                 ]);
                             },
                             'update' => function ($url, $model, $key) {
-                                if (!Yii::$app->user->can('update_absence')) return '';
+                                if (!Yii::$app->user->can('update_absence') || $model->isCancelled()) return '';
                                 return Html::button('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>', [
                                     'type' => 'button',
                                     'title' => 'Modifica assenza',
                                     'class' => 'btn-edit-absence text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20',
+                                    'data-id' => $model->id,
+                                ]);
+                            },
+                            'revoke' => function ($url, $model, $key) {
+                                if (!Yii::$app->user->can('revoke_absence') || !$model->isRevocable()) return '';
+                                return Html::button('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>', [
+                                    'type' => 'button',
+                                    'title' => 'Revoca assenza',
+                                    'class' => 'btn-revoke-absence text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20',
                                     'data-id' => $model->id,
                                 ]);
                             },
@@ -514,4 +526,5 @@ $js = <<<JS
 })();
 JS;
 $this->registerJs($js, \yii\web\View::POS_READY);
+echo $this->render('_revoke_js');
 ?>

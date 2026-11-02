@@ -22,10 +22,19 @@ $this->params['breadcrumbs'][] = $therapistName;
             <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageName"></h2>
             
             <div class="flex gap-2">
-                <?php if (Yii::$app->user->can('create_absence')): ?>
+                <?php if (Yii::$app->user->can('create_absence') && !$model->isCancelled()): ?>
                     <?= Html::a('Modifica', ['update', 'id' => $model->id], [
                         'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-500 border border-transparent rounded-lg hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2'
                     ]) ?>
+                <?php endif; ?>
+                <?php if (Yii::$app->user->can('revoke_absence') && $model->isRevocable()): ?>
+                    <?= Html::button('Revoca', [
+                        'type' => 'button',
+                        'class' => 'btn-revoke-absence inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 border border-transparent rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2',
+                        'data-id' => $model->id,
+                    ]) ?>
+                <?php endif; ?>
+                <?php if (Yii::$app->user->can('delete_absence')): ?>
                     <?= Html::a('Elimina', ['delete', 'id' => $model->id], [
                         'class' => 'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-error-500 border border-transparent rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
                         'data' => [
@@ -102,6 +111,9 @@ $this->params['breadcrumbs'][] = $therapistName;
                         'format' => 'raw',
                         'value' => function($model) {
                             $statusClass = $model->isApproved() ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                            if ($model->isCancelled()) {
+                                $statusClass = 'bg-gray-200 text-gray-700';
+                            }
                             return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ' . $statusClass . '">' . $model->getStatusLabel() . '</span>';
                         },
                     ],
@@ -117,6 +129,25 @@ $this->params['breadcrumbs'][] = $therapistName;
                         'attribute' => 'approved_at',
                         'format' => ['datetime', 'php:d/m/Y H:i'],
                         'visible' => !empty($model->approved_at),
+                    ],
+                    [
+                        'label' => 'Revocata da',
+                        'value' => function($model) {
+                            return $model->cancelledBy && $model->cancelledBy->profile
+                                ? $model->cancelledBy->profile->getFullName()
+                                : '-';
+                        },
+                        'visible' => $model->isCancelled(),
+                    ],
+                    [
+                        'attribute' => 'cancelled_at',
+                        'format' => ['datetime', 'php:d/m/Y H:i'],
+                        'visible' => $model->isCancelled() && !empty($model->cancelled_at),
+                    ],
+                    [
+                        'attribute' => 'cancellation_reason',
+                        'format' => 'ntext',
+                        'visible' => $model->isCancelled(),
                     ],
                     'notes:ntext',
                     [
@@ -140,3 +171,4 @@ $this->params['breadcrumbs'][] = $therapistName;
         </div>
     </div>
 </div>
+<?= $this->render('_revoke_js') ?>

@@ -7,6 +7,7 @@ use common\models\Absence;
 use common\models\ActivityLog;
 use common\models\Appointment;
 use common\models\Therapist;
+use common\models\TherapistSubstitution;
 use common\models\Notification;
 use common\models\AbsenceSearch;
 use common\models\PatientAbsenceSearch;
@@ -18,6 +19,7 @@ use yii\web\Response;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use yii\helpers\ArrayHelper;
+use yii\db\Query;
 use common\models\CoordinatorGroup;
 use common\models\GroupTherapist;
 use yii\web\ForbiddenHttpException;
@@ -57,9 +59,19 @@ class AbsenceController extends Controller
                         'roles' => ['manage_patient_absence'],
                     ],
                     [
-                        'actions' => ['create', 'update', 'delete', 'check-appointments', 'ajax-save', 'ajax-get'],
+                        'actions' => ['create', 'update', 'check-appointments', 'ajax-save', 'ajax-get'],
                         'allow' => true,
                         'roles' => ['create_absence'],
+                    ],
+                    [
+                        'actions' => ['delete'],
+                        'allow' => true,
+                        'roles' => ['delete_absence'],
+                    ],
+                    [
+                        'actions' => ['revoke', 'revoke-info'],
+                        'allow' => true,
+                        'roles' => ['revoke_absence'],
                     ],
                 ],
             ],
@@ -67,6 +79,8 @@ class AbsenceController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'revoke' => ['POST'],
+                    'revoke-info' => ['GET'],
                     'remove-patient-absence' => ['POST'],
                     'mark-patients-absent' => ['POST'],
                     'ajax-save' => ['POST'],
@@ -92,6 +106,10 @@ class AbsenceController extends Controller
 
         $id = Yii::$app->request->post('Absence')['id'] ?? Yii::$app->request->post('id');
         $model = $id ? $this->findModel((int) $id) : new Absence();
+
+        if ($model->isCancelled()) {
+            return ['success' => false, 'error' => 'Un\'assenza revocata non puo\' essere modificata'];
+        }
 
         $isNew = $model->isNewRecord;
         if ($isNew) {
@@ -657,6 +675,11 @@ class AbsenceController extends Controller
     {
         $model = $this->findModel($id);
 
+        if ($model->isCancelled()) {
+            Yii::$app->session->setFlash('error', 'Un\'assenza revocata non puo\' essere modificata.');
+            return $this->redirect(['view', 'id' => $model->id]);
+        }
+
         // Coordinator can only update absences of their group's therapists
         if ($this->isCoordinatorOnly()) {
             $coordinatorTherapistIds = $this->getCoordinatorTherapistIds();
@@ -728,6 +751,209 @@ class AbsenceController extends Controller
         Yii::$app->session->setFlash('success', 'Assenza eliminata con successo.');
 
         return $this->redirect(['index']);
+    }
+
+    /**
+     * Dati per la modale di revoca: periodo e appuntamenti che NON verranno modificati.
+     *
+     * @param int $id
+     * @return array
+     */
+    public function actionRevokeInfo($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = $this->findModel((int) $id);
+        $error = $this->getRevokeError($model);
+        if ($error !== null) {
+            return ['success' => false, 'error' => $error];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'therapist' => $this->getAbsenceTherapistName($model),
+                'period' => $this->getAbsencePeriodLabel($model),
+                'type' => $model->getTypeLabel(),
+            ] + $this->getRevokeImpact($model),
+        ];
+    }
+
+    /**
+     * Revoca un'assenza: il record resta, con stato "Revocata" e dati di revoca.
+     * Gli appuntamenti del periodo non vengono toccati: non sono collegati all'assenza
+     * che li ha resi "terapista assente", quindi il ripristino resta manuale.
+     *
+     * @param int $id
+     * @return array
+     */
+    public function actionRevoke($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = $this->findModel((int) $id);
+        $error = $this->getRevokeError($model);
+        if ($error !== null) {
+            return ['success' => false, 'error' => $error];
+        }
+
+        $reason = trim((string) Yii::$app->request->post('reason', ''));
+        if ($reason === '') {
+            return ['success' => false, 'error' => 'Il motivo della revoca e\' obbligatorio.'];
+        }
+
+        if (!$model->revoke(Yii::$app->user->id, $reason)) {
+            return ['success' => false, 'error' => 'Errore durante la revoca dell\'assenza.'];
+        }
+
+        $notificationSent = $this->sendAbsenceRevokedNotifications($model, $this->getRevokeImpact($model));
+
+        return [
+            'success' => true,
+            'message' => 'Assenza revocata',
+            'notification_sent' => $notificationSent,
+        ];
+    }
+
+    /**
+     * @param Absence $absence
+     * @return string|null il motivo per cui l'utente non puo' revocare l'assenza
+     */
+    private function getRevokeError($absence)
+    {
+        if ($this->isCoordinatorOnly() && !in_array($absence->therapist_id, $this->getCoordinatorTherapistIds())) {
+            return 'Non hai i permessi per revocare questa assenza.';
+        }
+        if ($absence->isCancelled()) {
+            return 'Questa assenza e\' gia\' stata revocata.';
+        }
+        if (!$absence->isRevocable()) {
+            return 'Si possono revocare solo le assenze approvate e non ancora concluse.';
+        }
+        return null;
+    }
+
+    /**
+     * Conta gli appuntamenti del periodo che dopo la revoca restano invariati.
+     * Per le assenze orarie considera solo quelli che si sovrappongono all'orario.
+     *
+     * @param Absence $absence
+     * @return array ['therapist_absent_count' => int, 'substituted_count' => int]
+     */
+    private function getRevokeImpact($absence)
+    {
+        $applyPeriod = function (Query $query) use ($absence) {
+            $query->andWhere(['>=', 'a.appointment_datetime', $absence->start_date . ' 00:00:00'])
+                ->andWhere(['<=', 'a.appointment_datetime', $absence->end_date . ' 23:59:59']);
+            if ($absence->isHourly()) {
+                $query->andWhere(
+                    'TIME(a.appointment_datetime) < :absenceEnd AND ADDTIME(TIME(a.appointment_datetime), SEC_TO_TIME(COALESCE(a.duration_minutes, 0) * 60)) > :absenceStart',
+                    [':absenceStart' => $absence->start_time, ':absenceEnd' => $absence->end_time]
+                );
+            }
+            return $query;
+        };
+
+        $therapistAbsent = $applyPeriod((new Query())
+            ->from(['a' => Appointment::tableName()])
+            ->where(['a.therapist_id' => $absence->therapist_id, 'a.status' => Appointment::STATUS_THERAPIST_ABSENT]))
+            ->count();
+
+        $substituted = $applyPeriod((new Query())
+            ->from(['ts' => TherapistSubstitution::tableName()])
+            ->innerJoin(['a' => Appointment::tableName()], 'a.id = ts.appointment_id')
+            ->where(['ts.original_therapist_id' => $absence->therapist_id])
+            ->andWhere(['a.status' => [Appointment::STATUS_SCHEDULED, Appointment::STATUS_THERAPIST_ABSENT]]))
+            ->count();
+
+        return [
+            'therapist_absent_count' => (int) $therapistAbsent,
+            'substituted_count' => (int) $substituted,
+        ];
+    }
+
+    /**
+     * @param Absence $absence
+     * @return string
+     */
+    private function getAbsenceTherapistName($absence)
+    {
+        $therapist = $absence->therapist;
+        return ($therapist && $therapist->user && $therapist->user->profile)
+            ? trim($therapist->user->profile->first_name . ' ' . $therapist->user->profile->last_name)
+            : 'Terapista non disponibile';
+    }
+
+    /**
+     * @param Absence $absence
+     * @return string
+     */
+    private function getAbsencePeriodLabel($absence)
+    {
+        $startDate = (new \DateTime($absence->start_date))->format('d/m/Y');
+        $endDate = (new \DateTime($absence->end_date))->format('d/m/Y');
+        return $startDate === $endDate ? "il {$startDate}" : "dal {$startDate} al {$endDate}";
+    }
+
+    /**
+     * Notifica la revoca a direzione e coordinatori dei gruppi del terapista.
+     * Solo gestionale, senza push, come per l'inserimento dell'assenza.
+     *
+     * @param Absence $absence
+     * @param array $impact risultato di getRevokeImpact()
+     * @return bool false se almeno un invio non e' riuscito
+     */
+    private function sendAbsenceRevokedNotifications($absence, $impact)
+    {
+        try {
+            $user = Yii::$app->user->identity;
+            $revokedBy = ($user && $user->profile)
+                ? 'Operatore ' . $user->profile->first_name . ' ' . $user->profile->last_name
+                : 'Operatore';
+
+            $therapistName = $this->getAbsenceTherapistName($absence);
+            $period = $this->getAbsencePeriodLabel($absence);
+
+            $title = 'Assenza Terapista Revocata';
+            $message = "Revocata l'assenza ({$absence->getTypeLabel()}) del terapista {$therapistName} {$period}.\n"
+                . "Motivo della revoca: {$absence->cancellation_reason}\n"
+                . "Revocata da: {$revokedBy}";
+
+            if ($impact['therapist_absent_count'] > 0 || $impact['substituted_count'] > 0) {
+                $message .= "\nAttenzione: gli appuntamenti non sono stati modificati automaticamente.\n"
+                    . "Appuntamenti in stato \"Terapista assente\": {$impact['therapist_absent_count']}\n"
+                    . "Appuntamenti assegnati a un sostituto: {$impact['substituted_count']}\n"
+                    . "Se il terapista torna disponibile, vanno ripristinati manualmente dal calendario.";
+            }
+
+            $data = [
+                'absence_id' => $absence->id,
+                'therapist_id' => $absence->therapist_id,
+                'type' => 'therapist_absence_revoked',
+            ];
+
+            $results = [
+                NotificationHelper::sendToManagement($title, $message, Notification::TYPE_INFO, $data, true),
+                NotificationHelper::sendToTherapistCoordinators(
+                    $absence->therapist_id,
+                    $title,
+                    $message,
+                    Notification::TYPE_INFO,
+                    $data,
+                    true
+                ),
+            ];
+
+            foreach ($results as $result) {
+                if (($result['success'] ?? true) === false || !empty($result['errors'])) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (\Exception $e) {
+            Yii::error("Errore invio notifiche revoca assenza terapista: " . $e->getMessage(), __METHOD__);
+            return false;
+        }
     }
 
     /**

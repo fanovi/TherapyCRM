@@ -150,6 +150,7 @@
 | `create_absence` | Registrare assenze | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
 | `view_absence` | Visualizzare assenze | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
 | `update_absence` | Modificare assenze | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `revoke_absence` | Revocare assenze | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `delete_absence` | Eliminare assenze | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `manage_absence_recovery` | Gestire recuperi assenze | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `view_absence_statistics` | Statistiche assenze | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |

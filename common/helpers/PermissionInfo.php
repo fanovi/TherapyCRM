@@ -185,6 +185,10 @@ class PermissionInfo
                 'title' => 'Modificare assenze',
                 'description' => "Permette di modificare un'assenza gia' registrata (date, tipo, motivo)."
             ],
+            'revoke_absence' => [
+                'title' => 'Revocare assenze',
+                'description' => "Permette di revocare un'assenza terapista non ancora conclusa, indicandone il motivo. L'assenza resta in elenco con stato 'Revocata', viene inviata una notifica a direzione e coordinatori e gli appuntamenti del periodo non vengono modificati."
+            ],
             'delete_absence' => [
                 'title' => 'Eliminare assenze',
                 'description' => "Rimuove un'assenza dal sistema, ripristinando l'appuntamento associato se previsto."

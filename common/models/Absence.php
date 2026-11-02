@@ -20,6 +20,9 @@ use yii\behaviors\TimestampBehavior;
  * @property string $status
  * @property int|null $approved_by
  * @property string|null $approved_at
+ * @property int|null $cancelled_by
+ * @property string|null $cancelled_at
+ * @property string|null $cancellation_reason
  * @property string|null $notes
  * @property int $created_by
  * @property string $created_at
@@ -164,6 +167,9 @@ class Absence extends ActiveRecord
             'status' => 'Stato',
             'approved_by' => 'Approvato da',
             'approved_at' => 'Approvato il',
+            'cancelled_by' => 'Revocata da',
+            'cancelled_at' => 'Revocata il',
+            'cancellation_reason' => 'Motivo revoca',
             'notes' => 'Note',
             'created_by' => 'Creato da',
             'created_at' => 'Creato il',
@@ -189,6 +195,16 @@ class Absence extends ActiveRecord
     public function getApprovedBy()
     {
         return $this->hasOne(User::class, ['id' => 'approved_by']);
+    }
+
+    /**
+     * Gets query for [[CancelledBy]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCancelledBy()
+    {
+        return $this->hasOne(User::class, ['id' => 'cancelled_by']);
     }
 
     /**
@@ -238,7 +254,7 @@ class Absence extends ActiveRecord
             self::STATUS_PENDING => 'In Attesa',
             self::STATUS_APPROVED => 'Approvato',
             self::STATUS_REJECTED => 'Rifiutato',
-            self::STATUS_CANCELLED => 'Annullato',
+            self::STATUS_CANCELLED => 'Revocata',
         ];
     }
 
@@ -289,6 +305,46 @@ class Absence extends ActiveRecord
     public function isApproved()
     {
         return $this->status === self::STATUS_APPROVED;
+    }
+
+    /**
+     * @return bool true se l'assenza e' stata revocata
+     */
+    public function isCancelled()
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
+    /**
+     * Revocabile solo se approvata e non ancora conclusa.
+     *
+     * @return bool
+     */
+    public function isRevocable()
+    {
+        return $this->isApproved() && $this->end_date >= date('Y-m-d');
+    }
+
+    /**
+     * Revoca l'assenza mantenendone il record per la tracciabilita'.
+     * I dati di revoca non sono negli attributi "safe": si impostano solo da qui.
+     *
+     * @param int $userId
+     * @param string $reason
+     * @return bool
+     */
+    public function revoke($userId, $reason)
+    {
+        if (!$this->isRevocable()) {
+            return false;
+        }
+
+        $this->status = self::STATUS_CANCELLED;
+        $this->cancelled_by = $userId;
+        $this->cancelled_at = date('Y-m-d H:i:s');
+        $this->cancellation_reason = $reason;
+
+        return $this->save(false);
     }
 
     /**
