@@ -265,7 +265,7 @@ CSS
                                 return Html::button('<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>', [
                                     'type' => 'button',
                                     'title' => 'Revoca assenza',
-                                    'class' => 'btn-revoke-absence text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20',
+                                    'class' => 'btn-revoke-absence text-warning-600 dark:text-warning-400 mr-3 inline-flex items-center justify-center w-8 h-8 rounded-lg',
                                     'data-id' => $model->id,
                                 ]);
                             },

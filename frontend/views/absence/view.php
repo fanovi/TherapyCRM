@@ -30,7 +30,7 @@ $this->params['breadcrumbs'][] = $therapistName;
                 <?php if (Yii::$app->user->can('revoke_absence') && $model->isRevocable()): ?>
                     <?= Html::button('Revoca', [
                         'type' => 'button',
-                        'class' => 'btn-revoke-absence inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 border border-transparent rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2',
+                        'class' => 'btn-revoke-absence inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-warning-500 border border-transparent rounded-lg focus:outline-none',
                         'data-id' => $model->id,
                     ]) ?>
                 <?php endif; ?>
