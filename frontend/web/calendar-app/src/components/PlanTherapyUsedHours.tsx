@@ -25,6 +25,13 @@ interface PlanTherapyHoursData {
   minuti_limite: number;
   minuti_rimanenti: number;
   plan_therapy_id: string;
+  /** Solo regime L11: riepilogo recuperi per ogni mese toccato dalla settimana */
+  recuperi?: {
+    mese: string; // YYYY-MM
+    minuti_da_recuperare: number;
+    minuti_recuperati: number;
+    minuti_non_collegati: number;
+  }[];
 }
 
 export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
@@ -201,6 +208,46 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Recuperi del mese (solo L11): il recupero va fissato nello stesso
+            mese dell'assenza, in qualunque settimana */}
+        {planHours.recuperi && planHours.recuperi.length > 0 && (
+          <div className="pt-2 border-t space-y-1 text-sm">
+            {planHours.recuperi.map((r) => (
+              <div key={r.mese}>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">
+                    Da recuperare a{" "}
+                    {moment(r.mese + "-01").format("MMMM")}:
+                  </span>
+                  <span
+                    className={`font-semibold ${
+                      r.minuti_da_recuperare > 0
+                        ? "text-amber-700"
+                        : "text-gray-900"
+                    }`}
+                  >
+                    {formatHoursMinutes(r.minuti_da_recuperare / 60)}
+                  </span>
+                </div>
+                {r.minuti_recuperati > 0 && (
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Già recuperate nel mese:</span>
+                    <span>{formatHoursMinutes(r.minuti_recuperati / 60)}</span>
+                  </div>
+                )}
+                {r.minuti_non_collegati > 0 && (
+                  <div className="flex justify-between text-xs text-red-600">
+                    <span>Recuperi senza assenza collegata:</span>
+                    <span>
+                      {formatHoursMinutes(r.minuti_non_collegati / 60)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Periodo */}
         <div className="text-xs text-gray-500 pt-2 border-t">

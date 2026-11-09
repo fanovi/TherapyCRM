@@ -946,6 +946,10 @@ class TherapeuticPlanManagerAPI {
 
   /**
    * Ottiene le ore utilizzate per un piano terapia in un piano terapeutico
+   *
+   * NON RIMUOVERE — usato da PlanTherapyUsedHours. Per il regime L11 la risposta
+   * include `recuperi`: riepilogo dei recuperi per ciascun mese toccato dalla
+   * settimana (ore ancora da recuperare, recuperate, recuperi non collegati).
    */
   async getPlanTherapyUsedHours(
     therapyId: number,
@@ -963,6 +967,12 @@ class TherapeuticPlanManagerAPI {
     minuti_limite: number;
     minuti_rimanenti: number;
     plan_therapy_id: string;
+    recuperi?: {
+      mese: string;
+      minuti_da_recuperare: number;
+      minuti_recuperati: number;
+      minuti_non_collegati: number;
+    }[];
   }> {
     const response = await this.get<any>("get-plan-therapy-used-hours", {
       therapyId,

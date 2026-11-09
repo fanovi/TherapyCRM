@@ -23,6 +23,7 @@ use common\models\TherapistSpecialization;
 use common\models\TherapistSubstitution;
 use common\models\TreatmentType;
 use common\services\HolidayService;
+use common\services\RecoveryCreditService;
 use yii\filters\AccessControl;
 use yii\filters\Cors;
 use yii\filters\VerbFilter;
@@ -303,13 +304,29 @@ class TherapeuticPlanManagerController extends Controller
             // Terapista assente: non blocca, ma serve la conferma esplicita dell'operatore
             // (poi si procede alla sostituzione). Controllato dopo i blocchi veri, cosi'
             // la conferma non viene chiesta per un appuntamento che verrebbe comunque rifiutato.
+            // L11: il recupero deve compensare un'assenza del paziente dello stesso
+            // mese non ancora recuperata (prima era una forzatura senza limiti)
+            $recoveredAbsenceId = null;
+            if ($isRecovery && RecoveryCreditService::isL11($planTherapy->therapeuticPlan)) {
+                $recoveredAbsence = RecoveryCreditService::findRecoverableAbsence(
+                    (int) $planTherapy->id,
+                    RecoveryCreditService::weeklyCapMinutes($planTherapy),
+                    $data['appointmentDateTime'],
+                    (int) $data['durationMinutes']
+                );
+                if (!$recoveredAbsence) {
+                    return $this->recoveryNotAvailableResponse($planTherapy, $data['appointmentDateTime']);
+                }
+                $recoveredAbsenceId = (int) $recoveredAbsence->id;
+            }
+
             $absence = $this->findTherapistAbsence($data['therapistId'], $data['appointmentDateTime'], $data['durationMinutes']);
             if ($absence && !$this->isTherapistAbsenceConfirmed($data)) {
                 return $this->therapistAbsentResponse($absence);
             }
 
             // Crea appuntamento
-            $appointment = $this->createSingleAppointment($data, $planTherapy, $patientId, $appointmentType);
+            $appointment = $this->createSingleAppointment($data, $planTherapy, $patientId, $appointmentType, $recoveredAbsenceId);
 
             if ($absence) {
                 $this->notifyAppointmentWithAbsentTherapist($appointment, $absence);
@@ -2897,7 +2914,13 @@ class TherapeuticPlanManagerController extends Controller
     {
         // Determina il nuovo plan_therapy_id se cambia il terapista
         $newPlanTherapyId = $appointment->plan_therapy_id;
-        $is_regular_appointment_category = !isset($data['appointmentCategory']) || $data['appointmentCategory'] == 'regular';
+        // Categoria dopo la modifica: se non inviata (es. drag-and-drop) resta quella
+        // attuale, altrimenti un recupero trascinato verrebbe trattato come normale
+        $newCategory = !empty($data['appointmentCategory'])
+            ? $data['appointmentCategory']
+            : $appointment->appointment_category;
+        $categoryChanged = $newCategory !== $appointment->appointment_category;
+        $is_regular_appointment_category = $newCategory === Appointment::CATEGORY_REGULAR;
 
         if ($data['therapistId'] != $appointment->therapist_id) {
             Yii::info("Terapista cambiato da {$appointment->therapist_id} a {$data['therapistId']}, calcolo nuovo plan_therapy_id", __METHOD__);
@@ -3036,12 +3059,12 @@ class TherapeuticPlanManagerController extends Controller
 
         // Verifica limite ore per tipologia trattamento se cambia la data O la durata O il plan_therapy_id
         // (vale sia per ABA che non-ABA)
-        if (
-            ($is_regular_appointment_category) &&
-            ($data['appointmentDateTime'] != $appointment->appointment_datetime ||
-                $data['durationMinutes'] != $appointment->duration_minutes ||
-                $newPlanTherapyId != $appointment->plan_therapy_id)
-        ) {
+        $slotOrPlanChanged = $data['appointmentDateTime'] != $appointment->appointment_datetime
+            || $data['durationMinutes'] != $appointment->duration_minutes
+            || $newPlanTherapyId != $appointment->plan_therapy_id;
+
+        // Anche il passaggio da recupero a normale va verificato: aggiunge ore al periodo
+        if (($is_regular_appointment_category) && ($slotOrPlanChanged || $categoryChanged)) {
             $hoursLimitCheck = $this->checkPlanTherapyHoursLimit(
                 Appointment::SOURCE_THERAPEUTIC_PLAN,
                 $newPlanTherapyId,
@@ -3057,6 +3080,36 @@ class TherapeuticPlanManagerController extends Controller
                     'code' => $hoursLimitCheck['code']
                 ];
             }
+        }
+
+        // L11: un recupero resta collegato a un'assenza del paziente dello stesso mese.
+        // Il collegamento attuale si tiene se ancora valido, altrimenti se ne cerca un altro.
+        $relatedAppointmentId = $appointment->related_appointment_id;
+        if ($newCategory === Appointment::CATEGORY_RECOVERY) {
+            $recoveryPlanTherapy = PlanTherapy::find()
+                ->where(['id' => $newPlanTherapyId])
+                ->with(['therapeuticPlan.regime', 'treatmentType'])
+                ->one();
+            if (
+                $recoveryPlanTherapy
+                && RecoveryCreditService::isL11($recoveryPlanTherapy->therapeuticPlan)
+                && ($slotOrPlanChanged || $categoryChanged || !$relatedAppointmentId)
+            ) {
+                $recoveredAbsence = RecoveryCreditService::findRecoverableAbsence(
+                    (int) $recoveryPlanTherapy->id,
+                    RecoveryCreditService::weeklyCapMinutes($recoveryPlanTherapy),
+                    $data['appointmentDateTime'],
+                    (int) $data['durationMinutes'],
+                    (int) $appointment->id,
+                    $relatedAppointmentId ? (int) $relatedAppointmentId : null
+                );
+                if (!$recoveredAbsence) {
+                    return $this->recoveryNotAvailableResponse($recoveryPlanTherapy, $data['appointmentDateTime']);
+                }
+                $relatedAppointmentId = (int) $recoveredAbsence->id;
+            }
+        } else {
+            $relatedAppointmentId = null;
         }
 
         // Verifica limite ore settimanali del terapista se cambiano data/ora o durata
@@ -3151,6 +3204,13 @@ class TherapeuticPlanManagerController extends Controller
                 $appointmentToUpdate->appointment_datetime = $data['appointmentDateTime'];
                 $appointmentToUpdate->duration_minutes = $data['durationMinutes'];
                 $appointmentToUpdate->notes = $data['notes'] ?? null;
+
+                // Categoria e assenza recuperata: solo per l'appuntamento principale,
+                // gli altri pazienti del gruppo mantengono le proprie
+                if ($appointmentToUpdate->id === $appointment->id) {
+                    $appointmentToUpdate->appointment_category = $newCategory;
+                    $appointmentToUpdate->related_appointment_id = $relatedAppointmentId;
+                }
 
                 // Rimuovi groupSessionId se necessario (solo per l'appuntamento principale)
                 if ($shouldRemoveGroupSessionId && $appointmentToUpdate->id === $appointment->id) {
@@ -5046,7 +5106,7 @@ class TherapeuticPlanManagerController extends Controller
      * @return Appointment
      * @throws Exception
      */
-    private function createSingleAppointment($data, $planTherapy, $patientId, $appointmentType = null)
+    private function createSingleAppointment($data, $planTherapy, $patientId, $appointmentType = null, $recoveredAbsenceId = null)
     {
         if (!$patientId) {
             throw new Exception('Paziente non trovato');
@@ -5081,6 +5141,8 @@ class TherapeuticPlanManagerController extends Controller
         $appointment->appointment_category = $isRecovery
             ? Appointment::CATEGORY_RECOVERY
             : Appointment::CATEGORY_REGULAR;
+        // Assenza compensata dal recupero (solo L11, vedi RecoveryCreditService)
+        $appointment->related_appointment_id = $isRecovery ? $recoveredAbsenceId : null;
         $appointment->created_by = $this->getCurrentUserId();
         $appointment->group_session_id = (isset($data['isGroup']) && $data['isGroup']) ? $this->getGroupSessionId($data) : null;
 
@@ -5220,6 +5282,29 @@ class TherapeuticPlanManagerController extends Controller
             'error' => $holidayConflict['message'],
             'code' => 'HOLIDAY',
             'conflict' => $holidayConflict,
+        ];
+    }
+
+    /**
+     * Risposta per un recupero L11 senza assenze recuperabili nel mese.
+     *
+     * @param PlanTherapy $planTherapy
+     * @param string $appointmentDateTime
+     * @return array
+     */
+    private function recoveryNotAvailableResponse($planTherapy, $appointmentDateTime)
+    {
+        $mesi = [1 => 'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+            'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+        $date = new DateTime($appointmentDateTime);
+        $mese = $mesi[(int) $date->format('n')] . ' ' . $date->format('Y');
+        $treatment = $planTherapy->treatmentType ? $planTherapy->treatmentType->name : 'il trattamento';
+
+        return [
+            'success' => false,
+            'error' => "Nessuna ora da recuperare per {$treatment} a {$mese}: "
+                . "il recupero deve cadere nello stesso mese di un'assenza del paziente non ancora recuperata.",
+            'code' => 'RECOVERY_NOT_AVAILABLE',
         ];
     }
 
@@ -7002,6 +7087,7 @@ class TherapeuticPlanManagerController extends Controller
 
         // Inizializza date
         $periodoInizio = new \DateTime($startDate);
+        $isL11 = false;
 
         if ($isPrivate) {
             // PRIVATI: sempre conteggio settimanale, nessun limite
@@ -7071,25 +7157,42 @@ class TherapeuticPlanManagerController extends Controller
 
             $treatmentName = $planTherapy->treatmentType->name;
             $oreLimite = $planTherapy->weekly_hours;
+            $isL11 = RecoveryCreditService::isL11($planTherapy->therapeuticPlan);
         }
 
-        // Completa la query comune
-        $minutiAssegnati = $query
-            ->andWhere([
-                'between',
-                'appointment_datetime',
-                $periodoInizio->format('Y-m-d H:i:s'),
-                $periodoFine->format('Y-m-d H:i:s')
-            ])
-            // Le assenze non rientrano nel conteggio delle ore erogate:
-            // le ore vengono restituite al piano per il recupero.
-            ->andWhere(['not in', 'status', [
-                Appointment::STATUS_CANCELLED,
-                Appointment::STATUS_THERAPIST_ABSENT,
-                Appointment::STATUS_ABSENT_JUSTIFIED,
-                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
-            ]])
-            ->sum('duration_minutes') ?: 0;
+        // L11: i recuperi contano nella settimana dell'assenza recuperata, non in
+        // quella in cui cadono; si aggiunge il riepilogo recuperi dei mesi della settimana
+        $recuperi = null;
+        if (!$isPrivate && $isL11) {
+            $minutiAssegnati = RecoveryCreditService::weeklyUsedMinutes(
+                (int) $therapyId,
+                $periodoInizio->format('Y-m-d H:i:s')
+            );
+
+            $weeklyCap = RecoveryCreditService::weeklyCapMinutes($planTherapy);
+            $recuperi = [RecoveryCreditService::monthlySummary((int) $therapyId, $weeklyCap, $periodoInizio->format('Y-m-d'))];
+            if ($periodoFine->format('Y-m') !== $periodoInizio->format('Y-m')) {
+                $recuperi[] = RecoveryCreditService::monthlySummary((int) $therapyId, $weeklyCap, $periodoFine->format('Y-m-d'));
+            }
+        } else {
+            // Completa la query comune
+            $minutiAssegnati = $query
+                ->andWhere([
+                    'between',
+                    'appointment_datetime',
+                    $periodoInizio->format('Y-m-d H:i:s'),
+                    $periodoFine->format('Y-m-d H:i:s')
+                ])
+                // Le assenze non rientrano nel conteggio delle ore erogate:
+                // le ore vengono restituite al piano per il recupero.
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_THERAPIST_ABSENT,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                ]])
+                ->sum('duration_minutes') ?: 0;
+        }
 
         // Prepara la risposta
         $oreAssegnate = $minutiAssegnati / 60;
@@ -7115,6 +7218,9 @@ class TherapeuticPlanManagerController extends Controller
             $response['data']['minuti_limite'] = $oreLimite * 60;
             $response['data']['minuti_rimanenti'] = ($oreLimite * 60) - $minutiAssegnati;
             $response['data']['plan_therapy_id'] = $therapyId;
+            if ($recuperi !== null) {
+                $response['data']['recuperi'] = $recuperi;
+            }
         } else {
             // Info specifiche per privati
             $response['data']['patient_id'] = $patientId;
@@ -7331,23 +7437,34 @@ class TherapeuticPlanManagerController extends Controller
         }
 
         // 3. Calcola minuti già assegnati nel periodo per lo stesso tipo di terapia e paziente
-        $query = Appointment::find()
-            ->where(['plan_therapy_id' => $planTherapyId])
-            // ->andWhere(['patient_id' => $planTherapy->therapeuticPlan->patient_id])
-            ->andWhere(['between', 'appointment_datetime', $periodoInizio->format('Y-m-d H:i:s'), $periodoFine->format('Y-m-d H:i:s')])
-            // Le assenze (terapista e paziente, giustificate o meno) non consumano
-            // il monte ore del piano: le ore vengono restituite per consentire il recupero.
-            ->andWhere(['not in', 'status', [
-                Appointment::STATUS_CANCELLED,
-                Appointment::STATUS_THERAPIST_ABSENT,
-                Appointment::STATUS_ABSENT_JUSTIFIED,
-                Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
-            ]]);
+        $isL11 = RecoveryCreditService::isL11($planTherapy->therapeuticPlan);
+        if ($isL11) {
+            // L11: i recuperi contano nella settimana dell'assenza recuperata,
+            // non in quella in cui cadono (vedi RecoveryCreditService)
+            $minutiAssegnati = RecoveryCreditService::weeklyUsedMinutes(
+                (int) $planTherapyId,
+                $appointmentDate->format('Y-m-d H:i:s'),
+                $excludeAppointmentId ? (int) $excludeAppointmentId : null
+            );
+        } else {
+            $query = Appointment::find()
+                ->where(['plan_therapy_id' => $planTherapyId])
+                // ->andWhere(['patient_id' => $planTherapy->therapeuticPlan->patient_id])
+                ->andWhere(['between', 'appointment_datetime', $periodoInizio->format('Y-m-d H:i:s'), $periodoFine->format('Y-m-d H:i:s')])
+                // Le assenze (terapista e paziente, giustificate o meno) non consumano
+                // il monte ore del piano: le ore vengono restituite per consentire il recupero.
+                ->andWhere(['not in', 'status', [
+                    Appointment::STATUS_CANCELLED,
+                    Appointment::STATUS_THERAPIST_ABSENT,
+                    Appointment::STATUS_ABSENT_JUSTIFIED,
+                    Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+                ]]);
 
-        if ($excludeAppointmentId) {
-            $query->andWhere(['!=', 'id', $excludeAppointmentId]);
+            if ($excludeAppointmentId) {
+                $query->andWhere(['!=', 'id', $excludeAppointmentId]);
+            }
+            $minutiAssegnati = $query->sum('duration_minutes') ?: 0;
         }
-        $minutiAssegnati = $query->sum('duration_minutes') ?: 0;
 
         // 4. Converti weekly_hours in minuti per il confronto
         $minutiMassimi = $planTherapy->weekly_hours * 60;
@@ -7359,7 +7476,11 @@ class TherapeuticPlanManagerController extends Controller
             // non supera quella vecchia (il totale del periodo non peggiora).
             if ($excludeAppointmentId) {
                 $excluded = Appointment::findOne($excludeAppointmentId);
-                if ($excluded) {
+                // In L11 un recupero non occupa la propria settimana: trasformarlo
+                // in appuntamento normale aggiunge ore nette, niente scorciatoia.
+                $excludedWasCounted = !$isL11
+                    || ($excluded && $excluded->appointment_category !== Appointment::CATEGORY_RECOVERY);
+                if ($excluded && $excludedWasCounted) {
                     $isSamePeriod = $excluded->appointment_datetime >= $periodoInizio->format('Y-m-d H:i:s')
                         && $excluded->appointment_datetime <= $periodoFine->format('Y-m-d H:i:s');
                     if ($isSamePeriod && $durationMinutes <= (int) $excluded->duration_minutes) {

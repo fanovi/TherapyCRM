@@ -111,6 +111,27 @@ class Appointment extends ActiveRecord
     }
 
     /**
+     * Un'assenza del paziente che non e' piu' tale (revocata o cambiata di stato)
+     * non puo' restare compensata da un recupero: i recuperi collegati vengono
+     * staccati e restano come recuperi non collegati (regime L11).
+     *
+     * {@inheritdoc}
+     */
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+
+        if (
+            !$insert
+            && array_key_exists('status', $changedAttributes)
+            && in_array($changedAttributes['status'], \common\services\RecoveryCreditService::PATIENT_ABSENT_STATUSES, true)
+            && !in_array($this->status, \common\services\RecoveryCreditService::PATIENT_ABSENT_STATUSES, true)
+        ) {
+            \common\services\RecoveryCreditService::detachRecoveries((int) $this->id);
+        }
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
