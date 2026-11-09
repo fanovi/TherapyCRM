@@ -218,7 +218,13 @@ export const PlanTherapyUsedHours: React.FC<PlanTherapyUsedHoursProps> = ({
                 <div className="flex justify-between">
                   <span className="text-gray-500">
                     Da recuperare a{" "}
-                    {moment(r.mese + "-01").format("MMMM")}:
+                    {/* Intl e non moment: il locale "it" di moment non risulta
+                        applicato nel bundle (usciva "January") */}
+                    {new Date(r.mese + "-01T00:00:00").toLocaleDateString(
+                      "it-IT",
+                      { month: "long" }
+                    )}
+                    :
                   </span>
                   <span
                     className={`font-semibold ${
