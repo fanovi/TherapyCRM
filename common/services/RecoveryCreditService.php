@@ -8,19 +8,20 @@ use common\models\Appointment;
 /**
  * Recuperi delle ore di trattamento per il regime L11.
  *
- * In L11 il monte ore e' settimanale: l'assenza del paziente libera l'ora nella
+ * In L11 il monte ore e' settimanale: l'assenza (del paziente o del terapista) libera l'ora nella
  * sua settimana, ma il recupero puo' cadere in qualunque giorno dello stesso
  * mese di calendario (mai nel mese precedente o successivo).
  *
  * Ogni recupero (appointment_category = recovery) viene collegato a una
- * specifica assenza del paziente tramite related_appointment_id. L'ora
+ * specifica assenza (del paziente o del terapista) tramite related_appointment_id. L'ora
  * recuperata viene conteggiata nella settimana dell'assenza, non in quella in
  * cui cade il recupero: cosi' la settimana dell'assenza non mostra piu' l'ora
  * libera e quella del recupero non va oltre il limite.
  *
  * Definizioni:
  * - assenza recuperabile: appuntamento non-recupero della stessa terapia, in
- *   stato absent_justified/absent_not_justified, senza recupero attivo collegato;
+ *   stato absent_justified/absent_not_justified/therapist_absent, senza recupero
+ *   attivo collegato;
  * - recupero attivo: recupero non annullato e non a sua volta in assenza
  *   (se il recupero salta, l'ora torna recuperabile).
  */
@@ -36,10 +37,16 @@ class RecoveryCreditService
         Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
     ];
 
-    /** Assenze del paziente: le uniche che danno diritto al recupero. */
-    const PATIENT_ABSENT_STATUSES = [
+    /**
+     * Assenze che danno diritto al recupero: del paziente (giustificata o meno)
+     * e del terapista. L'assenza del terapista copre anche l'anticipo: se la
+     * terapista sa che manchera', l'ora puo' essere recuperata in un altro giorno
+     * dello stesso mese, anche prima della data dell'assenza.
+     */
+    const RECOVERABLE_ABSENCE_STATUSES = [
         Appointment::STATUS_ABSENT_JUSTIFIED,
         Appointment::STATUS_ABSENT_NOT_JUSTIFIED,
+        Appointment::STATUS_THERAPIST_ABSENT,
     ];
 
     /**
@@ -125,7 +132,7 @@ class RecoveryCreditService
     }
 
     /**
-     * Cerca l'assenza del paziente da collegare a un recupero: stessa terapia,
+     * Cerca l'assenza (del paziente o del terapista) da collegare a un recupero: stessa terapia,
      * stesso mese di calendario del recupero, senza recupero attivo e con la
      * settimana dell'assenza che ha ancora spazio (se l'ora e' gia' stata
      * riprogrammata nella stessa settimana non e' recuperabile altrove).
@@ -227,7 +234,7 @@ class RecoveryCreditService
         $validRelatedIds = $relatedIds
             ? array_map('intval', Appointment::find()
                 ->select('id')
-                ->where(['id' => $relatedIds, 'status' => self::PATIENT_ABSENT_STATUSES])
+                ->where(['id' => $relatedIds, 'status' => self::RECOVERABLE_ABSENCE_STATUSES])
                 ->column())
             : [];
 
@@ -265,13 +272,13 @@ class RecoveryCreditService
     }
 
     /**
-     * Assenze del paziente (non-recupero) di una terapia in un intervallo.
+     * Assenze recuperabili (paziente o terapista, non-recupero) di una terapia in un intervallo.
      */
     private static function absenceQuery(int $planTherapyId, string $from, string $to)
     {
         return Appointment::find()
             ->where(['plan_therapy_id' => $planTherapyId])
-            ->andWhere(['status' => self::PATIENT_ABSENT_STATUSES])
+            ->andWhere(['status' => self::RECOVERABLE_ABSENCE_STATUSES])
             ->andWhere(['!=', 'appointment_category', Appointment::CATEGORY_RECOVERY])
             ->andWhere(['between', 'appointment_datetime', $from, $to]);
     }

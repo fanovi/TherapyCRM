@@ -304,7 +304,7 @@ class TherapeuticPlanManagerController extends Controller
             // Terapista assente: non blocca, ma serve la conferma esplicita dell'operatore
             // (poi si procede alla sostituzione). Controllato dopo i blocchi veri, cosi'
             // la conferma non viene chiesta per un appuntamento che verrebbe comunque rifiutato.
-            // L11: il recupero deve compensare un'assenza del paziente dello stesso
+            // L11: il recupero deve compensare un'assenza (paziente o terapista) dello stesso
             // mese non ancora recuperata (prima era una forzatura senza limiti)
             $recoveredAbsenceId = null;
             if ($isRecovery && RecoveryCreditService::isL11($planTherapy->therapeuticPlan)) {
@@ -3082,7 +3082,7 @@ class TherapeuticPlanManagerController extends Controller
             }
         }
 
-        // L11: un recupero resta collegato a un'assenza del paziente dello stesso mese.
+        // L11: un recupero resta collegato a un'assenza (paziente o terapista) dello stesso mese.
         // Il collegamento attuale si tiene se ancora valido, altrimenti se ne cerca un altro.
         $relatedAppointmentId = $appointment->related_appointment_id;
         if ($newCategory === Appointment::CATEGORY_RECOVERY) {
@@ -5303,7 +5303,7 @@ class TherapeuticPlanManagerController extends Controller
         return [
             'success' => false,
             'error' => "Nessuna ora da recuperare per {$treatment} a {$mese}: "
-                . "il recupero deve cadere nello stesso mese di un'assenza del paziente non ancora recuperata.",
+                . "il recupero deve cadere nello stesso mese di un'assenza (del paziente o del terapista) non ancora recuperata.",
             'code' => 'RECOVERY_NOT_AVAILABLE',
         ];
     }

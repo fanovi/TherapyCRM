@@ -111,7 +111,7 @@ class Appointment extends ActiveRecord
     }
 
     /**
-     * Un'assenza del paziente che non e' piu' tale (revocata o cambiata di stato)
+     * Un'assenza (del paziente o del terapista) che non e' piu' tale (revocata o cambiata di stato)
      * non puo' restare compensata da un recupero: i recuperi collegati vengono
      * staccati e restano come recuperi non collegati (regime L11).
      *
@@ -124,8 +124,8 @@ class Appointment extends ActiveRecord
         if (
             !$insert
             && array_key_exists('status', $changedAttributes)
-            && in_array($changedAttributes['status'], \common\services\RecoveryCreditService::PATIENT_ABSENT_STATUSES, true)
-            && !in_array($this->status, \common\services\RecoveryCreditService::PATIENT_ABSENT_STATUSES, true)
+            && in_array($changedAttributes['status'], \common\services\RecoveryCreditService::RECOVERABLE_ABSENCE_STATUSES, true)
+            && !in_array($this->status, \common\services\RecoveryCreditService::RECOVERABLE_ABSENCE_STATUSES, true)
         ) {
             \common\services\RecoveryCreditService::detachRecoveries((int) $this->id);
         }
