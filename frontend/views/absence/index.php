@@ -298,6 +298,7 @@ $therapistsJson = Json::encode($modalTherapists);
 $typesJson = Json::encode($absenceTypes);
 $saveUrl = Url::to(['ajax-save']);
 $getUrl = Url::to(['ajax-get']);
+$checkUrl = Url::to(['check-appointments']);
 $csrfParam = Yii::$app->request->csrfParam;
 $csrfToken = Yii::$app->request->csrfToken;
 
@@ -307,6 +308,7 @@ $js = <<<JS
     const types = {$typesJson};
     const SAVE_URL = '{$saveUrl}';
     const GET_URL = '{$getUrl}';
+    const CHECK_URL = '{$checkUrl}';
     const CSRF_PARAM = '{$csrfParam}';
     const CSRF_TOKEN = '{$csrfToken}';
 
@@ -378,10 +380,83 @@ $js = <<<JS
                 '<label style="display:block;font-weight:600;color:#374151;margin-bottom:4px;">Note</label>' +
                 '<textarea id="ab-notes" rows="3" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;resize:vertical;">' + escapeHtml(model.notes || '') + '</textarea>' +
             '</div>' +
+            // Solo in creazione: appuntamenti programmati del periodo, da mettere
+            // in "Terapista assente" (come nella pagina Nuova assenza terapista)
+            (isUpdate ? '' : '<div id="ab-appointments" style="margin-top:12px;"></div>') +
         '</div>';
     }
 
-    function wireHandlers() {
+    // Ultima richiesta inviata: le risposte arrivate fuori ordine vengono ignorate
+    let checkSeq = 0;
+    let checkTimer = null;
+
+    function scheduleCheck() {
+        clearTimeout(checkTimer);
+        checkTimer = setTimeout(checkAppointments, 300);
+    }
+
+    function checkAppointments() {
+        const box = document.getElementById('ab-appointments');
+        if (!box) return;
+        const f = readForm();
+        const seq = ++checkSeq;
+        const hourly = !document.getElementById('ab-all-day').checked;
+
+        if (!f.therapist_id || !f.start_date || !f.end_date || f.start_date > f.end_date
+            || (hourly && (!f.start_time || !f.end_time || f.start_time >= f.end_time))) {
+            box.innerHTML = '';
+            return;
+        }
+
+        const body = new FormData();
+        body.append(CSRF_PARAM, CSRF_TOKEN);
+        body.append('therapist_id', f.therapist_id);
+        body.append('start_date', f.start_date);
+        body.append('end_date', f.end_date);
+        if (hourly) {
+            body.append('start_time', f.start_time + ':00');
+            body.append('end_time', f.end_time + ':00');
+        }
+
+        fetch(CHECK_URL, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body,
+        }).then(r => r.json()).then(data => {
+            if (seq !== checkSeq) return;
+            box.innerHTML = renderAppointments(data);
+        }).catch(() => {
+            if (seq !== checkSeq) return;
+            box.innerHTML = '';
+        });
+    }
+
+    function renderAppointments(data) {
+        const list = (data && data.appointments) || [];
+        if (!list.length) return '';
+
+        const items = list.map(a =>
+            '<li style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #fde68a;">' +
+                '<span><strong>' + escapeHtml(a.date) + '</strong> ' + escapeHtml(a.time) + '</span>' +
+                '<span style="text-align:right;">' + escapeHtml(a.patient) + ' <span style="color:#92400e;">(' + escapeHtml(a.type) + ')</span></span>' +
+            '</li>'
+        ).join('');
+
+        return '' +
+        '<div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:8px;padding:10px;">' +
+            '<div style="font-weight:600;color:#92400e;margin-bottom:6px;">' +
+                (list.length === 1 ? '1 appuntamento programmato' : list.length + ' appuntamenti programmati') + ' nel periodo' +
+            '</div>' +
+            '<ul style="list-style:none;margin:0 0 8px 0;padding:0;max-height:150px;overflow-y:auto;font-size:12px;color:#374151;">' + items + '</ul>' +
+            '<label style="display:inline-flex;align-items:flex-start;cursor:pointer;">' +
+                '<input type="checkbox" id="ab-update-appointments" checked style="margin:2px 6px 0 0;">' +
+                '<span style="font-weight:600;color:#92400e;">Imposta tutti questi appuntamenti come "Terapista Assente"</span>' +
+            '</label>' +
+        '</div>';
+    }
+
+    function wireHandlers(isUpdate) {
         const allDay = document.getElementById('ab-all-day');
         const hourlyRow = document.getElementById('ab-hourly-row');
         const startDate = document.getElementById('ab-start-date');
@@ -403,6 +478,13 @@ $js = <<<JS
         startDate.addEventListener('change', () => {
             if (!allDay.checked) endDate.value = startDate.value;
         });
+
+        if (!isUpdate) {
+            ['ab-therapist', 'ab-start-date', 'ab-end-date', 'ab-start-time', 'ab-end-time', 'ab-all-day'].forEach(id => {
+                document.getElementById(id).addEventListener('change', scheduleCheck);
+            });
+            checkAppointments();
+        }
     }
 
     function readForm() {
@@ -448,6 +530,10 @@ $js = <<<JS
         body.append('Absence[end_time]', f.end_time ? f.end_time + ':00' : '');
         body.append('Absence[type]', f.type);
         body.append('Absence[notes]', f.notes);
+        const updateAppointments = document.getElementById('ab-update-appointments');
+        if (!absenceId && updateAppointments && updateAppointments.checked) {
+            body.append('update_appointments', '1');
+        }
 
         return fetch(SAVE_URL, {
             method: 'POST',
@@ -484,14 +570,14 @@ $js = <<<JS
             reverseButtons: true,
             focusConfirm: false,
             width: 560,
-            didOpen: wireHandlers,
+            didOpen: () => wireHandlers(isUpdate),
             preConfirm: () => submitForm(model.id),
         }).then(res => {
             if (res.isConfirmed && res.value && res.value.success) {
                 Swal.fire({
                     icon: 'success',
                     title: res.value.message || 'Salvato',
-                    timer: 1400,
+                    timer: res.value.data && res.value.data.updated_appointments ? 2500 : 1400,
                     showConfirmButton: false,
                 });
                 $.pjax.reload({ container: '#absence-grid-pjax' });

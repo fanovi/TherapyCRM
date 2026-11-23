@@ -132,30 +132,66 @@ class AbsenceController extends Controller
 
         $model->reason = $this->getReasonLabel($model->type);
 
-        if (!$model->save()) {
-            return [
-                'success' => false,
-                'error' => 'Validazione fallita',
-                'errors' => $model->getErrors(),
-            ];
+        // Alla creazione la modale puo' chiedere di mettere in "Terapista assente"
+        // gli appuntamenti programmati del periodo, come la pagina /absence/create.
+        $updateAppointments = $isNew && (bool) Yii::$app->request->post('update_appointments', false);
+        $updatedCount = 0;
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            if (!$model->save()) {
+                $transaction->rollBack();
+                return [
+                    'success' => false,
+                    'error' => 'Validazione fallita',
+                    'errors' => $model->getErrors(),
+                ];
+            }
+
+            // Letti prima dell'aggiornamento: dopo non sarebbero piu' "scheduled"
+            $appointments = $isNew
+                ? $this->getAppointmentsInRange(
+                    $model->therapist_id,
+                    $model->start_date,
+                    $model->end_date,
+                    $model->start_time,
+                    $model->end_time
+                )
+                : [];
+
+            if ($updateAppointments) {
+                foreach ($appointments as $appointment) {
+                    $appointment->status = Appointment::STATUS_THERAPIST_ABSENT;
+                    $appointment->save(false);
+                }
+                $updatedCount = count($appointments);
+            }
+
+            $transaction->commit();
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            Yii::error('Errore creazione assenza: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'error' => 'Errore durante il salvataggio dell\'assenza'];
         }
 
         // Solo alla CREAZIONE: notifica (gestionale) direzione + coordinatori del terapista.
         // Questo e' il percorso realmente usato dalla modale su /absence/index.
         if ($isNew) {
-            $affectedCount = count($this->getAppointmentsInRange(
-                $model->therapist_id,
-                $model->start_date,
-                $model->end_date
-            ));
-            $this->sendTherapistAbsenceNotifications($model, $affectedCount);
+            $this->sendTherapistAbsenceNotifications($model, count($appointments));
+        }
+
+        $message = $isNew ? 'Assenza creata' : 'Assenza aggiornata';
+        if ($updatedCount > 0) {
+            $message .= '. ' . $updatedCount . ($updatedCount === 1 ? ' appuntamento impostato' : ' appuntamenti impostati')
+                . ' come "Terapista assente"';
         }
 
         return [
             'success' => true,
-            'message' => $isNew ? 'Assenza creata' : 'Assenza aggiornata',
+            'message' => $message,
             'data' => [
                 'id' => $model->id,
+                'updated_appointments' => $updatedCount,
             ],
         ];
     }
@@ -532,10 +568,13 @@ class AbsenceController extends Controller
                     $affectedCount = 0;
 
                     if ($updateAppointments) {
+                        // Assenza a ore: solo gli appuntamenti che si sovrappongono alla fascia
                         $appointments = $this->getAppointmentsInRange(
                             $model->therapist_id,
                             $model->start_date,
-                            $model->end_date
+                            $model->end_date,
+                            $model->start_time,
+                            $model->end_time
                         );
 
                         foreach ($appointments as $appointment) {
@@ -967,12 +1006,15 @@ class AbsenceController extends Controller
         $therapistId = Yii::$app->request->post('therapist_id');
         $startDate = Yii::$app->request->post('start_date');
         $endDate = Yii::$app->request->post('end_date');
+        // Fascia oraria opzionale: inviata dalla modale per le assenze a ore
+        $startTime = Yii::$app->request->post('start_time') ?: null;
+        $endTime = Yii::$app->request->post('end_time') ?: null;
         
         if (!$therapistId || !$startDate || !$endDate) {
             return ['count' => 0, 'appointments' => []];
         }
         
-        $appointments = $this->getAppointmentsInRange($therapistId, $startDate, $endDate);
+        $appointments = $this->getAppointmentsInRange($therapistId, $startDate, $endDate, $startTime, $endTime);
         
         $appointmentDetails = [];
         foreach ($appointments as $appointment) {
@@ -996,17 +1038,27 @@ class AbsenceController extends Controller
      * @param int $therapistId
      * @param string $startDate
      * @param string $endDate
+     * @param string|null $startTime HH:MM[:SS], con $endTime limita agli appuntamenti
+     *                               che si sovrappongono alla fascia (assenza a ore)
+     * @param string|null $endTime
      * @return Appointment[]
      */
-    protected function getAppointmentsInRange($therapistId, $startDate, $endDate)
+    protected function getAppointmentsInRange($therapistId, $startDate, $endDate, $startTime = null, $endTime = null)
     {
-        return Appointment::find()
+        $query = Appointment::find()
             ->where(['therapist_id' => $therapistId])
             ->andWhere(['>=', 'appointment_datetime', $startDate . ' 00:00:00'])
             ->andWhere(['<=', 'appointment_datetime', $endDate . ' 23:59:59'])
-            ->andWhere(['status' => Appointment::STATUS_SCHEDULED])
-            ->orderBy('appointment_datetime')
-            ->all();
+            ->andWhere(['status' => Appointment::STATUS_SCHEDULED]);
+
+        if ($startTime && $endTime) {
+            $query->andWhere(
+                'TIME(appointment_datetime) < :absenceEnd AND ADDTIME(TIME(appointment_datetime), SEC_TO_TIME(COALESCE(duration_minutes, 0) * 60)) > :absenceStart',
+                [':absenceStart' => $startTime, ':absenceEnd' => $endTime]
+            );
+        }
+
+        return $query->orderBy('appointment_datetime')->all();
     }
 
     /**

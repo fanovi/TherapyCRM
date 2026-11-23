@@ -347,8 +347,13 @@ function checkAppointments() {
     var therapistId = $('#therapist-select').val();
     var startDate = $('#start-date').val();
     var endDate = $('#end-date').val();
+    // Assenza a ore: si contano solo gli appuntamenti che si sovrappongono alla fascia
+    var allDay = $('#all-day-toggle').is(':checked');
+    var startTime = $('#start-time').val();
+    var endTime = $('#end-time').val();
     
-    if (!therapistId || !startDate || !endDate) {
+    if (!therapistId || !startDate || !endDate
+        || (!allDay && (!startTime || !endTime || startTime >= endTime))) {
         $('#appointments-alert').addClass('hidden');
         return;
     }
@@ -365,6 +370,8 @@ function checkAppointments() {
             therapist_id: therapistId,
             start_date: startDate,
             end_date: endDate,
+            start_time: allDay ? '' : startTime,
+            end_time: allDay ? '' : endTime,
             '" . Yii::$app->request->csrfParam . "': '" . Yii::$app->request->csrfToken . "'
         },
         success: function(data) {
@@ -416,6 +423,10 @@ function checkAppointments() {
 }
 
 $('#therapist-select').on('change', function() {
+    checkAppointments();
+});
+
+$('#start-time, #end-time').on('change', function() {
     checkAppointments();
 });
 
@@ -488,6 +499,7 @@ $('#all-day-toggle').on('change', function() {
             $('#date-range-picker').val(picker.startDate.format('DD/MM/YYYY'));
         }
     }
+    checkAppointments();
 });
 ", \yii\web\View::POS_READY);
 

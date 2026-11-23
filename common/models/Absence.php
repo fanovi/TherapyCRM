@@ -85,6 +85,10 @@ class Absence extends ActiveRecord
             [['therapist_id', 'start_date', 'end_date', 'type', 'created_by'], 'required'],
             [['therapist_id', 'approved_by', 'created_by'], 'integer'],
             [['start_date', 'end_date'], 'date', 'format' => 'php:Y-m-d'],
+            // L'input type="time" del form invia HH:MM: si completa con i secondi
+            [['start_time', 'end_time'], 'filter', 'skipOnEmpty' => true, 'filter' => function ($value) {
+                return is_string($value) && preg_match('/^\d{2}:\d{2}$/', $value) ? $value . ':00' : $value;
+            }],
             [['start_time', 'end_time'], 'time', 'format' => 'php:H:i:s'],
             [['start_time', 'end_time'], 'default', 'value' => null],
             [['approved_at'], 'datetime', 'format' => 'php:Y-m-d H:i:s'],
