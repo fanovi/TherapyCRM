@@ -24,6 +24,14 @@ class StatisticsService
     const PATIENT_ABSENT_STATUSES = [Appointment::STATUS_ABSENT_JUSTIFIED, Appointment::STATUS_ABSENT_NOT_JUSTIFIED];
 
     /**
+     * Trattamento di un appuntamento (alias a, pt da withPlanAndRegime()): quello
+     * della terapia del piano, altrimenti quello salvato sull'appuntamento. Gli
+     * appuntamenti da piano non salvano treatment_type_id; stesso ordine di
+     * AbsenceStatisticsService.
+     */
+    const APPOINTMENT_TREATMENT_EXPR = 'COALESCE(pt.treatment_type_id, a.treatment_type_id)';
+
+    /**
      * Ottiene i dati di riepilogo per la dashboard
      */
     public function getDashboardSummary()
@@ -149,21 +157,25 @@ public function getPatientGrowthData($params = [])
         ->groupBy(['YEAR(created_at)', 'MONTH(created_at)'])
         ->orderBy(['year' => SORT_ASC, 'month_num' => SORT_ASC]);
     
-    $rawData = $query->all();
-    
-    // Formatta i risultati
+    $counts = [];
+    foreach ($query->all() as $row) {
+        $counts[sprintf('%04d-%02d', $row['year'], $row['month_num'])] = (int) $row['count'];
+    }
+
+    // Un punto per ogni mese da dateFrom a oggi, anche a zero.
     $result = [];
-    foreach ($rawData as $row) {
-        $monthStr = sprintf('%04d-%02d', $row['year'], $row['month_num']);
-        $monthLabel = date('M Y', strtotime($monthStr . '-01'));
-        
+    $month = date('Y-m-01', strtotime($dateFrom));
+    $lastMonth = date('Y-m-01');
+    while ($month <= $lastMonth) {
+        $monthStr = substr($month, 0, 7);
         $result[] = [
             'month' => $monthStr,
-            'month_label' => $monthLabel,
-            'count' => $row['count']
+            'month_label' => date('M Y', strtotime($month)),
+            'count' => $counts[$monthStr] ?? 0,
         ];
+        $month = date('Y-m-01', strtotime($month . ' +1 month'));
     }
-    
+
     return $result;
 }
 
@@ -870,8 +882,8 @@ public function getPatientGrowthData($params = [])
 
     /**
      * Appuntamenti previsti nel giorno divisi per regime → setting → trattamento.
-     * Setting e trattamento sono quelli salvati sull'appuntamento, il regime è
-     * quello del piano; cicli privati e appuntamenti senza piano hanno un nodo
+     * Setting salvato sull'appuntamento; trattamento della terapia del piano,
+     * altrimenti quello dell'appuntamento (cicli privati); regime del piano; cicli privati e appuntamenti senza piano hanno un nodo
      * proprio al primo livello. I conteggi sono appuntamenti, quindi si sommano.
      *
      * Nodi come getPatientsInChargeBreakdown(); i params dei trattamenti filtrano
@@ -903,13 +915,13 @@ public function getPatientGrowthData($params = [])
                 'setting_key' => new Expression('COALESCE(a.id_setting, 0)'),
                 'setting_name' => new Expression("COALESCE(s.nome, 'Senza setting')"),
                 'location_type' => 's.location_type',
-                'treatment_key' => new Expression('COALESCE(a.treatment_type_id, 0)'),
+                'treatment_key' => new Expression('COALESCE(' . self::APPOINTMENT_TREATMENT_EXPR . ', 0)'),
                 'treatment_name' => new Expression("COALESCE(tt.name, 'Senza trattamento')"),
                 'c' => new Expression('COUNT(*)'),
                 'present' => new Expression('SUM(a.status = :completed)', [':completed' => Appointment::STATUS_COMPLETED]),
             ])
             ->leftJoin(['s' => Setting::tableName()], 's.id = a.id_setting')
-            ->leftJoin(['tt' => TreatmentType::tableName()], 'tt.id = a.treatment_type_id')
+            ->leftJoin(['tt' => TreatmentType::tableName()], 'tt.id = ' . self::APPOINTMENT_TREATMENT_EXPR)
             // Alias diversi dai nomi colonna (es. pt.setting_id): nel GROUP BY MySQL darebbe la precedenza alla colonna.
             ->groupBy(['group_key', 'group_name', 'setting_key', 'setting_name', 's.location_type', 'treatment_key', 'treatment_name'])
             ->all();
@@ -1028,7 +1040,9 @@ public function getPatientGrowthData($params = [])
             ->leftJoin(['up' => UserProfile::tableName()], 'up.user_id = th.user_id')
             ->andWhere(new Expression($groupExpr . ' = :group', [':group' => (string) $group]))
             ->andWhere(['a.id_setting' => $settingId ?: null])
-            ->andWhere(['a.treatment_type_id' => $treatmentTypeId ?: null])
+            ->andWhere($treatmentTypeId
+                ? new Expression(self::APPOINTMENT_TREATMENT_EXPR . ' = :treatment', [':treatment' => (int) $treatmentTypeId])
+                : new Expression(self::APPOINTMENT_TREATMENT_EXPR . ' IS NULL'))
             ->orderBy(['a.appointment_datetime' => SORT_ASC, 'p.last_name' => SORT_ASC, 'p.first_name' => SORT_ASC])
             ->all();
     }

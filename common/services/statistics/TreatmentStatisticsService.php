@@ -110,7 +110,8 @@ class TreatmentStatisticsService
                 ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
                 ->where(['tp.status' => 'active'])
                 ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
-                ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
+                // Fine effettiva come in "Pazienti in carico": termination_date se il piano è stato interrotto.
+                ->andWhere(['>=', new \yii\db\Expression('COALESCE(tp.termination_date, tp.end_date)'), date('Y-m-d')])
                 ->groupBy(['tt.id', 'tt.name', 'tt.code'])
                 ->orderBy(['patient_count' => SORT_DESC])
                 ->limit($limit)

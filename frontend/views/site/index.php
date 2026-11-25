@@ -637,7 +637,7 @@ if (typeof Chart !== 'undefined') {
             </div>
             <div class="drilldown-note">
                 <i class="fas fa-info-circle" aria-hidden="true"></i>
-                <span>Conta gli appuntamenti previsti (programmati e completati), senza assenze e annullati. Una seduta di gruppo conta un appuntamento per paziente. Setting e trattamento sono quelli dell'appuntamento.</span>
+                <span>Conta gli appuntamenti previsti (programmati e completati), senza assenze e annullati. Una seduta di gruppo conta un appuntamento per paziente. Il setting è quello dell'appuntamento, il trattamento quello della terapia del piano (per i cicli privati quello dell'appuntamento).</span>
             </div>
             <div class="drilldown-head">
                 <span></span>

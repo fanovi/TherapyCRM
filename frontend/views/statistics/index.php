@@ -207,7 +207,8 @@ $patientGrowth = $patientGrowth ?? [];
         <!-- 3. Grafici secondari -->
         <div class="charts-row">
             <div class="chart-card">
-                <h4>Trend Assenze per Giorno</h4>
+                <h4>Assenze per Giorno della Settimana (mese intero)</h4>
+                <small>Tutto il mese di <?= Html::encode($monthLabel) ?>, comprese le assenze già registrate per i prossimi giorni: per questo il totale può superare quello della scheda Presenze / Assenze, che si ferma a oggi.</small>
                 <div class="chart-container">
                     <canvas id="absence-day-chart"></canvas>
                 </div>
@@ -455,33 +456,25 @@ function loadAbsenceDayChart() {
                 destroyChart(absenceDayChart);
                 var ctx = document.getElementById('absence-day-chart');
                 if (ctx) {
-                    // Usa solo il primo dataset o crea uno aggregato
-                    var datasets = response.data.datasets || [];
-                    var data = [];
-                    
-                    if (datasets.length > 0) {
-                        data = datasets[0].data;
-                    }
-                    
+                    // Due serie dal backend: assenze terapisti (eventi) e assenze pazienti.
+                    var datasets = (response.data.datasets || []).map(function(ds) {
+                        ds.borderWidth = 1;
+                        ds.borderRadius = 4;
+                        return ds;
+                    });
+
                     absenceDayChart = new Chart(ctx.getContext('2d'), {
                         type: 'bar',
                         data: {
                             labels: response.data.labels || [],
-                            datasets: [{
-                                label: 'Assenze totali',
-                                data: data,
-                                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                                borderColor: 'rgba(59, 130, 246, 1)',
-                                borderWidth: 1,
-                                borderRadius: 4
-                            }]
+                            datasets: datasets
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: {
-                                    display: false
+                                    position: 'bottom'
                                 }
                             },
                             scales: {

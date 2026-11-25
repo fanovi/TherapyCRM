@@ -98,7 +98,8 @@ class StatisticsController extends BaseController
             $summary = $this->statisticsService->getDashboardSummary();
             $topTreatments = $this->treatmentService->getTop(5);
             $patientGrowth = $this->statisticsService->getPatientGrowthData([
-                'dateFrom' => date('Y-m-d', strtotime('-6 months'))
+                // Ultimi 6 mesi interi, mese corrente compreso
+                'dateFrom' => date('Y-m-01', strtotime('first day of -5 months'))
             ]);
 
             return $this->render('index', [
@@ -805,7 +806,23 @@ class StatisticsController extends BaseController
     {
         $searchModel = $this->createAbsenceSearchModel();
 
-        $dayData = $this->absenceService->getByDayOfWeek($searchModel);
+        $dayData = ArrayHelper::index($this->absenceService->getByDayOfWeek($searchModel), 'day_number');
+
+        // Sempre da lunedì a sabato, anche a zero; la domenica solo se ha assenze.
+        // DAYOFWEEK: 1 = domenica ... 7 = sabato.
+        $days = [];
+        foreach ([2, 3, 4, 5, 6, 7, 1] as $dayNumber) {
+            $row = $dayData[$dayNumber] ?? null;
+            if ($dayNumber === 1 && $row === null) {
+                continue;
+            }
+            $days[] = [
+                'day_label' => $this->absenceService->getDayLabel($dayNumber),
+                'therapist_count' => (int) ($row['therapist_count'] ?? 0),
+                'patient_count' => (int) ($row['patient_count'] ?? 0),
+            ];
+        }
+        $dayData = $days;
 
         return [
             'success' => true,

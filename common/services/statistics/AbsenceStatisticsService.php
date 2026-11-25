@@ -1182,7 +1182,7 @@ class AbsenceStatisticsService
     /**
      * Helper per etichette giorni
      */
-    protected function getDayLabel($dayNumber)
+    public function getDayLabel($dayNumber)
     {
         $days = [
             1 => 'Domenica',
