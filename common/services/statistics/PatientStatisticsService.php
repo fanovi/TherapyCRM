@@ -199,6 +199,23 @@ class PatientStatisticsService
     }
 
     /**
+     * Esclude i piani del regime ABA (regime riconosciuto per nome, alias tp).
+     * I trattamenti ABA (Parental Training, RBT, Supervisione) non hanno "ABA"
+     * nel nome: escluderli per nome trattamento non toglieva nulla.
+     * Un paziente con L11 + ABA conta come multi solo per i trattamenti fuori da ABA.
+     *
+     * @return array condizione Yii
+     */
+    public static function notAbaPlanCondition()
+    {
+        return [
+            'or',
+            ['tp.regime_id' => null],
+            ['not in', 'tp.regime_id', (new Query())->select('id')->from('regime')->where(['like', 'nome', 'ABA'])],
+        ];
+    }
+
+    /**
      * Ottiene statistiche pazienti con trattamenti multipli
      *
      * @param mixed $searchModelOrExcludeABA SearchModel per filtri o bool per escludere ABA
@@ -236,7 +253,7 @@ class PatientStatisticsService
                 ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
             if ($excludeABA) {
-                $query->andWhere(['not like', 'tt.name', '%ABA%']);
+                $query->andWhere(self::notAbaPlanCondition());
             }
 
             $patients = $query->groupBy(['tp.patient_id', 'p.first_name', 'p.last_name'])
@@ -289,7 +306,7 @@ class PatientStatisticsService
             ->andWhere(['>=', 'tp.end_date', date('Y-m-d')]);
 
         if ($excludeABA) {
-            $query->andWhere(['not like', 'tt.name', '%ABA%']);
+            $query->andWhere(self::notAbaPlanCondition());
         }
 
         // Applica filtri dal search model

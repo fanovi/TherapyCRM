@@ -99,8 +99,10 @@ class PlanStatisticsSearch extends Model
             $query->andWhere(['<=', 'tp.duration_days', $this->maxDuration]);
         }
 
+        // Periodo di validità: per i piani interrotti la fine è termination_date,
+        // come in "Pazienti attivi" (/statistics) e "Pazienti in carico" (dashboard).
         if ($this->dateFrom) {
-            $query->andWhere(['>=', 'tp.end_date', $this->dateFrom]);
+            $query->andWhere(['>=', new \yii\db\Expression('COALESCE(tp.termination_date, tp.end_date)'), $this->dateFrom]);
         }
         if ($this->dateTo) {
             $query->andWhere(['<=', 'tp.start_date', $this->dateTo]);
@@ -123,7 +125,10 @@ class PlanStatisticsSearch extends Model
 
     public function applyStatusFilter($query)
     {
+        // "Tutti gli stati" esclude le bozze, come le altre statistiche:
+        // si vedono solo scegliendo lo stato "Bozza".
         if ($this->status === 'all' || $this->status === '' || $this->status === null) {
+            $query->andWhere(['!=', 'tp.status', TherapeuticPlan::STATUS_DRAFT]);
             return;
         }
 

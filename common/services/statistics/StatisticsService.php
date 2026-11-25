@@ -69,7 +69,7 @@ class StatisticsService
             ->where(['>=', 'created_at', date('Y-m-01 00:00:00')])
             ->count();
 
-        // Pazienti con trattamenti multipli (escluso ABA, come in /statistics/patients)
+        // Pazienti con trattamenti multipli (piani ABA esclusi, come in /statistics/patients)
         $multiTreatmentQuery = (new Query())
             ->select('p.id')
             ->from('patients p')
@@ -79,7 +79,7 @@ class StatisticsService
             ->where(['tp.status' => 'active'])
             ->andWhere(['<=', 'tp.start_date', date('Y-m-d')])
             ->andWhere(['>=', 'tp.end_date', date('Y-m-d')])
-            ->andWhere(['not like', 'tt.name', '%ABA%'])
+            ->andWhere(PatientStatisticsService::notAbaPlanCondition())
             ->groupBy('p.id')
             ->having('COUNT(DISTINCT pt.treatment_type_id) > 1');
 
@@ -211,7 +211,8 @@ public function getPatientGrowthData($params = [])
         $completionQuery
             ->groupBy(['tp.id', 'p.id', 'p.first_name', 'p.last_name', 'tp.status'])
             ->having(['>', new Expression($nonCancelled), 0])
-            ->orderBy(['completion_rate' => SORT_DESC]);
+            // A parità di percentuale: più appuntamenti prima, poi id (ordine stabile).
+            ->orderBy(['completion_rate' => SORT_DESC, 'total_appointments' => SORT_DESC, 'tp.id' => SORT_ASC]);
 
         $allCompletionRates = $completionQuery->all();
         $avgCompletion = empty($allCompletionRates)
@@ -256,8 +257,9 @@ public function getPatientGrowthData($params = [])
         $totalFiltered = 0;
         foreach ($byStatusRows as $row) {
             $totalFiltered += (int) $row['count'];
-            if ($row['status'] === 'completed') {
-                $completedCount = (int) $row['count'];
+            // "Conclusi": completati + scaduti (in pratica i piani finiti sono 'expired').
+            if (in_array($row['status'], [TherapeuticPlan::STATUS_COMPLETED, TherapeuticPlan::STATUS_EXPIRED], true)) {
+                $completedCount += (int) $row['count'];
             }
             $byStatus[] = [
                 'status' => $row['status'],
@@ -306,7 +308,9 @@ public function getPatientGrowthData($params = [])
             ->orderBy('avg_duration')
             ->all();
 
-        // Trend mensili nuovi piani: stessa definizione di countPlansByType()
+        // Trend mensili nuovi piani: stessa definizione di countPlansByType(),
+        // sempre sugli ultimi 12 mesi interi (mese corrente compreso), mesi vuoti a 0.
+        $trendFrom = date('Y-m-01', strtotime('first day of -11 months'));
         $monthlyTrends = (new Query())
             ->select([
                 new Expression("DATE_FORMAT(tp.start_date, '%Y-%m') as month"),
@@ -316,15 +320,22 @@ public function getPatientGrowthData($params = [])
             ->innerJoin('patients p', 'tp.patient_id = p.id')
             ->where(['tp.plan_type' => TherapeuticPlan::PLAN_TYPE_NEW])
             ->andWhere(['!=', 'tp.status', TherapeuticPlan::STATUS_DRAFT])
-            ->andWhere(['between', 'tp.start_date', date('Y-m-01', strtotime('first day of -11 months')), date('Y-m-t')]);
-        
-        // Il filtro Stato non si applica: un piano nuovo resta "partito" anche se oggi e' scaduto/sospeso
-        $this->applyPlanFilters($monthlyTrends, $searchModel, false);
-        
-        $monthlyTrends = $monthlyTrends
-            ->groupBy('month')
-            ->orderBy('month')
-            ->all();
+            ->andWhere(['between', 'tp.start_date', $trendFrom, date('Y-m-t')]);
+
+        // Stato e Periodo non si applicano: un piano nuovo resta "partito" anche se oggi
+        // e' scaduto/sospeso, e il periodo di validita' non c'entra col mese di inizio.
+        // Restano durata, paziente e terapista.
+        $trendSearch = clone $searchModel;
+        $trendSearch->dateFrom = null;
+        $trendSearch->dateTo = null;
+        $this->applyPlanFilters($monthlyTrends, $trendSearch, false);
+
+        $trendCounts = array_column($monthlyTrends->groupBy('month')->all(), 'count', 'month');
+        $monthlyTrends = [];
+        for ($month = $trendFrom; $month <= date('Y-m-01'); $month = date('Y-m-01', strtotime($month . ' +1 month'))) {
+            $key = substr($month, 0, 7);
+            $monthlyTrends[] = ['month' => $key, 'count' => (int) ($trendCounts[$key] ?? 0)];
+        }
 
         return [
             'completion_rates' => $completionRates,

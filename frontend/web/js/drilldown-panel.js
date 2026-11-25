@@ -15,6 +15,8 @@
  *     summary: function (data) { return '...'; },
  *     listTitle: function (path, node) { return '...'; },
  *     columns: [{ key: 'name', label: 'Paziente', link: 'url' }, ...],
+ *     // La risposta dell'elenco può avere columnLabels: { chiave: 'etichetta' }
+ *     // per cambiare l'intestazione di una colonna (es. 'Ore/mese' per i regimi mensili).
  *     emptyListText: 'Nessun paziente.',   // facoltativo
  *     emptyTreeText: 'Nessun dato per oggi.'   // facoltativo
  *   });
@@ -215,8 +217,8 @@
         var self = this;
         var query = new URLSearchParams(node.params).toString();
         var title = this.options.listTitle ? this.options.listTitle(path, node) : path.join(' › ');
-        var render = function (rows) {
-            self.renderList(container, title, rows, function () {
+        var render = function (data) {
+            self.renderList(container, title, data.rows, data.columnLabels, function () {
                 container.hidden = true;
                 container.previousElementSibling.setAttribute('aria-expanded', 'false');
                 container.previousElementSibling.focus();
@@ -230,14 +232,14 @@
         this.status(container, 'Caricamento…');
         var separator = this.options.listUrl.indexOf('?') === -1 ? '?' : '&';
         this.fetchJson(this.options.listUrl + separator + query).then(function (data) {
-            self.listCache[query] = data.rows || [];
+            self.listCache[query] = { rows: data.rows || [], columnLabels: data.columnLabels || {} };
             render(self.listCache[query]);
         }).catch(function () {
             self.status(container, 'Impossibile caricare l\'elenco. Riprova.', true);
         });
     };
 
-    Panel.prototype.renderList = function (container, title, rows, onClose) {
+    Panel.prototype.renderList = function (container, title, rows, columnLabels, onClose) {
         container.innerHTML = '';
         var box = el('div', 'drilldown-list-box');
 
@@ -256,7 +258,7 @@
             var table = el('table', 'drilldown-table');
             var headRow = table.appendChild(el('thead')).appendChild(el('tr'));
             this.options.columns.forEach(function (column) {
-                headRow.appendChild(el('th', column.align === 'right' ? 'text-right' : '', column.label));
+                headRow.appendChild(el('th', column.align === 'right' ? 'text-right' : '', columnLabels[column.key] || column.label));
             });
             var tbody = table.appendChild(el('tbody'));
             var columns = this.options.columns;

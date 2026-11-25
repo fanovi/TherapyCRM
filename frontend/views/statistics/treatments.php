@@ -204,7 +204,7 @@ $combinationsTotalPatients = $combinationsTotalPatients ?? array_sum(array_colum
                                             <span class="badge badge-blue"><?= $treatment['patient_count'] ?></span>
                                         </td>
                                         <td class="text-center"><?= $treatment['therapy_count'] ?></td>
-                                        <td class="text-center"><?= $treatment['total_weekly_hours'] ?></td>
+                                        <td class="text-center"><?= round((float) $treatment['total_weekly_hours'], 1) ?></td>
                                         <td class="text-center"><?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -212,7 +212,7 @@ $combinationsTotalPatients = $combinationsTotalPatients ?? array_sum(array_colum
                                     <td colspan="2">Totale terapie selezionate</td>
                                     <td class="text-center">-</td>
                                     <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'therapy_count')) ?></td>
-                                    <td class="text-center"><?= array_sum(array_column($selectedTreatments, 'total_weekly_hours')) ?></td>
+                                    <td class="text-center"><?= round((float) array_sum(array_column($selectedTreatments, 'total_weekly_hours')), 1) ?></td>
                                     <td class="text-center">-</td>
                                 </tr>
                             <?php endif; ?>
@@ -293,6 +293,7 @@ $combinationsTotalPatients = $combinationsTotalPatients ?? array_sum(array_colum
                 <div class="stat-box">
                     <div class="stat-value orange"><?= $totalHours ?></div>
                     <div class="stat-label">Ore Settimanali</div>
+                    <small>Regimi a conteggio mensile (ABA): ore del mese ÷ 4,33</small>
                 </div>
             </div>
         </div>
@@ -327,7 +328,7 @@ $combinationsTotalPatients = $combinationsTotalPatients ?? array_sum(array_colum
                                 </span>
                             </td>
                             <td class="text-center"><?= $treatment['therapy_count'] ?></td>
-                            <td class="text-center"><?= $treatment['total_weekly_hours'] ?></td>
+                            <td class="text-center"><?= round((float) $treatment['total_weekly_hours'], 1) ?></td>
                             <td class="text-center"><?= round($treatment['avg_weekly_hours'] ?? 0, 1) ?></td>
                         </tr>
                     <?php endforeach; ?>

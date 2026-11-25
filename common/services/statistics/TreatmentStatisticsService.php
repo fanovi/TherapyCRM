@@ -13,7 +13,14 @@ use frontend\models\TreatmentStatisticsSearch;
  */
 class TreatmentStatisticsService
 {
-    const CACHE_DURATION = 1800; // 30 minuti
+    const CACHE_DURATION = 1800;
+
+    /**
+     * Ore settimanali di una terapia (alias pt, tp). Per i regimi con conteggio_ore
+     * 'monthly' (ABA) il campo weekly_hours contiene le ore del MESE: si convertono
+     * in settimanali dividendo per 4,33 (stesso fattore di PlanTherapy::getMonthlyHours()).
+     */
+    const WEEKLY_HOURS_SQL = "(pt.weekly_hours / CASE WHEN (SELECT r_h.conteggio_ore FROM regime r_h WHERE r_h.id = tp.regime_id) = 'monthly' THEN 4.33 ELSE 1 END)"; // 30 minuti
     const CACHE_TAG = 'treatment_statistics';
 
     /**
@@ -49,8 +56,8 @@ class TreatmentStatisticsService
                     'tt.description',
                     'COUNT(DISTINCT tp.patient_id) as patient_count',
                     'COUNT(pt.id) as therapy_count',
-                    'SUM(pt.weekly_hours) as total_weekly_hours',
-                    'AVG(pt.weekly_hours) as avg_weekly_hours',
+                    'total_weekly_hours' => new Expression('SUM(' . self::WEEKLY_HOURS_SQL . ')'),
+                    'avg_weekly_hours' => new Expression('AVG(' . self::WEEKLY_HOURS_SQL . ')'),
                 ])
                 ->from('treatment_types tt')
                 ->innerJoin('plan_therapies pt', 'tt.id = pt.treatment_type_id')
@@ -68,7 +75,8 @@ class TreatmentStatisticsService
             return $loader();
         }
 
-        $cacheKey = 'treatment_ranking_' . md5(serialize($searchModel->attributes));
+        // v2: ore dei regimi mensili convertite in settimanali (chiave nuova per non servire valori vecchi)
+        $cacheKey = 'treatment_ranking_v2_' . md5(serialize($searchModel->attributes));
         return Yii::$app->cache->getOrSet($cacheKey, $loader, self::CACHE_DURATION, new TagDependency(['tags' => self::CACHE_TAG]));
     }
 
@@ -151,27 +159,34 @@ class TreatmentStatisticsService
      */
     public function getWeeklyHoursDistribution($searchModel = null)
     {
-        $hoursCase = 'CASE
-                    WHEN pt.weekly_hours <= 2 THEN "<=2h"
-                    WHEN pt.weekly_hours <= 5 THEN "2-5h"
-                    WHEN pt.weekly_hours <= 10 THEN "5-10h"
-                    WHEN pt.weekly_hours <= 20 THEN "10-20h"
-                    ELSE ">20h"
-                END';
-
-        $query = (new Query())
+        // Ore settimanali per terapia in una tabella derivata: la conversione dei
+        // regimi mensili usa una subquery correlata, che non si può raggruppare direttamente.
+        $therapies = (new Query())
             ->select([
-                'hours_range' => new Expression($hoursCase),
-                'therapy_count' => 'COUNT(*)',
-                'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
-                'avg_hours' => 'AVG(pt.weekly_hours)',
+                'patient_id' => 'tp.patient_id',
+                'hours' => new Expression(self::WEEKLY_HOURS_SQL),
             ])
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id');
 
-        $this->applyTreatmentFilters($query, $searchModel, ['restrictTypes' => true, 'restrictPatients' => true]);
+        $this->applyTreatmentFilters($therapies, $searchModel, ['restrictTypes' => true, 'restrictPatients' => true]);
 
-        return $query
+        $hoursCase = "CASE
+                    WHEN t.hours <= 2 THEN '<=2h'
+                    WHEN t.hours <= 5 THEN '2-5h'
+                    WHEN t.hours <= 10 THEN '5-10h'
+                    WHEN t.hours <= 20 THEN '10-20h'
+                    ELSE '>20h'
+                END";
+
+        return (new Query())
+            ->select([
+                'hours_range' => new Expression($hoursCase),
+                'therapy_count' => 'COUNT(*)',
+                'patient_count' => 'COUNT(DISTINCT t.patient_id)',
+                'avg_hours' => 'AVG(t.hours)',
+            ])
+            ->from(['t' => $therapies])
             ->groupBy(new Expression($hoursCase))
             ->orderBy('avg_hours')
             ->all();
@@ -190,8 +205,8 @@ class TreatmentStatisticsService
                 'setting_type' => new Expression('COALESCE(s.nome, "N/D")'),
                 'therapy_count' => 'COUNT(*)',
                 'patient_count' => 'COUNT(DISTINCT tp.patient_id)',
-                'total_hours' => 'SUM(pt.weekly_hours)',
-                'avg_hours' => 'AVG(pt.weekly_hours)',
+                'total_hours' => new Expression('SUM(' . self::WEEKLY_HOURS_SQL . ')'),
+                'avg_hours' => new Expression('AVG(' . self::WEEKLY_HOURS_SQL . ')'),
             ])
             ->from('plan_therapies pt')
             ->innerJoin('therapeutic_plans tp', 'pt.therapeutic_plan_id = tp.id')
@@ -219,7 +234,7 @@ class TreatmentStatisticsService
                 'month' => new Expression('DATE_FORMAT(tp.start_date, "%Y-%m")'),
                 'new_therapies' => 'COUNT(DISTINCT pt.id)',
                 'new_patients' => 'COUNT(DISTINCT tp.patient_id)',
-                'total_hours' => 'SUM(pt.weekly_hours)'
+                'total_hours' => new Expression('SUM(' . self::WEEKLY_HOURS_SQL . ')')
             ])
             ->from('therapeutic_plans tp')
             ->innerJoin('plan_therapies pt', 'tp.id = pt.therapeutic_plan_id')
@@ -252,8 +267,8 @@ class TreatmentStatisticsService
                 'r.nome as regime_name',
                 'COUNT(DISTINCT pt.id) as therapy_count',
                 'COUNT(DISTINCT tp.patient_id) as patient_count',
-                'SUM(pt.weekly_hours) as total_hours',
-                'AVG(pt.weekly_hours) as avg_hours'
+                'total_hours' => new Expression('SUM(' . self::WEEKLY_HOURS_SQL . ')'),
+                'avg_hours' => new Expression('AVG(' . self::WEEKLY_HOURS_SQL . ')')
             ])
             ->from('regime r')
             ->leftJoin('therapeutic_plans tp', 'r.id = tp.regime_id')

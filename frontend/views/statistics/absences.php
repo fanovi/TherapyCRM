@@ -780,7 +780,22 @@ JS
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($byTreatmentType as $treatment): ?>
+                    <?php
+                    // Primi 10 trattamenti, il resto in una riga "Altri" così i totali tornano.
+                    $treatmentRows = array_slice($byTreatmentType, 0, 10);
+                    $otherTreatments = array_slice($byTreatmentType, 10);
+                    if ($otherTreatments) {
+                        $otherTotal = array_sum(array_column($otherTreatments, 'total_absences'));
+                        $treatmentRows[] = [
+                            'treatment_name' => 'Altri (' . count($otherTreatments) . (count($otherTreatments) === 1 ? ' trattamento)' : ' trattamenti)'),
+                            'total_absences' => $otherTotal,
+                            'therapist_absences' => array_sum(array_column($otherTreatments, 'therapist_absences')),
+                            'patient_absences' => array_sum(array_column($otherTreatments, 'patient_absences')),
+                            'justified_rate' => $otherTotal > 0 ? round(array_sum(array_column($otherTreatments, 'justified_absences')) * 100 / $otherTotal, 1) : 0,
+                        ];
+                    }
+                    ?>
+                    <?php foreach ($treatmentRows as $treatment): ?>
                         <tr>
                             <td class="font-bold">
                                 <?= Html::encode($treatment['treatment_name'] ?: 'Trattamento non specificato') ?>

@@ -15,6 +15,15 @@ use yii\db\Expression;
 class AbsenceStatisticsService
 {
     /**
+     * Assenza recuperata (alias a): esiste un appuntamento di categoria recupero
+     * collegato con related_appointment_id, programmato o svolto (esclusi
+     * annullati e recuperi a cui il paziente era di nuovo assente). Stessa
+     * registrazione usata da RecoveryCreditService; la tabella absence_recoveries
+     * non viene scritta da nessun flusso.
+     */
+    const HAS_RECOVERY_SQL = "CASE WHEN EXISTS (SELECT 1 FROM appointments ar WHERE ar.related_appointment_id = a.id AND ar.appointment_category = 'recovery' AND ar.status IN ('scheduled', 'completed')) THEN 'SI' ELSE 'NO' END";
+
+    /**
      * Nomi con cui i cambi di stato di un appuntamento finiscono in activity_log:
      * 'Appuntamento' dall'ActivityLogBehavior del modello, 'Appointment' dalla
      * riga esplicita scritta dal gestionale (AbsenceController).
@@ -59,10 +68,7 @@ class AbsenceStatisticsService
                 'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'), // Assenze terapisti considerate giustificate
-                'has_recovery' => new Expression("CASE WHEN EXISTS (
-                    SELECT 1 FROM absence_recoveries ar
-                    WHERE ar.original_appointment_id = a.id
-                ) THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression(self::HAS_RECOVERY_SQL),
                 'generated_by' => new Expression("'therapist'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id',
@@ -110,10 +116,7 @@ class AbsenceStatisticsService
                 'setting_id' => 'a.id_setting',
                 'absence_reason' => 'ab.reason',
                 'is_justified' => new Expression('1'),
-                'has_recovery' => new Expression("CASE WHEN EXISTS (
-                    SELECT 1 FROM absence_recoveries ar
-                    WHERE ar.original_appointment_id = a.id
-                ) THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression(self::HAS_RECOVERY_SQL),
                 'generated_by' => new Expression("'therapist'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id',
@@ -160,10 +163,7 @@ class AbsenceStatisticsService
                     ELSE 'Non giustificata'
                 END"),
                 'is_justified' => new Expression("CASE WHEN a.status = 'absent_justified' THEN 1 ELSE 0 END"),
-                'has_recovery' => new Expression("CASE WHEN EXISTS (
-                    SELECT 1 FROM absence_recoveries ar
-                    WHERE ar.original_appointment_id = a.id
-                ) THEN 'SI' ELSE 'NO' END"),
+                'has_recovery' => new Expression(self::HAS_RECOVERY_SQL),
                 'generated_by' => new Expression("'patient'"),
                 'duration_minutes' => 'a.duration_minutes',
                 'group_session_id' => 'a.group_session_id',
@@ -325,6 +325,7 @@ class AbsenceStatisticsService
                 'total_absences' => new Expression('COUNT(DISTINCT absence_group_key)'),
                 'therapist_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'therapist' THEN absence_group_key END)"),
                 'patient_absences' => new Expression("COUNT(DISTINCT CASE WHEN generated_by = 'patient' THEN absence_group_key END)"),
+                'justified_absences' => new Expression('COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END)'),
                 'justified_rate' => new Expression(
                     'ROUND(COUNT(DISTINCT CASE WHEN is_justified = 1 THEN absence_group_key END) '
                     . '* 100.0 / COUNT(DISTINCT absence_group_key), 1)'
@@ -333,7 +334,6 @@ class AbsenceStatisticsService
             ->groupBy([new Expression('COALESCE(treatment_type_id, 0)')])
             ->having(['>', 'COUNT(DISTINCT absence_group_key)', 0])
             ->orderBy(['total_absences' => SORT_DESC])
-            ->limit(10)
             ->all();
     }
 

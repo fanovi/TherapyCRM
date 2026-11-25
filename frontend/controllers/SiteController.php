@@ -305,7 +305,10 @@ class SiteController extends BaseController
             (int) $treatment_type_id
         );
 
-        return ['rows' => DrilldownHelper::patientRows($rows)];
+        return [
+            'rows' => DrilldownHelper::patientRows($rows),
+            'columnLabels' => DrilldownHelper::patientColumnLabels($regime_id === '' ? null : (int) $regime_id),
+        ];
     }
 
     /**

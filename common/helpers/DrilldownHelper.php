@@ -13,6 +13,25 @@ use yii\helpers\Url;
 class DrilldownHelper
 {
     /**
+     * Intestazioni dell'elenco pazienti che dipendono dal regime: per i regimi con
+     * conteggio_ore mensile (ABA) le ore della terapia sono ore del mese.
+     *
+     * @param int|null $regimeId
+     * @return array chiave colonna => etichetta (vuoto = etichette di default)
+     */
+    public static function patientColumnLabels($regimeId)
+    {
+        if ($regimeId === null) {
+            return [];
+        }
+        $regime = \common\models\Regime::findOne($regimeId);
+        if ($regime !== null && $regime->conteggio_ore === \common\models\Regime::CONTEGGIO_ORE_MONTHLY) {
+            return ['hours' => 'Ore/mese'];
+        }
+        return [];
+    }
+
+    /**
      * Elenco pazienti (StatisticsService::getPatientsInChargeList() e simili).
      * Il nome è un link solo con il permesso view_patient.
      *

@@ -101,6 +101,9 @@ class TreatmentStatisticsSearch extends Model
             $query->andWhere(['tp.status' => 'active'])
                 ->andWhere(['<=', 'tp.start_date', $today])
                 ->andWhere(['>=', 'tp.end_date', $today]);
+        } else {
+            // Inattivi = sospesi, interrotti, scaduti, completati: bozze e in attesa esclusi come altrove.
+            $query->andWhere(['not in', 'tp.status', ['draft', 'pending']]);
         }
 
         if ($this->dateFrom || $this->dateTo) {
@@ -120,7 +123,8 @@ class TreatmentStatisticsSearch extends Model
     public function applyPeriodOverlap($query)
     {
         if ($this->dateFrom) {
-            $query->andWhere(['>=', 'tp.end_date', $this->dateFrom]);
+            // Fine effettiva: termination_date per i piani interrotti, come in /statistics/plans.
+            $query->andWhere(['>=', new \yii\db\Expression('COALESCE(tp.termination_date, tp.end_date)'), $this->dateFrom]);
         }
         if ($this->dateTo) {
             $query->andWhere(['<=', 'tp.start_date', $this->dateTo]);
