@@ -13,7 +13,7 @@
  *     toggle: '#id-scheda', panel: '#id-pannello',
  *     treeUrl: '...', listUrl: '...',
  *     summary: function (data) { return '...'; },
- *     listTitle: function (path, node) { return '...'; },
+ *     listTitle: function (path, node, rows) { return '...'; },   // rows = righe caricate dell'elenco
  *     columns: [{ key: 'name', label: 'Paziente', link: 'url' }, ...],
  *     // La risposta dell'elenco può avere columnLabels: { chiave: 'etichetta' }
  *     // per cambiare l'intestazione di una colonna (es. 'Ore/mese' per i regimi mensili).
@@ -216,8 +216,8 @@
     Panel.prototype.loadList = function (container, node, path) {
         var self = this;
         var query = new URLSearchParams(node.params).toString();
-        var title = this.options.listTitle ? this.options.listTitle(path, node) : path.join(' › ');
         var render = function (data) {
+            var title = self.options.listTitle ? self.options.listTitle(path, node, data.rows) : path.join(' › ');
             self.renderList(container, title, data.rows, data.columnLabels, function () {
                 container.hidden = true;
                 container.previousElementSibling.setAttribute('aria-expanded', 'false');

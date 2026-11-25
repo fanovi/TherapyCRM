@@ -44,8 +44,13 @@ $this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
     summary: function (data) {
         return "Mese di " + data.period + " · " + data.total + (data.total === 1 ? " paziente" : " pazienti") + " · clic su un trattamento per l\'elenco pazienti.";
     },
-    listTitle: function (path, node) {
-        return path.join(" › ") + " · " + node.count + (node.count === 1 ? " paziente" : " pazienti");
+    listTitle: function (path, node, rows) {
+        // Una riga per piano: chi nel mese ha piano scaduto + rinnovo compare due volte.
+        var title = path.join(" › ") + " · " + node.count + (node.count === 1 ? " paziente" : " pazienti");
+        if (rows && rows.length !== node.count) {
+            title += " · " + rows.length + (rows.length === 1 ? " piano" : " piani");
+        }
+        return title;
     }
 }));', \yii\web\View::POS_READY);
 $this->registerJs('DrilldownPanel.init(Object.assign(' . Json::htmlEncode([
